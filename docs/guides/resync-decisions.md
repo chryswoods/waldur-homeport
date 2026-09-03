@@ -163,3 +163,76 @@ all (`customer/credits/ProjectCreditFormDialog.tsx`,
 onto upstream removed every file and hunk the plan's section 3.3 lists.
 OpenPortal's own `userData.short_name` in `AccessForEmail.tsx` is untouched
 and still present, as required.
+
+## 7. Outcome
+
+The fork's delta against `upstream/develop` at the end of the resync:
+
+| | Files | Insertions | Deletions |
+| --- | --- | --- | --- |
+| Before (fork point `e506ac8e1` -> `e3872e5`) | 325 | 29,488 | 662 |
+| After | 59 | 2,510 | 179 |
+
+Fifteen of those files are new; the rest are edits to upstream files. The
+reduction is almost entirely section 4 — OpenPortal, which the plan expected
+to be "the bulk of the job", came down to two new components, four tail
+commits and a policy module.
+
+### Verification
+
+Run with Yarn 4 via corepack. `repo.yarnpkg.com` is unreachable through this
+environment's proxy, so corepack needs pointing at npm:
+
+```bash
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+export COREPACK_NPM_REGISTRY=https://registry.npmjs.org
+yarn install
+```
+
+| Check | Result |
+| --- | --- |
+| `yarn tsgo -b` | clean |
+| `yarn lint:check` | 0 errors, 419 warnings — exactly upstream's baseline |
+| `yarn test --run` | 3,529 pass, 6 skipped, 0 fail |
+| `yarn build` | succeeds |
+
+The 419 lint warnings are upstream's own and were measured on the untouched
+tree before any local work; nothing here adds to them.
+
+`yarn i18n:validate` warns about 13,273 potential missing translations. That
+is also upstream's baseline, measured the same way — `locales/en.json` holds
+a handful of overrides rather than a full catalogue.
+
+### Not carried, but worth knowing
+
+Three things the fork did in code are better done in mastermind settings now:
+
+- **Hiding the marketplace.** Set `WALDUR_CORE.SERVICE_ACCESS_MODE` to
+  `'calls'`. Upstream's sidebar reads it, along with
+  `hide_marketplace_from_end_users`. The fork's two hardcoded booleans are
+  gone.
+- **`show_slug_as_id` and `make_slugs_immutable`** still work as before, but
+  the `unix_username` precondition the fork put in front of the first is gone
+  with the field itself.
+- **`application_portal_only`** is now unread by the frontend. Both its uses
+  were in code deleted here.
+
+Three call sites cast their query object because the published
+`waldur-js-client` lags the resynced mastermind branch. All three carry a
+comment pointing here. They can be simplified once a client generated from
+the resynced schema is published:
+
+| Call site | Missing from the client |
+| --- | --- |
+| `openportal/reports/OrganisationAllocationTab.tsx` | `include_offering_names`, and `offering_names` on the response |
+| `project/ProjectProfile.tsx` | `project_uuid` on the proposals list |
+| `customer/team/CustomerUsersList.tsx` | `slug` in `CustomerUserFieldEnum` |
+
+The second of these is a correction to the plan's section 6, which concluded
+that every field dropped with the local proposal work sat inside
+`src/proposals`. `ProjectProfile` is outside it and depends on the proposals
+list's `project_uuid` filter.
+
+One upstream bug found and fixed here, worth offering back: upstream's
+`src/echarts/index.ts` does not register the `dataZoom` component or the
+`treemap` chart, both of which its own ported OpenPortal report charts use.
