@@ -59,6 +59,9 @@ export function loadProject(transition: Transition) {
           'name',
           'native_name',
           'abbreviation',
+          // The domain restriction notice and the remote project cards both
+          // offer an "email your allocator" link built from this.
+          'email',
           'customer_credit',
           'is_service_provider',
           'user_email_patterns',
