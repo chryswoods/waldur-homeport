@@ -6,6 +6,7 @@ export enum CustomerFeatures {
   show_banking_data = 'customer.show_banking_data',
   show_domain = 'customer.show_domain',
   show_onboarding = 'customer.show_onboarding',
+  show_openportal_remote_projects = 'customer.show_openportal_remote_projects',
   show_permission_reviews = 'customer.show_permission_reviews',
   show_project_digest = 'customer.show_project_digest',
 }
@@ -19,8 +20,10 @@ export enum DashboardFeatures {
 }
 
 export enum DeploymentFeatures {
+  application_portal_only = 'deployment.application_portal_only',
   enable_cookie_notice = 'deployment.enable_cookie_notice',
   enable_disclaimer_area = 'deployment.enable_disclaimer_area',
+  make_slugs_immutable = 'deployment.make_slugs_immutable',
   send_metrics = 'deployment.send_metrics',
 }
 
@@ -51,6 +54,7 @@ export enum MarketplaceFeatures {
   realtime_updates = 'marketplace.realtime_updates',
   show_call_management_functionality = 'marketplace.show_call_management_functionality',
   show_experimental_ui_components = 'marketplace.show_experimental_ui_components',
+  show_managed_projects = 'marketplace.show_managed_projects',
   show_openstack_duplicate_offerings = 'marketplace.show_openstack_duplicate_offerings',
   show_posix_id_pools = 'marketplace.show_posix_id_pools',
   show_resource_end_date = 'marketplace.show_resource_end_date',
@@ -62,6 +66,7 @@ export enum OpenstackFeatures {
 }
 
 export enum ProjectFeatures {
+  enforce_allowed_domains = 'project.enforce_allowed_domains',
   estimated_cost = 'project.estimated_cost',
   mandatory_start_date = 'project.mandatory_start_date',
   oecd_fos_2007_code = 'project.oecd_fos_2007_code',
@@ -73,6 +78,7 @@ export enum ProjectFeatures {
   show_industry_flag = 'project.show_industry_flag',
   show_kind_in_create_dialog = 'project.show_kind_in_create_dialog',
   show_matrix_chat = 'project.show_matrix_chat',
+  show_openportal_accounting_pages = 'project.show_openportal_accounting_pages',
   show_permission_reviews = 'project.show_permission_reviews',
   show_start_date_in_create_dialog = 'project.show_start_date_in_create_dialog',
   show_type_in_create_dialog = 'project.show_type_in_create_dialog',
@@ -96,16 +102,22 @@ export enum SupportFeatures {
 }
 
 export enum UserFeatures {
+  allow_user_creation = 'user.allow_user_creation',
   conceal_api_token = 'user.conceal_api_token',
   conceal_permission_requests = 'user.conceal_permission_requests',
   conceal_remote_accounts = 'user.conceal_remote_accounts',
+  credentials = 'user.credentials',
+  disable_long_tokens = 'user.disable_long_tokens',
   disable_user_termination = 'user.disable_user_termination',
+  minimal_user_profile = 'user.minimal_user_profile',
   notifications = 'user.notifications',
   pending_user_actions = 'user.pending_user_actions',
+  permission_requests = 'user.permission_requests',
   preferred_language = 'user.preferred_language',
   show_data_access = 'user.show_data_access',
   show_identity_bridge = 'user.show_identity_bridge',
   show_slug = 'user.show_slug',
+  show_slug_as_id = 'user.show_slug_as_id',
   show_username = 'user.show_username',
   ssh_keys = 'user.ssh_keys',
 }
