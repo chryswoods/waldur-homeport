@@ -6,6 +6,10 @@
  *
  * Features:
  *   - Project filter dialog  — same look as OrganisationReportsTab
+ *   - Offering filter dialog — restricts to projects with a matching active
+ *                              offering (offering_names, from
+ *                              include_offering_names=true); credit totals
+ *                              stay per-project, not split out per offering
  *   - Summary statistics     — total credits awarded / spent / remaining
  *   - Stacked bar chart      — predicted daily credits-remaining per project,
  *                              assuming linear burn from today → end date
@@ -33,7 +37,10 @@ import {
   Tab,
   Tabs,
 } from 'react-bootstrap';
-import type { ProjectAccountingSummary } from 'waldur-js-client';
+import type {
+  OpenportalAccountingSummaryListData,
+  ProjectAccountingSummary,
+} from 'waldur-js-client';
 import {
   openportalAccountingSummaryList,
   projectsList,
@@ -567,6 +574,131 @@ const ProjectAutocompleteDialog: FC<ProjectAutocompleteDialogProps> = ({
   );
 };
 
+/**
+ * The resynced mastermind branch serves an extra `offering_names` field on
+ * each summary when the request asks for it, and accepts an
+ * `include_offering_names` query parameter to switch it on. Neither is in the
+ * published waldur-js-client yet, so both are described locally and the query
+ * is cast at the call site. See docs/guides/resync-decisions.md section 3 —
+ * remove all three once a client generated from the resynced schema ships.
+ */
+type SummaryWithOfferings = ProjectAccountingSummary & {
+  offering_names?: string[];
+};
+
+type AccountingSummaryQuery = NonNullable<
+  OpenportalAccountingSummaryListData['query']
+> & { include_offering_names?: boolean };
+
+// ── Offering filter dialog ────────────────────────────────────────────────────
+
+interface OfferingFilterDialogProps {
+  offeringNames: string[];
+  selected: Set<string>;
+  onConfirm: (next: Set<string>) => void;
+  onClose: () => void;
+}
+
+const OfferingFilterDialog: FC<OfferingFilterDialogProps> = ({
+  offeringNames,
+  selected,
+  onConfirm,
+  onClose,
+}) => {
+  const [draft, setDraft] = useState(() => new Set(selected));
+
+  const allSelected =
+    offeringNames.length > 0 && offeringNames.every((o) => draft.has(o));
+
+  const toggleAll = () => {
+    setDraft(allSelected ? new Set() : new Set(offeringNames));
+  };
+
+  const toggle = (name: string) => {
+    const next = new Set(draft);
+    if (next.has(name)) next.delete(name);
+    else next.add(name);
+    setDraft(next);
+  };
+
+  return (
+    <Modal show onHide={onClose} scrollable>
+      <Modal.Header closeButton>
+        <Modal.Title>{translate('Filter by offering')}</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <p className="text-muted small">
+          {translate(
+            'Show only projects with at least one active offering matching the selection below. Leave nothing selected to show all projects. Note: credit totals are per-project and are not split out by offering.',
+          )}
+        </p>
+
+        <div className="d-flex align-items-center gap-2 mb-2">
+          <Form.Check
+            id="alloc-offering-select-all"
+            checked={allSelected}
+            onChange={toggleAll}
+            className="mb-0"
+            label={
+              <span className="small">
+                {allSelected
+                  ? translate('Deselect all')
+                  : translate('Select all')}
+                ({offeringNames.length})
+              </span>
+            }
+          />
+          <span className="ms-auto text-muted small">
+            {draft.size === 0
+              ? translate('All shown')
+              : translate('{count} selected', { count: draft.size })}
+          </span>
+        </div>
+
+        <div
+          style={{ maxHeight: 320, overflowY: 'auto' }}
+          className="border rounded p-2"
+        >
+          {offeringNames.length === 0 && (
+            <p className="text-muted small mb-0 p-2">
+              {translate('No offerings found.')}
+            </p>
+          )}
+          {offeringNames.map((name, idx) => (
+            <div key={name} className="py-1">
+              <Form.Check className="d-flex align-items-start gap-2 mb-0">
+                <Form.Check.Input
+                  id={`alloc-offering-${idx}`}
+                  className="mt-1 m-0"
+                  checked={draft.has(name)}
+                  onChange={() => toggle(name)}
+                />
+                <Form.Check.Label
+                  htmlFor={`alloc-offering-${idx}`}
+                  className="flex-grow-1"
+                  style={{ cursor: 'pointer' }}
+                >
+                  {name}
+                </Form.Check.Label>
+              </Form.Check>
+            </div>
+          ))}
+        </div>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" size="sm" onClick={onClose}>
+          {translate('Cancel')}
+        </Button>
+        <Button variant="primary" size="sm" onClick={() => onConfirm(draft)}>
+          {draft.size > 0
+            ? translate('Apply ({count})', { count: draft.size })
+            : translate('Apply (all)')}
+        </Button>
+      </Modal.Footer>
+    </Modal>
+  );
+};
+
 // ── Summary stat card ─────────────────────────────────────────────────────────
 
 interface StatCardProps {
@@ -716,12 +848,19 @@ export const OrganisationAllocationTab: FC = () => {
     error: summariesError,
     refetch: refetchSummaries,
   } = useQuery({
-    queryKey: ['openportal-accounting-summary', customer?.uuid],
+    queryKey: [
+      'openportal-accounting-summary',
+      customer?.uuid,
+      'offering_names',
+    ],
     queryFn: async () => {
-      const cacheKey = `alloc-summaries-${customer!.uuid}`;
-      const cached = getCached<ProjectAccountingSummary[]>(cacheKey, TTL.LISTS);
+      // v2: the cached shape gained offering_names, so entries written by the
+      // previous key would be read back without it and silently show no
+      // offerings to filter by.
+      const cacheKey = `alloc-summaries-v2-${customer!.uuid}`;
+      const cached = getCached<SummaryWithOfferings[]>(cacheKey, TTL.LISTS);
       if (cached) return cached;
-      let allItems: ProjectAccountingSummary[] = [];
+      let allItems: SummaryWithOfferings[] = [];
       let page = 1;
       let totalPages: number | undefined;
       setSummariesProgress({
@@ -731,7 +870,12 @@ export const OrganisationAllocationTab: FC = () => {
       });
       while (true) {
         const result = await openportalAccountingSummaryList({
-          query: { customer_uuid: customer!.uuid, page_size: 100, page },
+          query: {
+            customer_uuid: customer!.uuid,
+            page_size: 100,
+            page,
+            include_offering_names: true,
+          } as AccountingSummaryQuery,
         });
         allItems = allItems.concat(result.data);
         if (page === 1) {
@@ -759,11 +903,31 @@ export const OrganisationAllocationTab: FC = () => {
     staleTime: Infinity,
   });
 
-  // ── Filter summaries to selected projects ───────────────────────────────
+  // ── Offering selection ──────────────────────────────────────────────────
+  const allOfferingNames = useMemo(() => {
+    const names = new Set<string>();
+    (allSummaries ?? []).forEach((s) =>
+      (s.offering_names ?? []).forEach((o) => names.add(o)),
+    );
+    return [...names].sort();
+  }, [allSummaries]);
+  const [selectedOfferings, setSelectedOfferings] = useState<Set<string>>(
+    new Set(),
+  );
+  const [offeringDialogOpen, setOfferingDialogOpen] = useState(false);
+
+  // ── Filter summaries to selected projects and offerings ─────────────────
+  // An empty selectedOfferings means "no offering filter applied" — projects
+  // with no active offerings must still show up by default.
   const summaries = useMemo(
     () =>
-      (allSummaries ?? []).filter((s) => effectiveSelected.has(s.project_uuid)),
-    [allSummaries, effectiveSelected],
+      (allSummaries ?? []).filter(
+        (s) =>
+          effectiveSelected.has(s.project_uuid) &&
+          (selectedOfferings.size === 0 ||
+            (s.offering_names ?? []).some((o) => selectedOfferings.has(o))),
+      ),
+    [allSummaries, effectiveSelected, selectedOfferings],
   );
 
   // ── Aggregate stats ─────────────────────────────────────────────────────
@@ -1004,11 +1168,36 @@ export const OrganisationAllocationTab: FC = () => {
           </div>
         )}
 
+        {allOfferingNames.length > 0 && (
+          <div className="d-flex align-items-center gap-2">
+            <span className="text-muted small">
+              {translate('{count} of {total} {offering} selected', {
+                count:
+                  selectedOfferings.size === 0
+                    ? translate('All')
+                    : selectedOfferings.size,
+                total: allOfferingNames.length,
+                offering:
+                  allOfferingNames.length !== 1
+                    ? translate('offerings')
+                    : translate('offering'),
+              })}
+            </span>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setOfferingDialogOpen(true)}
+            >
+              {translate('Filter by offering')}
+            </Button>
+          </div>
+        )}
+
         {loadTriggered && (
           <div className="ms-auto d-flex align-items-center gap-2">
             {(() => {
               const age = customer
-                ? getCacheAge(`alloc-summaries-${customer.uuid}`)
+                ? getCacheAge(`alloc-summaries-v2-${customer.uuid}`)
                 : null;
               return age ? (
                 <span className="text-muted small">
@@ -1023,7 +1212,7 @@ export const OrganisationAllocationTab: FC = () => {
                 if (customer) {
                   clearCached(
                     `alloc-projects-${customer.uuid}`,
-                    `alloc-summaries-${customer.uuid}`,
+                    `alloc-summaries-v2-${customer.uuid}`,
                   );
                 }
                 refetchProjects();
@@ -1999,6 +2188,19 @@ export const OrganisationAllocationTab: FC = () => {
             setDialogOpen(false);
           }}
           onClose={() => setDialogOpen(false)}
+        />
+      )}
+
+      {/* ── Offering filter dialog ───────────────────────────────────────── */}
+      {offeringDialogOpen && (
+        <OfferingFilterDialog
+          offeringNames={allOfferingNames}
+          selected={selectedOfferings}
+          onConfirm={(next) => {
+            setSelectedOfferings(next);
+            setOfferingDialogOpen(false);
+          }}
+          onClose={() => setOfferingDialogOpen(false)}
         />
       )}
     </Container>
