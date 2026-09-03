@@ -142,6 +142,31 @@ async function fetchMappingBatched<T>(
   return result;
 }
 
+/**
+ * Given user identifiers sorted by priority (e.g. usage, descending), returns
+ * the subset to actually request a mapping for: every identifier already
+ * cached (free) plus up to `maxNewLookups` of the rest — so a fresh-lookup
+ * cap never re-excludes users whose name is already sitting in the cache.
+ * Preserves the input order.
+ *
+ * Without this, a plain `slice(0, cap)` re-picks the same top-`cap` users on
+ * every load, so the users just below the cap are never learned no matter how
+ * many times the page is opened, and the cache stops paying for itself.
+ */
+export function selectUserMappingIds(
+  candidateIds: string[],
+  maxNewLookups: number,
+): { ids: string[]; truncatedCount: number } {
+  const uncached = candidateIds.filter(
+    (id) => getCached(`map-user_mapping-${id}`, TTL.MAPPINGS) === null,
+  );
+  const skip = new Set(uncached.slice(maxNewLookups));
+  return {
+    ids: candidateIds.filter((id) => !skip.has(id)),
+    truncatedCount: skip.size,
+  };
+}
+
 export const fetchOfferingMapping = (
   ids: string[],
   onProgress?: MappingProgressCallback,

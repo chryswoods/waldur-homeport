@@ -31,6 +31,7 @@ import {
   fetchUsageReports,
   fetchUserMapping,
   mappingBatchCount,
+  selectUserMappingIds,
 } from './api';
 import type { OpenPortalProject } from './api';
 import {
@@ -524,11 +525,18 @@ export const OrganisationReportsTab: FC = () => {
         const usersWithUsage = allUserIds
           .filter((uid) => (usageByUid[uid] ?? 0) > 0)
           .sort((a, b) => (usageByUid[b] ?? 0) - (usageByUid[a] ?? 0));
+        // The cap counts only identifiers we'd have to fetch: already-cached
+        // names come along for free, so repeat visits keep widening coverage
+        // instead of re-requesting the same top slice every time.
+        const cappedSelection = selectUserMappingIds(
+          usersWithUsage,
+          MAX_USER_MAPPINGS,
+        );
         const userIdsCapped = loadAllUserMappings
           ? usersWithUsage
-          : usersWithUsage.slice(0, MAX_USER_MAPPINGS);
+          : cappedSelection.ids;
         const usersMappingsTruncated =
-          !loadAllUserMappings && usersWithUsage.length > MAX_USER_MAPPINGS;
+          !loadAllUserMappings && cappedSelection.truncatedCount > 0;
         const lookupIdsCapped = userIdsCapped.map(
           (uid) => uidToLookupId[uid] ?? uid,
         );
@@ -653,7 +661,7 @@ export const OrganisationReportsTab: FC = () => {
         setMapsResult({
           maps,
           truncatedUserCount: usersMappingsTruncated
-            ? usersWithUsage.length - MAX_USER_MAPPINGS
+            ? cappedSelection.truncatedCount
             : 0,
         });
       } catch (err) {
