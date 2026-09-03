@@ -63,7 +63,7 @@ export const RoleUsersDialog = ({
         if (!row.user_uuid) return <>{label}</>;
         return (
           <Link
-            state="admin-user-user-manage"
+            state="support-user-manage"
             params={{ user_uuid: row.user_uuid }}
             label={label}
           />
