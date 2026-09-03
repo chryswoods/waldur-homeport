@@ -91,6 +91,7 @@ export const EmailsListGroup = ({
   customer,
   project,
   disabled,
+  emailDomainValidator,
 }) => {
   const [warn, setWarn] = useState(false);
 
@@ -180,11 +181,15 @@ export const EmailsListGroup = ({
                                 fieldName,
                               );
                               if (duplicateInForm) return duplicateInForm;
-                              return duplicateInvitationValidator(
-                                value,
-                                allValues,
-                                fieldName,
-                              );
+                              const duplicateInvitation =
+                                duplicateInvitationValidator(
+                                  value,
+                                  allValues,
+                                  fieldName,
+                                );
+                              if (duplicateInvitation)
+                                return duplicateInvitation;
+                              return emailDomainValidator?.(value);
                             }}
                           >
                             {({ input, meta }) => (

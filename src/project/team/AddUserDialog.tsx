@@ -1,6 +1,7 @@
-import { UserPlusIcon } from '@phosphor-icons/react';
+import { PlusIcon, UserPlusIcon } from '@phosphor-icons/react';
 import { FC, useCallback } from 'react';
 import { Form } from 'react-final-form';
+import { components } from 'react-select';
 import {
   callManagingOrganisationsAddUser,
   customersAddUser,
@@ -8,11 +9,14 @@ import {
   marketplaceServiceProvidersAddUser,
   projectsAddUser,
   projectsOtherUsersList,
+  type ProjectEmailPolicyResponse,
 } from 'waldur-js-client';
 
 import { required } from '@/core/validators';
 import { OrganizationProjectSelectField } from '@/customer/team/OrganizationProjectSelectField';
 import { usersAutocomplete } from '@/customer/team/utils';
+import { isFeatureVisible } from '@/features/connect';
+import { UserFeatures } from '@/FeaturesEnums';
 import { AsyncSelectGroup, BooleanGroup, SubmitButton } from '@/form';
 import { createLoadOptions } from '@/form/select';
 import { translate } from '@/i18n';
@@ -20,10 +24,12 @@ import { RestrictionsInfoCard } from '@/invitations/actions/RestrictionsInfoCard
 import { useModal } from '@/modal/actions';
 import { CloseDialogButton } from '@/modal/CloseDialogButton';
 import { ModalDialog } from '@/modal/ModalDialog';
+import { isEmailAllowed } from '@/openportal/awardPolicy';
 import { PermissionEnum } from '@/permissions/enums';
 import { hasPermission } from '@/permissions/hasPermission';
 import { Role, RoleType } from '@/permissions/types';
 import { useNotify } from '@/store/notify';
+import { UserFormDialog } from '@/user/support/UserFormDialog';
 import { getCurrentUser } from '@/user/UsersService';
 import {
   useCustomer,
@@ -33,6 +39,9 @@ import {
 } from '@/workspace/hooks';
 import { Project, User } from '@/workspace/types';
 
+import { useProjectEmailPolicy } from '../useProjectEmailPolicy';
+
+import { DomainRestrictionNotice } from './DomainRestrictionNotice';
 import { ExpirationTimeGroup } from './ExpirationTimeGroup';
 import {
   getOnlyOneProjectManagerTooltip,
@@ -78,6 +87,28 @@ const projectUsersAutocomplete = (projectUuid: string) =>
     { project_uuid: projectUuid },
   );
 
+/** react-select menu with a "Create user" action appended below the options. */
+const MenuWithCreateButton = ({ openCreateDialog, ...props }: any) => (
+  <components.Menu {...props}>
+    <div>
+      {props.children}
+      <div
+        role="button"
+        tabIndex={0}
+        className="border-top d-flex align-items-center gap-2 px-3 py-2 text-primary fw-semibold cursor-pointer"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openCreateDialog();
+        }}
+      >
+        <PlusIcon size={16} weight="bold" />
+        <span>{translate('Create user')}</span>
+      </div>
+    </div>
+  </components.Menu>
+);
+
 export const AddUserDialog: FC<AddUserDialogProps> = ({
   refetch,
   level,
@@ -87,7 +118,7 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
   customer,
 }) => {
   const setCurrentUser = useSetUser();
-  const { closeDialog } = useModal();
+  const { closeDialog, openDialog } = useModal();
   const { showSuccess, showErrorResponse } = useNotify();
 
   const currentUser = useUser() as User;
@@ -101,6 +132,47 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
   const resolvedProject = project || currentProject;
   const resolvedCustomer = customer || currentCustomer;
   const resolvedCustomerUuid = customerUuid || resolvedCustomer?.uuid;
+
+  // Deployments that enforce allowed domains restrict which addresses may be
+  // added to a project. The policy is advisory here — waldur_openportal
+  // enforces it server-side on the role grant — but showing it up front is a
+  // great deal friendlier than a rejected submit.
+  const { data: emailPolicy } = useProjectEmailPolicy(
+    level === 'project' ? resolvedProject?.uuid : undefined,
+  );
+
+  const validateUser = useCallback(
+    (user: any) => {
+      const missing = required(user);
+      if (missing) return missing;
+      if (!emailPolicy || !user?.email) return undefined;
+      return isEmailAllowed(emailPolicy.allowed_domains, user.email)
+        ? undefined
+        : translate(
+            "This user's email address is not permitted for this project.",
+          );
+    },
+    [emailPolicy],
+  );
+
+  // Upstream's modal service holds one application dialog at a time, so the
+  // fork's dialog-on-top-of-dialog is not available. Creating a user instead
+  // replaces this dialog and reopens it afterwards, leaving the operator back
+  // where they were with the new user available to pick.
+  const openCreateUserDialog = () =>
+    openDialog(UserFormDialog, {
+      resolve: {
+        refetch: () =>
+          openDialog(AddUserDialog, {
+            refetch,
+            level,
+            title,
+            project,
+            customerUuid,
+            customer,
+          }),
+      },
+    });
 
   const loadUsers = useCallback(
     async (query, prevOptions, page, showAllUsers: boolean) => {
@@ -250,6 +322,9 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
           currentUser={currentUser}
           loadUsers={loadUsers}
           getOptionLabel={getOptionLabel}
+          emailPolicy={emailPolicy}
+          validateUser={validateUser}
+          openCreateUserDialog={openCreateUserDialog}
         />
       )}
     </Form>
@@ -274,6 +349,9 @@ interface AddUserDialogFormProps {
     showAllUsers: boolean,
   ) => Promise<any>;
   getOptionLabel: (option: any) => string;
+  emailPolicy?: ProjectEmailPolicyResponse;
+  validateUser: (user: any) => string | undefined;
+  openCreateUserDialog: () => void;
 }
 
 const AddUserDialogForm: FC<AddUserDialogFormProps> = ({
@@ -289,6 +367,9 @@ const AddUserDialogForm: FC<AddUserDialogFormProps> = ({
   currentUser,
   loadUsers,
   getOptionLabel,
+  emailPolicy,
+  validateUser,
+  openCreateUserDialog,
 }) => {
   const targetProjectUuid = values.project?.uuid || resolvedProject?.uuid;
   const { data: targetProjectHasManager, isPending: isCheckingManager } =
@@ -332,6 +413,11 @@ const AddUserDialogForm: FC<AddUserDialogFormProps> = ({
             level === 'project' ? resolvedProject : values.project || null
           }
         />
+        <DomainRestrictionNotice
+          allowedDomains={emailPolicy?.allowed_domains}
+          contactEmail={resolvedCustomer?.email}
+          projectName={resolvedProject?.name}
+        />
         <AsyncSelectGroup
           name="user"
           required
@@ -343,13 +429,23 @@ const AddUserDialogForm: FC<AddUserDialogFormProps> = ({
           }
           getOptionValue={(option) => option.uuid}
           getOptionLabel={getOptionLabel}
-          components={{ Option: UserListOptionInline }}
+          components={{
+            Option: UserListOptionInline,
+            ...(isFeatureVisible(UserFeatures.allow_user_creation) && {
+              Menu: (menuProps) => (
+                <MenuWithCreateButton
+                  {...menuProps}
+                  openCreateDialog={openCreateUserDialog}
+                />
+              ),
+            }),
+          }}
           noOptionsMessage={() =>
             translate(
               'No users found. You can only see users from projects you belong to. Use "Invite by mail" to add new users.',
             )
           }
-          validate={required}
+          validate={validateUser}
         />
 
         {currentUser.is_staff && (
