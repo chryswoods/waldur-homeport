@@ -1,9 +1,8 @@
 import { FC } from 'react';
-import { useDispatch } from 'react-redux';
 
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
+import { translate } from '@/i18n';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
 import { Resource } from '../types';
 
@@ -28,44 +27,33 @@ export const UpdateResourceDialog: FC<UpdateResourceDialogProps> = ({
   fields,
   initialValues,
 }) => {
-  const dispatch = useDispatch();
+  const mutation = useManagedMutation<
+    any,
+    any,
+    Record<string, string | number | boolean>
+  >({
+    mutationFn: (formData) => updateResource(resource.uuid, formData),
+    successMessage: translate('{verboseName} has been updated.', {
+      verboseName,
+    }),
+
+    errorMessage: translate('Unable to update {verboseName}.', {
+      verboseName,
+    }),
+
+    refetch: refetch,
+  });
+
   return (
     <ResourceActionDialog
-      submitForm={async (formData) => {
-        try {
-          if (formData.disable_gateway) {
-            delete formData.gateway_ip;
-          }
-          await updateResource(resource.uuid, formData);
-          dispatch(
-            showSuccess(
-              translate('{verboseName} has been updated.', { verboseName }),
-            ),
-          );
-          if (refetch) {
-            await refetch();
-          }
-          dispatch(closeModalDialog());
-        } catch (e) {
-          dispatch(
-            showErrorResponse(
-              e,
-              translate('Unable to update {verboseName}.', {
-                verboseName,
-              }),
-            ),
-          );
-        }
-      }}
-      dialogTitle={
-        resource.name
-          ? translate('Update {resourceType} {resourceName}', {
-              resourceType: verboseName,
-              resourceName: resource.name,
-            })
-          : translate('Update {resourceType}', {
-              resourceType: verboseName,
-            })
+      submitForm={mutation.mutateAsync}
+      dialogTitle={translate('Update {resourceType}', {
+        resourceType: verboseName,
+      })}
+      dialogSubtitle={
+        resource.name ? (
+          <ScopeSubtitle label={translate('Name')} name={resource.name} />
+        ) : undefined
       }
       formFields={fields}
       initialValues={initialValues}

@@ -1,3 +1,7 @@
+import classNames from 'classnames';
+
+import { renderFieldOrDash } from '@/table/utils';
+
 interface CheckoutPricingRowProps {
   label: any;
   value: any;
@@ -12,11 +16,12 @@ export const CheckoutPricingRow = ({
   className,
 }: CheckoutPricingRowProps) => (
   <div
-    className={
-      'd-flex justify-content-between mb-5 text-gray-700 ' + (className || '')
-    }
+    className={classNames(
+      'd-flex justify-content-between mb-5 text-gray-700',
+      className,
+    )}
   >
     <div className={total ? 'fw-bold' : 'text-muted'}>{label}</div>
-    <div className="text-end fw-bold">{value || '-'}</div>
+    <div className="text-end fw-bold">{renderFieldOrDash(value)}</div>
   </div>
 );

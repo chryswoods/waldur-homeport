@@ -1,7 +1,4 @@
 import { CheckIcon, ProhibitIcon } from '@phosphor-icons/react';
-import { useMutation } from '@tanstack/react-query';
-import { useState } from 'react';
-import { useDispatch } from 'react-redux';
 import {
   marketplaceOrdersApproveByConsumer,
   marketplaceOrdersApproveByProvider,
@@ -10,9 +7,9 @@ import {
   OrderDetails,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { showErrorResponse, showInfo, showSuccess } from '@waldur/store/notify';
-import { ActionButton } from '@waldur/table/ActionButton';
+import { translate } from '@/i18n';
+import { useBatchMutation } from '@/modal/useBatchMutation';
+import { ActionButton } from '@/table/ActionButton';
 
 export const OrdersBulkActions = ({
   rows,
@@ -21,17 +18,25 @@ export const OrdersBulkActions = ({
   rows: OrderDetails[];
   refetch: any;
 }) => {
-  const dispatch = useDispatch();
-  const [actionPending, setActionPending] = useState({
-    reject: false,
-    approve: false,
-  });
-
   // Pending orders
   const pendingOrders = rows.filter((order) =>
     ['pending-consumer', 'pending-provider'].includes(order.state),
   );
   const isPendingOrderSelected = pendingOrders.length > 0;
+
+  // Pending-consumer orders still missing a purchase order upload cannot be
+  // bulk-approved — each needs an individual upload via the approval dialog.
+  // One that already carries the document, as a proposal-allocated order does,
+  // has nothing left to collect.
+  const approvablePendingOrders = pendingOrders.filter((order) => {
+    if (order.state !== 'pending-consumer') return true;
+    if (order.attachment) return true;
+    const opts = order.offering_plugin_options as
+      Record<string, unknown> | undefined;
+    return !opts?.require_purchase_order_upload;
+  });
+  const hasPurchaseOrderOrders =
+    approvablePendingOrders.length < pendingOrders.length;
 
   // Order actions
   const orderActionMap = {
@@ -45,78 +50,90 @@ export const OrdersBulkActions = ({
     },
   } as const;
 
-  const { mutate, isPending: isLoading } = useMutation({
-    mutationFn: async (actionType: 'approve' | 'reject') => {
-      if (!pendingOrders) return;
-
-      setActionPending((prev) => ({ ...prev, [actionType]: true }));
-
-      if (pendingOrders && pendingOrders?.length === 0) {
-        dispatch(showInfo(translate('No pending orders have been selected.')));
-        setActionPending((prev) => ({ ...prev, [actionType]: false }));
-        return;
-      }
-
-      try {
-        await Promise.all(
-          pendingOrders.map((order) => {
-            const handler = orderActionMap[order.state]?.[actionType];
-
-            if (!handler) {
-              dispatch(
-                showInfo(
-                  translate('Unsupported action for state: {state}', {
-                    state: order.state,
-                  }),
-                ),
-              );
-              return Promise.resolve(); // no-op fallback
-            }
-
-            return handler({ path: { uuid: order.uuid } });
-          }),
-        );
-
-        await refetch();
-
-        dispatch(
-          showSuccess(
-            translate('{count} order(s) have been {action}.', {
-              count: pendingOrders.length,
-              action: actionType === 'approve' ? 'approved' : 'rejected',
-            }),
-          ),
-        );
-      } catch (response) {
-        dispatch(
-          showErrorResponse(
-            response,
-            translate('Unable to perform operation.'),
-          ),
-        );
-      } finally {
-        setActionPending((prev) => ({ ...prev, [actionType]: false }));
-      }
+  const approveMutation = useBatchMutation<OrderDetails, void>({
+    rows: approvablePendingOrders,
+    refetch,
+    mutationFn: (order) => {
+      const handler = orderActionMap[order.state]?.approve;
+      return handler
+        ? handler({ path: { uuid: order.uuid } })
+        : Promise.resolve();
     },
+    successMessage: translate('{count} order(s) have been approved.', {
+      count: approvablePendingOrders.length,
+    }),
+    renderPartialSuccessMessage: (n) =>
+      translate('{n} order(s) have been approved.', { n }),
+    errorMessage: translate('Unable to approve orders.'),
+    renderErrorMessage: (n) =>
+      translate('Unable to approve {n} orders.', { n }),
+  });
+
+  const rejectMutation = useBatchMutation<OrderDetails, void>({
+    rows: pendingOrders,
+    refetch,
+    mutationFn: (order) => {
+      const handler = orderActionMap[order.state]?.reject;
+      return handler
+        ? handler({ path: { uuid: order.uuid } })
+        : Promise.resolve();
+    },
+    successMessage: translate('{count} order(s) have been rejected.', {
+      count: pendingOrders.length,
+    }),
+    renderPartialSuccessMessage: (n) =>
+      translate('{n} order(s) have been rejected.', { n }),
+    errorMessage: translate('Unable to reject orders.'),
+    renderErrorMessage: (n) => translate('Unable to reject {n} orders.', { n }),
   });
 
   return (
     <>
       <ActionButton
         title={translate('Approve')}
-        action={() => mutate('approve')}
+        action={() => approveMutation.mutate()}
         iconNode={<CheckIcon weight="bold" />}
         variant="primary"
-        disabled={isLoading || !isPendingOrderSelected}
-        pending={actionPending.approve}
+        disabled={
+          approveMutation.isPending ||
+          rejectMutation.isPending ||
+          !isPendingOrderSelected ||
+          approvablePendingOrders.length === 0
+        }
+        disabledReason={
+          !isPendingOrderSelected
+            ? translate('No pending orders selected')
+            : approvablePendingOrders.length === 0
+              ? translate(
+                  'All selected orders require a purchase order upload and must be approved individually.',
+                )
+              : translate('Operation in progress')
+        }
+        tooltip={
+          hasPurchaseOrderOrders && approvablePendingOrders.length > 0
+            ? translate(
+                'Some orders require a purchase order upload and will be skipped. Approve them individually.',
+              )
+            : undefined
+        }
+        pending={approveMutation.isPending}
       />
       <ActionButton
         title={translate('Reject')}
-        action={() => mutate('reject')}
+        action={() => rejectMutation.mutate()}
         iconNode={<ProhibitIcon weight="bold" />}
         variant="danger"
-        disabled={isLoading || !isPendingOrderSelected}
-        pending={actionPending.reject}
+        disabled={
+          approveMutation.isPending ||
+          rejectMutation.isPending ||
+          !isPendingOrderSelected
+        }
+        disabledReason={
+          !isPendingOrderSelected
+            ? translate('No pending orders selected')
+            : translate('Operation in progress')
+        }
+        pending={rejectMutation.isPending}
       />
     </>
   );

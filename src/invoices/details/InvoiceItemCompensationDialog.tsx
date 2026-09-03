@@ -1,50 +1,60 @@
-import { useDispatch } from 'react-redux';
+import { Form } from 'react-final-form';
 import { invoiceItemsCreateCompensation } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ResourceActionDialog } from '@waldur/resource/actions/ResourceActionDialog';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
+import { required } from '@/core/validators';
+import { FormFooter, StringGroup } from '@/form';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
 export const InvoiceItemCompensationDialog = ({
   resolve: { resource, refreshInvoiceItems },
 }) => {
-  const dispatch = useDispatch();
-  const fields = [
-    {
-      name: 'offering_component_name',
-      label: translate('Name'),
-      required: true,
-      type: 'string',
-    },
-  ];
+  const mutation = useManagedMutation<
+    any,
+    any,
+    { offering_component_name: string }
+  >({
+    mutationFn: (formData) =>
+      invoiceItemsCreateCompensation({
+        path: { uuid: resource.uuid },
+        body: formData,
+      }),
+    successMessage: translate('Compensation has been created.'),
+    errorMessage: translate('Unable to create compensation.'),
+    refetch: refreshInvoiceItems,
+  });
 
   return (
-    <ResourceActionDialog
-      dialogTitle={translate('Create compensation for invoice item {name}', {
-        name: resource.name,
-      })}
-      formFields={fields}
-      submitForm={async (formData) => {
-        try {
-          await invoiceItemsCreateCompensation({
-            path: { uuid: resource.uuid },
-            body: formData,
-          });
-          dispatch(showSuccess(translate('Compensation has been created.')));
-          await refreshInvoiceItems();
-          dispatch(closeModalDialog());
-        } catch (e) {
-          dispatch(
-            showErrorResponse(e, translate('Unable to create compensation.')),
-          );
-        }
-      }}
+    <Form
       initialValues={{
         offering_component_name: translate('Compensation for {name}', {
           name: resource.details.offering_component_name,
         }),
       }}
+      onSubmit={mutation.mutateAsync}
+      render={({ handleSubmit }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate('Create compensation for invoice item')}
+            subtitle={
+              <ScopeSubtitle
+                label={translate('Invoice item')}
+                name={resource.name}
+              />
+            }
+            footer={<FormFooter />}
+          >
+            <StringGroup
+              name="offering_component_name"
+              label={translate('Name')}
+              required={true}
+              validate={required}
+            />
+          </ModalDialog>
+        </form>
+      )}
     />
   );
 };

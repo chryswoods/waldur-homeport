@@ -1,7 +1,7 @@
 import { FunctionComponent } from 'react';
 
-import { Link } from '@waldur/core/Link';
-import { translate } from '@waldur/i18n';
+import { Link } from '@/core/Link';
+import { translate } from '@/i18n';
 
 export const ManageSecurityGroupsButton: FunctionComponent<any> = (props) =>
   props.resource.parent_uuid ? (
@@ -11,7 +11,7 @@ export const ManageSecurityGroupsButton: FunctionComponent<any> = (props) =>
         resource_uuid: props.resource.parent_uuid,
         tab: 'security_groups',
       }}
-      className="ms-3 btn btn-tertiary"
+      className="ms-3 btn btn-tertiary btn-lg"
     >
       {translate('Manage security groups')}
     </Link>

@@ -1,19 +1,13 @@
-import azureIcon from '@waldur/images/appstore/icon-azure.png';
-import openstackIcon from '@waldur/images/appstore/icon-openstack.png';
-import rancherIcon from '@waldur/images/appstore/icon-rancher.png';
-import slurmIcon from '@waldur/images/appstore/icon-slurm.png';
-import vmwareIcon from '@waldur/images/appstore/icon-vmware.png';
-import {
-  INSTANCE_TYPE,
-  TENANT_TYPE,
-  VOLUME_TYPE,
-} from '@waldur/openstack/constants';
-import { MARKETPLACE_RANCHER } from '@waldur/rancher/cluster/create/constants';
-import { SITE_AGENT_PLUGIN } from '@waldur/site-agent/constants';
-import { SLURM_PLUGIN } from '@waldur/slurm/constants';
-import { VMWARE_VM } from '@waldur/vmware/constants';
+import { Offering } from 'waldur-js-client';
 
-import { Offering } from '../types';
+import { AZURE_SQL_TYPE, AZURE_VM_TYPE } from '@/azure/constants';
+import azureIcon from '@/images/appstore/icon-azure.png';
+import openstackIcon from '@/images/appstore/icon-openstack.png';
+import rancherIcon from '@/images/appstore/icon-rancher.png';
+import vmwareIcon from '@/images/appstore/icon-vmware.png';
+import { INSTANCE_TYPE, TENANT_TYPE, VOLUME_TYPE } from '@/openstack/constants';
+import { MARKETPLACE_RANCHER } from '@/rancher/cluster/create/constants';
+import { VMWARE_VM } from '@/vmware/constants';
 
 export const getOfferingImage = (offering: Offering) => {
   if (offering.image) return offering.image;
@@ -24,16 +18,12 @@ export const getOfferingImage = (offering: Offering) => {
     case TENANT_TYPE:
       return openstackIcon;
 
-    case 'Azure.SQLServer':
-    case 'Azure.VirtualMachine':
+    case AZURE_SQL_TYPE:
+    case AZURE_VM_TYPE:
       return azureIcon;
 
     case MARKETPLACE_RANCHER:
       return rancherIcon;
-
-    case SLURM_PLUGIN:
-    case SITE_AGENT_PLUGIN:
-      return slurmIcon;
 
     case VMWARE_VM:
       return vmwareIcon;

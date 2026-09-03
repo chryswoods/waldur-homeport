@@ -1,12 +1,11 @@
 import { useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { useCustomerProjects } from '@waldur/customer/workspace/fetchCustomer';
-import { openModalDialog } from '@waldur/modal/actions';
-import { PermissionMap } from '@waldur/permissions/enums';
-import { checkScope } from '@waldur/permissions/hasPermission';
-import { getCustomer, getProject, getUser } from '@waldur/workspace/selectors';
+import { lazyComponent } from '@/core/lazyComponent';
+import { useCustomerProjects } from '@/customer/workspace/fetchCustomer';
+import { useModal } from '@/modal/actions';
+import { PermissionMap } from '@/permissions/enums';
+import { checkScope } from '@/permissions/hasPermission';
+import { useUser, useCustomer, useProject } from '@/workspace/hooks';
 
 import { InvitationContext } from './types';
 
@@ -19,18 +18,16 @@ const InvitationCreateDialog = lazyComponent(() =>
 export const useCreateInvitation = (
   context: Omit<InvitationContext, 'customer' | 'user'>,
 ) => {
-  const user = useSelector(getUser);
-  const customer = useSelector(getCustomer);
+  const user = useUser();
+  const customer = useCustomer();
   const { loading: loadingProjects } = useCustomerProjects();
-  const project = useSelector(getProject);
-  const dispatch = useDispatch();
+  const project = useProject();
+  const { openDialog } = useModal();
   const callback = () =>
-    dispatch(
-      openModalDialog(InvitationCreateDialog, {
-        size: 'xl',
-        resolve: { ...context, user, customer },
-      }),
-    );
+    openDialog(InvitationCreateDialog, {
+      size: 'xl',
+      resolve: { ...context, user, customer },
+    });
 
   const canInvite = useMemo(
     () =>

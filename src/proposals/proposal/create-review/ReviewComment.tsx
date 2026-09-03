@@ -2,14 +2,15 @@ import classNames from 'classnames';
 import { FC, PropsWithChildren } from 'react';
 import { FormLabel } from 'react-bootstrap';
 
-import Avatar from '@waldur/core/Avatar';
-import { translate } from '@waldur/i18n';
-import { useTheme } from '@waldur/theme/useTheme';
+import Avatar from '@/core/Avatar';
+import { translate } from '@/i18n';
+import { useTheme } from '@/theme/useTheme';
 
 import { RateStars } from './RateStars';
 
 interface ReviewCommentProps {
   title?: string;
+  image?: string | null;
   score?: number;
   time?: string;
   className?: string;
@@ -28,8 +29,9 @@ export const ReviewComment: FC<PropsWithChildren<ReviewCommentProps>> = (
       )}
     >
       <Avatar
-        labelClassName="bg-primary-200 text-primary-700"
+        labelClassName="bg-tertiary text-quaternary"
         name={props.title}
+        src={props.image}
         size={32}
         circle
       />

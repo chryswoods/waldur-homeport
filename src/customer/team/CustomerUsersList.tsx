@@ -1,49 +1,29 @@
 import { useRouter } from '@uirouter/react';
-import { FunctionComponent, useEffect } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
+import { FunctionComponent, useEffect, useMemo } from 'react';
 import {
+  customersUsersList,
   CustomersUsersListData,
   CustomerUser,
-  customersUsersList,
 } from 'waldur-js-client';
 
-import { CUSTOMER_USERS_LIST_FILTER_FORM_ID } from '@waldur/customer/team/constants';
-import { CustomerUsersListExpandableRow } from '@waldur/customer/team/CustomerUsersListExpandableRow';
-import { useTeamTableTabs } from '@waldur/customer/team/tabs';
-import { createFetcher } from '@waldur/table/api';
-import { useTable } from '@waldur/table/useTable';
+import { CustomerUsersListExpandableRow } from '@/customer/team/CustomerUsersListExpandableRow';
+import { useTeamTableTabs } from '@/customer/team/tabs';
+import { getCustomerRoles, getProjectRoles } from '@/permissions/utils';
+import { createFetcher } from '@/table/api';
 import {
-  getCustomer,
-  isOwnerOrStaffOrReader as isOwnerOrStafforReaderSelector,
-} from '@waldur/workspace/selectors';
+  CustomersUsersFilter,
+  selectCustomersUsersFilter,
+} from '@/table/generated/CustomersUsersFilter';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { useCustomer, useUser } from '@/workspace/hooks';
+import { checkIsOwnerOrStaff } from '@/workspace/selectors';
 
 import { CustomerPermissionsLogButton } from './CustomerPermissionsLogButton';
 import { CustomerUserRowActions } from './CustomerUserRowActions';
 import { TeamDropdownActions } from './TeamDropdownActions';
 import { TeamTableComponent } from './TeamTableComponent';
 import { UsersBulkRemoveButton } from './UsersBulkRemoveButton';
-
-const mapStateToFilter = createSelector(
-  getFormValues(CUSTOMER_USERS_LIST_FILTER_FORM_ID),
-  (filterValues: any) => {
-    const filter: CustomersUsersListData['query'] = {
-      o: 'concatenated_name',
-    };
-    if (filterValues) {
-      if (filterValues.project_role) {
-        filter.project_role = filterValues.project_role.map(({ name }) => name);
-      }
-      if (filterValues.organization_role) {
-        filter.organization_role = filterValues.organization_role.map(
-          ({ name }) => name,
-        );
-      }
-    }
-    return filter;
-  },
-);
 
 const mandatoryFields: CustomersUsersListData['query']['field'] = [
   // Required for actions and expandable view
@@ -56,16 +36,13 @@ const mandatoryFields: CustomersUsersListData['query']['field'] = [
   'projects',
 ];
 
-// Add slug and unix_username conditionally - they may not be in the type definition yet
-const mandatoryFieldsWithSlug = [...mandatoryFields, 'slug', 'unix_username'] as any;
-
-export const CustomerUsersList: FunctionComponent<{ filters?}> = ({
-  filters,
-}) => {
-  const filter = useSelector(mapStateToFilter);
-  const customer = useSelector(getCustomer);
+export const CustomerUsersList: FunctionComponent = () => {
+  const values = useFilterValues('customer-users');
+  const filter = useMemo(() => selectCustomersUsersFilter(values), [values]);
+  const customer = useCustomer();
   const props = useTable({
     table: 'customer-users',
+    syncFiltersToURL: true,
     fetchData: createFetcher(customersUsersList, {
       path: {
         customer_uuid: customer.uuid,
@@ -73,14 +50,18 @@ export const CustomerUsersList: FunctionComponent<{ filters?}> = ({
     }),
     queryField: 'user_keyword',
     filter,
-    mandatoryFields: mandatoryFieldsWithSlug,
+    mandatoryFields,
   });
 
   // The "Team" page contains several other pages. We have to check the access permissions to this page here.
   const router = useRouter();
-  const isOwnerOrStafforReader = useSelector(isOwnerOrStafforReaderSelector);
+  const user = useUser();
+  const isOwnerOrStaff = useMemo(
+    () => checkIsOwnerOrStaff(customer, user),
+    [customer, user],
+  );
   useEffect(() => {
-    if (!isOwnerOrStafforReader) {
+    if (!isOwnerOrStaff) {
       router.stateService.go('organization-invitations');
     }
   }, []);
@@ -91,7 +72,6 @@ export const CustomerUsersList: FunctionComponent<{ filters?}> = ({
     <TeamTableComponent<CustomerUser>
       {...props}
       context="organization"
-      filters={filters}
       tabs={tableTabs}
       rowActions={({ row }) => (
         <CustomerUserRowActions row={row} refetch={props.fetch} />
@@ -104,6 +84,12 @@ export const CustomerUsersList: FunctionComponent<{ filters?}> = ({
       showExportInDropdown
       enableMultiSelect
       multiSelectActions={UsersBulkRemoveButton}
+      filters={
+        <CustomersUsersFilter
+          projectRoles={getProjectRoles()}
+          organizationRoles={getCustomerRoles()}
+        />
+      }
     />
   );
 };

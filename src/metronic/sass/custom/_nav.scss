@@ -6,7 +6,7 @@
       border-color: $gray-200;
       color: $gray-700;
     }
-    &:hover .nav-link .badge,
+    &:hover .nav-link:not(.disabled) .badge,
     .nav-link.active .badge {
       background-color: $brand-50;
       border-color: $brand-200;
@@ -14,7 +14,33 @@
     }
 
     .nav-link.disabled {
-      color: $gray-400 !important;
+      color: $text-disabled !important;
+
+      .badge {
+        background-color: $gray-100;
+        border-color: $gray-200;
+        color: $gray-400;
+      }
+    }
+  }
+
+  // Line tabs
+  &.nav-line-tabs {
+    row-gap: 1rem;
+
+    .nav-item {
+      // Active & Hover States
+      .nav-link.active,
+      &.show .nav-link,
+      .nav-link:hover:not(.disabled) {
+        border-bottom-color: $fg-brand-secondary;
+        color: $text-brand-primary;
+      }
+
+      .nav-link:focus {
+        outline: 0;
+        color: $text-brand-primary;
+      }
     }
   }
 }
@@ -35,13 +61,59 @@
     @include svg-icon-color($gray-400);
   }
 
+  &:focus,
+  &:active,
   &:hover {
-    background-color: $brand-50;
+    background-color: $btn-secondary-bg;
+
+    i {
+      color: $text-brand-secondary;
+    }
+    .svg-icon {
+      @include svg-icon-color($text-brand-secondary);
+    }
   }
 
   &:focus,
   &:active {
-    background-color: $bg-primary;
-    box-shadow: $ring-gray-100;
+    box-shadow: $ring-primary-100;
+  }
+}
+
+// Occupied space when tabs inside the table expandable container. Includes 300px of aside
+$tableSidesSpace: 495px;
+
+.tabs-container.tabs-scrollable {
+  width: 100%;
+
+  .expandable-container & {
+    width: calc(100vw - $tableSidesSpace);
+  }
+  [data-kt-aside-minimize='on'] .expandable-container & {
+    width: calc(
+      100vw - $tableSidesSpace + 226px
+    ); // 226px free on aside minimized
+  }
+
+  .nav-line-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 1px;
+
+    .nav-item {
+      white-space: nowrap;
+    }
+  }
+}
+
+// Mobile screens
+@media (max-width: 992px) {
+  .tabs-container.tabs-scrollable {
+    .expandable-container & {
+      width: calc(
+        100vw - $tableSidesSpace + 300px + 30px
+      ); // 300px from aside hidden + 30px from container, space released
+    }
   }
 }

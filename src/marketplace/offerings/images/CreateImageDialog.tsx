@@ -1,34 +1,22 @@
 import { PlusCircleIcon } from '@phosphor-icons/react';
-import { reduxForm } from 'redux-form';
+import { Form } from 'react-final-form';
 import { marketplaceScreenshotsCreate } from 'waldur-js-client';
 
-import { fileSerializer, formDataOptions } from '@waldur/core/api';
-import { required } from '@waldur/core/validators';
-import {
-  FormContainer,
-  StringField,
-  SubmitButton,
-  TextField,
-} from '@waldur/form';
-import { ImageField } from '@waldur/form/ImageField';
-import { translate } from '@waldur/i18n';
-import { OFFERING_IMAGES_FORM_ID } from '@waldur/marketplace/offerings/store/constants';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { useModal } from '@waldur/modal/hooks';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { useNotify } from '@waldur/store/hooks';
+import { fileSerializer, formDataOptions } from '@/core/api';
+import { required } from '@/core/validators';
+import { ImageGroup, StringGroup, SubmitButton, TextGroup } from '@/form';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
-export const CreateImageDialog = reduxForm<
-  {},
-  { resolve: { offering; refetch } }
->({
-  form: OFFERING_IMAGES_FORM_ID,
-})((props) => {
-  const { showSuccess, showErrorResponse } = useNotify();
-  const { closeDialog } = useModal();
-  const submitRequest = async (formData) => {
-    try {
-      await marketplaceScreenshotsCreate({
+export const CreateImageDialog = (props: {
+  resolve: { offering; refetch };
+}) => {
+  const submitRequestMutation = useManagedMutation<any, any, any>({
+    mutationFn: (formData) =>
+      marketplaceScreenshotsCreate({
         body: {
           image: fileSerializer(formData.image),
           name: formData.name,
@@ -36,59 +24,71 @@ export const CreateImageDialog = reduxForm<
           offering: props.resolve.offering.url,
         },
         ...formDataOptions,
-      });
-      props.resolve.refetch();
-      showSuccess(translate('Image has been added.'));
-      closeDialog();
-    } catch (error) {
-      showErrorResponse(error, translate('Unable to add image.'));
-    }
-  };
+      }),
+    successMessage: translate('Image has been added.'),
+    errorMessage: translate('Unable to add image.'),
+    refetch: props.resolve.refetch,
+  });
   return (
-    <form onSubmit={props.handleSubmit(submitRequest)}>
-      <ModalDialog
-        title={translate('Add offering image')}
-        iconNode={<PlusCircleIcon weight="bold" />}
-        iconColor="success"
-        footer={
-          <>
-            <CloseDialogButton className="flex-equal" />
-            <SubmitButton
-              className="flex-equal btn btn-primary"
-              disabled={props.invalid}
-              submitting={props.submitting}
-              label={translate('Confirm')}
-            />
-          </>
-        }
-      >
-        <FormContainer submitting={props.submitting}>
-          <ImageField
-            label={translate('Image')}
-            name="image"
-            required
-            validate={required}
-          />
+    <Form
+      onSubmit={(values) =>
+        submitRequestMutation.mutateAsync(values).catch(() => {})
+      }
+      render={({ handleSubmit, submitting, invalid }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate('Add offering image')}
+            subtitle={
+              <ScopeSubtitle
+                label={translate('Offering name')}
+                name={props.resolve.offering.name}
+              />
+            }
+            iconNode={<PlusCircleIcon weight="bold" />}
+            iconColor="success"
+            footer={
+              <>
+                <CloseDialogButton className="flex-equal" />
+                <SubmitButton
+                  className="flex-equal btn btn-primary"
+                  disabled={invalid}
+                  submitting={submitting}
+                  label={translate('Confirm')}
+                />
+              </>
+            }
+          >
+            <div className="size-sm">
+              <ImageGroup
+                label={translate('Image')}
+                name="image"
+                required
+                validate={required}
+              />
 
-          <StringField
-            name="name"
-            label={translate('Name')}
-            required={true}
-            validate={required}
-            maxLength={150}
-            placeholder={translate('e.g. Image name...')}
-          />
+              <StringGroup
+                name="name"
+                label={translate('Name')}
+                required={true}
+                validate={required}
+                maxLength={150}
+                placeholder={translate('e.g. Image name...')}
+                disabled={submitting}
+              />
 
-          <TextField
-            name="description"
-            label={translate('Description')}
-            required={true}
-            validate={required}
-            maxLength={4096}
-            placeholder={translate('Enter a description...')}
-          />
-        </FormContainer>
-      </ModalDialog>
-    </form>
+              <TextGroup
+                name="description"
+                label={translate('Description')}
+                required={true}
+                validate={required}
+                maxLength={4096}
+                placeholder={translate('Enter a description...')}
+                disabled={submitting}
+              />
+            </div>
+          </ModalDialog>
+        </form>
+      )}
+    />
   );
-});
+};

@@ -1,4 +1,4 @@
-import { ENV } from '@waldur/core/config';
+import { ENV } from '@/core/config';
 
 const getStorage = (): Storage => {
   if (ENV.authStorage === 'localStorage') {
@@ -59,6 +59,12 @@ export const RedirectStorage = new JsonStorageManager<{
   toParams: object;
 }>('waldur/auth/redirect');
 
+/** Separate from RedirectStorage, which the login flow overwrites constantly. */
+export const BlockedNavigationStorage = new JsonStorageManager<{
+  toState: string;
+  toParams: object;
+}>('waldur/navigation/blocked');
+
 export const ImpersonationStorage = new StringStorageManager(
   'waldur/auth/impersonation',
 );
@@ -72,3 +78,7 @@ export const GroupInvitationTokenStorage = new StringStorageManager(
 );
 
 export const LanguageStorage = new StringStorageManager('waldur/i18n/lang');
+
+export const ResourcesFilterStorage = new JsonStorageManager<any>(
+  'waldur/filter/resources',
+);

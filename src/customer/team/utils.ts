@@ -1,70 +1,55 @@
-import { usersList, UsersListData } from 'waldur-js-client';
+import { customersUsersCount, usersList, User } from 'waldur-js-client';
 
-import { count, parseSelectData } from '@waldur/core/api';
-import { ENV } from '@waldur/core/config';
-import { returnReactSelectAsyncPaginateObject } from '@waldur/core/utils';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { RootState } from '@waldur/store/reducers';
-import { getUser } from '@waldur/workspace/selectors';
+import { fetchResultCount } from '@/core/api';
+import { createLoadOptions } from '@/form/select';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
 
-export const usersAutocomplete = async (
-  query: UsersListData['query'],
-  prevOptions,
-  currentPage: number,
+export const usersAutocomplete = createLoadOptions(usersList, 'query', {
+  field: [
+    'full_name',
+    'url',
+    'email',
+    'uuid',
+    'username',
+    'registration_method',
+    'is_active',
+  ],
+  o: ['full_name'],
+});
+
+export const getCustomerUsersCount = (customerUuid: string) =>
+  customersUsersCount({
+    path: { customer_uuid: customerUuid },
+  }).then(fetchResultCount);
+
+export const checkHasManageServiceAccountPermission = (
+  user: User,
+  context: 'customer' | 'project',
+  scope: any,
 ) => {
-  const response = await usersList({
-    query: {
-      field: [
-        'full_name',
-        'url',
-        'email',
-        'uuid',
-        'username',
-        'registration_method',
-        'is_active',
-      ],
-      o: ['full_name'],
-      ...query,
-      page: currentPage,
-      page_size: ENV.pageSize,
-    },
+  const customerUuid =
+    context === 'project' ? scope?.customer_uuid : scope?.uuid;
+
+  const hasCustomerPermission = hasPermission(user, {
+    permission: PermissionEnum.MANAGE_SERVICE_ACCOUNT,
+    customerId: customerUuid,
   });
-  return returnReactSelectAsyncPaginateObject(
-    parseSelectData(response),
-    prevOptions,
-    currentPage,
+  return (
+    hasCustomerPermission ||
+    (context === 'project' &&
+      hasPermission(user, {
+        permission: PermissionEnum.MANAGE_SERVICE_ACCOUNT,
+        projectId: scope.uuid,
+      }))
   );
 };
 
-export const getCustomerUsersCount = (customerUuid: string) =>
-  count(`/api/customers/${customerUuid}/users/`);
-
-export const hasManageServiceAccountPermission =
-  (context, scope) => (state: RootState) => {
-    const user = getUser(state);
-    const customerUuid =
-      context === 'project' ? scope?.customer_uuid : scope?.uuid;
-
-    const hasCustomerPermission = hasPermission(user, {
-      permission: PermissionEnum.MANAGE_SERVICE_ACCOUNT,
-      customerId: customerUuid,
-    });
-    return (
-      hasCustomerPermission ||
-      (context === 'project' &&
-        hasPermission(user, {
-          permission: PermissionEnum.MANAGE_SERVICE_ACCOUNT,
-          projectId: scope.uuid,
-        }))
-    );
-  };
-
-export const hasManageCourseAccountPermission =
-  (project) => (state: RootState) => {
-    const user = getUser(state);
-    return hasPermission(user, {
-      permission: PermissionEnum.MANAGE_COURSE_ACCOUNT,
-      projectId: project.uuid,
-    });
-  };
+export const checkHasManageCourseAccountPermission = (
+  user: User,
+  project: { uuid: string },
+) =>
+  hasPermission(user, {
+    permission: PermissionEnum.MANAGE_COURSE_ACCOUNT,
+    projectId: project.uuid,
+  });

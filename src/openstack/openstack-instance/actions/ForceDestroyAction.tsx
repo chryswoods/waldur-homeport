@@ -1,11 +1,11 @@
 import { XIcon } from '@phosphor-icons/react';
 import { OpenStackInstance } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { validateOpenStackInstanceManagePermission } from '@waldur/openstack/utils';
-import { DialogActionItem } from '@waldur/resource/actions/DialogActionItem';
-import { ActionContext, ActionItemType } from '@waldur/resource/actions/types';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { validateOpenStackInstanceManagePermission } from '@/openstack/utils';
+import { DialogActionItem } from '@/resource/actions/DialogActionItem';
+import { ActionContext, ActionItemType } from '@/resource/actions/types';
 
 const ForceDestroyDialog = lazyComponent(() =>
   import('./ForceDestroyDialog').then((module) => ({
@@ -25,15 +25,17 @@ function validate(ctx: ActionContext<OpenStackInstance>): string {
 
 const validators = [validate, validateOpenStackInstanceManagePermission];
 
-export const ForceDestroyAction: ActionItemType = ({ resource, refetch }) => (
-  <DialogActionItem
-    title={translate('Force destroy')}
-    validators={validators}
-    modalComponent={ForceDestroyDialog}
-    className="text-danger"
-    resource={resource}
-    extraResolve={{ refetch }}
-    iconNode={<XIcon weight="bold" />}
-    iconColor="danger"
-  />
-);
+// Conceal force destroy action if OpenStack instance is not linked to marketplace resource
+export const ForceDestroyAction: ActionItemType = ({ resource, refetch }) =>
+  resource.marketplace_resource_uuid ? (
+    <DialogActionItem
+      title={translate('Force destroy')}
+      validators={validators}
+      modalComponent={ForceDestroyDialog}
+      className="text-danger"
+      resource={resource}
+      extraResolve={{ refetch }}
+      iconNode={<XIcon weight="bold" />}
+      iconColor="danger"
+    />
+  ) : null;

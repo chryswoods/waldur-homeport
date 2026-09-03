@@ -1,10 +1,10 @@
 import { vi, describe, it, expect } from 'vitest';
 
-import { RoleEnum } from '@waldur/permissions/enums';
+import { RoleEnum } from '@/permissions/enums';
 
 import { formatRoleFilter, getOrganizationsWhereOwner } from './UserList';
 
-vi.mock('@waldur/core/filters', () => ({
+vi.mock('@/core/filters', () => ({
   getInitialValues: vi.fn().mockImplementation((arg) => arg),
   syncFiltersToURL: vi.fn(),
 }));
@@ -52,6 +52,13 @@ describe('formatRoleFilter', () => {
       is_support: true,
     };
     expect(formatRoleFilter(filterMock.role)).toEqual(expected);
+  });
+
+  it('should return an empty object for non-array values (e.g. a malformed URL param)', () => {
+    // A hand-edited URL can make the role filter any string; it must not crash.
+    expect(formatRoleFilter('{broken-json')).toEqual({});
+    expect(formatRoleFilter(undefined)).toEqual({});
+    expect(formatRoleFilter(null)).toEqual({});
   });
 });
 

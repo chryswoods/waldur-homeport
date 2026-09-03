@@ -1,11 +1,11 @@
 import { User } from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
+import { ENV } from '@/core/config';
 
 import { PermissionRequest, RoleType } from './types';
 
 export function checkScope(
-  user: User,
+  user: Pick<User, 'is_staff' | 'permissions'>,
   targetScopeType: RoleType,
   targetScopeId,
   targetPerm,
@@ -16,28 +16,22 @@ export function checkScope(
   if (user?.is_staff) {
     return true;
   }
-
-  // FIX: Check ALL matching roles, not just the first one
-  // A user can have multiple roles for the same scope (e.g., CALL.REVIEWER and CALL.MANAGER)
-  const userRoles = user.permissions?.filter(
+  const userRole = user.permissions?.find(
     ({ scope_uuid, scope_type }) =>
       scope_uuid === targetScopeId && scope_type === targetScopeType,
   );
-
-  // Check each role to see if any of them have the required permission
-  if (userRoles && userRoles.length > 0) {
-    for (const userRole of userRoles) {
-      const role = ENV.roles.find(({ name }) => name === userRole.role_name);
-      if (role && role.permissions.includes(targetPerm)) {
-        return true;
-      }
+  if (userRole) {
+    const role = ENV.roles.find(({ name }) => name === userRole.role_name);
+    if (role && role.permissions.includes(targetPerm)) {
+      return true;
     }
   }
-
-  return false;
 }
 
-export const hasPermission = (user: User, request: PermissionRequest) => {
+export const hasPermission = (
+  user: Pick<User, 'is_staff' | 'permissions'>,
+  request: PermissionRequest,
+) => {
   if (user?.is_staff) {
     return true;
   }
@@ -63,6 +57,11 @@ export const hasPermission = (user: User, request: PermissionRequest) => {
       return true;
     }
   }
+  if (request.offeringId) {
+    if (checkScope(user, 'offering', request.offeringId, request.permission)) {
+      return true;
+    }
+  }
   if (request.scopeId) {
     if (
       checkScope(user, 'call', request.scopeId, request.permission) ||
@@ -71,4 +70,58 @@ export const hasPermission = (user: User, request: PermissionRequest) => {
       return true;
     }
   }
+};
+
+/**
+ * True only if every listed permission is held in the same scope request.
+ * Used by actions that need more than one right at once — for example
+ * changing resource limits, which both mutates the resource and submits a
+ * marketplace order.
+ */
+export const hasAllPermissions = (
+  user: Pick<User, 'is_staff' | 'permissions'>,
+  permissions: string[],
+  request: Omit<PermissionRequest, 'permission'>,
+): boolean =>
+  permissions.every((permission) =>
+    Boolean(hasPermission(user, { ...request, permission })),
+  );
+
+export const hasPermissionOnAnyCustomer = (
+  user: User,
+  permission: string,
+): boolean => {
+  if (!user) return false;
+  if (user.is_staff) return true;
+  return (
+    user.permissions?.some((perm) => {
+      if (perm.scope_type !== 'customer') return false;
+      const role = ENV.roles.find(({ name }) => name === perm.role_name);
+      return role?.permissions.includes(permission);
+    }) ?? false
+  );
+};
+
+export const hasPermissionOnAnyScope = (
+  user: User,
+  permission: string,
+): boolean => {
+  if (!user) return false;
+  if (user.is_staff) return true;
+  return (
+    user.permissions?.some((perm) => {
+      const role = ENV.roles.find(({ name }) => name === perm.role_name);
+      return role?.permissions.includes(permission);
+    }) ?? false
+  );
+};
+
+export const userHasRole = (user: User, role: string, scope_uuid: string) => {
+  if (user?.is_staff) {
+    return true;
+  }
+  return user.permissions?.some(
+    (permission) =>
+      permission.role_name === role && permission.scope_uuid === scope_uuid,
+  );
 };

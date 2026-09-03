@@ -1,19 +1,21 @@
-import { getLatinNameValidators } from '@waldur/core/validators';
-import { translate } from '@waldur/i18n';
-import { OrderFormComponentProps } from '@waldur/marketplace/common/types';
-import { BaseDeployPage } from '@waldur/marketplace/deploy/DeployPage';
+import { getLatinNameValidators } from '@/core/validators';
+import { translate } from '@/i18n';
+import { OrderFormComponentProps } from '@/marketplace/common/types';
+import { BaseDeployPage } from '@/marketplace/deploy/DeployPage';
 import {
   AdditionalConfigurationStep,
   DetailsOverviewStep,
   FinalConfigurationStep,
   PlanStep,
-} from '@waldur/marketplace/deploy/steps/constants';
-import { OfferingConfigurationFormStep } from '@waldur/marketplace/deploy/types';
+  QoSSelectionStep,
+} from '@/marketplace/deploy/steps/constants';
+import { OfferingConfigurationFormStep } from '@/marketplace/deploy/types';
 
 const deployOfferingSteps: OfferingConfigurationFormStep[] = [
   DetailsOverviewStep,
   PlanStep,
   AdditionalConfigurationStep,
+  QoSSelectionStep,
   {
     ...FinalConfigurationStep,
     params: {

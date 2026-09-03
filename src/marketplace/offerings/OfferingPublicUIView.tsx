@@ -1,27 +1,42 @@
 import { useQuery } from '@tanstack/react-query';
 import { UIView, useCurrentStateAndParams, useRouter } from '@uirouter/react';
 import { useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import {
+  customersList,
   marketplaceCategoriesRetrieve,
   marketplaceOfferingTermsOfServiceList,
   marketplacePublicOfferingsRetrieve,
+  Offering,
+  proposalMyRequestedResourcesCount,
 } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { useBreadcrumbs, usePageHero } from '@waldur/navigation/context';
-import { PageBarTab } from '@waldur/navigation/types';
-import { usePageTabsTransmitter } from '@waldur/navigation/usePageTabsTransmitter';
-import { getUser } from '@waldur/workspace/selectors';
+import { isAuthenticated } from '@/auth/AuthService';
+import { fetchResultCount } from '@/core/api';
+import { Badge } from '@/core/Badge';
+import { UI_STALE_TIME } from '@/core/constants';
+import { lazyComponent } from '@/core/lazyComponent';
+import { isEmpty } from '@/core/utils';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { isValidAttribute } from '@/marketplace/offerings/details/utils';
+import { useBreadcrumbs, usePageHero } from '@/navigation/context';
+import { PageBarTab } from '@/navigation/types';
+import { usePageTabsTransmitter } from '@/navigation/usePageTabsTransmitter';
+import { useUser } from '@/workspace/hooks';
 
-import { Offering } from '../types';
+import { isProposalRequestEnabled } from '../serviceAccessMode';
+import { Category } from '../types';
 
 import { PUBLIC_OFFERING_DATA_QUERY_KEY } from './constants';
 import { OfferingViewHero } from './OfferingViewHero';
 import { getPublicOfferingBreadcrumbItems } from './utils';
+
+const OfferingResourceRequests = lazyComponent(() =>
+  import('@/proposals/requests/OfferingResourceRequests').then((module) => ({
+    default: module.OfferingResourceRequests,
+  })),
+);
 
 const PublicOfferingInfo = lazyComponent(() =>
   import('./details/PublicOfferingInfo').then((module) => ({
@@ -63,21 +78,55 @@ const PublicOfferingPartitions = lazyComponent(() =>
     default: module.PublicOfferingPartitions,
   })),
 );
+const PublicOfferingQoS = lazyComponent(() =>
+  import('./details/PublicOfferingQoS').then((module) => ({
+    default: module.PublicOfferingQoS,
+  })),
+);
+const PublicOfferingDocuments = lazyComponent(() =>
+  import('./details/PublicOfferingDocuments').then((module) => ({
+    default: module.PublicOfferingDocuments,
+  })),
+);
 const PublicOfferingTermsOfService = lazyComponent(() =>
   import('./details/PublicOfferingTermsOfService').then((module) => ({
     default: module.PublicOfferingTermsOfService,
   })),
 );
+const PublicOfferingDocumentationAndSupport = lazyComponent(() =>
+  import('./details/PublicOfferingDocumentationAndSupport').then((module) => ({
+    default: module.PublicOfferingDocumentationAndSupport,
+  })),
+);
 
-const getTabs = (offering?, hasActiveTos = false): PageBarTab[] => {
+const getTabs = (
+  offering?: Offering,
+  category?: Category,
+  hasActiveTos = false,
+  concealPricing = false,
+  resourceRequestCount = 0,
+): PageBarTab[] => {
   if (!offering) {
     // Return an empty array or placeholders until the offering is loaded
     return [];
   }
+
+  const hasValidAttributes = category
+    ? category.sections.length > 0 &&
+      !isEmpty(offering.attributes) &&
+      category.sections.some((section) =>
+        section.attributes.some(
+          (attr) =>
+            Object.prototype.hasOwnProperty.call(
+              offering.attributes,
+              attr.key,
+            ) && isValidAttribute(offering.attributes[attr.key]),
+        ),
+      )
+    : false;
+
   const showDescriptionTab =
-    offering?.full_description ||
-    offering?.description ||
-    offering?.attributes.length;
+    offering?.full_description || offering?.description || hasValidAttributes;
 
   const showGettingStartedTab = offering?.getting_started;
 
@@ -95,6 +144,10 @@ const getTabs = (offering?, hasActiveTos = false): PageBarTab[] => {
         }
       : null,
     isFeatureVisible(MarketplaceFeatures.catalogue_only) ||
+    isFeatureVisible(
+      MarketplaceFeatures.conceal_offering_pricing_tab_in_public_view,
+    ) ||
+    concealPricing ||
     !offering.plans?.length
       ? null
       : {
@@ -102,12 +155,23 @@ const getTabs = (offering?, hasActiveTos = false): PageBarTab[] => {
           key: 'pricing',
           component: PublicOfferingPricing,
         },
-    isFeatureVisible(MarketplaceFeatures.catalogue_only)
+    isFeatureVisible(MarketplaceFeatures.catalogue_only) ||
+    isFeatureVisible(
+      MarketplaceFeatures.conceal_offering_pricing_tab_in_public_view,
+    ) ||
+    concealPricing
       ? null
       : {
           title: translate('Components'),
           key: 'components',
           component: PublicOfferingComponents,
+        },
+    !offering?.files?.length
+      ? null
+      : {
+          title: translate('Documents'),
+          key: 'documents',
+          component: PublicOfferingDocuments,
         },
     offering?.software_catalogs?.length
       ? {
@@ -122,6 +186,14 @@ const getTabs = (offering?, hasActiveTos = false): PageBarTab[] => {
           title: translate('Slurm partitions'),
           key: 'partitions',
           component: PublicOfferingPartitions,
+        }
+      : null,
+    isFeatureVisible(MarketplaceFeatures.display_offering_partitions) &&
+    offering?.qos_profiles?.length
+      ? {
+          title: translate('QoS profiles'),
+          key: 'qos-profiles',
+          component: PublicOfferingQoS,
         }
       : null,
     offering?.screenshots.length
@@ -145,23 +217,46 @@ const getTabs = (offering?, hasActiveTos = false): PageBarTab[] => {
           component: PublicOfferingTermsOfService,
         }
       : null,
+    offering?.documentation_url || offering?.helpdesk_url
+      ? {
+          title: translate('Documentation & support'),
+          key: 'documentation-support',
+          component: PublicOfferingDocumentationAndSupport,
+        }
+      : null,
+    // Same gate as the Request button, and only when there is something to
+    // show — an always-present empty tab is noise on every other offering.
+    isProposalRequestEnabled() && resourceRequestCount > 0
+      ? {
+          title: (
+            <>
+              {translate('My requests')}{' '}
+              <Badge variant="secondary" pill>
+                {resourceRequestCount}
+              </Badge>
+            </>
+          ),
+          key: 'my-requests',
+          component: OfferingResourceRequests,
+        }
+      : null,
   ].filter(Boolean);
 };
 
 export const OfferingPublicUIView = () => {
-  const dispatch = useDispatch();
-
   const {
     params: { uuid },
   } = useCurrentStateAndParams();
 
-  const user = useSelector(getUser);
+  const user = useUser();
 
   const { isLoading, error, data, refetch, isRefetching } = useQuery({
     queryKey: [PUBLIC_OFFERING_DATA_QUERY_KEY, uuid, user?.uuid],
 
     queryFn: async () => {
-      const options = user ? undefined : { auth: null };
+      // Use isAuthenticated() which checks localStorage token synchronously,
+      // rather than user from Redux which may not be loaded yet on page refresh
+      const options = isAuthenticated() ? undefined : { auth: null };
       const offering = (await marketplacePublicOfferingsRetrieve({
         path: { uuid },
         ...options,
@@ -171,9 +266,10 @@ export const OfferingPublicUIView = () => {
         ...options,
       }).then((response) => response.data);
 
-      // Check if offering has active ToS
+      // Check if offering has active ToS (only for authenticated users)
       let hasActiveTos = false;
-      if (user) {
+      let concealPricing = false;
+      if (isAuthenticated()) {
         try {
           const tosData = await marketplaceOfferingTermsOfServiceList({
             query: { offering_uuid: offering.uuid, is_active: true },
@@ -182,18 +278,55 @@ export const OfferingPublicUIView = () => {
         } catch {
           hasActiveTos = false;
         }
+
+        // Check if all user's organizations conceal billing info
+        try {
+          const customers = await customersList({
+            query: {
+              field: ['uuid', 'display_billing_info_in_projects'],
+            },
+          }).then((response) => response.data);
+          if (customers.length > 0) {
+            concealPricing = customers.every(
+              (c) => c.display_billing_info_in_projects === false,
+            );
+          }
+        } catch {
+          concealPricing = false;
+        }
       }
 
-      return { offering, category, hasActiveTos };
+      return { offering, category, hasActiveTos, concealPricing };
     },
 
     refetchOnWindowFocus: false,
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
+  });
+
+  // Counts only what this user requested for this offering, so the tab appears
+  // exactly when it would have rows. Anonymous visitors never have any.
+  const { data: resourceRequestCount } = useQuery({
+    queryKey: ['OfferingResourceRequestCount', uuid, user?.uuid],
+    queryFn: () =>
+      // The count action answers in the X-Result-Count header, not the body.
+      proposalMyRequestedResourcesCount({
+        query: { offering_uuid: uuid },
+      }).then((result) => fetchResultCount(result) || 0),
+    enabled: Boolean(user && isProposalRequestEnabled()),
+    refetchOnWindowFocus: false,
+    staleTime: UI_STALE_TIME,
   });
 
   const tabs = useMemo(
-    () => getTabs(data?.offering, data?.hasActiveTos),
-    [data],
+    () =>
+      getTabs(
+        data?.offering,
+        data?.category,
+        data?.hasActiveTos,
+        data?.concealPricing,
+        resourceRequestCount,
+      ),
+    [data, resourceRequestCount],
   );
   const { tabSpec } = usePageTabsTransmitter(tabs);
 
@@ -212,8 +345,8 @@ export const OfferingPublicUIView = () => {
 
   const router = useRouter();
   const breadcrumbItems = useMemo(
-    () => getPublicOfferingBreadcrumbItems(data?.offering, dispatch, router),
-    [data?.offering, dispatch, router],
+    () => getPublicOfferingBreadcrumbItems(data?.offering, router),
+    [data?.offering, router],
   );
   useBreadcrumbs(breadcrumbItems);
 

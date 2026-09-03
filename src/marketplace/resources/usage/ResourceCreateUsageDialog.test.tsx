@@ -1,22 +1,13 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import {
-  screen,
-  render,
-  act,
-  fireEvent,
-  waitFor,
-} from '@testing-library/react';
-import { Provider } from 'react-redux';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { marketplaceComponentUsagesSetUsage } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { createActionStore } from '@waldur/resource/actions/testUtils';
+import { renderWithProviders } from '@/test/harness';
 
 import { getProviderUsageComponents } from './api';
 import { ResourceCreateUsageDialog } from './ResourceCreateUsageDialog';
 
-vi.mock('waldur-js-client');
 vi.mock('./api');
 
 const props = {
@@ -56,15 +47,7 @@ const mockData = {
 };
 
 const renderDialog = (props) => {
-  const store = createActionStore();
-  const queryClient = new QueryClient();
-  render(
-    <Provider store={store}>
-      <QueryClientProvider client={queryClient}>
-        <ResourceCreateUsageDialog {...props} />
-      </QueryClientProvider>
-    </Provider>,
-  );
+  renderWithProviders(<ResourceCreateUsageDialog {...props} />);
 };
 
 describe('ResourceCreateUsageDialog', () => {
@@ -82,12 +65,12 @@ describe('ResourceCreateUsageDialog', () => {
 
   it('renders error message when API call fails', async () => {
     vi.mocked(getProviderUsageComponents).mockRejectedValue('error');
-    await act(async () => {
-      await renderDialog(props);
+    renderDialog(props);
+    await waitFor(() => {
+      expect(
+        screen.getByText('Unable to load offering details.'),
+      ).toBeInTheDocument();
     });
-    expect(
-      screen.getByText('Unable to load offering details.'),
-    ).toBeInTheDocument();
   });
 
   it('renders message when there are no components', async () => {
@@ -95,12 +78,12 @@ describe('ResourceCreateUsageDialog', () => {
       components: [],
       periods: [],
     });
-    await act(async () => {
-      await renderDialog(props);
+    renderDialog(props);
+    await waitFor(() => {
+      expect(
+        screen.getByText('Offering does not have any usage-based components.'),
+      ).toBeInTheDocument();
     });
-    expect(
-      screen.getByText('Offering does not have any usage-based components.'),
-    ).toBeInTheDocument();
   });
 
   it('displays dialog title with resource name', async () => {
@@ -108,18 +91,19 @@ describe('ResourceCreateUsageDialog', () => {
       components: [],
       periods: [],
     });
-    await act(async () => {
-      await renderDialog(props);
+    renderDialog(props);
+    await waitFor(() => {
+      expect(
+        screen.getByText(`${'Resource usage'} "Test resource"`),
+      ).toBeInTheDocument();
     });
-    expect(
-      screen.getByText(`${translate('Resource usage')} "Test resource"`),
-    ).toBeInTheDocument();
   });
 
   it('displays client organization name', async () => {
     vi.mocked(getProviderUsageComponents).mockResolvedValue(mockData);
-    await act(async () => {
-      await renderDialog(props);
+    renderDialog(props);
+    await waitFor(() => {
+      expect(screen.queryByTestId('SpinnerIcon')).not.toBeInTheDocument();
     });
     expect(screen.getByText('Client organization')).toBeInTheDocument();
     expect(
@@ -128,34 +112,40 @@ describe('ResourceCreateUsageDialog', () => {
   });
 
   it('submits form with usage values', async () => {
+    const user = userEvent.setup();
     vi.mocked(getProviderUsageComponents).mockResolvedValue(mockData);
     const submitSpy = vi.mocked(marketplaceComponentUsagesSetUsage);
     submitSpy.mockResolvedValue({} as any);
 
-    await act(async () => {
-      await renderDialog(props);
+    renderDialog(props);
+    await waitFor(() => {
+      expect(screen.queryByTestId('SpinnerIcon')).not.toBeInTheDocument();
     });
 
     const amountInput = screen.getByPlaceholderText('Amount *');
     const descInput = screen.getByPlaceholderText('Enter a description...');
     const submitBtn = screen.getByText('Submit usage report');
 
-    fireEvent.change(amountInput, { target: { value: '10' } });
-    fireEvent.change(descInput, { target: { value: 'Test usage' } });
+    await user.clear(amountInput);
+    await user.type(amountInput, '10');
+    await user.clear(descInput);
+    await user.type(descInput, 'Test usage');
 
-    await act(async () => {
-      await fireEvent.click(submitBtn);
-    });
+    await user.click(submitBtn);
 
     await waitFor(() => {
       expect(submitSpy).toHaveBeenCalledWith({
         body: {
           plan_period: 'period-1',
+          resource: undefined,
           usages: [
             {
               type: 'comp1',
               amount: '10',
               description: 'Test usage',
+              // Reporting always states the policy explicitly, so that
+              // re-reporting clears a policy set on an earlier report.
+              missing_usage_policy: 'none',
             },
           ],
         },

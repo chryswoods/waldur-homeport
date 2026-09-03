@@ -1,6 +1,6 @@
-import { StateProps } from '@waldur/marketplace/resources/change-limits/connector';
-import { Offering } from '@waldur/marketplace/types';
-import { TENANT_TYPE } from '@waldur/openstack/constants';
+import { TENANT_TYPE } from '@/openstack/constants';
+
+import { StateProps } from './utils';
 
 export const plan = {
   prices: {
@@ -37,7 +37,7 @@ export const offering = {
   ],
   type: TENANT_TYPE,
   plugin_options: { enable_purchase_order_upload: true },
-} as Offering;
+} as any;
 
 export const newLimits = {
   cores: 10,
@@ -59,8 +59,9 @@ export const usages = {
 
 export const orderCanBeApproved = true;
 
+// Components have no explicit limit_period — the helper defaults them to 'month'.
+// Plan unit is 'day' so the monthly price = subTotal × 30.
 export const resultData: StateProps = {
-  periods: ['Price per day', 'Price per 30 days', 'Price per 365 days'],
   components: [
     {
       type: 'cores',
@@ -69,11 +70,13 @@ export const resultData: StateProps = {
       is_boolean: false,
       usage: 3,
       limit: 66,
-      prices: [0.48, 14.399999999999999, 175.2],
-      changedPrices: [-2.688, -80.64, -981.12],
       subTotal: 0.48,
       changedSubTotal: -2.688,
       changedLimit: -56,
+      chargeMode: 'month',
+      price: 14.399999999999999,
+      changedPrice: -80.64,
+      priceSuffix: ' /mo',
     },
     {
       type: 'ram',
@@ -82,11 +85,13 @@ export const resultData: StateProps = {
       is_boolean: false,
       usage: 5,
       limit: 130,
-      prices: [0.333332, 9.99996, 121.66618000000001],
-      changedPrices: [-1.833326, -54.99978, -669.16399],
       subTotal: 0.333332,
       changedSubTotal: -1.833326,
       changedLimit: -110,
+      chargeMode: 'month',
+      price: 9.99996,
+      changedPrice: -54.99978,
+      priceSuffix: ' /mo',
     },
     {
       type: 'storage',
@@ -95,15 +100,26 @@ export const resultData: StateProps = {
       is_boolean: false,
       usage: 255,
       limit: 2001,
-      prices: [0.050001, 1.50003, 18.250365],
-      changedPrices: [-3.2850656999999996, -98.551971, -1199.0489805],
       subTotal: 0.050001,
-      changedSubTotal: -3.2850656999999996,
+      changedSubTotal: -3.2850657,
       changedLimit: -1971,
+      chargeMode: 'month',
+      price: 1.50003,
+      changedPrice: -98.551971,
+      priceSuffix: ' /mo',
+    },
+  ],
+  periodTotals: [
+    {
+      chargeMode: 'month',
+      label: 'Monthly total',
+      total: 25.89999,
+      changedTotal: -234.191751,
+      priceSuffix: ' /mo',
     },
   ],
   offering,
   orderCanBeApproved: true,
-  totalPeriods: [0.8633329999999999, 25.899989999999995, 315.116545],
-  changedTotalPeriods: [-7.8063917, -234.19175099999998, -2849.3329705],
+  shouldConcealPrices: false,
+  newLimits,
 };

@@ -2,22 +2,21 @@ import classNames from 'classnames';
 import { cloneDeep } from 'lodash-es';
 import { DateTime } from 'luxon';
 import { useCallback, useMemo } from 'react';
-import { Button } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
 
-import { bookingStateAliases } from '@waldur/booking/BookingStateField';
-import { BookingResource, EventInput } from '@waldur/booking/types';
-import { Badge } from '@waldur/core/Badge';
-import { parseDate } from '@waldur/core/dateUtils';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
+import { bookingStateAliases } from '@/booking/BookingStateField';
+import { BookingResource, EventInput } from '@/booking/types';
+import { Badge } from '@/core/Badge';
+import { parseDate } from '@/core/dateUtils';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { CompactActionButton } from '@/table/CompactActionButton';
 
 const ONE_HOUR_HEIGHT = 40; // 40px
 const ONE_MINUTE_HEIGHT = ONE_HOUR_HEIGHT / 60;
 
 const BookingResourceDetailsDialog = lazyComponent(() =>
-  import('@waldur/booking/components/BookingResourceDetailsDialog').then(
+  import('@/booking/components/BookingResourceDetailsDialog').then(
     (module) => ({ default: module.BookingResourceDetailsDialog }),
   ),
 );
@@ -118,20 +117,18 @@ export const BookingResourceListItem = ({
   refetch?;
 }) => {
   const state = bookingStateAliases(item.state);
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
 
   const onClickSeeMore = useCallback(() => {
-    dispatch(
-      openModalDialog(BookingResourceDetailsDialog, {
-        resolve: {
-          bookingResource: item,
-          fromServiceProvider: true,
-          refetch,
-        },
-        size: 'lg',
-      }),
-    );
-  }, [dispatch, refetch, item]);
+    openDialog(BookingResourceDetailsDialog, {
+      resolve: {
+        bookingResource: item,
+        fromServiceProvider: true,
+        refetch,
+      },
+      size: 'lg',
+    });
+  }, [refetch, item]);
 
   const itemLayouts = useMemo(
     () => calculateEventItemLayouts(item, date),
@@ -169,7 +166,7 @@ export const BookingResourceListItem = ({
                     {parseDate(layout.schedule.end).toFormat("LLL dd',' HH:mm")}
                   </span>
                   {item.attributes.schedules.length > 1 && (
-                    <Badge className="my-1" outline pill>
+                    <Badge pill outline className="my-1">
                       {translate('+{count} more schedules', {
                         count: item.attributes.schedules.length - 1,
                       })}
@@ -186,14 +183,12 @@ export const BookingResourceListItem = ({
               <div>{item.project_name}</div>
             )}
             <div className="position-absolute bottom-0 end-0 mb-2">
-              <Button
+              <CompactActionButton
                 variant="tertiary"
-                size="sm"
-                className={layout.diffHours < 1.1 ? 'py-1' : undefined}
-                onClick={onClickSeeMore}
-              >
-                {translate('See more')}
-              </Button>
+                className={classNames(layout.diffHours < 1.1 && 'py-1')}
+                action={onClickSeeMore}
+                title={translate('See more')}
+              />
             </div>
           </div>
         </div>

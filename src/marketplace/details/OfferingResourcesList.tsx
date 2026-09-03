@@ -1,20 +1,22 @@
 import { FunctionComponent, useMemo } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
 import {
   marketplaceProviderResourcesList,
   MarketplaceProviderResourcesListData,
+  ProviderOfferingDetails as Offering,
+  Resource,
+  ResourceState,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
 import {
   FILTER_OFFERING_RESOURCE,
   TABLE_OFFERING_RESOURCE,
-} from '@waldur/marketplace/details/constants';
-import { Offering } from '@waldur/marketplace/types';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+} from '@/marketplace/details/constants';
+import { createFetcher } from '@/table/api';
+import { selectProviderOfferingResourcesFilter } from '@/table/generated/ProviderOfferingResourcesFilter';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
 
 import { NON_TERMINATED_STATES } from '../resources/list/constants';
 import { ProviderResourceActions } from '../resources/list/ProviderResourceActions';
@@ -29,32 +31,43 @@ interface OwnProps {
   offering: Offering;
 }
 
-export const OfferingResourcesList: FunctionComponent<OwnProps> = (
-  ownProps,
-) => {
-  const filterValues: any = useSelector(
-    getFormValues(FILTER_OFFERING_RESOURCE),
-  );
+interface FilterValues {
+  state?: { value: ResourceState; label: string }[];
+  include_terminated?: boolean;
+  runtime_state?: { value: string; label: string };
+}
+
+export const OfferingResourcesList: FunctionComponent<OwnProps> = ({
+  ...props
+}) => {
+  const values = useFilterValues(TABLE_OFFERING_RESOURCE);
+  const filterValues: FilterValues = values;
+
   const filter = useMemo(() => {
-    const filter: MarketplaceProviderResourcesListData['query'] = {};
+    const filterObj: MarketplaceProviderResourcesListData['query'] =
+      selectProviderOfferingResourcesFilter(values);
     if (filterValues?.state) {
-      filter.state = filterValues.state.map((option) => option.value);
+      filterObj.state = filterValues.state.map((option) => option.value);
       if (filterValues?.include_terminated) {
-        filter.state = [...filter.state, 'Terminated'];
+        filterObj.state = [...filterObj.state, 'Terminated'];
       }
     } else {
       if (!filterValues?.include_terminated) {
-        filter.state = NON_TERMINATED_STATES;
+        filterObj.state = NON_TERMINATED_STATES;
       }
     }
+    if (filterValues?.runtime_state) {
+      filterObj.runtime_state = filterValues.runtime_state.value;
+    }
     return {
-      offering_uuid: ownProps.offering.uuid,
-      ...filter,
+      offering_uuid: props.offering.uuid,
+      ...filterObj,
     };
-  }, [ownProps.offering, filterValues]);
+  }, [props.offering, values]);
 
   const tableProps = useTable({
     table: TABLE_OFFERING_RESOURCE,
+    syncFiltersToURL: true,
     fetchData: createFetcher(marketplaceProviderResourcesList),
     filter,
     queryField: 'query',
@@ -62,10 +75,13 @@ export const OfferingResourcesList: FunctionComponent<OwnProps> = (
   });
 
   return (
-    <Table
+    <Table<Resource>
       {...tableProps}
+      formId={FILTER_OFFERING_RESOURCE}
       title={translate('Resources')}
-      columns={getResourceAllListColumns(true, true)}
+      columns={getResourceAllListColumns(true, true, {
+        isOfferingScoped: true,
+      })}
       hasOptionalColumns
       verboseName={translate('offering resources')}
       enableExport={true}
@@ -76,7 +92,7 @@ export const OfferingResourcesList: FunctionComponent<OwnProps> = (
       rowActions={({ row }) => (
         <ProviderResourceActions resource={row} refetch={tableProps.fetch} />
       )}
-      filters={<OfferingResourcesFilter />}
+      filters={<OfferingResourcesFilter offeringUuid={props.offering.uuid} />}
     />
   );
 };

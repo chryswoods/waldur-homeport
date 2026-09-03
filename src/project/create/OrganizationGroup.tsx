@@ -1,11 +1,10 @@
-import { Field } from 'react-final-form';
+import { useMemo } from 'react';
 import { Customer } from 'waldur-js-client';
 
-import { required } from '@waldur/core/validators';
-import { Select } from '@waldur/form/AsyncSelectField';
-import { translate } from '@waldur/i18n';
-import { organizationAutocomplete } from '@waldur/marketplace/common/autocompletes';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
+import { required } from '@/core/validators';
+import { AsyncSelectGroup } from '@/form';
+import { translate } from '@/i18n';
+import { organizationAutocomplete } from '@/marketplace/common/autocompletes';
 
 interface OrganizationGroupProps {
   onChange?(customer: Customer): void;
@@ -15,24 +14,36 @@ interface OrganizationGroupProps {
 export const OrganizationGroup = ({
   onChange,
   isDisabled,
-}: OrganizationGroupProps) => (
-  <FormGroup label={translate('Organization')} required>
-    <Field
-      component={Select as any}
+}: OrganizationGroupProps) => {
+  const loadOrganizations = useMemo(
+    () =>
+      organizationAutocomplete({
+        field: [
+          'uuid',
+          'name',
+          'url',
+          'customer_unallocated_credit',
+          'project_metadata_checklist',
+          'default_affiliations',
+        ],
+        o: 'name',
+      }),
+    [],
+  );
+
+  return (
+    <AsyncSelectGroup
       name="customer"
+      label={translate('Organization')}
+      required
       validate={required}
       placeholder={translate('Select...')}
-      loadOptions={(query, prevOptions, page) =>
-        organizationAutocomplete(query, prevOptions, page, {
-          field: ['uuid', 'name', 'url', 'customer_unallocated_credit'],
-          o: 'name',
-        })
-      }
+      loadOptions={loadOrganizations}
       getOptionLabel={(option) => option.name}
       getOptionValue={(option) => option.url}
       noOptionsMessage={() => translate('No organizations')}
       isDisabled={isDisabled}
       onChange={onChange}
     />
-  </FormGroup>
-);
+  );
+};

@@ -1,4 +1,4 @@
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
 
 import { ComponentRow2 } from './ComponentRow';
 import { Component, PlanPeriod } from './types';
@@ -17,8 +17,17 @@ export const FixedRows = (props: {
         hidePrices={props.hidePrices}
         period={props.period}
         activePriceIndex={props.activePriceIndex}
+        // A quantity of 0 here would be the fallback, not an included amount,
+        // so neither the quantity nor a total can be stated yet.
+        hideTotal={component.quantityUnknown}
       >
-        {translate('Quantity')}: {component.amount}x
+        {component.quantityUnknown ? (
+          translate('Chosen at order time')
+        ) : (
+          <>
+            {translate('Quantity')}: {component.amount}x
+          </>
+        )}
       </ComponentRow2>
     ))}
   </>

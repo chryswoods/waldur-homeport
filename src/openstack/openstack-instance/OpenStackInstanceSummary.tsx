@@ -1,15 +1,15 @@
 import { OpenStackNestedVolume } from 'waldur-js-client';
 import { OpenStackInstance } from 'waldur-js-client';
 
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
-import { OpenStackSecurityGroupsLink } from '@waldur/openstack/openstack-security-groups/OpenStackSecurityGroupsLink';
-import { ResourceLink } from '@waldur/resource/ResourceLink';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import { OpenStackSecurityGroupsLink } from '@/openstack/openstack-security-groups/OpenStackSecurityGroupsLink';
+import { ResourceLink } from '@/resource/ResourceLink';
 import {
   Field,
   ResourceSummaryProps,
   PureVirtualMachineSummary,
-} from '@waldur/resource/summary';
+} from '@/resource/summary';
 
 import { OpenStackInstanceVolumeBadge } from './OpenStackInstanceVolumeBadge';
 
@@ -56,6 +56,13 @@ export const OpenStackInstanceSummary = (
         valueClass="text-decoration-underline"
       />
 
+      {props.resource.server_group && (
+        <Component
+          label={translate('Server group')}
+          value={`${props.resource.server_group.name} (${props.resource.server_group.policy})`}
+        />
+      )}
+
       <Component
         label={translate('Availability zone')}
         value={props.resource.availability_zone_name}
@@ -65,6 +72,17 @@ export const OpenStackInstanceSummary = (
         label={translate('Hypervisor')}
         value={props.resource.hypervisor_hostname}
       />
+
+      {typeof props.resource.config_drive === 'boolean' && (
+        <Component
+          label={translate('Config drive')}
+          value={
+            props.resource.config_drive
+              ? translate('Enabled')
+              : translate('Disabled')
+          }
+        />
+      )}
 
       {props.resource.rancher_cluster && (
         <Component

@@ -1,11 +1,11 @@
-import { FunctionComponent } from 'react';
-import { Field } from 'redux-form';
+import { FC } from 'react';
 
+import { translate } from '@/i18n';
+import { SelectFilter } from '@/table';
 import {
-  REACT_MULTI_SELECT_TABLE_FILTER,
-  Select,
-} from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
+  OfferingStateOption,
+  OfferingStateOptions,
+} from '@/table/generated/MarketplaceProviderOfferingsFilter';
 import './OfferingsStateFilter.scss';
 
 export const getStates = () => [
@@ -13,22 +13,24 @@ export const getStates = () => [
   { value: 'Active', label: translate('Active') },
   { value: 'Paused', label: translate('Paused') },
   { value: 'Archived', label: translate('Archived') },
+  { value: 'Unavailable', label: translate('Unavailable') },
 ];
 
-export const OfferingStateFilter: FunctionComponent = () => {
+interface OfferingStateFilterProps {
+  [key: string]: any;
+}
+
+export const OfferingStateFilter: FC<OfferingStateFilterProps> = (props) => {
   return (
-    <Field
+    <SelectFilter
+      title={translate('State')}
       name="state"
-      component={(fieldProps) => (
-        <Select
-          placeholder={translate('Select state...')}
-          options={getStates()}
-          value={fieldProps.input.value}
-          onChange={(value) => fieldProps.input.onChange(value)}
-          isClearable={true}
-          {...REACT_MULTI_SELECT_TABLE_FILTER}
-        />
-      )}
+      placeholder={translate('State')}
+      options={OfferingStateOptions}
+      getOptionValue={(option: OfferingStateOption) => String(option.value)}
+      getOptionLabel={(option: OfferingStateOption) => option.label}
+      isMulti={true}
+      {...props}
     />
   );
 };

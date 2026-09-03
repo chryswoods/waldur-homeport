@@ -70,20 +70,8 @@
 
     &__value-container--is-multi {
       display: flex;
-      gap: 6px;
-
-      .badge {
-        color: $text-secondary;
-        border: 1px solid $border-primary;
-        background-color: $bg-primary;
-        padding: 4px 8px;
-        border-radius: $border-radius-sm;
-        display: flex;
-        align-items: center;
-        font-size: $font-size-lg;
-        font-weight: 400;
-        line-height: 20px;
-      }
+      flex-wrap: wrap;
+      gap: 8px;
     }
   }
 
@@ -92,7 +80,7 @@
       &__control {
         min-height: 28px;
         font-size: $font-size-lg;
-        line-height: 1;
+        line-height: normal;
       }
 
       &__value-container {
@@ -111,6 +99,26 @@
       &__dropdown-indicator {
         padding: 0;
         margin-right: 8px;
+      }
+    }
+  }
+  &.select-table-cell {
+    .metronic-select {
+      &__control {
+        min-height: 35px;
+        margin: 1px;
+      }
+
+      &__input-container {
+        margin-top: 0;
+        margin-bottom: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+      }
+
+      &__dropdown-indicator {
+        padding-top: 0;
+        padding-bottom: 0;
       }
     }
   }
@@ -135,23 +143,6 @@
 
         &:active {
           background-color: $bg-tertiary;
-        }
-      }
-
-      &--is-selected {
-        // Add border-top only for the first selected option in a group
-        &:not(:first-child) {
-          &:not(
-            .metronic-select__option--is-selected
-              + .metronic-select__option--is-selected
-          ) {
-            border-top: 1px solid $border-color;
-          }
-        }
-
-        // Add border-top only for the first unselected option after a group
-        + :not(.metronic-select__option--is-selected) {
-          border-top: 1px solid $border-color;
         }
       }
     }

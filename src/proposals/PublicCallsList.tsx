@@ -1,24 +1,36 @@
+import { useQuery } from '@tanstack/react-query';
+import { useCurrentStateAndParams } from '@uirouter/react';
 import { FunctionComponent, useMemo } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
 import {
   proposalPublicCallsList,
   ProposalPublicCallsListData,
 } from 'waldur-js-client';
 
-import { Badge } from '@waldur/core/Badge';
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { Link } from '@waldur/core/Link';
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { renderFieldOrDash } from '@waldur/table/utils';
+import { Badge } from '@/core/Badge';
+import { formatDateTime } from '@/core/dateUtils';
+import { Link } from '@/core/Link';
+import { translate } from '@/i18n';
+import { ActionsDropdown } from '@/table/ActionsDropdown';
+import { createFetcher } from '@/table/api';
+import {
+  ProposalPublicCallsFilter,
+  selectProposalPublicCallsFilter,
+  ProposalPublicCallsFilterFormId,
+} from '@/table/generated/ProposalPublicCallsFilter';
+import Table from '@/table/Table';
+import { TableTab } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
-import { CallAllFiltersWithDefaultState } from './call-management/CallAllFilters';
+import {
+  buildCallTabs,
+  resolveCallStateFilter,
+  CALL_STATE_VARIANT,
+  fetchAllCallCounts,
+} from './call-tabs';
 import { CallCard } from './CallCard';
-import { CALL_FILTER_FORM_ID } from './constants';
-import { PublicCallApplyButton } from './details/PublicCallApplyButton';
+import { PublicCallApplyAction } from './details/PublicCallApplyAction';
 import { PublicCallExpandableRow } from './PublicCallExpandableRow';
 import { Call } from './types';
 import {
@@ -26,6 +38,28 @@ import {
   getCallStateOptions,
   getRoundsWithStatus,
 } from './utils';
+
+const useCallTabs = (
+  offering_uuid?: string,
+  provider_uuid?: string,
+): TableTab[] => {
+  const { data: counts } = useQuery({
+    queryKey: ['callTabCounts', offering_uuid, provider_uuid],
+    queryFn: () => {
+      const baseQuery: ProposalPublicCallsListData['query'] = {};
+      if (offering_uuid) {
+        baseQuery.offering_uuid = offering_uuid;
+      }
+      if (provider_uuid) {
+        baseQuery.offerings_provider_uuid = provider_uuid;
+      }
+      return fetchAllCallCounts(proposalPublicCallsList, baseQuery);
+    },
+    staleTime: 30_000,
+  });
+
+  return useMemo(() => buildCallTabs(counts), [counts]);
+};
 
 interface PublicCallsListProps {
   offering_uuid: string;
@@ -63,7 +97,15 @@ const CallColumns = [
   },
   {
     title: translate('State'),
-    render: ({ row }) => <>{formatCallState(row.state)}</>,
+    render: ({ row }) => (
+      <Badge
+        variant={CALL_STATE_VARIANT[row.state] || 'secondary'}
+        pill
+        outline
+      >
+        {formatCallState(row.state)}
+      </Badge>
+    ),
     filter: 'state',
     inlineFilter: (row) =>
       getCallStateOptions().filter((s) => s.value === row.state),
@@ -94,7 +136,7 @@ const CallColumns = [
     title: translate('Duration'),
     render: ({ row }) =>
       row.fixed_duration_in_days ? (
-        <Badge variant="blue" outline pill>
+        <Badge variant="blue" pill outline>
           {translate('Fixed - {n} days', {
             n: row.fixed_duration_in_days,
           })}
@@ -105,37 +147,42 @@ const CallColumns = [
   },
 ];
 
-export const PublicCallsList: FunctionComponent<PublicCallsListProps> = (
-  props,
-) => {
-  const usePublicCallsFilter = (
-    offering_uuid?: string,
-    provider_uuid?: string,
-  ) => {
-    const filters = useSelector(getFormValues(CALL_FILTER_FORM_ID)) as any;
+export const PublicCallsList: FunctionComponent<PublicCallsListProps> = ({
+  ...props
+}) => {
+  const { params } = useCurrentStateAndParams();
+  const values = useFilterValues('PublicCallsList');
+  const callTabs = useCallTabs(props.offering_uuid, props.provider_uuid);
 
-    return useMemo(() => {
-      const result: ProposalPublicCallsListData['query'] = {};
-      if (filters) {
-        if (filters.state) {
-          result.state = filters.state.map((option) => option.value);
-        }
-        if (filters.has_active_round) {
-          result.has_active_round = filters.has_active_round;
-        }
-      }
-      if (offering_uuid) {
-        result.offering_uuid = offering_uuid;
-      }
-      if (provider_uuid) {
-        result.offerings_provider_uuid = provider_uuid;
-      }
-      return result;
-    }, [filters, offering_uuid, provider_uuid]);
-  };
-  const filter = usePublicCallsFilter(props.offering_uuid, props.provider_uuid);
+  // State is resolved separately: the tabs and the filter form both write
+  // `?state`, in different shapes. See resolveCallStateFilter.
+  const filters = useMemo(() => {
+    const { state: _state, ...rest } = values ?? {};
+    return selectProposalPublicCallsFilter(rest);
+  }, [values]);
+
+  const stateFilter = useMemo(
+    () => resolveCallStateFilter(values?.state, params.state),
+    [values?.state, params.state],
+  );
+
+  const filter = useMemo(() => {
+    const result: ProposalPublicCallsListData['query'] = { ...filters };
+    if (props.offering_uuid) {
+      result.offering_uuid = props.offering_uuid;
+    }
+    if (props.provider_uuid) {
+      result.offerings_provider_uuid = props.provider_uuid;
+    }
+    if (stateFilter) {
+      result.state = stateFilter;
+    }
+    return result;
+  }, [filters, props.offering_uuid, props.provider_uuid, stateFilter]);
   const tableProps = useTable({
     table: 'PublicCallsList',
+    // The state tabs own `?state`; see resolveCallStateFilter.
+    syncFiltersToURL: false,
     fetchData: createFetcher(proposalPublicCallsList),
     filter,
     queryField: 'name',
@@ -144,6 +191,7 @@ export const PublicCallsList: FunctionComponent<PublicCallsListProps> = (
     <Table<Call>
       title={translate('Calls for proposals')}
       {...tableProps}
+      tabs={callTabs}
       columns={CallColumns}
       initialMode={props.initialMode ? props.initialMode : 'table'}
       gridItem={({ row }) => <CallCard call={row} />}
@@ -153,15 +201,13 @@ export const PublicCallsList: FunctionComponent<PublicCallsListProps> = (
       initialSorting={{ field: 'name', mode: 'desc' }}
       hasQuery={true}
       expandableRow={PublicCallExpandableRow}
-      filters={<CallAllFiltersWithDefaultState />}
+      filters={<ProposalPublicCallsFilter />}
       rowActions={({ row }) => (
-        <PublicCallApplyButton
-          call={row}
-          title={translate('Apply')}
-          variant="flush"
-          className="text-btn"
-        />
+        <ActionsDropdown row={row} size="sm">
+          <PublicCallApplyAction call={row} />
+        </ActionsDropdown>
       )}
+      formId={ProposalPublicCallsFilterFormId}
     />
   );
 };

@@ -1,26 +1,27 @@
 import { FC, useMemo } from 'react';
-import { useSelector } from 'react-redux';
 import {
   marketplaceCustomerServiceAccountsList,
   marketplaceProjectServiceAccountsList,
   MarketplaceCustomerServiceAccountsRetrieveResponse,
+  CustomerServiceAccount,
+  Project,
 } from 'waldur-js-client';
 
-import { CopyToClipboardButton } from '@waldur/core/CopyToClipboardButton';
-import { formatDate } from '@waldur/core/dateUtils';
-import { CustomerPermissionsLogButton } from '@waldur/customer/team/CustomerPermissionsLogButton';
-import { useTeamTableTabs } from '@waldur/customer/team/tabs';
-import { TeamDropdownActions } from '@waldur/customer/team/TeamDropdownActions';
-import { translate } from '@waldur/i18n';
-import { ProjectLink } from '@waldur/project/ProjectLink';
-import { ProjectPermissionsLogButton } from '@waldur/project/team/ProjectPermissionsLogButton';
-import { useTeamTableTabs as useProjectTeamTableTabs } from '@waldur/project/team/tabs';
-import { TeamDropdownActions as ProjectTeamDropdownActions } from '@waldur/project/team/TeamDropdownActions';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { TableProps } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
+import { formatDate } from '@/core/dateUtils';
+import { CustomerPermissionsLogButton } from '@/customer/team/CustomerPermissionsLogButton';
+import { useTeamTableTabs } from '@/customer/team/tabs';
+import { TeamDropdownActions } from '@/customer/team/TeamDropdownActions';
+import { translate } from '@/i18n';
+import { ProjectLink } from '@/project/ProjectLink';
+import { ProjectPermissionsLogButton } from '@/project/team/ProjectPermissionsLogButton';
+import { useTeamTableTabs as useProjectTeamTableTabs } from '@/project/team/tabs';
+import { TeamDropdownActions as ProjectTeamDropdownActions } from '@/project/team/TeamDropdownActions';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { Column, TableProps } from '@/table/types';
+import { useTable } from '@/table/useTable';
+import { useCustomer } from '@/workspace/hooks';
 
 import { OrganizationLink } from '../list/OrganizationLink';
 
@@ -34,11 +35,13 @@ const getContextKey = (context: string) =>
 export const ServiceAccountsTableComponent: FC<
   ServiceAccountsProps & TableProps
 > = ({ context, scope, ...tableProps }) => {
-  const columns = useMemo(
+  const columns = useMemo<
+    Array<Column<MarketplaceCustomerServiceAccountsRetrieveResponse>>
+  >(
     () =>
       [
         !scope
-          ? ({
+          ? {
               title:
                 context === 'customer'
                   ? translate('Organization')
@@ -54,14 +57,14 @@ export const ServiceAccountsTableComponent: FC<
                   />
                 ),
 
-              export: getContextKey(context),
+              export: getContextKey(context) as keyof CustomerServiceAccount,
               orderField: getContextKey(context),
-            } as any)
+            }
           : null,
         {
           title: translate('Username'),
           render: ({ row }) => row.username,
-          export: 'username',
+          export: 'username' as keyof CustomerServiceAccount,
         },
         {
           title: translate('Creation date'),
@@ -79,7 +82,7 @@ export const ServiceAccountsTableComponent: FC<
           ),
 
           orderField: 'email',
-          export: 'email',
+          export: 'email' as keyof CustomerServiceAccount,
         },
       ].filter(Boolean),
     [context, scope],
@@ -131,7 +134,7 @@ export const ServiceAccountsList: FC<ServiceAccountsProps> = ({
   const tableTabs =
     context === 'customer'
       ? useTeamTableTabs()
-      : useProjectTeamTableTabs(scope);
+      : useProjectTeamTableTabs(scope as Project);
 
   return (
     <ServiceAccountsTableComponent
@@ -145,7 +148,7 @@ export const ServiceAccountsList: FC<ServiceAccountsProps> = ({
         ) : (
           <ProjectTeamDropdownActions
             refetch={tableProps.fetch}
-            project={scope}
+            project={scope as Project}
           />
         )
       }
@@ -162,6 +165,6 @@ export const ServiceAccountsList: FC<ServiceAccountsProps> = ({
 };
 
 export const OrganizationServiceAccountsList = () => {
-  const customer = useSelector(getCustomer);
+  const customer = useCustomer();
   return <ServiceAccountsList context="customer" scope={customer} />;
 };

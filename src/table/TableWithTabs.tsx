@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { Card, Col, Nav, Row, Tab } from 'react-bootstrap';
 
-import { TableTabsContainer } from '@waldur/customer/list/TableTabsContainer';
+import { TableTabsContainer } from '@/customer/list/TableTabsContainer';
 
 import { TableProps } from './types';
 
@@ -25,6 +25,7 @@ export const TableWithTabs: FC<
     actions?:
       | ReactNode
       | Array<{ activeKeys: (string | number)[]; component: ReactNode }>;
+    headerActions?: ReactNode;
   }
 > = ({
   title,
@@ -35,6 +36,7 @@ export const TableWithTabs: FC<
   data = {},
   syncWithUrlKey,
   actions,
+  headerActions,
 }) => {
   const { state, params } = useCurrentStateAndParams();
   const router = useRouter();
@@ -112,10 +114,14 @@ export const TableWithTabs: FC<
             </Card.Title>
             {/* Portal destination */}
           </Col>
-          <Col sm="auto" className="ms-auto">
+          <Col
+            sm="auto"
+            className="ms-auto d-flex gap-4 flex-wrap flex-sm-nowrap text-nowrap"
+          >
+            {headerActions}
             <div
               ref={refToolbar}
-              className="d-flex justify-content-sm-end flex-wrap flex-sm-nowrap text-nowrap gap-3"
+              className="d-flex justify-content-sm-end flex-wrap flex-sm-nowrap text-nowrap gap-4"
             >
               {/* Portal destination */}
             </div>

@@ -1,20 +1,18 @@
 import { FileIcon, TrashIcon, WarningIcon } from '@phosphor-icons/react';
+import classNames from 'classnames';
 import { FC } from 'react';
-import { Button } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { formatFilesize } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
+import { CompactIconButton } from '@/core/buttons/IconButton';
+import { formatDateTime } from '@/core/dateUtils';
+import { lazyComponent } from '@/core/lazyComponent';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { decodeFileName, formatFilesize } from '@/core/utils';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
 
 import { FileDownloader } from './FileDownloader';
 import { ImageFetcher } from './ImageFetcher';
 import { Attachment } from './types';
-
-import './AttachmentItem.scss';
 
 const AttachmentModal = lazyComponent(() =>
   import('./AttachmentModal').then((module) => ({
@@ -24,6 +22,7 @@ const AttachmentModal = lazyComponent(() =>
 
 interface AttachmentItemProps {
   attachment: Attachment;
+  error?: any;
   onDelete?(attachment): void;
   isDeleting?: boolean;
   iconSize?: number;
@@ -31,20 +30,21 @@ interface AttachmentItemProps {
 
 export const AttachmentItem: FC<AttachmentItemProps> = ({
   attachment,
+  error,
   onDelete,
   isDeleting,
-  iconSize = 40,
+  iconSize = 22,
 }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const openModal = () =>
-    dispatch(
-      openModalDialog(AttachmentModal, {
-        resolve: { attachment },
-      }),
-    );
+    openDialog(AttachmentModal, {
+      resolve: { attachment },
+    });
+
+  const fileName = decodeFileName(attachment.file_name);
 
   return (
-    <div className="attachment-item">
+    <div className={classNames('attachment-item', error && 'attachment-error')}>
       {isDeleting && (
         <div className="attachment-item__overlay">
           <LoadingSpinner />
@@ -54,7 +54,7 @@ export const AttachmentItem: FC<AttachmentItemProps> = ({
         <>
           {attachment.file instanceof File ? (
             <div className="attachment-item__thumb">
-              <FileIcon size={iconSize} className="text-muted" />
+              <FileIcon size={iconSize} weight="bold" />
             </div>
           ) : (
             <div className="attachment-item__thumb">
@@ -66,7 +66,7 @@ export const AttachmentItem: FC<AttachmentItemProps> = ({
                 >
                   <ImageFetcher
                     url={attachment.file}
-                    name={attachment.file_name}
+                    name={fileName}
                     thumb
                     iconSize={iconSize}
                   />
@@ -74,17 +74,15 @@ export const AttachmentItem: FC<AttachmentItemProps> = ({
               ) : (
                 <FileDownloader
                   url={attachment.file}
-                  name={attachment.file_name}
+                  name={fileName}
                   size={iconSize}
                 />
               )}
             </div>
           )}
           <div className="attachment-item__body">
-            <h6 className="fw-bold text-gray-700 mb-0">
-              {attachment.file_name}
-            </h6>
-            <p className="fs-6 text-muted mb-0">
+            <h6 className="fw-bold text-secondary">{fileName}</h6>
+            <p className="fs-6 text-muted">
               {[
                 attachment.file_size
                   ? formatFilesize(attachment.file_size, 'B')
@@ -99,27 +97,28 @@ export const AttachmentItem: FC<AttachmentItemProps> = ({
       ) : (
         <>
           <div className="attachment-item__thumb">
-            <WarningIcon weight="bold" />
+            <WarningIcon
+              size={iconSize}
+              className="text-gray-400"
+              weight="bold"
+            />
           </div>
-          <div className="attachment-item__body">
-            <div className="attachment-item__body-name">
+          <div className="attachment-item__body align-self-center">
+            <h6 className="fw-bold text-secondary">
               {translate('Attachment is broken.')}
-            </div>
+            </h6>
           </div>
         </>
       )}
       {onDelete ? (
         <div>
-          <Button
-            variant="flush"
-            size="sm"
-            className="btn-active-icon-danger attachment-item__delete btn-icon-right"
+          <CompactIconButton
+            iconNode={<TrashIcon weight="bold" />}
+            tooltip={translate('Delete attachment')}
             onClick={() => onDelete(attachment)}
-          >
-            <span className="svg-icon svg-icon-2">
-              <TrashIcon weight="bold" />
-            </span>
-          </Button>
+            variant="flush"
+            className="btn-icon-gray-400 btn-active-icon-danger attachment-item__delete btn-icon-right"
+          />
         </div>
       ) : null}
     </div>

@@ -1,15 +1,22 @@
 import { FunctionComponent } from 'react';
-import { Invitation } from 'waldur-js-client';
+import { GroupInvitation } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
 
 import { formatInvitation } from './formatInvitation';
 
 export const GroupInvitationMessage: FunctionComponent<{
-  invitation: Invitation;
+  invitation: GroupInvitation;
 }> = ({ invitation }) => (
   <>
-    <p>{formatInvitation(invitation)}</p>
-    {translate('Do you want to submit permission request?')}
+    <p className="mb-3">{formatInvitation(invitation, invitation.is_public)}</p>
+    {invitation.custom_text && (
+      <p className="text-muted mb-3">{invitation.custom_text}</p>
+    )}
+    <p className="mb-0">
+      {invitation.is_public
+        ? translate('Would you like to submit a join request?')
+        : translate('Do you want to submit permission request?')}
+    </p>
   </>
 );

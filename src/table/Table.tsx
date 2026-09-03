@@ -1,529 +1,109 @@
-import { XIcon } from '@phosphor-icons/react';
-import { ErrorBoundary } from '@sentry/react';
 import classNames from 'classnames';
-import { debounce, isEqual } from 'lodash-es';
-import React, { useEffect, useMemo, useRef } from 'react';
-import { Button, Card, Col, Row, Stack } from 'react-bootstrap';
+import { isEqual } from 'lodash-es';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { Card, Stack } from 'react-bootstrap';
 import { createPortal } from 'react-dom';
 import { useMediaQuery } from 'react-responsive';
 
-import { GRID_BREAKPOINTS } from '@waldur/core/constants';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { titleCase } from '@waldur/core/utils';
-import { ErrorMessage } from '@waldur/ErrorMessage';
-import { ErrorView } from '@waldur/ErrorView';
-import { translate } from '@waldur/i18n';
+import { GRID_BREAKPOINTS } from '@/core/constants';
 
+import { TableContent } from './components/content';
+import { TableToolbar, TableToolbarActions } from './components/toolbar';
 import { COLUMN_ACTIONS_KEY } from './constants';
+import { TableProvider } from './context';
 import { FilterContextProvider } from './FilterContextProvider';
-import { GridBody } from './GridBody';
 import { HiddenActionsMessage } from './HiddenActionsMessage';
-import { TableBody } from './TableBody';
-import { TableButtons } from './TableButtons';
 import { TableFilterContainer } from './TableFilterContainer';
 import { TableFilters } from './TableFilters';
-import { TableHeader } from './TableHeader';
-import { TableLoadingSpinnerContainer } from './TableLoadingSpinnerContainer';
 import { TablePagination } from './TablePagination';
-import { TablePlaceholder } from './TablePlaceholder';
-import { TableQuery } from './TableQuery';
 import { TableRefreshButton } from './TableRefreshButton';
 import { TableTabs } from './TableTabs';
-import { PinnedColumns, TableProps } from './types';
-import { useTableLoader } from './useTableLoader';
+import { Column, PinnedColumns, PinnedOffsets, TableProps } from './types';
+import { computePinnedOffsets, computePinnedShadows } from './utils';
 
 import './Table.scss';
 
-const TableComponent = (
-  props: TableProps & {
-    toggleFilterMenu?(show?): void;
-    pinnedColumns?: PinnedColumns;
-  },
-) => {
-  const visibleColumns = useMemo(
-    () =>
-      props.hasOptionalColumns
-        ? props.columns.filter(
-            (column) => !column.keys || props.activeColumns[column.id],
-          )
-        : props.columns,
-    [props.activeColumns, props.columns],
-  );
-
-  const showActions = useMemo(() => {
-    if (props.rowActions && !props.hasOptionalColumns) return true;
-    return Boolean(props.activeColumns[COLUMN_ACTIONS_KEY]);
-  }, [props.rowActions, props.hasOptionalColumns, props.activeColumns]);
-
-  return (
-    <table
-      className={classNames(
-        'table align-middle table-row-bordered fs-6 gy-0 gx-2 no-footer',
-        {
-          'table-expandable': Boolean(props.expandableRow),
-          'table-hover': props.hoverable,
-        },
-      )}
-    >
-      {props.hasHeaders && (
-        <TableHeader
-          rows={props.rows}
-          onSortClick={props.sortList}
-          currentSorting={props.sorting}
-          columns={visibleColumns}
-          expandableRow={!!props.expandableRow}
-          showActions={showActions}
-          enableMultiSelect={props.enableMultiSelect}
-          onSelectAllRows={props.selectAllRows}
-          selectedRows={props.selectedRows}
-          toggleRow={props.toggleRow}
-          toggled={props.toggled}
-          fieldType={props.fieldType}
-          filters={props.filters}
-          filtersStorage={props.filtersStorage}
-          setFilter={props.setFilter}
-          applyFiltersFn={props.applyFiltersFn}
-          columnPositions={props.columnPositions}
-          hasOptionalColumns={props.hasOptionalColumns}
-          toggleFilterMenu={props.toggleFilterMenu}
-          pinnedColumns={props.pinnedColumns}
-          equalColWidth={props.equalColWidth}
-        />
-      )}
-      <TableBody
-        rows={props.rows}
-        columns={visibleColumns}
-        rowClass={props.rowClass}
-        rowKey={props.rowKey}
-        expandableRow={props.expandableRow}
-        expandableRowClassName={props.expandableRowClassName}
-        rowActions={showActions ? props.rowActions : undefined}
-        enableMultiSelect={props.enableMultiSelect}
-        selectRow={props.selectRow}
-        selectedRows={props.selectedRows}
-        toggleRow={props.toggleRow}
-        toggled={props.toggled}
-        fetch={props.fetch}
-        fieldType={props.fieldType}
-        fieldName={props.fieldName}
-        validate={props.validate}
-        columnPositions={props.columnPositions}
-        hasOptionalColumns={props.hasOptionalColumns}
-        pinnedColumns={props.pinnedColumns}
-      />
-    </table>
-  );
+const TABLE_DEFAULT_PROPS: Partial<TableProps> = {
+  rows: [],
+  columns: [],
+  rowKey: 'uuid',
+  hasQuery: false,
+  hasPagination: true,
+  hasActionBar: true,
+  hasHeaders: true,
+  cardBordered: true,
+  hoverShadow: true,
+  placeholderHasRetry: true,
 };
 
-class TableClass<RowType = any> extends React.Component<TableProps<RowType>> {
-  static defaultProps = {
-    rows: [],
-    columns: [],
-    rowKey: 'uuid',
-    hasQuery: false,
-    hasPagination: true,
-    hasActionBar: true,
-    hasHeaders: true,
-    cardBordered: true,
-    hoverShadow: true,
-    placeholderRetry: true,
-  };
+interface TableInternalProps<RowType = any> extends TableProps<RowType> {
+  filterPosition: TableProps['filterPosition'];
+}
 
-  state = {
-    closedHiddenActionsMessage: false,
-    /** Controls whether the main add filter toggle is displayed. \
-     * Used with `filterPosition = 'menu'`*/
-    showFilterMenuToggle: false,
-    /**
-     * If the key of a column is in this object, it is pinned. \
-     * If its value is `true`, it is floating, otherwise it is contained within the scroll range. */
-    pinnedColumns: { [COLUMN_ACTIONS_KEY]: false },
-  };
+function TableInternal<RowType = any>(inputProps: TableInternalProps<RowType>) {
+  // Apply default props
+  const props = useMemo(
+    () => ({ ...TABLE_DEFAULT_PROPS, ...inputProps }),
+    [inputProps],
+  );
 
-  tableResponsive: React.RefObject<HTMLDivElement> = null;
+  // Local state
+  const [closedHiddenActionsMessage, setClosedHiddenActionsMessage] =
+    useState(false);
+  const [showFilterMenuToggle, setShowFilterMenuToggle] = useState(false);
+  const [actionsFloating, setActionsFloating] = useState(false);
+  const [pinnedOffsets, setPinnedOffsets] = useState<PinnedOffsets>({});
+  const [pinnedShadows, setPinnedShadows] = useState<
+    Record<string, 'start' | 'end'>
+  >({});
 
-  constructor(props) {
-    super(props);
-    this.toggleFilterMenu = this.toggleFilterMenu.bind(this);
+  const pinnedColumnKeys = props.pinnedColumnKeys;
 
-    this.tableResponsive = React.createRef();
-    this.handleHorizontalScroll = this.handleHorizontalScroll.bind(this);
-  }
+  // Geometry of the pinned header cells (natural x within the table, width,
+  // sticky insets), captured at measurement time and read on scroll to derive
+  // which cells are stuck to an edge.
+  const pinnedCellsRef = useRef<
+    Array<{
+      key: string;
+      x: number;
+      width: number;
+      left: number;
+      right: number;
+    }>
+  >([]);
 
-  render() {
-    const gridHover =
-      (typeof this.props.hoverShadow === 'object'
-        ? (this.props.hoverShadow.grid ?? true)
-        : this.props.hoverShadow) && Boolean(this.props.gridItem);
-    const tableHover =
-      typeof this.props.hoverShadow === 'object'
-        ? (this.props.hoverShadow.table ?? true)
-        : this.props.hoverShadow;
+  // Refs
+  const tableResponsiveRef = useRef<HTMLDivElement>(null);
+  const prevPaginationRef = useRef(props.pagination);
+  const prevQueryRef = useRef(props.query);
+  const prevFiltersStorageRef = useRef(props.filtersStorage);
+  const prevSortingRef = useRef(props.sorting);
+  const isInitialMountRef = useRef(true);
 
-    return (
-      <FilterContextProvider
-        {...this.props}
-        toggleFilterMenu={this.toggleFilterMenu}
-      >
-        {this.props.standalone && (
-          <div className="table-standalone-header d-flex justify-content-between gap-4">
-            <div>
-              <Stack direction="horizontal" gap={2}>
-                <h1 className="mb-0 fs-1x">
-                  {this.props.title || this.props.alterTitle}
-                </h1>
-                {!this.props.hideRefresh && (
-                  <TableRefreshButton {...this.props} />
-                )}
-              </Stack>
-              {Boolean(this.props.subtitle) && (
-                <p
-                  className={classNames(
-                    'fs-4 fw-normal d-block text-muted mb-0',
-                    this.props.hideRefresh && 'mt-2',
-                  )}
-                >
-                  {this.props.subtitle}
-                </p>
-              )}
-            </div>
-            {!this.props.standaloneActionsInTable && (
-              <div className="d-none d-sm-flex gap-3">
-                {this.props.tableActions}
-              </div>
-            )}
-          </div>
-        )}
-        <Card
-          className={classNames(
-            'card-table',
-            this.props.fullWidth && 'full-width',
-            this.props.cardBordered && 'card-bordered',
-            this.props.fieldName ? 'field-table' : '',
-            this.props.mode === 'grid' &&
-              Boolean(this.props.gridItem) &&
-              'grid-table',
-            this.props.className,
-          )}
-          id={this.props.id}
-        >
-          {this.props.hasActionBar && (
-            <Card.Header
-              className={classNames(
-                'border-bottom',
-                this.props.headerClassName,
-              )}
-            >
-              <Row className="card-toolbar g-0 gap-4 w-100">
-                {!this.props.standalone && (
-                  <Col xs className="order-0">
-                    <Card.Title>
-                      <div className="me-2">
-                        <span
-                          className={classNames(
-                            'h3',
-                            this.props.titleClassName,
-                          )}
-                        >
-                          {this.props.title ||
-                            this.props.alterTitle ||
-                            (this.props.verboseName &&
-                              titleCase(this.props.verboseName))}
-                        </span>
-                        {Boolean(this.props.subtitle) && (
-                          <small className="fs-6 fw-normal d-block mt-2">
-                            {this.props.subtitle}
-                          </small>
-                        )}
-                      </div>
-                      {!this.props.hideRefresh &&
-                        !this.props.portal?.refresh && (
-                          <TableRefreshButton {...this.props} />
-                        )}
-                    </Card.Title>
-                  </Col>
-                )}
-                {!this.props.portal?.toolbar && this.renderActions()}
-              </Row>
-            </Card.Header>
-          )}
+  // Memoized values
+  const hasRows = useMemo(
+    () => props.rows && props.rows.length > 0,
+    [props.rows],
+  );
 
-          {/* Portals */}
-          {Boolean(this.props.portal?.refresh) &&
-            createPortal(
-              <TableRefreshButton {...this.props} />,
-              this.props.portal?.refresh,
-            )}
-          {Boolean(this.props.portal?.toolbar) &&
-            createPortal(this.renderActions(), this.props.portal.toolbar)}
+  // Callbacks
+  const toggleFilterMenu = useCallback((show: boolean = null) => {
+    setShowFilterMenuToggle((prev) => show ?? !prev);
+  }, []);
 
-          {/* Tabs */}
-          {this.props.tabs?.length ? (
-            <Card.Header className="table-tabs border-bottom align-items-stretch py-0 min-h-auto">
-              <TableTabs tabs={this.props.tabs} />
-            </Card.Header>
-          ) : null}
-
-          {this.props.filterPosition === 'header' && this.props.filters ? (
-            <Card.Header className="table-filter border-bottom align-items-stretch">
-              <TableFilterContainer filters={this.props.filters} />
-            </Card.Header>
-          ) : null}
-
-          {this.props.filters
-            ? (this.props.filterPosition === 'menu' ||
-                (this.props.filterPosition === 'sidebar' &&
-                  this.props.filtersStorage.length > 0)) && (
-                <Card.Header
-                  className={classNames('border-bottom', {
-                    'd-none':
-                      !this.state.showFilterMenuToggle &&
-                      this.props.filterPosition === 'menu',
-                  })}
-                >
-                  <TableFilters
-                    table={this.props.table}
-                    filtersStorage={this.props.filtersStorage}
-                    filters={this.props.filters}
-                    renderFiltersDrawer={this.props.renderFiltersDrawer}
-                    hideClearFilters={this.props.hideClearFilters}
-                    filterPosition={this.props.filterPosition}
-                    setFilter={this.props.setFilter}
-                    applyFiltersFn={this.props.applyFiltersFn}
-                    selectedSavedFilter={this.props.selectedSavedFilter}
-                  />
-                </Card.Header>
-              )
-            : null}
-
-          {!this.state.closedHiddenActionsMessage &&
-            this.props.hasOptionalColumns &&
-            this.props.activeColumns[COLUMN_ACTIONS_KEY] === false && (
-              <Card.Header className="border-bottom">
-                <HiddenActionsMessage
-                  toggleColumn={this.props.toggleColumn}
-                  close={() =>
-                    this.setState({ closedHiddenActionsMessage: true })
-                  }
-                />
-              </Card.Header>
-            )}
-
-          <Card.Body>
-            <div
-              ref={this.tableResponsive}
-              className="table-responsive dataTables_wrapper"
-              style={{ minHeight: this.props.minHeight || 300 }}
-              onScroll={this.handleHorizontalScroll}
-            >
-              <div
-                className={classNames(
-                  'table-container',
-                  tableHover && 'table-hover-shadow',
-                  gridHover && 'grid-hover-shadow',
-                )}
-              >
-                {this.renderBody()}
-              </div>
-            </div>
-            {this.props.hasPagination && (
-              <TablePagination
-                {...this.props.pagination}
-                hasRows={this.hasRows()}
-                showPageSizeSelector={this.props.showPageSizeSelector}
-                updatePageSize={this.props.updatePageSize}
-                gotoPage={this.props.gotoPage}
-              />
-            )}
-            {this.props.footer}
-          </Card.Body>
-        </Card>
-      </FilterContextProvider>
-    );
-  }
-
-  renderBody() {
-    if (this.props.loading && !this.hasRows()) {
-      return (
-        <h1 className="text-center">
-          <TableLoadingSpinnerContainer {...this.props} />
-        </h1>
-      );
-    }
-
-    if (this.props.error) {
-      return <ErrorView error={this.props.error} />;
-    }
-
-    if (!this.props.loading && !this.hasRows()) {
-      if (this.props.placeholderComponent) {
-        return this.props.placeholderComponent;
-      } else {
-        const { query, verboseName, setQuery } = this.props;
-        return (
-          <TablePlaceholder
-            query={query}
-            filtersStorage={this.props.filtersStorage}
-            verboseName={verboseName}
-            emptyMessage={this.props.emptyMessage}
-            clearSearch={() => setQuery('')}
-            fetch={this.props.fetch}
-            hasRetry={this.props.placeholderHasRetry}
-            actions={this.props.placeholderActions}
-          />
-        );
-      }
-    }
-
-    return this.props.mode === 'grid' && this.props.gridItem ? (
-      <ErrorBoundary fallback={ErrorMessage}>
-        <GridBody
-          rows={this.props.rows}
-          gridItem={this.props.gridItem}
-          gridSize={this.props.gridSize}
-        />
-      </ErrorBoundary>
-    ) : (
-      <ErrorBoundary fallback={ErrorMessage}>
-        <TableComponent
-          {...this.props}
-          toggleFilterMenu={this.toggleFilterMenu}
-          pinnedColumns={this.state.pinnedColumns}
-        />
-      </ErrorBoundary>
-    );
-  }
-
-  renderActions() {
-    return (
-      <>
-        {/* Multi-select actions */}
-        {this.props.selectedRows?.length > 0 &&
-          this.props.multiSelectActions && (
-            <Col
-              xs="auto"
-              className="order-1 order-sm-1 d-flex justify-content-start flex-wrap text-nowrap gap-3"
-            >
-              <Stack
-                direction="horizontal"
-                className="fw-normal text-dark me-2"
-              >
-                <Button
-                  variant="text-secondary"
-                  className="btn-icon me-1"
-                  size="sm"
-                  onClick={this.props.resetSelection}
-                >
-                  <XIcon weight="bold" />
-                </Button>
-                <span>
-                  ({this.props.selectedRows?.length}) {translate('Selected')}
-                </span>
-              </Stack>
-              {React.createElement(this.props.multiSelectActions, {
-                rows: this.props.selectedRows,
-                refetch: () => {
-                  this.props.fetch();
-                  this.props.resetSelection();
-                },
-              })}
-            </Col>
-          )}
-
-        {/* Table Query */}
-        {this.props.hasQuery && (
-          <Col
-            xs
-            className={classNames(
-              'order-2 order-sm-2 mw-lg-325px',
-              !this.props.standalone && 'ms-auto',
-            )}
-          >
-            {this.props.hasQuery && (
-              <TableQuery
-                query={this.props.query}
-                setQuery={this.props.setQuery}
-              />
-            )}
-          </Col>
-        )}
-
-        {/* Remaining table action buttons */}
-        <Col sm="auto" className="order-3 order-sm-3 ms-auto">
-          {this.showActionsColumn() && (
-            <div className="d-flex justify-content-sm-end flex-wrap flex-sm-nowrap text-nowrap gap-3">
-              <TableButtons
-                {...this.props}
-                showFilterMenuToggle={this.state.showFilterMenuToggle}
-                toggleFilterMenu={this.toggleFilterMenu}
-              />
-            </div>
-          )}
-        </Col>
-      </>
-    );
-  }
-
-  componentDidMount() {
-    if (this.props.initialMode) {
-      this.props.setDisplayMode(this.props.initialMode);
-    }
-    const doFetch = !this.props.initialPageSize && !this.props.initialSorting;
-    if (this.props.initialPageSize) {
-      this.props.updatePageSize(this.props.initialPageSize);
-    }
-    if (this.props.initialSorting) {
-      this.props.sortList(this.props.initialSorting);
-    }
-    if (
-      this.props.loading ||
-      this.props.rows.length ||
-      this.props.error ||
-      !this.props.firstFetch
-    ) {
-      return;
-    }
-    if (doFetch) this.props.fetch();
-  }
-
-  componentDidUpdate(prevProps: TableProps) {
-    if (
-      prevProps.pagination.currentPage !== this.props.pagination.currentPage
-    ) {
-      this.props.fetch();
-    } else if (
-      prevProps.pagination.pageSize !== this.props.pagination.pageSize
-    ) {
-      this.props.resetPagination();
-      this.props.fetch();
-    } else if (prevProps.query !== this.props.query) {
-      this.props.resetPagination();
-      this.props.fetch();
-    } else if (!isEqual(prevProps.filtersStorage, this.props.filtersStorage)) {
-      this.props.resetPagination();
-    } else if (
-      prevProps.sorting !== this.props.sorting &&
-      this.props.sorting.loading
-    ) {
-      this.props.fetch();
-    }
-
-    // Fire the scroll handler fn to check floating state of pinned columns
-    if (this.tableResponsive?.current) {
-      this.handleHorizontalScroll({
-        target: this.tableResponsive.current,
-      } as any);
-    }
-  }
-
-  componentWillUnmount() {
-    this.props.resetSelection();
-  }
-
-  handleHorizontalScroll = debounce(
-    (event: React.UIEvent<HTMLDivElement, UIEvent>) => {
+  const handleHorizontalScroll = useCallback(
+    (
+      event:
+        React.UIEvent<HTMLDivElement, UIEvent> | { target: HTMLDivElement },
+    ) => {
       const responsiveEl = event.target as HTMLDivElement;
-      const tableEl = responsiveEl.querySelector('table');
+      const tableEl = responsiveEl?.querySelector('table');
 
       if (!responsiveEl || !tableEl) return;
 
@@ -532,42 +112,385 @@ class TableClass<RowType = any> extends React.Component<TableProps<RowType>> {
       const tableWidth =
         tableEl.getBoundingClientRect()?.width || responsiveEl.clientWidth;
 
-      const actionsIsFloating =
-        responsiveWidth + responsiveEl.scrollLeft < tableWidth - 4;
-
-      if (this.state.pinnedColumns[COLUMN_ACTIONS_KEY] !== actionsIsFloating) {
-        this.setState({
-          pinnedColumns: {
-            ...this.state.pinnedColumns,
-            [COLUMN_ACTIONS_KEY]: actionsIsFloating,
-          },
-        });
-      }
+      setActionsFloating(
+        responsiveWidth + responsiveEl.scrollLeft < tableWidth - 4,
+      );
+      setPinnedShadows((prev) => {
+        const next = computePinnedShadows(
+          pinnedCellsRef.current,
+          responsiveEl.scrollLeft,
+          responsiveEl.clientWidth,
+        );
+        return isEqual(prev, next) ? prev : next;
+      });
     },
-    10,
+    [],
   );
 
-  toggleFilterMenu(show: boolean = null) {
-    this.setState({
-      showFilterMenuToggle: show ?? !this.state.showFilterMenuToggle,
-    });
-  }
+  // Debounced scroll handler
+  const debouncedScrollHandler = useMemo(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    return (event: React.UIEvent<HTMLDivElement, UIEvent>) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => handleHorizontalScroll(event), 10);
+    };
+  }, [handleHorizontalScroll]);
 
-  hasRows() {
-    return this.props.rows && this.props.rows.length > 0;
-  }
-
-  showActionsColumn() {
-    return (
-      (this.props.enableMultiSelect && this.props.multiSelectActions) ||
-      this.props.tableActions ||
-      Boolean(this.props.dropdownActions) ||
-      this.props.enableExport ||
-      this.props.filters ||
-      this.props.hasOptionalColumns ||
-      Boolean(this.props.gridItem && this.props.columns.length)
+  // Measure rendered header cell widths to derive the sticky insets of pinned
+  // columns. DOM order is the source of truth for column order. The first
+  // `table` under the wrapper is this table itself (nested tables live inside
+  // its tbody), and the direct-child scoping below keeps header cells of
+  // nested tables — which may reuse the same column ids — out of the
+  // measurement.
+  const recomputePinnedOffsets = useCallback(() => {
+    const tableEl = tableResponsiveRef.current?.querySelector('table');
+    const headerCells = tableEl?.querySelectorAll<HTMLElement>(
+      ':scope > thead > tr > *',
     );
+    // Natural x = cumulative width of the preceding header cells. Computed
+    // from widths rather than offsetLeft because a stuck sticky cell reports
+    // its displaced position, which would corrupt the geometry.
+    const cells: Array<{ key: string; x: number; width: number }> = [];
+    let acc = 0;
+    Array.from(headerCells || []).forEach((el) => {
+      const width = el.getBoundingClientRect().width;
+      if (el.dataset.pinKey) {
+        cells.push({ key: el.dataset.pinKey, x: acc, width });
+      }
+      acc += width;
+    });
+    // Right-stuck pinned columns stack just before the right-pinned actions
+    // column, so its width is the base of every `right` inset.
+    const actionsTh = tableEl?.querySelector<HTMLElement>(
+      ':scope > thead > tr > th.header-actions',
+    );
+    const offsets = computePinnedOffsets(
+      cells,
+      pinnedColumnKeys || [],
+      actionsTh ? actionsTh.getBoundingClientRect().width : 0,
+    );
+    pinnedCellsRef.current = cells
+      .filter((cell) => offsets[cell.key])
+      .map((cell) => ({ ...cell, ...offsets[cell.key] }));
+    setPinnedOffsets((prev) => (isEqual(prev, offsets) ? prev : offsets));
+    // Re-derive the stuck state from the fresh geometry.
+    if (tableResponsiveRef.current) {
+      const { scrollLeft, clientWidth } = tableResponsiveRef.current;
+      setPinnedShadows((prev) => {
+        const next = computePinnedShadows(
+          pinnedCellsRef.current,
+          scrollLeft,
+          clientWidth,
+        );
+        return isEqual(prev, next) ? prev : next;
+      });
+    }
+  }, [pinnedColumnKeys]);
+
+  useEffect(() => {
+    recomputePinnedOffsets();
+    const tableEl = tableResponsiveRef.current?.querySelector('table');
+    if (!tableEl || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => recomputePinnedOffsets());
+    observer.observe(tableEl);
+    return () => observer.disconnect();
+  }, [
+    recomputePinnedOffsets,
+    props.rows,
+    props.activeColumns,
+    props.columnPositions,
+    props.mode,
+  ]);
+
+  // Merged pin record consumed by header/body cells: key present = pinned;
+  // the value marks the edge of the floating shadow (see PinnedColumns).
+  // When data columns are stuck at the right edge they form one floating
+  // group with the actions column — the group's left-boundary shadow (on its
+  // leftmost cell) replaces the actions column's own shadow.
+  const pinnedColumns = useMemo<PinnedColumns>(() => {
+    const hasRightStuckGroup = Object.values(pinnedShadows).includes('start');
+    const merged: PinnedColumns = {
+      [COLUMN_ACTIONS_KEY]: actionsFloating && !hasRightStuckGroup,
+    };
+    Object.keys(pinnedOffsets).forEach((key) => {
+      merged[key] = pinnedShadows[key] ?? false;
+    });
+    return merged;
+  }, [actionsFloating, pinnedOffsets, pinnedShadows]);
+
+  // Track whether we've applied the initial mode resolver
+  const initialModeResolvedRef = useRef(false);
+
+  // Lifecycle: componentDidMount equivalent
+  useEffect(() => {
+    if (props.initialMode && !props.initialModeResolver) {
+      props.setDisplayMode(props.initialMode);
+    }
+
+    const doFetch = !props.initialPageSize && !props.initialSorting;
+
+    if (props.initialPageSize) {
+      props.updatePageSize(props.initialPageSize);
+    }
+
+    if (props.initialSorting) {
+      props.sortList(props.initialSorting);
+    }
+
+    if (
+      props.loading ||
+      props.rows.length ||
+      props.error ||
+      !props.firstFetch
+    ) {
+      return;
+    }
+
+    if (doFetch) {
+      props.fetch();
+    }
+  }, []);
+
+  // Lifecycle: componentDidUpdate equivalent for pagination, query, filters, sorting
+  useEffect(() => {
+    // Skip initial mount
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      return;
+    }
+
+    const prevPagination = prevPaginationRef.current;
+    const prevQuery = prevQueryRef.current;
+    const prevFiltersStorage = prevFiltersStorageRef.current;
+    const prevSorting = prevSortingRef.current;
+
+    // Update refs for next comparison
+    prevPaginationRef.current = props.pagination;
+    prevQueryRef.current = props.query;
+    prevFiltersStorageRef.current = props.filtersStorage;
+    prevSortingRef.current = props.sorting;
+
+    if (prevPagination?.currentPage !== props.pagination?.currentPage) {
+      props.fetch();
+    } else if (prevPagination?.pageSize !== props.pagination?.pageSize) {
+      props.resetPagination();
+      props.fetch();
+    } else if (prevQuery !== props.query) {
+      props.resetPagination();
+      props.fetch();
+    } else if (!isEqual(prevFiltersStorage, props.filtersStorage)) {
+      props.resetPagination();
+    } else if (prevSorting !== props.sorting && props.sorting?.loading) {
+      props.fetch();
+    }
+
+    // Fire the scroll handler fn to check floating state of pinned columns
+    if (tableResponsiveRef.current) {
+      handleHorizontalScroll({ target: tableResponsiveRef.current });
+    }
+  }, [
+    props.pagination,
+    props.query,
+    props.filtersStorage,
+    props.sorting,
+    props.fetch,
+    props.resetPagination,
+    handleHorizontalScroll,
+  ]);
+
+  // Auto-show filter bar when filters are loaded (e.g., from URL)
+  useEffect(() => {
+    if (props.filtersStorage?.length > 0 && !showFilterMenuToggle) {
+      setShowFilterMenuToggle(true);
+    }
+  }, [props.filtersStorage?.length]);
+
+  // Apply initialModeResolver after first data fetch
+  useEffect(() => {
+    if (
+      props.initialModeResolver &&
+      !initialModeResolvedRef.current &&
+      props.pagination?.resultCount !== undefined &&
+      !props.loading
+    ) {
+      const resolvedMode = props.initialModeResolver(
+        props.pagination.resultCount,
+      );
+      props.setDisplayMode(resolvedMode);
+      initialModeResolvedRef.current = true;
+    }
+  }, [
+    props.initialModeResolver,
+    props.pagination?.resultCount,
+    props.loading,
+    props.setDisplayMode,
+  ]);
+
+  // Lifecycle: componentWillUnmount equivalent
+  useEffect(() => {
+    return () => {
+      props.resetSelection?.();
+    };
+  }, []);
+
+  // Early return for hideIfEmpty
+  if (props.hideIfEmpty && !hasRows) {
+    return null;
   }
+
+  return (
+    <FilterContextProvider
+      {...props}
+      table={props.table}
+      toggleFilterMenu={toggleFilterMenu}
+    >
+      <TableProvider
+        {...props}
+        toggleFilterMenu={toggleFilterMenu}
+        showFilterMenuToggle={showFilterMenuToggle}
+        pinnedColumns={pinnedColumns}
+        pinnedOffsets={pinnedOffsets}
+      >
+        {/* Standalone header */}
+        {props.standalone && (
+          <div className="table-standalone-header d-flex justify-content-between gap-4">
+            <div>
+              <Stack direction="horizontal" gap={2}>
+                <h1 className="mb-0 fs-1x">
+                  {props.title || props.alterTitle}
+                </h1>
+                {!props.hideRefresh && (
+                  <TableRefreshButton
+                    fetch={props.fetch}
+                    loading={props.loading}
+                  />
+                )}
+              </Stack>
+              {Boolean(props.subtitle) && (
+                <p
+                  className={classNames(
+                    'fs-4 fw-normal d-block text-muted mb-0',
+                    props.hideRefresh && 'mt-2',
+                  )}
+                >
+                  {props.subtitle}
+                </p>
+              )}
+            </div>
+            {!props.standaloneActionsInTable && (
+              <div className="d-none d-sm-flex gap-4">{props.tableActions}</div>
+            )}
+          </div>
+        )}
+
+        {/* Main card */}
+        <Card
+          className={classNames(
+            'card-table',
+            props.fullWidth && 'full-width',
+            props.cardBordered && 'card-bordered',
+            props.fieldName ? 'field-table' : '',
+            props.mode === 'grid' && Boolean(props.gridItem) && 'grid-table',
+            props.className,
+          )}
+          id={props.id}
+        >
+          {/* Toolbar (Card.Header with title and actions) */}
+          <TableToolbar />
+
+          {/* Portals */}
+          {Boolean(props.portal?.refresh) &&
+            createPortal(
+              <TableRefreshButton
+                fetch={props.fetch}
+                loading={props.loading}
+              />,
+              props.portal?.refresh,
+            )}
+          {Boolean(props.portal?.toolbar) &&
+            createPortal(<TableToolbarActions />, props.portal.toolbar)}
+
+          {/* Tabs */}
+          {props.tabs?.length ? (
+            <Card.Header className="table-tabs border-bottom align-items-stretch py-0 min-h-auto">
+              <TableTabs tabs={props.tabs} />
+            </Card.Header>
+          ) : null}
+
+          {/* Header filters */}
+          {props.filterPosition === 'header' && props.filters ? (
+            <Card.Header className="table-filter border-bottom align-items-stretch">
+              <TableFilterContainer
+                filters={props.filters}
+                formId={props.formId}
+              />
+            </Card.Header>
+          ) : null}
+
+          {/* Menu/Sidebar filters */}
+          {props.filters
+            ? (props.filterPosition === 'menu' ||
+                (props.filterPosition === 'sidebar' &&
+                  props.filtersStorage.length > 0)) && (
+                <Card.Header
+                  className={classNames('border-bottom min-h-auto py-2', {
+                    'd-none':
+                      !showFilterMenuToggle && props.filterPosition === 'menu',
+                  })}
+                >
+                  <TableFilters
+                    table={props.table}
+                    filtersStorage={props.filtersStorage}
+                    filters={props.filters}
+                    formId={props.formId}
+                    renderFiltersDrawer={props.renderFiltersDrawer}
+                    hideClearFilters={props.hideClearFilters}
+                    filterPosition={props.filterPosition}
+                    setFilter={props.setFilter}
+                    applyFiltersFn={props.applyFiltersFn}
+                    selectedSavedFilter={props.selectedSavedFilter}
+                  />
+                </Card.Header>
+              )
+            : null}
+
+          {/* Hidden actions warning */}
+          {!closedHiddenActionsMessage &&
+            props.hasOptionalColumns &&
+            props.activeColumns[COLUMN_ACTIONS_KEY] === false && (
+              <Card.Header className="border-bottom">
+                <HiddenActionsMessage
+                  toggleColumn={props.toggleColumn}
+                  close={() => setClosedHiddenActionsMessage(true)}
+                />
+              </Card.Header>
+            )}
+
+          {/* Main content */}
+          <Card.Body className={props.bodyClassName}>
+            <div
+              ref={tableResponsiveRef}
+              className="table-responsive dataTables_wrapper"
+              style={{ minHeight: props.minHeight || 300 }}
+              onScroll={debouncedScrollHandler}
+            >
+              <TableContent />
+            </div>
+            {props.hasPagination && (
+              <TablePagination
+                {...props.pagination}
+                hasRows={hasRows}
+                showPageSizeSelector={props.showPageSizeSelector}
+                updatePageSize={props.updatePageSize}
+                gotoPage={props.gotoPage}
+              />
+            )}
+            {props.footer}
+          </Card.Body>
+        </Card>
+      </TableProvider>
+    </FilterContextProvider>
+  );
 }
 
 function Table<RowType = any>(props: TableProps<RowType>) {
@@ -594,38 +517,40 @@ function Table<RowType = any>(props: TableProps<RowType>) {
       ? 'sidebar'
       : originalFilterPosition;
 
+  // Initialize filter position
   useEffect(() => {
     setFilterPosition(originalFilterPosition);
   }, []);
 
+  // Initialize filters
   useEffect(() => {
-    // We need to render the filters at the beginning to read the initial filters
     if (filterPosition === 'sidebar') {
-      renderFiltersDrawer(filters);
+      renderFiltersDrawer(filters, props.formId);
     } else if (filterPosition === 'menu') {
       applyFiltersFn(true);
     }
   }, []);
 
+  // Fetch when filters are applied
   useEffect(() => {
     if (filterPosition === 'header' || applyFilters) {
       fetch();
     }
   }, [fetch, filterPosition, applyFilters]);
 
+  // Initialize optional columns
   useEffect(() => {
     if (columns?.length && hasOptionalColumns) {
       columns.forEach((column) => {
         toggleColumn(column.id, column, column.optional ? false : true);
       });
-      // Add actions column to the optional columns
       if (rowActions) {
         toggleColumn(COLUMN_ACTIONS_KEY, { keys: [] }, true);
       }
     }
   }, []);
 
-  // Refetch the table if a column is added (Compare with the previous keys that were fetched)
+  // Refetch when columns are added
   const prevActiveCols = useRef<string[]>([]);
   useEffect(() => {
     const currentKeys = Object.entries(activeColumns)
@@ -639,21 +564,47 @@ function Table<RowType = any>(props: TableProps<RowType>) {
       fetch();
       prevActiveCols.current = currentKeys;
     }
-  }, [activeColumns, prevActiveCols]);
+  }, [activeColumns, fetch]);
 
+  // Initialize column positions
   useEffect(() => {
     if (columns?.length) {
       initColumnPositions(columns.map((column) => column.id));
     }
   }, []);
 
-  return <TableClass {...props} filterPosition={filterPosition} />;
+  return <TableInternal {...props} filterPosition={filterPosition} />;
 }
 
-export default function TableLoader<RowType = any>(props: TableProps<RowType>) {
-  const loading = useTableLoader();
-  if (loading) {
-    return <LoadingSpinner />;
-  }
-  return <Table {...props} />;
+/**
+ * Public columns prop. Feature-gated columns are commonly declared inline as
+ * `condition && { title, render }`, which yields a falsy entry when the
+ * condition is off. Allow those here so call sites are type-safe without an
+ * explicit `.filter(Boolean)`.
+ */
+export type TableColumns<RowType = any> = Array<
+  Column<RowType> | false | null | undefined
+>;
+
+export type TableLoaderProps<RowType = any> = Omit<
+  TableProps<RowType>,
+  'columns'
+> & {
+  columns?: TableColumns<RowType>;
+};
+
+export default function TableLoader<RowType = any>({
+  columns,
+  ...props
+}: TableLoaderProps<RowType>) {
+  // Drop falsy entries centrally. The header renders a <th> for every column
+  // while the body skips columns without a render function, so a leftover
+  // falsy entry desyncs the two and shifts every subsequent column.
+  const filteredColumns = useMemo(
+    () => (columns ?? []).filter(Boolean) as Array<Column<RowType>>,
+    [columns],
+  );
+  return (
+    <Table {...(props as TableProps<RowType>)} columns={filteredColumns} />
+  );
 }

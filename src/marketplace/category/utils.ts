@@ -1,5 +1,4 @@
-import { useDispatch } from 'react-redux';
-import { useAsync } from 'react-use';
+import { useQuery } from '@tanstack/react-query';
 import {
   CategoryColumn,
   CategoryColumnRequest,
@@ -8,11 +7,10 @@ import {
   marketplaceCategoryColumnsUpdate,
 } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { translate } from '@waldur/i18n';
-import { Category, CategoryGroup } from '@waldur/marketplace/types';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { translate } from '@/i18n';
+import { Category, CategoryGroup } from '@/marketplace/types';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
 export const countSelectedFilters = (filterValues) => {
   const selectedFilters = [];
@@ -46,7 +44,9 @@ interface CategoryItem {
   params?: { category_uuid?: string; initialMode?: string };
 }
 
-export const getCategoryItems = (categories: Category[]) => {
+export const getCategoryItems = (
+  categories: Pick<Category, 'uuid' | 'group' | 'title'>[],
+) => {
   if (!categories.length) return [];
   const children: CategoryItem[] = categories
     .sort((a, b) => (a.title > b.title ? 1 : b.title > a.title ? -1 : 0))
@@ -71,7 +71,10 @@ export const getCategoryItems = (categories: Category[]) => {
 };
 
 export const getGroupedCategories = (
-  categories: Category[],
+  categories: Pick<
+    Category,
+    'uuid' | 'offering_count' | 'group' | 'icon' | 'title' | 'resource_count'
+  >[],
   categoryGroups: CategoryGroup[],
 ): CategoryGroup[] => {
   return categories.reduce((acc, category) => {
@@ -104,19 +107,23 @@ interface FormData {
 }
 
 export const useCategoryColumnsEditor = (category: Category) => {
-  const asyncState = useAsync(
-    () =>
+  const asyncState = useQuery({
+    queryKey: ['utils', category.uuid],
+
+    queryFn: () =>
       getAllPages((page) =>
         marketplaceCategoryColumnsList({
-          query: { page, category_uuid: category.uuid },
+          query: {
+            page,
+            page_size: MAX_PAGE_SIZE,
+            category_uuid: category.uuid,
+          },
         }),
       ),
-    [category.uuid],
-  );
-  const dispatch = useDispatch();
+  });
 
-  const submitRequest = async (formData: FormData) => {
-    try {
+  const submitMutation = useManagedMutation<any, any, FormData>({
+    mutationFn: async (formData) => {
       const columnRequests = formData.columns.map((column: CategoryColumn) => {
         if (column.uuid) {
           return marketplaceCategoryColumnsUpdate({
@@ -131,31 +138,22 @@ export const useCategoryColumnsEditor = (category: Category) => {
       });
 
       await Promise.all(columnRequests);
+    },
+    successMessage: translate('Category columns have been successfully saved.'),
+    errorMessage: translate(
+      'Unable to save category columns. Please try again.',
+    ),
+  });
 
-      dispatch(
-        showSuccess(
-          translate('Category columns have been successfully saved.'),
-        ),
-      );
+  const submitRequest = (values: FormData) =>
+    submitMutation.mutateAsync(values);
 
-      dispatch(closeModalDialog());
-    } catch (e) {
-      dispatch(
-        showErrorResponse(
-          e,
-          translate('Unable to save category columns. Please try again.'),
-        ),
-      );
-    }
-  };
-
-  const initialValues = { columns: asyncState.value || [] };
+  const initialValues = { columns: asyncState.data || [] };
 
   return {
     asyncState,
     submitRequest,
     category: category,
     initialValues,
-    dispatch,
   };
 };

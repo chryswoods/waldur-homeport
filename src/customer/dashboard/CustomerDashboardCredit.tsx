@@ -1,22 +1,24 @@
 import { EyeIcon, WarningOctagonIcon } from '@phosphor-icons/react';
+import { DateTime } from 'luxon';
 import { Col } from 'react-bootstrap';
 
-import { EChart } from '@waldur/core/EChart';
-import { defaultCurrency } from '@waldur/core/formatCurrency';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { Tip } from '@waldur/core/Tooltip';
-import { COMMON_WIDGET_HEIGHT } from '@waldur/dashboard/constants';
-import { WidgetCard } from '@waldur/dashboard/WidgetCard';
-import { translate } from '@waldur/i18n';
-import { useModal } from '@waldur/modal/hooks';
-import { Customer } from '@waldur/workspace/types';
+import { formatDate } from '@/core/dateUtils';
+import { EChart } from '@/core/EChart';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { lazyComponent } from '@/core/lazyComponent';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { Tip } from '@/core/Tooltip';
+import { COMMON_WIDGET_HEIGHT } from '@/dashboard/constants';
+import { WidgetCard } from '@/dashboard/WidgetCard';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { Customer } from '@/workspace/types';
 
 import { useCustomerCreditChart } from './utils';
 
 const FilteredEventsDialog = lazyComponent(() =>
-  import('@waldur/customer/credits/CreditUsageDialog').then((module) => ({
+  import('@/customer/credits/CreditUsageDialog').then((module) => ({
     default: module.CreditUsageDialog,
   })),
 );
@@ -63,7 +65,11 @@ export const CustomerDashboardCredit = ({
           <>
             {chart.title}
             <small className="text-muted fs-7 ms-4 fw-normal">
-              ({translate('Current balance')}: {defaultCurrency(credit.value)})
+              (
+              {translate('{date} balance', {
+                date: formatDate(DateTime.now().startOf('month')),
+              })}
+              : {defaultCurrency(credit.value)})
             </small>
             {credit.allocated_to_projects > Number(credit.value) && (
               <Tip
@@ -83,7 +89,7 @@ export const CustomerDashboardCredit = ({
         actions={[
           {
             label: translate('Details'),
-            icon: <EyeIcon />,
+            icon: <EyeIcon weight="bold" />,
             callback: viewDetails,
           },
         ]}

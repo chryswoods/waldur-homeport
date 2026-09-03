@@ -3,11 +3,10 @@ import { FC } from 'react';
 import { Form } from 'react-final-form';
 import { marketplacePlansCreate } from 'waldur-js-client';
 
-import { SubmitButton } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { useModal } from '@waldur/modal/hooks';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { useNotify } from '@waldur/store/hooks';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
 import { formatPlan } from '../../store/utils';
 
@@ -23,9 +22,6 @@ interface AddPlanDialogProps {
 }
 
 export const AddPlanDialog: FC<AddPlanDialogProps> = ({ resolve }) => {
-  const { showSuccess, showErrorResponse } = useNotify();
-  const { closeDialog } = useModal();
-
   const initialValues = resolve.plan
     ? {
         ...resolve.plan,
@@ -36,25 +32,22 @@ export const AddPlanDialog: FC<AddPlanDialogProps> = ({ resolve }) => {
       }
     : undefined;
 
-  const onSubmit = async (formData) => {
-    try {
-      await marketplacePlansCreate({
+  const createPlanMutation = useManagedMutation<any, any, any>({
+    mutationFn: (formData) =>
+      marketplacePlansCreate({
         body: {
           offering: resolve.offering.url,
           ...formatPlan(formData),
         },
-      });
-      showSuccess(translate('Plan has been created successfully.'));
-      await resolve.refetch();
-      closeDialog();
-    } catch (error) {
-      showErrorResponse(error, translate('Unable to create plan.'));
-    }
-  };
+      }),
+    successMessage: translate('Plan has been created successfully.'),
+    errorMessage: translate('Unable to create plan.'),
+    refetch: resolve.refetch,
+  });
 
   return (
     <Form
-      onSubmit={onSubmit}
+      onSubmit={(values) => createPlanMutation.mutateAsync(values)}
       initialValues={initialValues}
       render={({ handleSubmit, submitting, invalid }) => (
         <form onSubmit={handleSubmit}>

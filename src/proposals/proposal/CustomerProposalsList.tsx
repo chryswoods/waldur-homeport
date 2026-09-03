@@ -1,63 +1,46 @@
-import { ChatTeardropTextIcon } from '@phosphor-icons/react';
-import { FC } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
-import {
-  proposalProposalsList,
-  ProposalProposalsListData,
-} from 'waldur-js-client';
+import { FC, useMemo } from 'react';
+import { proposalProposalsList } from 'waldur-js-client';
 
-import { Link } from '@waldur/core/Link';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
+import { Link } from '@/core/Link';
+import { translate } from '@/i18n';
+import { getNonCanceledProposalStates } from '@/proposals/utils';
+import { createFetcher } from '@/table/api';
 import {
-  getNonCanceledProposalStates,
-  getProposalStateOptions,
-} from '@waldur/proposals/utils';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { renderFieldOrDash } from '@waldur/table/utils';
-import { getCustomer } from '@waldur/workspace/selectors';
+  ProposalsFilter,
+  selectProposalsFilter,
+  ProposalStatesOptions,
+  ProposalsFilterFormId,
+} from '@/table/generated/ProposalsFilter';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
+import { useCustomer } from '@/workspace/hooks';
 
-import { PROPOSALS_FILTER_FORM_ID } from '../constants';
 import { EndingField } from '../EndingField';
 import { ProposalExpandableRow } from '../round/proposals/ProposalExpandableRow';
-import { ProposalNotesDialog } from '../round/proposals/ProposalNotesDialog';
 
 import { ProposalBadge } from './ProposalBadge';
 import { ProposalRowActions } from './ProposalRowActions';
-import { ProposalsTableFilter } from './ProposalsTableFilter';
 
-const mapStateToFilter = createSelector(
-  getCustomer,
-  getFormValues(PROPOSALS_FILTER_FORM_ID),
-  (customer, filters: any) => {
-    const result: ProposalProposalsListData['query'] = {};
-    if (customer) {
-      result.organization_uuid = customer.uuid;
-    }
-    result.o = ['-round__cutoff_time'];
-    result.state = getNonCanceledProposalStates();
+export const CustomerProposalsList: FC = () => {
+  const customer = useCustomer();
+  const values = useFilterValues('ProposalsList');
+  const formFilters = useMemo(() => selectProposalsFilter(values), [values]);
 
-    if (filters) {
-      if (filters.state) {
-        result.state = filters.state.map((option) => option.value);
-      }
-      if (filters.call) {
-        result.call_uuid = filters.call.uuid;
-      }
-    }
-    return result;
-  },
-);
+  const filter = useMemo(
+    () => ({
+      organization_uuid: customer?.uuid,
+      o: ['-round__cutoff_time'],
+      state: getNonCanceledProposalStates(),
+      ...formFilters,
+    }),
+    [customer?.uuid, formFilters],
+  );
 
-export const CustomerProposalsList: FC<{}> = () => {
-  const dispatch = useDispatch();
-  const filter = useSelector(mapStateToFilter);
   const tableProps = useTable({
     table: 'ProposalsList',
+    syncFiltersToURL: true,
     fetchData: createFetcher(proposalProposalsList),
     queryField: 'name',
     filter,
@@ -78,38 +61,8 @@ export const CustomerProposalsList: FC<{}> = () => {
           ),
         },
         {
-          title: translate('ID'),
-          render: ({ row }) => <span className="fw-semibold">{row.slug}</span>,
-          className: 'text-nowrap',
-        },
-        {
-          title: translate('Notes'),
-          render: ({ row }) => {
-            const count = (row.notes ?? []).length;
-            return (
-              <button
-                className="btn btn-sm btn-light-primary btn-icon-text"
-                onClick={(e) => {
-                  e.currentTarget.blur();
-                  dispatch(
-                    openModalDialog(ProposalNotesDialog as any, {
-                      resolve: { proposal: row, refetch: tableProps.fetch },
-                      size: 'md',
-                    } as any),
-                  );
-                }}
-              >
-                <ChatTeardropTextIcon className="me-1" />
-                {count}
-              </button>
-            );
-          },
-          keys: ['notes'],
-          id: 'notes',
-        },
-        {
           title: translate('Applicant'),
-          render: ({ row }) => <>{row.created_by_name || '-'} </>,
+          render: ({ row }) => <>{renderFieldOrDash(row.created_by_name)} </>,
         },
         {
           title: translate('Call'),
@@ -131,12 +84,7 @@ export const CustomerProposalsList: FC<{}> = () => {
         },
         {
           title: translate('Ending'),
-          render: ({ row }) => (
-            <EndingField
-              endDate={row.round?.cutoff_time}
-              hasFixedDuration={Boolean(row.duration_in_days)}
-            />
-          ),
+          render: ({ row }) => <EndingField endDate={row.round?.cutoff_time} />,
           className: 'text-nowrap',
         },
         {
@@ -144,17 +92,18 @@ export const CustomerProposalsList: FC<{}> = () => {
           render: ({ row }) => <ProposalBadge state={row.state} />,
           filter: 'state',
           inlineFilter: (row) =>
-            getProposalStateOptions().filter((s) => s.value === row.state),
+            ProposalStatesOptions.filter((s) => s.value === row.state),
         },
       ]}
       title={translate('Proposals')}
       verboseName={translate('Proposals')}
       hasQuery={true}
-      filters={<ProposalsTableFilter form={PROPOSALS_FILTER_FORM_ID} />}
+      filters={<ProposalsFilter />}
       rowActions={({ row }) => (
         <ProposalRowActions refetch={tableProps.fetch} row={row} />
       )}
       expandableRow={ProposalExpandableRow}
+      formId={ProposalsFilterFormId}
     />
   );
 };

@@ -1,44 +1,48 @@
 import { TrashIcon } from '@phosphor-icons/react';
 import { Dropdown } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
 import { customerCreditsDestroy } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+
+const DeleteCreditDialog = lazyComponent(() =>
+  import('./DeleteCreditDialog').then((module) => ({
+    default: module.DeleteCreditDialog,
+  })),
+);
 
 export const DeleteCreditButton = ({ row, refetch }) => {
-  const dispatch = useDispatch();
+  const { openDialog, closeDialog } = useModal();
 
-  const handleDeleteConfirmation = async () => {
-    try {
-      await waitForConfirmation(
-        dispatch,
-        translate('Delete confirmation'),
-        translate('Are you sure you want to delete this credit?'),
-        { forDeletion: true },
-      );
-    } catch {
-      return;
-    }
-    try {
-      await customerCreditsDestroy({ path: { uuid: row.uuid } });
-      refetch();
-      dispatch(showSuccess(translate('Credit deleted successfully.')));
-    } catch (error) {
-      dispatch(
-        showErrorResponse(error, translate('Error while deleting credit.')),
-      );
-    }
-  };
+  // Deleting an organization credit cascades to the project credits allocated
+  // out of it, so the confirmation names them rather than asking about "this
+  // credit" alone.
+  const deleteMutation = useManagedMutation<any, any, void>({
+    mutationFn: () => customerCreditsDestroy({ path: { uuid: row.uuid } }),
+    successMessage: translate('Credit deleted successfully.'),
+    errorMessage: translate('Error while deleting credit.'),
+    refetch,
+  });
+
+  const confirm = () =>
+    openDialog(DeleteCreditDialog, {
+      size: 'lg',
+      customerUuid: row.customer_uuid,
+      customerName: row.customer_name,
+      onConfirm: () => {
+        closeDialog();
+        deleteMutation.mutate();
+      },
+    });
 
   return (
     <Dropdown.Item
       as="button"
       className="text-danger"
-      onClick={() => {
-        handleDeleteConfirmation();
-      }}
+      disabled={deleteMutation.isPending}
+      onClick={confirm}
     >
       <span className="svg-icon svg-icon-2 svg-icon-danger">
         <TrashIcon weight="bold" />

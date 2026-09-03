@@ -1,29 +1,38 @@
-import React from 'react';
-import { Field } from 'redux-form';
+import React, { useMemo } from 'react';
 
-import { REACT_SELECT_TABLE_FILTER, Select } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { CallOffering } from '@waldur/proposals/types';
+import { translate } from '@/i18n';
+import { CallOffering } from '@/proposals/types';
+import { SelectFilter } from '@/table';
 
 export const CallOfferingFilter: React.FC<{
-  options: Partial<Pick<CallOffering, 'offering_name' | 'offering_uuid'>>[];
-}> = ({ options }) => (
-  <Field
-    name="offering"
-    component={(fieldProps) => (
-      <Select
-        placeholder={translate('Select offering...')}
-        options={options.map((op) => ({
-          offering_name: op.offering_name,
-          offering_uuid: op.offering_uuid,
-        }))}
-        value={fieldProps.input.value}
-        onChange={(value) => fieldProps.input.onChange(value)}
-        isClearable={true}
-        getOptionLabel={(option) => option.offering_name}
-        getOptionValue={(option) => option.offering_uuid}
-        {...REACT_SELECT_TABLE_FILTER}
-      />
-    )}
-  />
-);
+  options?: Partial<Pick<CallOffering, 'offering_name' | 'offering_uuid'>>[];
+  [key: string]: any;
+}> = ({ options = [], ...props }) => {
+  // Narrowed to the two fields this filter reads, rather than passed through
+  // whole. A call offering also carries `options` — the offering's order form
+  // schema — and react-select decides what is a group by asking whether the
+  // key is there at all, so every offering was read as a group of options and
+  // the render threw on mapping over an object.
+  const selectOptions = useMemo(
+    () =>
+      options.map(({ offering_name, offering_uuid }) => ({
+        offering_name,
+        offering_uuid,
+      })),
+    [options],
+  );
+
+  return (
+    <SelectFilter
+      title={translate('Offering')}
+      name="offering"
+      badgeValue={(value) => value?.offering_name}
+      placeholder={translate('Select offering...')}
+      options={selectOptions}
+      isClearable={true}
+      getOptionLabel={(option) => option.offering_name}
+      getOptionValue={(option) => option.offering_uuid}
+      {...props}
+    />
+  );
+};

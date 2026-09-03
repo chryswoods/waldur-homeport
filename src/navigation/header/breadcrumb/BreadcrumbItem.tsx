@@ -5,15 +5,16 @@ import { uniqueId } from 'lodash-es';
 import { PropsWithChildren, forwardRef } from 'react';
 import { Breadcrumb, BreadcrumbItemProps } from 'react-bootstrap';
 
-import { Tip } from '@waldur/core/Tooltip';
-import { TruncatedText } from '@waldur/core/TruncatedText';
-import { truncate as truncateText } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
+import { MiddleTruncate } from '@/core/MiddleTruncate';
+import { Tip } from '@/core/Tooltip';
+import { truncate as truncateText } from '@/core/utils';
+import { translate } from '@/i18n';
 
 interface OwnProps extends BreadcrumbItemProps {
   ellipsis?: 'md' | 'xl' | 'xxl';
   truncate?: boolean;
   maxLength?: number; // to truncate title always
+  tooltipText?: string;
   isBack?: boolean;
   to?: string;
   params?: object;
@@ -26,6 +27,7 @@ export const BreadcrumbItem = forwardRef<any, PropsWithChildren<OwnProps>>(
       ellipsis = undefined,
       truncate,
       maxLength,
+      tooltipText,
       isBack,
       children,
       className,
@@ -37,18 +39,35 @@ export const BreadcrumbItem = forwardRef<any, PropsWithChildren<OwnProps>>(
     ref,
   ) => {
     const ellipsisClass = ellipsis ? 'ellipsis-' + ellipsis : '';
-    const sref = useSref(to || '404', params);
+    const isLink = Boolean(to);
+    const sref = useSref(to ?? 'profile.details', params);
+    const isStatic = !isLink && !onClick;
+
+    const handleClick =
+      isLink || onClick
+        ? (event) => {
+            if (isLink) {
+              sref?.onClick?.(event);
+            }
+            onClick?.(event);
+          }
+        : undefined;
 
     return (
       <Breadcrumb.Item
         {...rest}
-        {...(to ? sref : {})}
-        onClick={(event) => {
-          if (sref?.onClick) sref.onClick(event);
-          if (onClick) onClick(event);
-        }}
+        {...(isLink ? sref : {})}
+        linkAs={isStatic ? 'span' : undefined}
+        linkProps={
+          isStatic
+            ? { className: 'breadcrumb-item-static-label', tabIndex: undefined }
+            : undefined
+        }
+        onClick={handleClick}
         ref={ref}
-        className={classNames(className, ellipsisClass)}
+        className={classNames(className, ellipsisClass, {
+          'breadcrumb-item-static': isStatic,
+        })}
       >
         {isBack && (
           <>
@@ -61,7 +80,12 @@ export const BreadcrumbItem = forwardRef<any, PropsWithChildren<OwnProps>>(
           </>
         )}
         {typeof children === 'string' ? (
-          maxLength ? (
+          rest.active ? (
+            // The last/active breadcrumb (e.g. resource name) stays on one line
+            // and middle-truncates ("start…end") only when it doesn't fit, so
+            // the header actions stay on screen and the suffix stays readable.
+            <MiddleTruncate text={children} />
+          ) : maxLength ? (
             <span>
               {children.length > maxLength + 5 ? (
                 <Tip
@@ -76,7 +100,9 @@ export const BreadcrumbItem = forwardRef<any, PropsWithChildren<OwnProps>>(
               )}
             </span>
           ) : truncate ? (
-            <TruncatedText text={children} padding={25} />
+            <span className="breadcrumb-text" title={tooltipText || children}>
+              {children}
+            </span>
           ) : (
             <span>{children}</span>
           )

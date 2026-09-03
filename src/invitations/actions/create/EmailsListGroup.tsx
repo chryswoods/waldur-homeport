@@ -1,20 +1,89 @@
 import { PlusIcon, QuestionIcon, TrashIcon } from '@phosphor-icons/react';
 import { Fragment, useCallback, useState } from 'react';
-import { Button, Form } from 'react-bootstrap';
-import { Field } from 'redux-form';
+import { Form } from 'react-bootstrap';
+import { Field } from 'react-final-form';
 
-import { ENV } from '@waldur/core/config';
-import { Tip } from '@waldur/core/Tooltip';
-import { usePagination } from '@waldur/core/usePagination';
-import { email, required } from '@waldur/core/validators';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { InvitationsFeatures } from '@waldur/FeaturesEnums';
-import { EmailField } from '@waldur/form/EmailField';
-import { InputField } from '@waldur/form/InputField';
-import { translate } from '@waldur/i18n';
-import { TablePagination } from '@waldur/table/TablePagination';
+import { ENV } from '@/core/config';
+import { Tip } from '@/core/Tooltip';
+import { usePagination } from '@/core/usePagination';
+import { composeValidators, email, required } from '@/core/validators';
+import { isFeatureVisible } from '@/features/connect';
+import { InvitationsFeatures } from '@/FeaturesEnums';
+import { EmailField } from '@/form/EmailField';
+import { FieldError } from '@/form/FieldError';
+import { InputField } from '@/form/InputField';
+import { translate } from '@/i18n';
+import { ActionButton } from '@/table/ActionButton';
+import { TablePagination } from '@/table/TablePagination';
 
 import { RoleAndProjectSelectField } from './RoleAndProjectSelectField';
+
+const getRowIndexFromFieldName = (fieldName: string): number | null => {
+  if (!fieldName || typeof fieldName !== 'string') return null;
+  const bracket = fieldName.match(/^rows\[(\d+)\]\.email$/);
+  if (bracket) return parseInt(bracket[1], 10);
+  const dot = fieldName.match(/^rows\.(\d+)\.email$/);
+  if (dot) return parseInt(dot[1], 10);
+  return null;
+};
+
+const getRoleUuidForRow = (allValues: any, rowIndex: number): string | null => {
+  const row = allValues?.rows?.[rowIndex];
+  return row?.role_project?.role?.uuid ?? null;
+};
+
+/** Duplicate (email + role) in form – only show error while the pair still appears more than once */
+const duplicateInFormValidator = (
+  value: string,
+  allValues: any,
+  fieldName: string,
+) => {
+  if (!value) return undefined;
+  const list = allValues?._duplicateInFormEmails as
+    Array<{ email: string; roleUuid: string }> | undefined;
+  if (!Array.isArray(list)) return undefined;
+  const rowIndex = getRowIndexFromFieldName(fieldName);
+  if (rowIndex == null) return undefined;
+  const roleUuid = getRoleUuidForRow(allValues, rowIndex);
+  const wasFlagged = list.some(
+    (p) => p.email === value && p.roleUuid === roleUuid,
+  );
+  if (!wasFlagged) return undefined;
+  const rows = allValues?.rows ?? [];
+  const count = rows.filter(
+    (row: { email?: string; role_project?: { role?: { uuid?: string } } }) =>
+      row?.email === value && row?.role_project?.role?.uuid === roleUuid,
+  ).length;
+  if (count <= 1) return undefined;
+  return translate(
+    'This email and role combination is entered more than once.',
+  );
+};
+
+/** Pending invitation from API – set after check-duplicates response. Returns object so we can show message only for server duplicates. */
+const duplicateInvitationValidator = (
+  value: string,
+  allValues: any,
+  fieldName: string,
+) => {
+  if (!value) return undefined;
+  const list = allValues?._duplicateEmails as
+    Array<{ email: string; roleUuid: string }> | undefined;
+  if (!Array.isArray(list)) return undefined;
+  const rowIndex = getRowIndexFromFieldName(fieldName);
+  if (rowIndex == null) return undefined;
+  const roleUuid = getRoleUuidForRow(allValues, rowIndex);
+  const isDuplicate = list.some(
+    (p) => p.email === value && p.roleUuid === roleUuid,
+  );
+  if (isDuplicate) {
+    return {
+      __pendingInvitation: true,
+      message: translate('This email already has a pending invitation.'),
+    };
+  }
+  return undefined;
+};
 
 export const EmailsListGroup = ({
   fields,
@@ -22,7 +91,6 @@ export const EmailsListGroup = ({
   customer,
   project,
   disabled,
-  emailDomainValidator,
 }) => {
   const [warn, setWarn] = useState(false);
 
@@ -39,11 +107,10 @@ export const EmailsListGroup = ({
 
   const addRow = useCallback(() => {
     let emptyEmails = 0;
-    if (fields._isFieldArray) {
-      fields.forEach((_, i) => {
-        if (!fields.get(i)?.email) emptyEmails++;
-      });
-    }
+    fields.value?.forEach((row) => {
+      if (!row?.email) emptyEmails++;
+    });
+
     if (emptyEmails < 5) {
       if (project) fields.push({ project });
       else fields.push({});
@@ -55,7 +122,7 @@ export const EmailsListGroup = ({
   }, [fields, project, refreshPageOnAdd]);
 
   const removeRow = (index) => {
-    if (fields._isFieldArray) fields.remove(index);
+    fields.remove(index);
     refreshPageOnRemove();
   };
 
@@ -64,7 +131,7 @@ export const EmailsListGroup = ({
       <div id="emails-list-group">
         {fields.length > 0 && (
           <Form.Group>
-            <table className="table px-0 gy-2 mb-0">
+            <table className="table align-middle px-0 gy-2 mb-0">
               <thead>
                 <tr className="fs-6 fw-bold">
                   <td className="w-250px">{translate('Email')}</td>
@@ -81,7 +148,7 @@ export const EmailsListGroup = ({
                         id="idTooltip"
                       >
                         {' '}
-                        <QuestionIcon />
+                        <QuestionIcon weight="bold" />
                       </Tip>
                     </td>
                   )}
@@ -98,11 +165,37 @@ export const EmailsListGroup = ({
                         <td>
                           <Field
                             name={`${user}.email`}
-                            placeholder={translate('Enter email address')}
-                            required={true}
-                            component={EmailField}
-                            validate={emailDomainValidator ? [required, email, emailDomainValidator] : [required, email]}
-                          />
+                            validate={(value, allValues, meta) => {
+                              const err = composeValidators(
+                                required,
+                                email,
+                              )(value);
+                              if (err) return err;
+                              const fieldName =
+                                (meta as { name?: string })?.name ??
+                                `${user}.email`;
+                              const duplicateInForm = duplicateInFormValidator(
+                                value,
+                                allValues,
+                                fieldName,
+                              );
+                              if (duplicateInForm) return duplicateInForm;
+                              return duplicateInvitationValidator(
+                                value,
+                                allValues,
+                                fieldName,
+                              );
+                            }}
+                          >
+                            {({ input, meta }) => (
+                              <EmailField
+                                input={input}
+                                meta={meta}
+                                placeholder={translate('Enter email address')}
+                                required
+                              />
+                            )}
+                          </Field>
                         </td>
                         {isFeatureVisible(
                           InvitationsFeatures.conceal_civil_number,
@@ -110,9 +203,6 @@ export const EmailsListGroup = ({
                           <td>
                             <Field
                               name={`${user}.civil_number`}
-                              placeholder={translate('e.g. EE123456789')}
-                              component={InputField}
-                              disabled={disabled}
                               validate={
                                 isFeatureVisible(
                                   InvitationsFeatures.civil_number_required,
@@ -120,7 +210,16 @@ export const EmailsListGroup = ({
                                   ? required
                                   : undefined
                               }
-                            />
+                            >
+                              {({ input, meta }) => (
+                                <InputField
+                                  input={input}
+                                  meta={meta}
+                                  placeholder={translate('e.g. EE123456789')}
+                                  disabled={disabled}
+                                />
+                              )}
+                            </Field>
                           </td>
                         )}
                         <td className="role-column">
@@ -132,18 +231,49 @@ export const EmailsListGroup = ({
                           />
                         </td>
                         <td>
-                          <Button
+                          <ActionButton
                             variant="text-danger"
-                            className="btn-icon"
-                            onClick={() => removeRow(i)}
+                            action={() => removeRow(i)}
                             disabled={fields.length === 1}
-                          >
-                            <span className="svg-icon svg-icon-1x">
-                              <TrashIcon weight="bold" />
-                            </span>
-                          </Button>
+                            disabledReason={translate(
+                              'At least one email is required',
+                            )}
+                            iconNode={<TrashIcon weight="bold" />}
+                          />
                         </td>
                       </tr>
+                      <Field
+                        name={`${user}.email`}
+                        subscription={{ error: true }}
+                        render={({ meta }) => {
+                          const err = meta.error;
+                          if (
+                            !err ||
+                            typeof err !== 'object' ||
+                            !(err as { __pendingInvitation?: boolean })
+                              .__pendingInvitation
+                          )
+                            return null;
+                          return (
+                            <tr className="fs-6">
+                              <td
+                                colSpan={
+                                  isFeatureVisible(
+                                    InvitationsFeatures.conceal_civil_number,
+                                  )
+                                    ? 3
+                                    : 4
+                                }
+                                className="border-0 pt-0 pb-2"
+                              >
+                                <FieldError
+                                  error={(err as { message: string }).message}
+                                />
+                              </td>
+                            </tr>
+                          );
+                        }}
+                      />
                     </Fragment>
                   );
                 })}
@@ -152,14 +282,20 @@ export const EmailsListGroup = ({
           </Form.Group>
         )}
         <div>
-          <Button variant="text-primary" disabled={warn} onClick={addRow}>
-            <div className="svg-icon svg-icon-2">
-              <PlusIcon weight="bold" />
-            </div>
-            {fields.length > 0
-              ? translate('Add another user')
-              : translate('Add user')}
-          </Button>
+          <ActionButton
+            variant="text-primary"
+            disabled={warn}
+            disabledReason={translate(
+              'Fill in empty email fields before adding more',
+            )}
+            action={addRow}
+            title={
+              fields.length > 0
+                ? translate('Add another user')
+                : translate('Add user')
+            }
+            iconNode={<PlusIcon weight="bold" />}
+          />
           {warn && (
             <span className="text-danger ms-2">
               {translate('Too many empty fields')}

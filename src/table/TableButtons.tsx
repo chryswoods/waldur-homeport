@@ -1,7 +1,7 @@
 import { FunctionComponent, useCallback } from 'react';
 import { useMediaQuery } from 'react-responsive';
 
-import { GRID_BREAKPOINTS } from '@waldur/core/constants';
+import { GRID_BREAKPOINTS } from '@/core/constants';
 
 import { TableColumnButton } from './TableColumnsButton';
 import { TableDisplayModeButton } from './TableDisplayModeButton';
@@ -13,6 +13,7 @@ import { TableProps } from './types';
 interface TableButtonsProps extends TableProps {
   toggleFilterMenu?(): void;
   showFilterMenuToggle?: boolean;
+  renderFilterButton?: boolean;
 }
 
 export const TableButtons: FunctionComponent<TableButtonsProps> = (props) => {
@@ -25,7 +26,7 @@ export const TableButtons: FunctionComponent<TableButtonsProps> = (props) => {
   const onClickFilterButton = useCallback(
     (event) => {
       if (props.filterPosition === 'sidebar') {
-        props.openFiltersDrawer(props.filters);
+        props.openFiltersDrawer(props.filters, props.formId);
       } else {
         props.toggleFilterMenu();
         const parent: HTMLElement = event.target.closest('.card-table');
@@ -59,13 +60,15 @@ export const TableButtons: FunctionComponent<TableButtonsProps> = (props) => {
   return (
     <>
       {showDefaultActions && (
-        <div className="d-flex justify-content-sm-end flex-wrap flex-sm-nowrap text-nowrap gap-3 flex-grow-1 flex-sm-grow-0">
+        <div className="d-flex justify-content-sm-end flex-wrap flex-sm-nowrap text-nowrap gap-4 flex-grow-1 flex-sm-grow-0">
           {/* Filter */}
-          {['menu', 'sidebar'].includes(props.filterPosition) &&
+          {props.renderFilterButton !== false &&
+            ['menu', 'sidebar'].includes(props.filterPosition) &&
             props.filters && (
               <TableFilterButton
                 onClick={onClickFilterButton}
                 hasFilter={!!props.filtersStorage?.length}
+                filterCount={props.filtersStorage?.length || 0}
               />
             )}
           {/* Display mode */}
@@ -82,13 +85,18 @@ export const TableButtons: FunctionComponent<TableButtonsProps> = (props) => {
             <TableMoreActions
               {...props}
               actions={props.dropdownActions}
+              size={props.dropdownActionsSize}
               showExport
             />
           ) : (
             <>
               {props.enableExport && <TableExportButton {...props} />}
               {Boolean(props.dropdownActions) && (
-                <TableMoreActions {...props} actions={props.dropdownActions} />
+                <TableMoreActions
+                  {...props}
+                  actions={props.dropdownActions}
+                  size={props.dropdownActionsSize}
+                />
               )}
             </>
           )}

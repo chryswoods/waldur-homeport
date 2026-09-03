@@ -1,31 +1,15 @@
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
-import { EventsListData } from 'waldur-js-client';
+import { useMemo } from 'react';
 
-import { BaseEventsList } from '@waldur/events/BaseEventsList';
-
-import { SupportEventsFilter } from './SupportEventsFilter';
+import { BaseEventsList } from '@/events/BaseEventsList';
+import {
+  EventsFilter as SupportEventsFilter,
+  selectEventsFilter as selectSupportEventsFilter,
+} from '@/table/generated/EventsFilter';
+import { useFilterValues } from '@/table/useFilterValues';
 
 export const SupportEventsList = () => {
-  const filtersSelector = createSelector(
-    getFormValues('SupportEventsFilter'),
-    (filterValues: any) => {
-      const result: EventsListData['query'] = {};
-      if (filterValues?.organization) {
-        result.customer_uuid = filterValues.organization.uuid;
-      }
-      if (filterValues?.project) {
-        result.project_uuid = filterValues.project.uuid;
-      }
-      if (filterValues?.user) {
-        result.user_uuid = filterValues.user.uuid;
-      }
-      return result;
-    },
-  );
-
-  const filter = useSelector(filtersSelector);
+  const values = useFilterValues('support-events');
+  const filter = useMemo(() => selectSupportEventsFilter(values), [values]);
 
   return (
     <BaseEventsList

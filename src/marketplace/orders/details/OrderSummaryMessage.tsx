@@ -1,10 +1,9 @@
 import { DateTime } from 'luxon';
 import { FunctionComponent, useMemo } from 'react';
-import { OrderDetails } from 'waldur-js-client';
+import { Offering, OrderDetails, OfferingComponent } from 'waldur-js-client';
 
-import { defaultCurrency } from '@waldur/core/formatCurrency';
-import { translate } from '@waldur/i18n';
-import { Offering, OfferingComponent } from '@waldur/marketplace/types';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { translate } from '@/i18n';
 
 interface OrderSummaryProps {
   order: OrderDetails;
@@ -84,7 +83,7 @@ export const getUpdateSummary = (ctx: Context) => {
       {
         user: ctx.user,
         old_limits: formatLimits(
-          ctx.order.attributes['old_limits'],
+          (ctx.order.attributes as any)['old_limits'],
           componentMap,
         ),
         new_limits: formatLimits(ctx.order.limits, componentMap),

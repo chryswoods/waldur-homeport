@@ -1,9 +1,7 @@
 import { ArrowLeftIcon } from '@phosphor-icons/react';
-import { useQuery } from '@tanstack/react-query';
-import { FC, useCallback } from 'react';
-import { Button } from 'react-bootstrap';
-import { useDispatch, useSelector } from 'react-redux';
-import { getFormValues, reduxForm } from 'redux-form';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { FC, useCallback, useState } from 'react';
+import { Form, FormSpy } from 'react-final-form';
 import {
   MaintenanceAnnouncementTemplate,
   MaintenanceAnnouncementTemplateRequest,
@@ -17,21 +15,18 @@ import {
   ServiceProvider,
 } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinnerIcon } from '@waldur/core/LoadingSpinner';
-import { getUUID } from '@waldur/core/utils';
-import { required } from '@waldur/core/validators';
-import {
-  FormContainer,
-  SelectField,
-  StringField,
-  SubmitButton,
-} from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { UI_STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinnerSimple } from '@/core/LoadingSpinner';
+import { getUUID } from '@/core/utils';
+import { required } from '@/core/validators';
+import { SubmitButton, SelectGroup, StringGroup } from '@/form';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useNotify } from '@/store/notify';
+import { ActionButton } from '@/table/ActionButton';
 
 import { MaintenanceForm, MaintenanceFormDialogProps } from '../types';
 import {
@@ -39,7 +34,7 @@ import {
   MAINTENANCE_ANNOUNCEMENT_FORM_ID,
 } from '../utils';
 
-interface IForm {
+interface FormValues {
   name?: string;
   template?: MaintenanceAnnouncementTemplate;
 }
@@ -50,16 +45,21 @@ interface OwnProps {
     data: MaintenanceForm;
     provider?: ServiceProvider;
     maintenanceUuid?: string;
-    onSave(template: MaintenanceAnnouncementTemplate): void;
+    onSave?(template: MaintenanceAnnouncementTemplate): void;
     refetch?(): void;
   };
+  initialValues?: FormValues;
 }
 
-export const MaintenanceSaveAsTemplateDialog = reduxForm<IForm, OwnProps>({
-  form: 'MaintenanceSaveAsTemplate',
-})(({ submitting, handleSubmit, resolve, invalid, form, change }) => {
-  const formValues = useSelector<{}, IForm>(getFormValues(form));
-  const dispatch = useDispatch();
+export const MaintenanceSaveAsTemplateDialog: FC<OwnProps> = (props) => {
+  const { resolve } = props;
+  const queryClient = useQueryClient();
+  const [selectedTemplateUuid, setSelectedTemplateUuid] = useState<string>(
+    props.initialValues?.template?.uuid,
+  );
+
+  const { showErrorResponse, showSuccess } = useNotify();
+  const { openDialog } = useModal();
 
   const {
     data: templates,
@@ -73,12 +73,12 @@ export const MaintenanceSaveAsTemplateDialog = reduxForm<IForm, OwnProps>({
         maintenanceAnnouncementsTemplateList({
           query: {
             page,
-            page_size: 1000,
+            page_size: MAX_PAGE_SIZE,
             service_provider_uuid: resolve.provider?.uuid,
           },
         }),
       ),
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
     refetchOnWindowFocus: false,
   });
 
@@ -89,26 +89,26 @@ export const MaintenanceSaveAsTemplateDialog = reduxForm<IForm, OwnProps>({
     error: errorOfferings,
     refetch: refetchOfferings,
   } = useQuery({
-    queryKey: ['MaintenanceTemplateOfferings', formValues?.template?.uuid],
+    queryKey: ['MaintenanceTemplateOfferings', selectedTemplateUuid],
     queryFn: () =>
-      !formValues?.template?.uuid
+      !selectedTemplateUuid
         ? null
         : getAllPages((page) =>
             maintenanceAnnouncementTemplateOfferingsList({
               query: {
                 page,
-                page_size: 1000,
-                maintenance_template_uuid: formValues.template.uuid,
+                page_size: MAX_PAGE_SIZE,
+                maintenance_template_uuid: selectedTemplateUuid,
               },
             }),
           ),
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
     refetchOnWindowFocus: false,
   });
 
-  const backToMainForm = () =>
-    dispatch(
-      openModalDialog(resolve.formComponent, {
+  const backToMainForm = useCallback(
+    () =>
+      openDialog(resolve.formComponent, {
         resolve: {
           provider: resolve.provider,
           refetch: resolve.refetch,
@@ -118,10 +118,11 @@ export const MaintenanceSaveAsTemplateDialog = reduxForm<IForm, OwnProps>({
         formId: MAINTENANCE_ANNOUNCEMENT_FORM_ID,
         initialValues: resolve.data,
       }),
-    );
+    [resolve, openDialog],
+  );
 
   const callback = useCallback(
-    async (formData: IForm) => {
+    async (formData: FormValues) => {
       try {
         let template;
         const body: MaintenanceAnnouncementTemplateRequest = {
@@ -212,114 +213,148 @@ export const MaintenanceSaveAsTemplateDialog = reduxForm<IForm, OwnProps>({
         await Promise.all(promisesNew);
 
         refetchOfferings();
-        resolve.onSave(template);
-        dispatch(
-          showSuccess(translate('Maintenance has been save as a template.')),
+        queryClient.setQueryData(
+          ['MaintenanceTemplates', resolve.provider?.uuid],
+          (cachedData: MaintenanceAnnouncementTemplate[] | undefined) => {
+            const foundIndex = (cachedData || []).findIndex(
+              (temp) => temp.uuid === template.uuid,
+            );
+            const newData = [...(cachedData || [])];
+
+            if (foundIndex >= 0) {
+              // Replace
+              newData.splice(foundIndex, 1, template);
+            } else {
+              // Add new
+              newData.unshift(template);
+            }
+            return newData;
+          },
         );
+        resolve.onSave?.(template);
+        showSuccess(translate('Maintenance has been save as a template.'));
         backToMainForm();
       } catch (e) {
-        dispatch(
-          showErrorResponse(
-            e,
-            translate('Unable to save a maintenance as a template.'),
-          ),
+        showErrorResponse(
+          e,
+          translate('Unable to save a maintenance as a template.'),
         );
       }
     },
-    [dispatch, resolve, templateOfferings],
+    [
+      resolve,
+      templateOfferings,
+      refetchOfferings,
+      showSuccess,
+      backToMainForm,
+      queryClient,
+    ],
   );
 
   return (
-    <ModalDialog
-      title={
-        formValues?.template
-          ? translate('Update maintenance template')
-          : translate('Create a maintenance template')
-      }
-    >
-      <form onSubmit={handleSubmit(callback)}>
-        <FormContainer submitting={submitting}>
-          {!isLoading && error ? (
-            <LoadingErred
-              loadData={refetch}
-              message={translate('Unable to load templates')}
+    <Form
+      onSubmit={callback}
+      initialValues={props.initialValues}
+      render={({ handleSubmit, submitting, invalid, form, values }) => (
+        <ModalDialog
+          title={
+            values?.template
+              ? translate('Update maintenance template')
+              : translate('Create a maintenance template')
+          }
+        >
+          <form onSubmit={handleSubmit}>
+            <FormSpy
+              subscription={{ values: true }}
+              onChange={(state) => {
+                const value = state.values?.template;
+                if (value?.uuid !== selectedTemplateUuid) {
+                  setSelectedTemplateUuid(value?.uuid);
+                  if (value) {
+                    form.change('name', value.name);
+                  } else {
+                    form.change('name', null);
+                  }
+                }
+              }}
             />
-          ) : null}
-          <SelectField
-            name="template"
-            label={translate('Template')}
-            description={translate(
-              'Select a previously saved template to update form fields',
-            )}
-            placeholder={translate('Select or leave it empty')}
-            options={templates}
-            isClearable
-            getOptionLabel={(option) => option.name}
-            getOptionValue={(option) => option.uuid}
-            isLoading={isLoading}
-            onChange={(value) => {
-              if (value) {
-                change('name', value.name);
-              } else {
-                change('name', null);
-              }
-            }}
-          />
+            <div className="size-sm">
+              {!isLoading && error ? (
+                <LoadingErred
+                  loadData={refetch}
+                  message={translate('Unable to load templates')}
+                />
+              ) : null}
+              <SelectGroup
+                name="template"
+                label={translate('Template')}
+                description={translate(
+                  'Select a previously saved template to update form fields',
+                )}
+                placeholder={translate('Select or leave it empty')}
+                options={templates}
+                isClearable
+                getOptionLabel={(option) => option.name}
+                getOptionValue={(option) => option.uuid}
+                isLoading={isLoading}
+                disabled={submitting}
+              />
 
-          {!isLoadingOfferings && errorOfferings ? (
-            <LoadingErred
-              loadData={refetchOfferings}
-              message={translate('Unable to load template offerings')}
-            />
-          ) : null}
+              {!isLoadingOfferings && errorOfferings ? (
+                <LoadingErred
+                  loadData={refetchOfferings}
+                  message={translate('Unable to load template offerings')}
+                />
+              ) : null}
 
-          <StringField
-            name="name"
-            label={translate('Name')}
-            placeholder={
-              formValues?.template
-                ? translate('Enter a name for the selected template')
-                : translate('Enter a name to save as a new template')
-            }
-            description={
-              formValues?.template
-                ? translate('Edit name for the selected template')
-                : undefined
-            }
-            maxLength={150}
-            required
-            validate={required}
-          />
+              <StringGroup
+                name="name"
+                label={translate('Name')}
+                placeholder={
+                  values?.template
+                    ? translate('Enter a name for the selected template')
+                    : translate('Enter a name to save as a new template')
+                }
+                description={
+                  values?.template
+                    ? translate('Edit name for the selected template')
+                    : undefined
+                }
+                maxLength={150}
+                required
+                validate={required}
+                disabled={submitting}
+              />
 
-          <div className="d-flex justify-content-between">
-            <Button
-              onClick={backToMainForm}
-              variant="tertiary"
-              className="min-w-125px"
-            >
-              <span className="svg-icon svg-icon-2">
-                <ArrowLeftIcon weight="bold" />
-              </span>
-              {translate('Back')}
-            </Button>
-            <SubmitButton
-              submitting={submitting}
-              disabled={
-                invalid || isLoadingOfferings || Boolean(errorOfferings)
-              }
-              label={translate('Save')}
-              className="btn btn-primary min-w-125px"
-              children={
-                isLoadingOfferings ? (
-                  <span className="svg-icon svg-icon-2">
-                    <LoadingSpinnerIcon />
-                  </span>
-                ) : null
-              }
-            />
-          </div>
-        </FormContainer>
-      </form>
-    </ModalDialog>
+              <div className="d-flex justify-content-between">
+                <ActionButton
+                  action={backToMainForm}
+                  title={translate('Back')}
+                  iconNode={<ArrowLeftIcon weight="bold" />}
+                  variant="tertiary"
+                  className="min-w-125px"
+                />
+                <SubmitButton
+                  submitting={submitting}
+                  disabled={
+                    invalid || isLoadingOfferings || Boolean(errorOfferings)
+                  }
+                  label={translate('Save')}
+                  className="btn btn-primary min-w-125px"
+                  children={
+                    isLoadingOfferings ? (
+                      <span className="svg-icon svg-icon-2">
+                        {}
+                        <LoadingSpinnerSimple />
+                      </span>
+                    ) : null
+                  }
+                />
+              </div>
+            </div>
+          </form>
+        </ModalDialog>
+      )}
+    />
   );
-});
+};

@@ -17,10 +17,11 @@
  */
 
 import { FileArrowDownIcon, FileXlsIcon } from '@phosphor-icons/react';
-import React, { FC, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, useEffect, useMemo, useRef, useState } from 'react';
 
-import { EChart } from '@waldur/core/EChart';
-import { Tip } from '@waldur/core/Tooltip';
+import { EChart } from '@/core/EChart';
+import { Tip } from '@/core/Tooltip';
+import { translate } from '@/i18n';
 
 import { ProjectUsageReport } from './ProjectUsageReport';
 import { downloadUsageExcel, downloadJson } from './reportExcel';
@@ -46,11 +47,11 @@ import {
 type ChartView = 'timeseries' | 'pie';
 type GroupMode = 'user' | 'project';
 
-const METRIC_LABELS: Record<UsageMetric, string> = {
-  usage: 'Usage (h)',
-  jobs: 'Jobs',
-  avg_wait: 'Avg Wait',
-};
+const getMetricLabels = () => ({
+  usage: translate('Usage (h)'),
+  jobs: translate('Jobs'),
+  avg_wait: translate('Avg Wait'),
+});
 
 interface Props {
   /** One or more already-fetched reports. Multiple are combined client-side. */
@@ -59,7 +60,11 @@ interface Props {
   nameMaps?: NameMaps;
 }
 
-export const UsageReportVis: FC<Props> = ({ reports, height = '420px', nameMaps }) => {
+export const UsageReportVis: FC<Props> = ({
+  reports,
+  height = '420px',
+  nameMaps,
+}) => {
   const multipleProjects = useMemo(
     () => new Set(reports.map((r) => r.project)).size > 1,
     [reports],
@@ -92,7 +97,11 @@ export const UsageReportVis: FC<Props> = ({ reports, height = '420px', nameMaps 
 
   // Animation auto-detect: disable animations when data sets are large
   const [animationsEnabled, setAnimationsEnabled] = useState(() => {
-    try { return localStorage.getItem('openportal-animations-disabled') !== '1'; } catch { return true; }
+    try {
+      return localStorage.getItem('openportal-animations-disabled') !== '1';
+    } catch {
+      return true;
+    }
   });
   const computeStartRef = useRef(0);
 
@@ -101,7 +110,10 @@ export const UsageReportVis: FC<Props> = ({ reports, height = '420px', nameMaps 
   const updateRafRef = useRef<number | undefined>(undefined);
 
   // Excel download progress
-  const [excelProgress, setExcelProgress] = useState<{ current: number; total: number } | null>(null);
+  const [excelProgress, setExcelProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
 
   // Use full usernames when viewing by user across multiple projects
   const fullNames = multipleProjects && groupMode === 'user';
@@ -139,18 +151,38 @@ export const UsageReportVis: FC<Props> = ({ reports, height = '420px', nameMaps 
         : buildAvgWaitPieOptions(report, fullNames, activeMaps);
     }
     return view === 'timeseries'
-      ? buildTimeseriesOptions(report, component, groupBy, fullNames, activeMaps)
+      ? buildTimeseriesOptions(
+          report,
+          component,
+          groupBy,
+          fullNames,
+          activeMaps,
+        )
       : buildPieOptions(report, component, fullNames, activeMaps);
-  }, [report, reports, metric, view, component, groupBy, groupMode, fullNames, activeMaps]);
+  }, [
+    report,
+    reports,
+    metric,
+    view,
+    component,
+    groupBy,
+    groupMode,
+    fullNames,
+    activeMaps,
+  ]);
 
   // Animation auto-detect effect
   useEffect(() => {
     const elapsed = performance.now() - computeStartRef.current;
     if (elapsed > 1000 && animationsEnabled) {
       setAnimationsEnabled(false);
-      try { localStorage.setItem('openportal-animations-disabled', '1'); } catch {}
+      try {
+        localStorage.setItem('openportal-animations-disabled', '1');
+      } catch {
+        /* do nothing */
+      }
     }
-  }, [options]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [options]);
 
   // Updating indicator effect
   useEffect(() => {
@@ -161,12 +193,17 @@ export const UsageReportVis: FC<Props> = ({ reports, height = '420px', nameMaps 
       });
     });
     return () => {
-      if (updateRafRef.current !== undefined) cancelAnimationFrame(updateRafRef.current);
+      if (updateRafRef.current !== undefined)
+        cancelAnimationFrame(updateRafRef.current);
     };
   }, [options]);
 
   if (!report) {
-    return <div className="text-muted p-4">No usage data available.</div>;
+    return (
+      <div className="text-muted p-4">
+        {translate('No usage data available.')}
+      </div>
+    );
   }
 
   const totalHours = report.totalUsageHours();
@@ -180,32 +217,47 @@ export const UsageReportVis: FC<Props> = ({ reports, height = '420px', nameMaps 
       {/* ── Row 1: summary + downloads ───────────────────────────────── */}
       <div className="d-flex align-items-center gap-3 mb-2 flex-wrap">
         <span className="text-muted small">
-          {destinationLabel} &middot; <strong>{totalHours.toFixed(1)} h</strong>{' '}
-          across <strong>{numUsers}</strong> user{numUsers !== 1 ? 's' : ''}{' '}
-          and <strong>{numProjects}</strong> project
-          {numProjects !== 1 ? 's' : ''}
+          {translate(
+            '{destination} · {hours} h across {numUsers} {user} and {numProjects} {project}',
+            {
+              destination: destinationLabel,
+              hours: totalHours.toFixed(1),
+              numUsers,
+              user: numUsers !== 1 ? translate('users') : translate('user'),
+              numProjects,
+              project:
+                numProjects !== 1
+                  ? translate('projects')
+                  : translate('project'),
+            },
+          )}
           {!report.isComplete && (
-            <span className="badge bg-warning ms-2">In progress</span>
+            <span className="badge bg-warning ms-2">
+              {translate('In progress')}
+            </span>
           )}
         </span>
 
         <div className="d-flex gap-2 ms-auto">
-          <Tip id="tip-usage-excel" label="Download Excel">
+          <Tip id="tip-usage-excel" label={translate('Download Excel')}>
             <button
               type="button"
               className="text-btn text-hover-primary"
               onClick={async () => {
                 setExcelProgress({ current: 0, total: 1 });
-                await downloadUsageExcel(reports, 'usage_report', nameMaps, (current, total) =>
-                  setExcelProgress({ current, total }),
+                await downloadUsageExcel(
+                  reports,
+                  'usage_report',
+                  nameMaps,
+                  (current, total) => setExcelProgress({ current, total }),
                 );
                 setExcelProgress(null);
               }}
             >
-              <FileXlsIcon size={20} />
+              <FileXlsIcon size={20} weight="bold" />
             </button>
           </Tip>
-          <Tip id="tip-usage-json" label="Download JSON">
+          <Tip id="tip-usage-json" label={translate('Download JSON')}>
             <button
               type="button"
               className="text-btn text-hover-primary"
@@ -216,13 +268,16 @@ export const UsageReportVis: FC<Props> = ({ reports, height = '420px', nameMaps 
                 )
               }
             >
-              <FileArrowDownIcon size={20} />
+              <FileArrowDownIcon size={20} weight="bold" />
             </button>
           </Tip>
         </div>
         {excelProgress && (
           <span className="text-muted small ms-2">
-            Preparing Excel — sheet {excelProgress.current} of {excelProgress.total}…
+            {translate('Preparing Excel — sheet {current} of {total}…', {
+              current: excelProgress.current,
+              total: excelProgress.total,
+            })}
           </span>
         )}
       </div>
@@ -231,14 +286,14 @@ export const UsageReportVis: FC<Props> = ({ reports, height = '420px', nameMaps 
       <div className="d-flex align-items-center gap-2 mb-3 flex-wrap">
         {/* Metric selector */}
         <div className="btn-group btn-group-sm" role="group">
-          {(Object.keys(METRIC_LABELS) as UsageMetric[]).map((m) => (
+          {(Object.keys(getMetricLabels()) as UsageMetric[]).map((m) => (
             <button
               key={m}
               type="button"
               className={`btn btn-${metric === m ? 'primary' : 'secondary'}`}
               onClick={() => setMetric(m)}
             >
-              {METRIC_LABELS[m]}
+              {getMetricLabels()[m]}
             </button>
           ))}
         </div>
@@ -250,14 +305,14 @@ export const UsageReportVis: FC<Props> = ({ reports, height = '420px', nameMaps 
             className={`btn btn-${view === 'timeseries' ? 'primary' : 'secondary'}`}
             onClick={() => setView('timeseries')}
           >
-            Timeline
+            {translate('Timeline')}
           </button>
           <button
             type="button"
             className={`btn btn-${view === 'pie' ? 'primary' : 'secondary'}`}
             onClick={() => setView('pie')}
           >
-            Pie
+            {translate('Pie')}
           </button>
         </div>
 
@@ -269,14 +324,14 @@ export const UsageReportVis: FC<Props> = ({ reports, height = '420px', nameMaps 
               className={`btn btn-${groupBy === 'day' ? 'primary' : 'secondary'}`}
               onClick={() => setGroupBy('day')}
             >
-              Day
+              {translate('Day')}
             </button>
             <button
               type="button"
               className={`btn btn-${groupBy === 'month' ? 'primary' : 'secondary'}`}
               onClick={() => setGroupBy('month')}
             >
-              Month
+              {translate('Month')}
             </button>
           </div>
         )}
@@ -289,14 +344,14 @@ export const UsageReportVis: FC<Props> = ({ reports, height = '420px', nameMaps 
               className={`btn btn-${groupMode === 'user' ? 'primary' : 'secondary'}`}
               onClick={() => setGroupMode('user')}
             >
-              By user
+              {translate('By user')}
             </button>
             <button
               type="button"
               className={`btn btn-${groupMode === 'project' ? 'primary' : 'secondary'}`}
               onClick={() => setGroupMode('project')}
             >
-              By project
+              {translate('By project')}
             </button>
           </div>
         )}
@@ -309,49 +364,54 @@ export const UsageReportVis: FC<Props> = ({ reports, height = '420px', nameMaps 
               className={`btn btn-${showMapped ? 'primary' : 'secondary'}`}
               onClick={() => setShowMapped(true)}
             >
-              Names
+              {translate('Names')}
             </button>
             <button
               type="button"
               className={`btn btn-${!showMapped ? 'primary' : 'secondary'}`}
               onClick={() => setShowMapped(false)}
             >
-              IDs
+              {translate('IDs')}
             </button>
           </div>
         )}
 
         {/* Component filter — only relevant for usage metric, user mode */}
-        {metric === 'usage' && groupMode === 'user' && components.length > 1 && (
-          <select
-            className="form-select form-select-sm"
-            style={{ width: 'auto' }}
-            value={component}
-            onChange={(e) => setComponent(e.target.value as UsageComponent)}
-          >
-            {components.map((c) => (
-              <option key={c} value={c}>
-                {c === 'total'
-                  ? 'All usage'
-                  : c.charAt(0).toUpperCase() + c.slice(1)}
-              </option>
-            ))}
-          </select>
-        )}
+        {metric === 'usage' &&
+          groupMode === 'user' &&
+          components.length > 1 && (
+            <select
+              className="form-select form-select-sm"
+              style={{ width: 'auto' }}
+              value={component}
+              onChange={(e) => setComponent(e.target.value as UsageComponent)}
+            >
+              {components.map((c) => (
+                <option key={c} value={c}>
+                  {c === 'total'
+                    ? translate('All usage')
+                    : c.charAt(0).toUpperCase() + c.slice(1)}
+                </option>
+              ))}
+            </select>
+          )}
       </div>
 
-      {/* ── Chart ────────────────────────────────────────────────────── */}
+      {/* ── Chart ─────────────────────────────────────────}─ */}
       {/* Updating indicator */}
       {isUpdating && (
         <div className="text-muted small mb-1" style={{ minHeight: '1.2em' }}>
-          <span className="spinner-border spinner-border-sm me-1" style={{ width: '0.75rem', height: '0.75rem' }} />
-          Updating...
+          <span
+            className="spinner-border spinner-border-sm me-1"
+            style={{ width: '0.75rem', height: '0.75rem' }}
+          />
+          {translate('Updating...')}
         </div>
       )}
       <EChart
         options={animationsEnabled ? options : { ...options, animation: false }}
         height={height}
-        exportTitle={`${destinationLabel} ${METRIC_LABELS[metric]}`}
+        exportTitle={`${destinationLabel} ${getMetricLabels()[metric]}`}
       />
     </div>
   );

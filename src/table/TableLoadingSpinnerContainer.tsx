@@ -1,8 +1,17 @@
-import { LoadingSpinnerIcon } from '@waldur/core/LoadingSpinner';
-import { TableProps } from '@waldur/table/types';
+import { FunctionComponent } from 'react';
 
-export const TableLoadingSpinnerContainer = (props: TableProps) =>
+import { LoadingSpinnerSimple } from '@/core/LoadingSpinner';
+import { Sorting } from '@/table/types';
+
+interface TableLoadingSpinnerContainerProps {
+  loading?: boolean;
+  sorting?: Sorting & { loading?: boolean };
+}
+
+export const TableLoadingSpinnerContainer: FunctionComponent<
+  TableLoadingSpinnerContainerProps
+> = (props) =>
   (props.loading && props.sorting && !props.sorting.loading) ||
   (props.sorting && props.sorting.loading) ? (
-    <LoadingSpinnerIcon />
+    <LoadingSpinnerSimple />
   ) : null;

@@ -2,36 +2,36 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { pick } from 'lodash-es';
 import { DateTime } from 'luxon';
 import { FC, useCallback, useMemo, useState } from 'react';
-import { Button, FormCheck, FormText } from 'react-bootstrap';
-import { Field, Form, FormRenderProps, useField } from 'react-final-form';
-import { useDispatch, useSelector } from 'react-redux';
+import { FormCheck } from 'react-bootstrap';
+import { Form, FormRenderProps, useField } from 'react-final-form';
+import { useSelector } from 'react-redux';
 import {
   marketplaceResourcesList,
   marketplaceResourcesPartialUpdate,
+  Project,
   projectsPartialUpdate,
   Resource,
 } from 'waldur-js-client';
-import { Project } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { Badge } from '@waldur/core/Badge';
-import { formatDate, formatISODate, parseDate } from '@waldur/core/dateUtils';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { SubmitButton } from '@waldur/form';
-import { DateField } from '@waldur/form/DateField';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-import { NON_TERMINATED_STATES } from '@waldur/marketplace/resources/list/constants';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { useNotify } from '@waldur/store/hooks';
-import { selectSelectedRows } from '@waldur/table/selectors';
-import Table from '@waldur/table/Table';
-import { TableProps } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { setCurrentProject } from '@waldur/workspace/actions';
+import { getAllPages } from '@/core/api';
+import { Badge } from '@/core/Badge';
+import { formatDate, formatISODate, parseDate } from '@/core/dateUtils';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { DateGroup, SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { NON_TERMINATED_STATES } from '@/marketplace/resources/list/constants';
+import { useModal } from '@/modal/actions';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useNotify } from '@/store/notify';
+import { ActionButton } from '@/table/ActionButton';
+import { createClientPaginatedFetcher } from '@/table/api';
+import { selectSelectedRows } from '@/table/selectors';
+import Table from '@/table/Table';
+import { TableProps } from '@/table/types';
+import { useTable } from '@/table/useTable';
+import { useSetProject } from '@/workspace/hooks';
 
 import { EditProjectProps } from '../types';
 
@@ -41,15 +41,15 @@ const RESOURCES_QUERY_ID = 'project-endible-resources';
 const StateField = ({ row, projectDate }: { row; projectDate: DateTime }) => {
   const date = parseDate(row.end_date);
   return date.hasSame(projectDate, 'day') ? (
-    <Badge variant="success" outline pill size="sm">
+    <Badge variant="success" size="sm" pill outline>
       {translate('Aligned')}
     </Badge>
   ) : date > projectDate ? (
-    <Badge variant="danger" outline pill size="sm">
+    <Badge variant="danger" size="sm" pill outline>
       {translate('After project')}
     </Badge>
   ) : (
-    <Badge variant="warning" outline pill size="sm">
+    <Badge variant="warning" size="sm" pill outline>
       {translate('Before project')}
     </Badge>
   );
@@ -88,8 +88,7 @@ const ResourcesTable: FC<TableProps & { projectDate }> = ({
     cardBordered={false}
     hasActionBar={false}
     minHeight="auto"
-    hasPagination
-    initialPageSize={5}
+    hasPagination={false}
     enableMultiSelect={props.enableMultiSelect}
   />
 );
@@ -102,22 +101,6 @@ const FormModalComponent: FC<
     if (!value.input?.value) return null;
     return parseDate(value.input.value);
   }, [value]);
-
-  // A project that has already ended may be backdated further, up to 30 days
-  // before today or back to its current end date, whichever is later — so an
-  // allocator extending a grace period can never be blocked by a picker whose
-  // range excludes the value the project already has. A project that has not
-  // yet ended keeps the original "tomorrow onward" restriction: it is not
-  // meaningful to end a still-active project in the past.
-  const minEndDate = useMemo(() => {
-    const today = DateTime.now().startOf('day');
-    const currentEndDate = project.end_date
-      ? parseDate(project.end_date).startOf('day')
-      : null;
-    return currentEndDate && currentEndDate < today
-      ? DateTime.min(currentEndDate, today.minus({ days: 30 })).toISO()
-      : today.plus({ days: 1 }).toISO();
-  }, [project.end_date]);
 
   const selectedResources = useSelector(selectSelectedRows(TABLE_ID));
   const [confirm, setConfirm] = useState(false);
@@ -176,21 +159,17 @@ const FormModalComponent: FC<
 
   const tableProps = useTable({
     table: TABLE_ID,
-    fetchData: () =>
-      Promise.resolve({
-        rows: resources || [],
-        resultCount: resources?.length,
-      }),
+    fetchData: createClientPaginatedFetcher(resources || []),
   });
 
   const tablePropsUnselected = useTable({
     table: TABLE_ID + '-unselected',
-    fetchData: () =>
-      Promise.resolve({
-        rows: ignoredResources,
-        resultCount: ignoredResources?.length,
-      }),
+    fetchData: createClientPaginatedFetcher(ignoredResources),
   });
+
+  const hasResources = resources?.length && value.meta.dirty;
+  const hasUnselectedResources = step === 2 && ignoredResources.length > 0;
+  const adjustModalHeight = hasResources || hasUnselectedResources;
 
   return (
     <form onSubmit={handleSubmit}>
@@ -202,19 +181,20 @@ const FormModalComponent: FC<
               })
             : translate('Some conflicting resources are unselected')
         }
-        bodyClassName="pt-5 min-h-200px"
+        bodyClassName={
+          adjustModalHeight ? 'd-flex flex-column h-400px' : 'h-200px'
+        }
         footer={
           <>
             {step === 1 ? (
               <CloseDialogButton className="min-w-125px" />
             ) : (
-              <Button
-                onClick={() => setStep(1)}
+              <ActionButton
+                title={translate('Go back')}
+                action={() => setStep(1)}
                 variant="tertiary"
                 className="min-w-125px"
-              >
-                {translate('Go back')}
-              </Button>
+              />
             )}
             <SubmitButton
               disabled={invalid || (selectedResources?.length > 0 && !confirm)}
@@ -233,20 +213,19 @@ const FormModalComponent: FC<
           </>
         }
       >
-        <div className={step === 2 ? 'd-none' : undefined}>
-          <FormGroup controlId="project_end_date" spaceless>
-            <Field
-              name="end_date"
-              component={DateField}
-              minDate={minEndDate}
-            />
-
-            <FormText className="text-gray-700">
-              {translate(
-                'Project end date supersedes resource termination date if resource termination date is after the project end date.',
-              )}
-            </FormText>
-          </FormGroup>
+        <div className={step === 2 ? 'd-none' : 'd-flex flex-column h-100'}>
+          <DateGroup
+            name="end_date"
+            spaceless
+            minDate={DateTime.now().plus({ days: 1 }).toISO()}
+            description={
+              <span className="text-gray-700">
+                {translate(
+                  'Project end date supersedes resource termination date if resource termination date is after the project end date.',
+                )}
+              </span>
+            }
+          />
 
           {isFetching ? (
             <LoadingSpinner />
@@ -259,16 +238,22 @@ const FormModalComponent: FC<
                   "You've changed the project end date. Some resources now conflict with this date. Review the list below to align or confirm resource termination dates.",
                 )}
               </p>
-              <ResourcesTable
-                {...tableProps}
-                enableMultiSelect
-                projectDate={valueDate}
-              />
+              <div
+                className="flex-grow-1 overflow-auto"
+                style={{ minHeight: 0 }}
+              >
+                <ResourcesTable
+                  {...tableProps}
+                  rows={resources || []}
+                  enableMultiSelect
+                  projectDate={valueDate}
+                />
+              </div>
 
               <FormCheck
                 id="confirm-update-termination-dates"
                 type="checkbox"
-                className="form-check-custom form-check-sm"
+                className="form-check-custom form-check-sm pt-3"
                 checked={confirm}
                 onChange={(value) => setConfirm(value.target.checked)}
                 label={translate(
@@ -280,14 +265,23 @@ const FormModalComponent: FC<
         </div>
 
         {step === 2 && (
-          <>
+          <div
+            className="d-flex flex-column flex-grow-1"
+            style={{ minHeight: 0 }}
+          >
             <p className="text-gray-700 mb-4">
               {translate(
                 'The following resources were not selected and will be forcibly terminated on the project end date:',
               )}
             </p>
-            <ResourcesTable {...tablePropsUnselected} projectDate={valueDate} />
-          </>
+            <div className="flex-grow-1 overflow-auto" style={{ minHeight: 0 }}>
+              <ResourcesTable
+                {...tablePropsUnselected}
+                rows={ignoredResources}
+                projectDate={valueDate}
+              />
+            </div>
+          </div>
         )}
       </ModalDialog>
     </form>
@@ -300,7 +294,10 @@ export const EditEndDateDialog = ({
   resolve: EditProjectProps;
 }) => {
   const queryClient = useQueryClient();
-  const dispatch = useDispatch();
+  const setCurrentProject = useSetProject();
+
+  const { closeDialog } = useModal();
+
   const { showSuccess, showErrorResponse, showError } = useNotify();
 
   const resources = queryClient.getQueryData<Resource[]>([
@@ -324,7 +321,7 @@ export const EditEndDateDialog = ({
             [resolve.name]: formatISODate(endDate),
           },
         });
-        dispatch(setCurrentProject(project.data as any as Project));
+        setCurrentProject(project.data);
 
         const title = translate(
           'Project end date was successfully updated to {date}',
@@ -381,7 +378,7 @@ export const EditEndDateDialog = ({
               { list: ignoredResources.join(', ') },
             );
           }
-          dispatch(showSuccess(message, title));
+          showSuccess(title, message);
           if (erredResources.length > 0) {
             showError(
               translate(
@@ -394,12 +391,12 @@ export const EditEndDateDialog = ({
           showSuccess(title);
         }
 
-        dispatch(closeModalDialog());
+        closeDialog();
       } catch (e) {
         showErrorResponse(e, translate('Project could not be updated.'));
       }
     },
-    [dispatch, resolve, resources, selectedResources],
+    [resolve, resources, selectedResources],
   );
 
   return (

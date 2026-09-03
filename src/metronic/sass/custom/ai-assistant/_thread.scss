@@ -1,0 +1,820 @@
+.aui-root {
+  color: $text-primary;
+}
+
+.aui-root.aui-thread-root,
+[data-kt-drawer] .aui-root.aui-thread-root {
+  box-sizing: border-box;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 100% !important;
+  height: auto !important;
+  width: 100%;
+  padding: 0;
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: inherit;
+  }
+}
+
+.aui-thread-viewport {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto;
+  gap: 24px;
+  padding: 0 0 0 16px;
+  min-height: 0; /* Allow flex shrinking */
+}
+
+.aui-thread-header {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  padding: 0 16px 16px 16px;
+  flex-shrink: 0;
+}
+
+.aui-close-button {
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: 0;
+  padding: 3px;
+  border: 0;
+  border-radius: 9999px;
+  background-color: transparent;
+  color: $fg-quaternary;
+  border-color: transparent;
+  box-shadow: none;
+  box-sizing: border-box;
+
+  &:hover {
+    background-color: $bg-primary_hover;
+  }
+
+  svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+}
+
+.aui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.aui-thread-welcome-root {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0;
+  margin: 0 auto;
+
+  .aui-thread-welcome-center {
+    margin-top: 48px;
+  }
+
+  .aui-thread-welcome-suggestions {
+    margin-top: 36px;
+  }
+}
+
+// Logo + Actions row shown after first message
+.aui-thread-logo-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0 16px 16px 16px;
+  flex-shrink: 0;
+}
+
+.aui-welcome-icon-container {
+  width: 3rem;
+  height: 3rem;
+  background-color: $btn-primary-bg;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+
+  svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    color: white;
+  }
+
+  &--sm {
+    width: 40px;
+    height: 40px;
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
+}
+
+.aui-thread-welcome-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+}
+
+.aui-welcome-title-1 {
+  font-size: $h2-font-size;
+  font-weight: 600;
+  color: $text-quaternary;
+  margin-bottom: 0.25rem;
+  line-height: 1.5;
+}
+
+.aui-welcome-title-2 {
+  font-size: $h2-font-size;
+  font-weight: 500;
+  color: $text-primary;
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.aui-welcome-subtitle {
+  font-size: $font-size-lg;
+  color: $text-quaternary;
+  max-width: 300px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.aui-thread-welcome-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.aui-thread-welcome-suggestion-btn {
+  gap: 0.5rem;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  white-space: nowrap;
+  min-height: 36px;
+
+  > svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    color: $fg-quaternary;
+  }
+}
+
+.aui-thread-scroll-to-bottom {
+  position: absolute;
+  bottom: calc(100% + 1rem);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+
+  border: 1px solid $border-primary;
+  background-color: $bg-primary;
+  color: $text-primary;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: $box-shadow;
+  transition:
+    background-color 100ms ease,
+    box-shadow 100ms ease;
+
+  &:disabled {
+    visibility: hidden;
+  }
+
+  &:hover {
+    background-color: $bg-primary_hover;
+    transform: translateX(-50%) translateY(-1px);
+  }
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.aui-composer-wrapper,
+[data-kt-drawer] .aui-composer-wrapper {
+  width: 100%;
+  margin-top: auto !important;
+  padding: 0 16px 16px 16px;
+  background-color: $bg-primary;
+  border: $border-primary;
+  flex-shrink: 0 !important;
+  position: relative;
+}
+
+// The inference playground reuses the assistant composer but lives inside a
+// card body that already pads it, so drop the wrapper's own padding there only.
+.playground-thread .aui-composer-wrapper {
+  padding: 0;
+}
+
+.aui-composer-root {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  padding: 0;
+  margin-top: 1rem;
+  border-radius: $border-radius;
+  border: 1px solid $border-primary;
+  background-color: $bg-primary;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.aui-composer-input-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  width: 100%;
+  padding-left: 1rem;
+  padding-bottom: 1rem;
+  padding-top: 0.5rem;
+
+  svg {
+    color: $fg-disabled;
+    flex-shrink: 0;
+    margin-top: 4px;
+    width: 1.2rem;
+    height: 1.2rem;
+  }
+}
+
+.aui-composer-usage-row {
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  background: $bg-secondary;
+  border: none;
+  border-top: 1px solid $border-primary;
+  width: 100%;
+}
+
+.aui-token-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+
+  .token-stat-item {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: $text-muted;
+  }
+}
+
+.aui-composer-input {
+  flex: 1;
+  min-height: 60px;
+  max-height: 250px;
+  resize: none;
+  border: none;
+  background: transparent;
+  line-height: 1.5;
+  padding: 2px 8px;
+  color: $text-primary;
+  outline: none;
+  // Composer must only ever grow vertically; never expose a horizontal
+  // scrollbar from sub-pixel width rounding of the flex layout.
+  overflow-x: hidden;
+
+  &::placeholder {
+    color: $text-placeholder;
+  }
+
+  @include media-breakpoint-down(lg) {
+    min-height: 40px;
+    max-height: 120px;
+  }
+}
+
+.aui-composer-action-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border-top: 1px solid $border-primary;
+  border-bottom-right-radius: $border-radius;
+  border-bottom-left-radius: $border-radius;
+  padding-right: 1.25rem;
+  background: $bg-secondary;
+}
+
+.aui-composer-action-wrapper {
+  height: 2.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 0.5rem;
+  gap: 0;
+  margin: 0;
+}
+
+.aui-composer-button {
+  background-color: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  padding-left: 1rem;
+  font-weight: 500;
+  border-radius: $border-radius;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: $text-primary;
+
+  svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  &.send {
+    color: $brand-700;
+
+    &:disabled {
+      color: $text-primary;
+    }
+  }
+
+  &.token {
+    // Inherits $text-primary from above by default
+
+    &.active {
+      color: $brand-700;
+    }
+  }
+}
+
+.aui-message-error-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background-color: rgba($danger, 0.1);
+  border-left: 3px solid $danger;
+  border-radius: $border-radius;
+
+  svg {
+    color: $danger;
+    flex-shrink: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+}
+
+.aui-message-error-message {
+  color: $text-error-primary;
+  font-size: 1rem;
+  flex: 1;
+}
+
+.aui-composer-cancel-button {
+  background-color: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: $brand-700;
+  padding: 0;
+  border-radius: 100px;
+
+  svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+}
+
+.aui-assistant-message-root,
+.aui-user-message-root {
+  width: 100%;
+  margin: 0;
+  padding-right: 16px;
+}
+
+.aui-assistant-message-root {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
+
+.aui-assistant-message-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  max-width: 100%;
+  padding: 0.8rem 1rem;
+  border-radius: $border-radius-xl;
+  background: $gray-100;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  flex: 0 1 auto;
+  min-height: 3rem;
+  gap: 0.5rem;
+  position: relative;
+  font-weight: 500;
+}
+
+.aui-assistant-message-footer {
+  display: flex;
+  align-items: center;
+  height: 2.5rem;
+}
+
+.aui-loading-indicator {
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+  justify-content: center;
+
+  .dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    background-color: $text-secondary;
+    border-radius: 50%;
+    animation: aui-dot-pulse 1.4s ease-in-out infinite;
+
+    &:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    &:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+  }
+}
+
+@keyframes aui-dot-pulse {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.aui-assistant-action-bar-root {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 1.1rem;
+  margin-left: 0;
+}
+
+.aui-button-ghost {
+  border-radius: 100px;
+  background-color: transparent;
+  border-color: transparent;
+  color: $text-primary;
+
+  &:hover {
+    background-color: $bg-primary_hover;
+    border-color: transparent;
+  }
+}
+
+.aui-user-message-root {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0;
+}
+
+.aui-user-message-content-wrapper {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  max-width: 80%;
+  min-width: 0;
+  position: relative;
+}
+
+.aui-user-action-bar-wrapper {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+.aui-user-message-content {
+  padding: 0.8rem 1rem;
+  border-radius: $border-radius-xl;
+  border: 1px solid $border-primary;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+  min-width: 0;
+  flex: 0 1 auto;
+  font-weight: 500;
+  position: relative;
+}
+
+.aui-user-message-content,
+.aui-assistant-message-content {
+  font-size: $font-size-lg;
+}
+
+.aui-user-message-content p,
+.aui-assistant-message-content p {
+  margin: 0 !important;
+}
+
+.aui-user-action-bar-root {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 1.1rem;
+  margin-left: 0;
+  color: $text-secondary;
+  padding-left: 4px;
+}
+
+.aui-edit-composer-wrapper {
+  width: 100%;
+  margin: 8px auto;
+}
+
+.aui-edit-composer-root {
+  border-radius: $border-radius-xl;
+  background: $gray-100;
+  padding: 0.8rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.aui-edit-composer-input {
+  width: 100%;
+  min-height: 40px;
+  max-height: 150px;
+  border: none;
+  background: transparent;
+  color: $text-primary;
+  outline: none;
+}
+
+.aui-edit-composer-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+
+  .aui-button-ghost {
+    padding: 0.5rem;
+    background-color: $btn-tertiary-bg;
+    border: 1px solid $border-primary;
+
+    &:hover {
+      background-color: $btn-tertiary-bg_hover;
+    }
+  }
+}
+
+.aui-button-update {
+  background-color: $btn-secondary-bg;
+  border-radius: 100px;
+  border: 1px solid $border-primary;
+  color: $text-primary;
+  padding: 0.5rem;
+
+  &:hover {
+    background-color: $btn-secondary-bg_hover;
+  }
+  &:disabled {
+    color: $text-disabled;
+  }
+}
+
+// Error boundary styles
+.aui-error-container {
+  padding: 2rem;
+}
+
+.aui-error-icon {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: $warning;
+}
+
+.aui-error-title {
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.aui-error-details {
+  background-color: $bg-tertiary;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.aui-error-summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.aui-error-stack {
+  font-size: 0.75rem;
+  overflow: auto;
+  margin-top: 0.5rem;
+  color: $text-secondary;
+}
+
+.aui-error-message {
+  color: $text-secondary;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.aui-error-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.aui-error-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+
+  &--primary {
+    background-color: $primary;
+    color: $primary-inverse;
+  }
+
+  &--secondary {
+    background-color: $gray-500;
+    color: #fff;
+  }
+}
+
+.aui-version-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.aui-version-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 1rem;
+  color: $text-secondary;
+}
+
+.aui-version-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: none;
+  border-radius: $border-radius-sm;
+  background-color: transparent;
+  color: $text-secondary;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background-color: $bg-primary_hover;
+    color: $text-primary;
+  }
+
+  &:disabled {
+    color: $text-disabled;
+    cursor: not-allowed;
+  }
+
+  svg {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+}
+
+.aui-version-label {
+  min-width: 5rem;
+  text-align: center;
+  font-weight: 500;
+  user-select: none;
+
+  &--history {
+    color: $text-brand-primary;
+  }
+}
+
+.aui-disclosure-section {
+  border-radius: $border-radius;
+}
+
+.aui-chat-drawer {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 0 0;
+}
+
+.aui-assistant-message-content .aui-message-action-panel,
+.aui-user-message-content .aui-message-action-panel {
+  position: absolute;
+  bottom: -14px;
+  right: 16px;
+  z-index: 1;
+}
+
+// Message action panel — dark floating bar shown on hover
+.aui-message-action-panel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background-color: $gray-900;
+  border: 1px solid $border-brand-solid;
+  height: 28px;
+  border-radius: $border-radius-lg;
+  width: fit-content;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.aui-assistant-message-root:hover .aui-message-action-panel,
+.aui-user-message-root:hover .aui-message-action-panel {
+  opacity: 1;
+}
+
+.aui-message-action-panel > *,
+.aui-message-action-panel button,
+.aui-message-action-btn {
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  line-height: 0;
+  color: $gray-500 !important;
+  cursor: pointer;
+  border-radius: $border-radius-sm;
+
+  &:hover {
+    color: $gray-300 !important;
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+    color: inherit !important;
+  }
+}
+
+.aui-message-action-btn[aria-pressed='true'] {
+  outline: 1px solid currentColor;
+
+  &.is-positive {
+    color: var(--bs-success) !important;
+    background-color: var(--bs-success-bg-subtle);
+  }
+
+  &.is-negative {
+    color: var(--bs-danger) !important;
+    background-color: var(--bs-danger-bg-subtle);
+  }
+}

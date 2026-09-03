@@ -5,13 +5,14 @@ import {
   OpenstackRoutersListData,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { ResourceRowActions } from '@waldur/resource/actions/ResourceRowActions';
-import { ResourceState } from '@waldur/resource/state/ResourceState';
-import { ResourceSummary } from '@waldur/resource/summary/ResourceSummary';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { translate } from '@/i18n';
+import { ActionButtonResource } from '@/resource/actions/ActionButtonResource';
+import { ResourceState } from '@/resource/state/ResourceState';
+import { ResourceSummary } from '@/resource/summary/ResourceSummary';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 import { CreateRouterAction } from './actions/CreateRouterAction';
 
@@ -42,6 +43,12 @@ export const TenantRoutersList: FunctionComponent<{ resourceScope }> = ({
         'fixed_ips',
         'offering_external_ips',
         'project_uuid',
+        'external_network_id',
+        'external_network_name',
+        'external_network_uuid',
+        'has_external_gateway',
+        'enable_snat',
+        'external_fixed_ips',
       ],
     }),
     [resourceScope],
@@ -63,7 +70,16 @@ export const TenantRoutersList: FunctionComponent<{ resourceScope }> = ({
         },
         {
           title: translate('Fixed IPs'),
-          render: ({ row }) => row.fixed_ips.join(', ') || 'N/A',
+          render: ({ row }) => renderFieldOrDash(row.fixed_ips.join(', ')),
+        },
+        {
+          title: translate('External gateway'),
+          render: ({ row }) =>
+            renderFieldOrDash(
+              row.has_external_gateway
+                ? row.external_network_name || row.external_network_id
+                : undefined,
+            ),
         },
         {
           title: translate('State'),
@@ -76,7 +92,11 @@ export const TenantRoutersList: FunctionComponent<{ resourceScope }> = ({
         <CreateRouterAction resource={resourceScope} refetch={props.fetch} />
       }
       rowActions={({ row }) => (
-        <ResourceRowActions resource={row} refetch={props.fetch} />
+        <ActionButtonResource
+          url={row.url}
+          refetch={props.fetch}
+          nestedResource
+        />
       )}
       expandableRow={({ row }) => <ResourceSummary resource={row} />}
       hasQuery={true}

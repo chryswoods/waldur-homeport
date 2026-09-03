@@ -1,11 +1,10 @@
 import { FileCsvIcon, FileXlsIcon, PrinterIcon } from '@phosphor-icons/react';
 import { FC, useCallback } from 'react';
-import { useDispatch } from 'react-redux';
 
-import { translate } from '@waldur/i18n';
-import { showInfo } from '@waldur/store/notify';
-import exportAs from '@waldur/table/exporters';
-import { ExportData } from '@waldur/table/exporters/types';
+import { translate } from '@/i18n';
+import { useNotify } from '@/store/notify';
+import exportAs from '@/table/exporters';
+import { ExportData } from '@/table/exporters/types';
 
 import { Tip } from './Tooltip';
 
@@ -19,7 +18,7 @@ interface EChartActionsProps {
 
 const generatePDF = async (image: any, title?: string) => {
   const pdfmake = await import('pdfmake/build/pdfmake.min');
-  const { getFonts } = await import('@waldur/table/exporters/pdf');
+  const { getFonts } = await import('@/table/exporters/pdf');
 
   const docDefinition = {
     pageSize: 'A4',
@@ -54,8 +53,6 @@ export const EChartActions: FC<EChartActionsProps> = ({
   chartInstance,
   ...props
 }) => {
-  const dispatch = useDispatch();
-
   const makePdf = useCallback(() => {
     const imagePng = decodeURIComponent(
       chartInstance.getDataURL({
@@ -68,13 +65,15 @@ export const EChartActions: FC<EChartActionsProps> = ({
     generatePDF(imagePng, props.exportTitle);
   }, [chartInstance]);
 
+  const { showInfo } = useNotify();
+
   const exportData = useCallback(
     (format) => {
       const options = chartInstance.getOption();
       const hasData = options.series[0]?.data?.length;
 
       if (!hasData) {
-        dispatch(showInfo(translate('Chart is empty')));
+        showInfo(translate('Chart is empty'));
         return;
       }
 
@@ -96,7 +95,7 @@ export const EChartActions: FC<EChartActionsProps> = ({
 
       exportAs(format, props.exportTitle, exportData);
     },
-    [chartInstance],
+    [chartInstance, showInfo],
   );
 
   return (
@@ -109,7 +108,7 @@ export const EChartActions: FC<EChartActionsProps> = ({
               className="text-btn text-hover-primary"
               onClick={makePdf}
             >
-              <PrinterIcon size={20} />
+              <PrinterIcon size={20} weight="bold" />
             </button>
           </Tip>
         )}
@@ -120,7 +119,7 @@ export const EChartActions: FC<EChartActionsProps> = ({
               className="text-btn text-hover-primary"
               onClick={() => exportData('csv')}
             >
-              <FileCsvIcon size={20} />
+              <FileCsvIcon size={20} weight="bold" />
             </button>
           </Tip>
         )}
@@ -131,7 +130,7 @@ export const EChartActions: FC<EChartActionsProps> = ({
               className="text-btn text-hover-primary"
               onClick={() => exportData('excel')}
             >
-              <FileXlsIcon size={20} />
+              <FileXlsIcon size={20} weight="bold" />
             </button>
           </Tip>
         )}

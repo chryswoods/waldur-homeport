@@ -2,7 +2,7 @@ import classNames from 'classnames';
 import { FC, PropsWithChildren, ReactNode } from 'react';
 import { Card, Col, Row } from 'react-bootstrap';
 
-import { Tip } from '@waldur/core/Tooltip';
+import { Tip } from '@/core/Tooltip';
 
 import { DashboardHeroLogo2 } from './DashboardHeroLogo2';
 import './PublicDashboardHero.scss';
@@ -30,11 +30,12 @@ interface PublicDashboardHeroProps {
 export const PublicDashboardHero: FC<
   PropsWithChildren<PublicDashboardHeroProps>
 > = (props) => {
+  const BodyElement = props.hideQuickSection ? 'div' : Row;
   return (
     <div
       className={classNames('public-dashboard-hero', props.containerClassName)}
     >
-      <Row
+      <BodyElement
         className={classNames('public-dashboard-hero-body', props.className)}
       >
         <Col
@@ -48,6 +49,13 @@ export const PublicDashboardHero: FC<
               props.cardBordered && 'card-bordered',
             )}
           >
+            {props.backgroundImage && (
+              <Card.Img
+                variant="top"
+                src={props.backgroundImage}
+                style={{ height: 160, objectFit: 'cover' }}
+              />
+            )}
             <Card.Body className="d-flex flex-column flex-sm-row align-items-stretch flex-grow-1">
               {props.logo || props.logoAlt ? (
                 <Tip
@@ -69,21 +77,23 @@ export const PublicDashboardHero: FC<
                   {/* Actions */}
                   {props.actions && (
                     <div
-                      className={
-                        (props.mobileBottomActions
-                          ? 'd-none d-sm-flex '
-                          : 'd-flex ') +
-                        'flex-wrap align-self-stretch align-self-sm-start justify-content-sm-end gap-3'
-                      }
+                      className={classNames(
+                        props.mobileBottomActions
+                          ? 'd-none d-sm-flex'
+                          : 'd-flex',
+                        'flex-wrap align-self-stretch align-self-sm-start justify-content-sm-end gap-3',
+                      )}
                     >
                       {props.actions}
                     </div>
                   )}
                 </div>
-                <div>
-                  {/* Details */}
-                  {props.children}
-                </div>
+                {props.children && (
+                  <div>
+                    {/* Details */}
+                    {props.children}
+                  </div>
+                )}
                 {/* Actions - at the end */}
                 {props.actions && props.mobileBottomActions && (
                   <div className="d-sm-none d-flex flex-wrap align-self-stretch align-self-sm-start justify-content-sm-end gap-3">
@@ -126,7 +136,7 @@ export const PublicDashboardHero: FC<
             </Card>
           </Col>
         )}
-      </Row>
+      </BodyElement>
     </div>
   );
 };

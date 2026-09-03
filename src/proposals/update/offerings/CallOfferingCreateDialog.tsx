@@ -1,14 +1,12 @@
 import { FC, useCallback } from 'react';
-import { useDispatch } from 'react-redux';
 import { proposalProtectedCallsOfferingsSet } from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
-import { ProgressStep } from '@waldur/core/ProgressSteps';
-import { WizardFormContainer } from '@waldur/form/WizardFormContainer';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { Call, CallOfferingFormData } from '@waldur/proposals/types';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { ENV } from '@/core/config';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { Call, CallOfferingFormData } from '@/proposals/types';
+import { ProgressStep, WizardFormContainer } from '@/wizard';
 
 import { WizardFormFirstPage } from './WizardFormFirstPage';
 import { WizardFormSecondPage } from './WizardFormSecondPage';
@@ -44,35 +42,41 @@ const steps: ProgressStep[] = [
 export const CallOfferingCreateDialog: FC<CallOfferingCreateDialogProps> = (
   props,
 ) => {
-  const dispatch = useDispatch();
-  const createRound = useCallback(
-    async (formData: CallOfferingFormData, _dispatch, formProps) => {
-      try {
-        const updated_plan_url = `${ENV.apiEndpoint}api/marketplace-plans/${formData.plan.uuid}/`;
-        await proposalProtectedCallsOfferingsSet({
-          path: { uuid: props.resolve.call.uuid },
-          body: {
-            offering: formData.offering.url,
-            description: formData.description,
-            plan: updated_plan_url,
-            attributes: formData.limits
-              ? {
-                  limits: formData.limits,
-                }
-              : {},
-          },
-        });
-        dispatch(
-          showSuccess(translate('Offering request has been submitted.')),
-        );
-        formProps.destroy();
-        dispatch(closeModalDialog());
-        props.resolve.refetch();
-      } catch (error) {
-        dispatch(showErrorResponse(error, translate('Something went wrong')));
-      }
+  const { closeDialog } = useModal();
+
+  const createOfferingMutation = useManagedMutation<
+    any,
+    any,
+    { formData: CallOfferingFormData }
+  >({
+    mutationFn: (args) => {
+      const { formData } = args;
+      const updated_plan_url = `${ENV.apiEndpoint}api/marketplace-plans/${formData.plan.uuid}/`;
+      return proposalProtectedCallsOfferingsSet({
+        path: { uuid: props.resolve.call.uuid },
+        body: {
+          offering: formData.offering.url,
+          description: formData.description,
+          plan: updated_plan_url,
+          attributes: formData.limits
+            ? {
+                limits: formData.limits,
+              }
+            : {},
+        },
+      });
     },
-    [dispatch, props.resolve],
+    successMessage: translate('Offering request has been submitted.'),
+    errorMessage: translate('Something went wrong'),
+    refetch: props.resolve.refetch,
+    onSuccess: () => {
+      closeDialog();
+    },
+  });
+
+  const createRound = useCallback(
+    (formData) => createOfferingMutation.mutateAsync({ formData }),
+    [createOfferingMutation],
   );
   return (
     <WizardFormContainer

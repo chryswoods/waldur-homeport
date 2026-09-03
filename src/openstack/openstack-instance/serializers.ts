@@ -1,3 +1,5 @@
+import { OpenStackCreateInstancePortRequest } from 'waldur-js-client';
+
 const serializeFloatingIPs = (networks) => {
   if (!networks?.length || !networks[0]?.floatingIp) {
     return undefined;
@@ -19,15 +21,14 @@ const serializeFloatingIPs = (networks) => {
     });
 };
 
-const serializePorts = (networks) => {
+const serializePorts = (networks, portSecurityEnabled?: boolean) => {
   if (!networks?.length || !networks[0]?.subnet) {
     return undefined;
   }
 
   return networks.map((network) => {
-    const port = {
+    const port: OpenStackCreateInstancePortRequest = {
       subnet: network.subnet.url,
-      fixed_ips: undefined,
     };
 
     // Add fixed_ip if it exists
@@ -35,6 +36,10 @@ const serializePorts = (networks) => {
       port.fixed_ips = [
         { ip_address: network.fixed_ip, subnet_id: network.subnet.backend_id },
       ];
+    }
+
+    if (portSecurityEnabled === false) {
+      (port as any).port_security_enabled = false;
     }
 
     return port;
@@ -53,7 +58,7 @@ const serializeServerGroup = (group) => {
   if (!group) {
     return undefined;
   }
-  return group.url;
+  return { url: group.url };
 };
 
 export const instanceSerializer = ({
@@ -71,6 +76,8 @@ export const instanceSerializer = ({
   security_groups,
   server_group,
   availability_zone,
+  port_security_enabled,
+  config_drive,
 }) => ({
   name,
   description,
@@ -78,13 +85,17 @@ export const instanceSerializer = ({
   image: image ? image.url : undefined,
   flavor: flavor ? flavor.url : undefined,
   ssh_public_key: ssh_public_key ? ssh_public_key.url : undefined,
-  security_groups: serializeSecurityGroups(security_groups),
+  security_groups:
+    port_security_enabled === false
+      ? undefined
+      : serializeSecurityGroups(security_groups),
   server_group: serializeServerGroup(server_group),
-  ports: serializePorts(networks),
+  ports: serializePorts(networks, port_security_enabled),
   floating_ips: serializeFloatingIPs(networks),
   system_volume_size,
   data_volume_size: data_volume_size ? data_volume_size : undefined,
   system_volume_type: system_volume_type && system_volume_type.value,
   data_volume_type: data_volume_type && data_volume_type.value,
   availability_zone,
+  config_drive,
 });

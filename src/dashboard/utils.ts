@@ -2,12 +2,13 @@ import { SeriesOption } from 'echarts';
 import { DateTime } from 'luxon';
 import { dailyQuotasRetrieve, Invoice, InvoiceCost } from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
-import { DEFAULT_PRIMARY_COLORS } from '@waldur/core/constants';
-import { parseDate } from '@waldur/core/dateUtils';
-import { defaultCurrency } from '@waldur/core/formatCurrency';
-import { generateBrandColors } from '@waldur/core/generateColors';
-import { translate } from '@waldur/i18n';
+import { generateBrandColors } from 'waldur-design-tokens';
+
+import { ENV } from '@/core/config';
+import { parseDate } from '@/core/dateUtils';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { getBrandColor } from '@/core/utils';
+import { translate } from '@/i18n';
 
 import {
   getCostWidgetChartOptions,
@@ -109,7 +110,12 @@ export const formatCostChartLabel = (
       });
 };
 
-export const formatOrganizationCostChart = (invoices: Invoice[]): CostChart => {
+export const formatOrganizationCostChart = (
+  invoices: Pick<
+    Invoice,
+    'compensations' | 'incurred_costs' | 'month' | 'price' | 'year'
+  >[],
+): CostChart => {
   const items: DateCostPair[] = invoices.map((invoice) => ({
     value: Number(invoice.price),
     incurred: Number(invoice.incurred_costs),
@@ -177,7 +183,11 @@ const formatCreditChart = (
   creditValue: string | number,
 ): CreditChart => {
   let items: DateValuePair[] = invoices.map((invoice) => ({
-    value: Number(invoice.price),
+    // `price` nets compensation against incurred cost, so it reads ~0 in a
+    // month where credit happens to fully offset that month's usage.
+    // `compensation` is the credit actually drawn (always <= 0), matching
+    // the pattern already used by formatProjectCostChart/formatOrganizationCostChart.
+    value: Number(invoice.compensation) * -1,
     date: DateTime.fromObject({ year: invoice.year, month: invoice.month }),
   }));
 
@@ -218,8 +228,7 @@ export const getCreditChartAndOptions = (
 ) => {
   const chart = formatCreditChart(invoiceCosts, creditValue);
 
-  const brand =
-    ENV.plugins.WALDUR_CORE.BRAND_COLOR || DEFAULT_PRIMARY_COLORS[600];
+  const brand = getBrandColor();
   const brandColors = generateBrandColors(brand);
 
   const series: SeriesOption[] = [
@@ -244,8 +253,7 @@ export const getCostChartAndOptions = (
   chart: CostChart,
   hlines?: Array<{ label; value }>,
 ) => {
-  const brand =
-    ENV.plugins.WALDUR_CORE.BRAND_COLOR || DEFAULT_PRIMARY_COLORS[600];
+  const brand = getBrandColor();
   const brandColors = generateBrandColors(brand);
 
   const hasCompensations =
@@ -258,14 +266,16 @@ export const getCostChartAndOptions = (
       type: 'bar',
       stack: 'cost',
       data: chart.incurred.slice(0, chart.incurred.length - 1),
-      color: brandColors[600],
+      color: brandColors[300],
     },
     hasCompensations && {
       name: translate('Compensation'),
       type: 'bar',
       stack: 'compensation',
       data: chart.compensation.slice(0, chart.compensation.length - 1),
-      color: brandColors[300],
+      // A darker step of the same hue: incurred and compensation are paired
+      // series, so they stay in one family but must not read as one colour.
+      color: brandColors[700],
     },
     {
       name: translate('Estimated cost'),
@@ -274,7 +284,7 @@ export const getCostChartAndOptions = (
       data: Array.from({ length: chart.incurred.length - 1 }).concat(
         chart.incurred[chart.incurred.length - 1],
       ),
-      color: '#98a2b3', // gray-400
+      color: '#d0d5dd', // gray-300
     },
     hasCompensations && {
       name: translate('Estimated compensation'),
@@ -283,7 +293,7 @@ export const getCostChartAndOptions = (
       data: Array.from({ length: chart.compensation.length - 1 }).concat(
         chart.compensation[chart.compensation.length - 1],
       ),
-      color: '#d0d5dd', // gray-300
+      color: '#98a2b3', // gray-400 — same darker step as the actual pair
     },
   ].filter(Boolean) as SeriesOption[];
 

@@ -1,22 +1,26 @@
 import { FC } from 'react';
+import { useFormState } from 'react-final-form';
 
-import { FormContainer, TextField } from '@waldur/form';
-import { WizardForm, WizardFormStepProps } from '@waldur/form/WizardForm';
-import { translate } from '@waldur/i18n';
+import { TextGroup } from '@/form';
+import { translate } from '@/i18n';
+import { WizardForm, WizardFormStepProps } from '@/wizard';
 
 export const Step4FinalConfig: FC<WizardFormStepProps> = (props) => {
+  const { submitting } = useFormState({
+    subscription: { submitting: true },
+  });
+
   return (
     <WizardForm {...props}>
-      {(wizardProps) => (
-        <FormContainer submitting={wizardProps.submitting} className="size-lg">
-          <TextField
-            name="description"
-            maxLength={1000}
-            label={translate('Description')}
-            placeholder={translate('Enter a description...')}
-          />
-        </FormContainer>
-      )}
+      <div className="size-lg">
+        <TextGroup
+          name="description"
+          maxLength={1000}
+          label={translate('Description')}
+          placeholder={translate('Enter a description...')}
+          disabled={submitting}
+        />
+      </div>
     </WizardForm>
   );
 };

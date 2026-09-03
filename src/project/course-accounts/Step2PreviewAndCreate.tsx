@@ -1,16 +1,15 @@
 import Papa from 'papaparse';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useField, useForm } from 'react-final-form';
-import { useDispatch } from 'react-redux';
 
-import { Badge } from '@waldur/core/Badge';
-import { translate } from '@waldur/i18n';
-import { SkipErrorsCheck } from '@waldur/project/import/SkipErrorsCheck';
-import { showError } from '@waldur/store/notify';
-import Table from '@waldur/table/Table';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { renderFieldOrDash } from '@waldur/table/utils';
+import { Badge } from '@/core/Badge';
+import { translate } from '@/i18n';
+import { SkipErrorsCheck } from '@/project/import/SkipErrorsCheck';
+import { useNotify } from '@/store/notify';
+import { createClientPaginatedFetcher } from '@/table/api';
+import Table, { TableColumns } from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 import templateFile from './course_accounts_template.json';
 import {
@@ -27,7 +26,7 @@ const statusMessages = {
 const StatusField = ({ row }) => {
   const validate = validateCourseAccountCreation(row);
   return (
-    <Badge variant={validate.valid ? 'success' : 'danger'} outline pill>
+    <Badge variant={validate.valid ? 'success' : 'danger'} pill outline>
       {validate.valid ? translate('OK') : statusMessages[validate.errors[0]]}
     </Badge>
   );
@@ -70,7 +69,7 @@ const parseFile = (file: File) => {
 };
 
 export const Step2PreviewAndCreate = ({ skipErrors, setSkipErrors }) => {
-  const dispatch = useDispatch();
+  const { showError } = useNotify();
   const [data, setData] = useState<RawCourseAccount[]>([]);
 
   const field = useField('file');
@@ -81,7 +80,7 @@ export const Step2PreviewAndCreate = ({ skipErrors, setSkipErrors }) => {
       const _file = acceptedFiles[0];
 
       if (!_file) {
-        dispatch(showError('No file has been imported'));
+        showError(translate('No file has been imported'));
         return;
       }
       parseFile(_file).then((_data) => {
@@ -89,40 +88,36 @@ export const Step2PreviewAndCreate = ({ skipErrors, setSkipErrors }) => {
         form.change('data', _data);
       });
     },
-    [dispatch, setData, form],
+    [setData, form],
   );
 
   useEffect(() => {
     if (field.input.value?.length > 0) {
       parseCsvFile(field.input.value);
     }
-  }, []);
+  }, [parseCsvFile, field.input.value]);
 
   const tableProps = useTable({
     table: 'ImportCoursesPreview',
-    fetchData: () =>
-      Promise.resolve({
-        rows: data,
-        resultCount: data.length,
-      }),
+    fetchData: createClientPaginatedFetcher(data),
+    filter: useMemo(() => ({ _rev: data }), [data]),
   });
 
-  const columns = useMemo<Column<RawCourseAccount>[]>(
-    () =>
-      [
-        {
-          title: translate('Email'),
-          render: ({ row }) => renderFieldOrDash(row.email),
-        },
-        {
-          title: translate('Description'),
-          render: ({ row }) => row.description || 'N/A',
-        },
-        {
-          title: translate('Status'),
-          render: StatusField,
-        },
-      ].filter(Boolean),
+  const columns = useMemo<TableColumns<RawCourseAccount>>(
+    () => [
+      {
+        title: translate('Email'),
+        render: ({ row }) => renderFieldOrDash(row.email),
+      },
+      {
+        title: translate('Description'),
+        render: ({ row }) => renderFieldOrDash(row.description),
+      },
+      {
+        title: translate('Status'),
+        render: StatusField,
+      },
+    ],
     [data],
   );
 

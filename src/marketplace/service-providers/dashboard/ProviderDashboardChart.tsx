@@ -1,10 +1,10 @@
+import { useQuery } from '@tanstack/react-query';
 import { FunctionComponent } from 'react';
 import { Card, Col, Row } from 'react-bootstrap';
-import { useAsync } from 'react-use';
+import { ServiceProvider } from 'waldur-js-client';
 
-import { EChart } from '@waldur/core/EChart';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { ServiceProvider } from '@waldur/marketplace/types';
+import { EChart } from '@/core/EChart';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
 
 import { ChangesAmountBadge } from './ChangesAmountBadge';
 import { loadProviderCharts } from './utils';
@@ -16,10 +16,10 @@ interface ProviderDashboardChartProps {
 export const ProviderDashboardChart: FunctionComponent<
   ProviderDashboardChartProps
 > = ({ provider }) => {
-  const { loading, value } = useAsync(
-    () => loadProviderCharts(provider),
-    [provider],
-  );
+  const { isLoading: loading, data: value } = useQuery({
+    queryKey: ['ProviderDashboardChart', provider],
+    queryFn: () => loadProviderCharts(provider),
+  });
   if (loading) {
     return <LoadingSpinner />;
   }

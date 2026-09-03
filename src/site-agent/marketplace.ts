@@ -1,30 +1,26 @@
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { OfferingConfiguration } from '@waldur/marketplace/common/types';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { OfferingConfiguration } from '@/marketplace/common/types';
 
 import { SITE_AGENT_PLUGIN } from './constants';
 
-const SiteAgentCredentialsForm = lazyComponent(() =>
-  import('./SiteAgentCredentialsForm').then((module) => ({
-    default: module.SiteAgentCredentialsForm,
-  })),
-);
-
-const UserPluginOptionsForm = lazyComponent(() =>
-  import('@waldur/marketplace/UserPluginOptionsForm').then((module) => ({
-    default: module.UserPluginOptionsForm,
-  })),
-);
-
-const UserSecretOptionsForm = lazyComponent(() =>
-  import('@waldur/marketplace/UserSecretOptionsForm').then((module) => ({
-    default: module.UserSecretOptionsForm,
-  })),
+const DefaultUserManagementSection = lazyComponent(() =>
+  import('@/marketplace/offerings/update/integration/UserManagementSection').then(
+    (module) => ({
+      default: module.DefaultUserManagementSection,
+    }),
+  ),
 );
 
 const SiteAgentOrderForm = lazyComponent(() =>
   import('./SiteAgentOrderForm').then((module) => ({
     default: module.SiteAgentOrderForm,
+  })),
+);
+
+const SiteAgentCredentialsSection = lazyComponent(() =>
+  import('./SiteAgentCredentialsSection').then((module) => ({
+    default: module.SiteAgentCredentialsSection,
   })),
 );
 
@@ -34,8 +30,7 @@ export const SiteAgentOffering: OfferingConfiguration = {
     return translate('Waldur site agent');
   },
   orderFormComponent: SiteAgentOrderForm,
-  pluginOptionsForm: UserPluginOptionsForm,
-  secretOptionsForm: UserSecretOptionsForm,
+  userManagementSection: DefaultUserManagementSection,
   showComponents: true,
-  credentialsForm: SiteAgentCredentialsForm,
+  credentialsSection: SiteAgentCredentialsSection,
 };

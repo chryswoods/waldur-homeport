@@ -1,39 +1,41 @@
-import { CheckIcon, XIcon } from '@phosphor-icons/react';
-import React, { FunctionComponent } from 'react';
-import { Button } from 'react-bootstrap';
-import { useDispatch, useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
+import React, { FunctionComponent, useMemo } from 'react';
 import {
   marketplaceProviderResourcesList,
   MarketplaceProviderResourcesListData,
+  ProviderOfferingDetails as Offering,
+  Project,
   Resource,
 } from 'waldur-js-client';
-import { Project } from 'waldur-js-client';
 
-import { Badge } from '@waldur/core/Badge';
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { BackendIdTip } from '@waldur/core/Tooltip';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { ExpandableResourceSummary } from '@waldur/marketplace/resources/list/ExpandableResourceSummary';
-import { ResourceMultiSelectAction } from '@waldur/marketplace/resources/mass-actions/ResourceMultiSelectAction';
-import { Category, Offering } from '@waldur/marketplace/types';
-import { openModalDialog } from '@waldur/modal/actions';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { getCustomer } from '@waldur/workspace/selectors';
-import { Customer } from '@waldur/workspace/types';
+import { BooleanBadge } from '@/core/BooleanBadge';
+import { formatDateTime } from '@/core/dateUtils';
+import { lazyComponent } from '@/core/lazyComponent';
+import { BackendIdTip } from '@/core/Tooltip';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { Option } from '@/marketplace/common/registry';
+import { ResourceFlags } from '@/marketplace/resources/details/ResourceFlags';
+import { ExpandableResourceSummary } from '@/marketplace/resources/list/ExpandableResourceSummary';
+import { ResourceTerminationDateField } from '@/marketplace/resources/list/ResourceTerminationDateField';
+import { ResourceMultiSelectAction } from '@/marketplace/resources/mass-actions/ResourceMultiSelectAction';
+import { Category } from '@/marketplace/types';
+import { useModal } from '@/modal/actions';
+import { ActionButton } from '@/table/ActionButton';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { Column } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
+import { useCustomer } from '@/workspace/hooks';
+import { Customer } from '@/workspace/types';
 
 import {
+  NON_TERMINATED_STATES,
   PROVIDER_RESOURCES_LIST_FILTER_FORM_ID,
   TABLE_PUBLIC_RESOURCE,
 } from './constants';
-import { NON_TERMINATED_STATES } from './constants';
 import { EndDateTooltip } from './EndDateTooltip';
 import { ProviderResourceActions } from './ProviderResourceActions';
 import { ProviderResourcesFilter } from './ProviderResourcesFilter';
@@ -42,13 +44,16 @@ import { ResourceStateField } from './ResourceStateField';
 import { getStates } from './ResourceStateFilter';
 
 interface ResourceFilter {
-  state?: any;
+  state?: Option[];
   organization?: Customer;
   project?: Project;
   category?: Category;
   offering?: Offering;
   parent_offering?: Offering;
   include_terminated?: boolean;
+  paused?: boolean;
+  downscaled?: boolean;
+  restrict_member_access?: boolean;
 }
 
 const ResourceDetailsDialog = lazyComponent(() =>
@@ -58,28 +63,30 @@ const ResourceDetailsDialog = lazyComponent(() =>
 );
 
 const ResourceField = ({ row }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const callback = () => {
-    dispatch(
-      openModalDialog(ResourceDetailsDialog, {
-        resolve: { resource: row },
-      }),
-    );
+    openDialog(ResourceDetailsDialog, {
+      resolve: { resource: row },
+    });
   };
   return (
-    <>
-      <Button
+    <div className="d-flex align-items-center gap-1">
+      <ActionButton
         variant="flush"
         className="text-anchor fw-normal"
-        onClick={callback}
-      >
-        {row.name || row.offering_name}
-      </Button>
+        action={callback}
+        title={row.name || row.offering_name}
+      />
       <BackendIdTip backendId={row.backend_id} />
-      <EndDateTooltip end_date={row.end_date} />
-    </>
+      <EndDateTooltip end_date={row.resource_effective_end_date} />
+      <ResourceFlags resource={row} />
+    </div>
   );
 };
+
+const ProviderExpandableResourceSummary: FunctionComponent<{
+  row: Resource;
+}> = (props) => <ExpandableResourceSummary {...props} context="provider" />;
 
 const TableComponent: FunctionComponent<any> = (props) => {
   React.useEffect(() => {
@@ -127,6 +134,7 @@ const TableComponent: FunctionComponent<any> = (props) => {
       render: ({ row }) => <>{row.project_name}</>,
       keys: ['project_name'],
       filter: 'project_name',
+      orderField: 'project_name',
       inlineFilter: (row) => ({
         name: row.project_name,
         uuid: row.project_uuid,
@@ -148,7 +156,7 @@ const TableComponent: FunctionComponent<any> = (props) => {
     },
     {
       title: translate('Plan'),
-      render: ({ row }) => <>{row.plan_name || 'N/A'}</>,
+      render: ({ row }) => <>{renderFieldOrDash(row.plan_name)}</>,
       export: 'plan_name',
       keys: ['plan_name'],
       optional: true,
@@ -165,7 +173,7 @@ const TableComponent: FunctionComponent<any> = (props) => {
     },
     {
       title: translate('Effective ID'),
-      render: ({ row }) => <>{row.effective_id || 'N/A'}</>,
+      render: ({ row }) => <>{renderFieldOrDash(row.effective_id)}</>,
       export: 'effective_id',
       optional: true,
       keys: ['effective_id'],
@@ -173,7 +181,7 @@ const TableComponent: FunctionComponent<any> = (props) => {
     },
     {
       title: translate('Backend ID'),
-      render: ({ row }) => <>{row.backend_id || 'N/A'}</>,
+      render: ({ row }) => <>{renderFieldOrDash(row.backend_id)}</>,
       export: 'backend_id',
       optional: true,
       keys: ['backend_id'],
@@ -181,19 +189,9 @@ const TableComponent: FunctionComponent<any> = (props) => {
     },
     {
       title: translate('Requested downscaling'),
-      render: ({ row }) =>
-        !row.downscaled ? (
-          <Badge variant="danger" outline pill size="sm">
-            <XIcon size={12} className="text-danger me-2" />
-            {translate('No')}
-          </Badge>
-        ) : (
-          <Badge variant="success" outline pill size="sm">
-            <CheckIcon size={12} className="text-success me-2" />
-            {translate('Yes')}
-          </Badge>
-        ),
-
+      render: ({ row }) => <BooleanBadge value={row.downscaled} />,
+      filter: 'downscaled',
+      inlineFilter: () => true,
       export: 'downscaled',
       keys: ['downscaled'],
       exportKeys: ['downscaled'],
@@ -202,19 +200,9 @@ const TableComponent: FunctionComponent<any> = (props) => {
     },
     {
       title: translate('Restrict member access'),
-      render: ({ row }) =>
-        !row.restrict_member_access ? (
-          <Badge variant="danger" outline pill size="sm">
-            <XIcon size={12} className="text-danger me-2" />
-            {translate('No')}
-          </Badge>
-        ) : (
-          <Badge variant="success" outline pill size="sm">
-            <CheckIcon size={12} className="text-success me-2" />
-            {translate('Yes')}
-          </Badge>
-        ),
-
+      render: ({ row }) => <BooleanBadge value={row.restrict_member_access} />,
+      filter: 'restrict_member_access',
+      inlineFilter: () => true,
       export: 'restrict_member_access',
       keys: ['restrict_member_access'],
       exportKeys: ['restrict_member_access'],
@@ -223,19 +211,9 @@ const TableComponent: FunctionComponent<any> = (props) => {
     },
     {
       title: translate('Requested pausing'),
-      render: ({ row }) =>
-        !row.paused ? (
-          <Badge variant="danger" outline pill size="sm">
-            <XIcon size={12} className="text-danger me-2" />
-            {translate('No')}
-          </Badge>
-        ) : (
-          <Badge variant="success" outline pill size="sm">
-            <CheckIcon size={12} className="text-success me-2" />
-            {translate('Yes')}
-          </Badge>
-        ),
-
+      render: ({ row }) => <BooleanBadge value={row.paused} />,
+      filter: 'paused',
+      inlineFilter: () => true,
       export: 'paused',
       keys: ['paused'],
       exportKeys: ['paused'],
@@ -253,18 +231,17 @@ const TableComponent: FunctionComponent<any> = (props) => {
     },
     {
       title: translate('Termination date'),
-      render: ({ row }) =>
-        row.end_date ? formatDateTime(row.end_date) : 'N/A',
+      render: ({ row }) => <ResourceTerminationDateField row={row} format />,
       orderField: 'end_date',
       id: 'end_date',
-      keys: ['end_date'],
+      keys: ['end_date', 'resource_effective_end_date'],
       optional: !isFeatureVisible(MarketplaceFeatures.show_resource_end_date),
-      export: (row) => row.end_date,
-      exportKeys: ['end_date'],
+      export: (row) => row.resource_effective_end_date,
+      exportKeys: ['resource_effective_end_date'],
     },
     {
       title: translate('State'),
-      render: ({ row }) => <ResourceStateField resource={row} outline pill />,
+      render: ({ row }) => <ResourceStateField resource={row} pill outline />,
       filter: 'state',
       orderField: 'state',
       inlineFilter: (row) => getStates().filter((op) => op.value === row.state),
@@ -288,7 +265,7 @@ const TableComponent: FunctionComponent<any> = (props) => {
       hasQuery={true}
       hasOptionalColumns
       showPageSizeSelector={true}
-      expandableRow={ExpandableResourceSummary}
+      expandableRow={ProviderExpandableResourceSummary}
       rowActions={({ row }) => (
         <ProviderResourceActions resource={row} refetch={props.fetch} />
       )}
@@ -302,48 +279,10 @@ const TableOptions = {
   table: TABLE_PUBLIC_RESOURCE,
   fetchData: createFetcher(marketplaceProviderResourcesList),
   queryField: 'query',
-};
-
-const mapStateToFilter = createSelector(
-  getCustomer,
-  (state, formId) => getFormValues(formId)(state),
-  (customer, filters: ResourceFilter) => {
-    const filter: MarketplaceProviderResourcesListData['query'] = {};
-
-    // Public resources should only contain resources from billable offerings.
-    filter.offering_billable = true;
-
-    if (customer) {
-      filter.provider_uuid = customer.uuid;
-    }
-    if (filters?.offering?.uuid) {
-      filter.offering_uuid = [filters.offering.uuid];
-    }
-    if (filters?.parent_offering) {
-      filter.parent_offering_uuid = filters.parent_offering.uuid;
-    }
-    if (filters?.state) {
-      filter.state = filters.state.map((option) => option.value);
-      if (filters?.include_terminated) {
-        filter.state = [...filter.state, 'Terminated'];
-      }
-    } else {
-      if (!filters?.include_terminated) {
-        filter.state = NON_TERMINATED_STATES;
-      }
-    }
-    if (filters?.organization) {
-      filter.customer_uuid = filters.organization.uuid;
-    }
-    if (filters?.project) {
-      filter.project_uuid = filters.project.uuid;
-    }
-    if (filters?.category) {
-      filter.category_uuid = filters.category.uuid;
-    }
-    return filter;
+  initialFilters: {
+    state: getStates().filter((state) => state.value !== 'Terminated'),
   },
-);
+};
 
 const mandatoryFields: MarketplaceProviderResourcesListData['query']['field'] =
   [
@@ -365,20 +304,73 @@ const mandatoryFields: MarketplaceProviderResourcesListData['query']['field'] =
     'current_usages', // Expandable view
     'state', // Almost all actions
     'slug', // SetSlugAction
-    'end_date', // EditResourceEndDateByProviderAction, EditResourceEndDateByStaffAction
+    'end_date', // EditResourceEndDateByProviderAction
+    'resource_effective_end_date', // Termination date column (grace-aware)
+    'project_end_date', // Resource details popup
+    'project_effective_end_date', // Resource details popup (grace period display)
     'resource_type', // TerminateAction
+    'paused', // ResourceFlags inline badge
+    'downscaled', // ResourceFlags inline badge
+    'restrict_member_access', // ResourceFlags inline badge
   ];
 
-export const ProviderResourcesList: React.ComponentType<any> = () => {
-  const filter = useSelector((state) =>
-    mapStateToFilter(state, PROVIDER_RESOURCES_LIST_FILTER_FORM_ID),
-  );
-  const tableProps = useTable({
-    ...TableOptions,
-    filter,
-    mandatoryFields,
-  });
+export const ProviderResourcesList: FunctionComponent = () => {
+  const customer = useCustomer();
+  const values = useFilterValues(TABLE_PUBLIC_RESOURCE);
+  const filterValues: ResourceFilter = values;
+
+  const filter = useMemo(() => {
+    const filterObj: MarketplaceProviderResourcesListData['query'] = {};
+
+    filterObj.offering_billable = true;
+
+    if (customer) {
+      filterObj.provider_uuid = customer.uuid;
+    }
+    if (filterValues?.offering?.uuid) {
+      filterObj.offering_uuid = [filterValues.offering.uuid];
+    }
+    if (filterValues?.parent_offering) {
+      filterObj.parent_offering_uuid = filterValues.parent_offering.uuid;
+    }
+    if (filterValues?.state) {
+      filterObj.state = filterValues.state.map((option) => option.value as any);
+      if (filterValues?.include_terminated) {
+        filterObj.state = [...filterObj.state, 'Terminated'];
+      }
+    } else {
+      if (!filterValues?.include_terminated) {
+        filterObj.state = NON_TERMINATED_STATES;
+      }
+    }
+    if (filterValues?.organization) {
+      filterObj.customer_uuid = filterValues.organization.uuid;
+    }
+    if (filterValues?.project) {
+      filterObj.project_uuid = filterValues.project.uuid;
+    }
+    if (filterValues?.category) {
+      filterObj.category_uuid = filterValues.category.uuid;
+    }
+    if (filterValues?.paused) {
+      filterObj.paused = true;
+    }
+    if (filterValues?.downscaled) {
+      filterObj.downscaled = true;
+    }
+    if (filterValues?.restrict_member_access) {
+      filterObj.restrict_member_access = true;
+    }
+    return filterObj;
+  }, [customer, filterValues]);
+
+  const tableProps = useTable({ ...TableOptions, filter, mandatoryFields });
+
   return (
-    <TableComponent {...tableProps} filters={<ProviderResourcesFilter />} />
+    <TableComponent
+      {...tableProps}
+      formId={PROVIDER_RESOURCES_LIST_FILTER_FORM_ID}
+      filters={<ProviderResourcesFilter />}
+    />
   );
 };

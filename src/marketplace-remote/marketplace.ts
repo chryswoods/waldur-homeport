@@ -1,9 +1,15 @@
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { OfferingConfiguration } from '@waldur/marketplace/common/types';
-import { COMMON_OPTIONS } from '@waldur/support/marketplace';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { OfferingConfiguration } from '@/marketplace/common/types';
+import { COMMON_OPTIONS } from '@/support/marketplace';
 
 import { REMOTE_OFFERING_TYPE } from './constants';
+
+const RemoteCredentialsSection = lazyComponent(() =>
+  import('./RemoteCredentialsSection').then((module) => ({
+    default: module.RemoteCredentialsSection,
+  })),
+);
 
 const RemoteOfferingSecretOptions = lazyComponent(() =>
   import('./RemoteOfferingSecretOptions').then((module) => ({
@@ -17,6 +23,6 @@ export const RemoteOffering: OfferingConfiguration = {
     return translate('Remote offering');
   },
   ...COMMON_OPTIONS,
-  showBackendId: true,
-  provisioningConfigForm: RemoteOfferingSecretOptions,
+  credentialsSection: RemoteCredentialsSection,
+  provisioningConfigSection: RemoteOfferingSecretOptions,
 };

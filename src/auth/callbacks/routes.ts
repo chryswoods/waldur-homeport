@@ -1,10 +1,10 @@
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { StateDeclaration } from '@waldur/core/types';
+import { lazyComponent } from '@/core/lazyComponent';
+import { StateDeclaration } from '@/core/types';
 
 export const states: StateDeclaration[] = [
   {
     name: 'home.login_completed',
-    url: '/login_completed/:token/:method/',
+    url: '/login_completed/:code/:method/',
     component: lazyComponent(() =>
       import('./AuthLoginCompleted').then((module) => ({
         default: module.AuthLoginCompleted,

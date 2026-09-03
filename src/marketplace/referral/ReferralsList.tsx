@@ -1,13 +1,14 @@
 import { FunctionComponent, useMemo } from 'react';
 import { marketplaceOfferingReferralsList } from 'waldur-js-client';
 
-import { Tip } from '@waldur/core/Tooltip';
-import { translate } from '@waldur/i18n';
-import { REFERRALS_TABLE } from '@waldur/marketplace/referral/constants';
-import { ReferralTypeIcon } from '@waldur/marketplace/referral/ReferralTypeIcon';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { Tip } from '@/core/Tooltip';
+import { translate } from '@/i18n';
+import { REFERRALS_TABLE } from '@/marketplace/referral/constants';
+import { ReferralTypeIcon } from '@/marketplace/referral/ReferralTypeIcon';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 export const ReferralsList: FunctionComponent<{ offering }> = ({
   offering,
@@ -33,12 +34,12 @@ export const ReferralsList: FunctionComponent<{ offering }> = ({
     },
     {
       title: translate('Published'),
-      render: ({ row }) => row.published || 'N/A',
+      render: ({ row }) => renderFieldOrDash(row.published),
       orderField: 'published',
     },
     {
       title: translate('Publisher'),
-      render: ({ row }) => row.publisher || 'N/A',
+      render: ({ row }) => renderFieldOrDash(row.publisher),
     },
     {
       title: translate('PID'),

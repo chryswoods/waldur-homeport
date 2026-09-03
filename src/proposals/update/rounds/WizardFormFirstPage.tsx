@@ -1,145 +1,142 @@
 import { FunctionComponent, useMemo } from 'react';
+import { useFormState } from 'react-final-form';
 
-import { formatISOWithoutZone, parseDate } from '@waldur/core/dateUtils';
-import { max, required, url } from '@waldur/core/validators';
-import { FormContainer, NumberField, SelectField, StringField, TextField } from '@waldur/form';
-import { DateTimeField } from '@waldur/form/DateTimeField';
-import { TimezoneField } from '@waldur/form/TimezoneField';
-import { WizardForm, WizardFormStepProps } from '@waldur/form/WizardForm';
-import { translate } from '@waldur/i18n';
+import { formatISOWithoutZone, parseDate } from '@/core/dateUtils';
+import { required } from '@/core/validators';
+import {
+  DateTimeGroup,
+  NumberGroup,
+  SelectGroup,
+  TimezoneGroup,
+  BooleanGroup,
+} from '@/form';
+import { translate } from '@/i18n';
+import { WizardForm, WizardFormStepProps } from '@/wizard';
 
-const MEMBERSHIP_CONTROL_CHOICES = [
-  { label: translate('Open (no restriction)'), value: 'open' },
-  { label: translate('Members only'), value: 'members_only' },
-  { label: translate('Roles only'), value: 'roles_only' },
-  { label: translate('Locked'), value: 'locked' },
+const cadenceOptions = [
+  { value: 'monthly', label: translate('Monthly') },
+  { value: 'quarterly', label: translate('Quarterly') },
+  { value: 'biannual', label: translate('Biannual') },
+  { value: 'yearly', label: translate('Yearly') },
+  { value: 'custom', label: translate('Custom') },
 ];
-
-export const domainsToText = (value: unknown): string =>
-  Array.isArray(value) ? (value as string[]).join('\n') : '';
-
-export const textToDomains = (text: string): string[] =>
-  (text ?? '')
-    .split(/[\n,]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-const MAX_REAPPLY_TEXT_LENGTH = 255;
-const validateReapplyText = max(MAX_REAPPLY_TEXT_LENGTH);
-
-const StringFieldWithCount = ({ maxLength, ...props }) => {
-  const currentLength = props.input?.value?.length || 0;
-  const remaining = maxLength - currentLength;
-  return (
-    <>
-      <StringField {...props} maxLength={maxLength} />
-      <div className="text-end text-muted mt-1">
-        {translate('{remaining} characters remaining', { remaining })}
-      </div>
-    </>
-  );
-};
 
 export const WizardFormFirstPage: FunctionComponent<WizardFormStepProps> = (
   props,
 ) => {
+  const { values, submitting } = useFormState({
+    subscription: { values: true, submitting: true },
+  });
+  const { cutoff_time, start_time, repeats, submission_window_days, cadence } =
+    values;
+
+  const duration = useMemo(() => {
+    if (!start_time || !cutoff_time) return null;
+    const startDate = parseDate(start_time);
+    const cutoffDate = parseDate(cutoff_time);
+    const diff = cutoffDate.diff(startDate, 'days').toObject().days;
+    if (diff > 0) {
+      return cutoffDate.toRelative({ base: startDate });
+    }
+    return null;
+  }, [cutoff_time, start_time]);
   return (
     <WizardForm {...props}>
-      {(wizardProps) => {
-        const { cutoff_time, start_time } = wizardProps.formValues;
-        const duration = useMemo(() => {
-          if (!start_time || !cutoff_time) return null;
-          const startDate = parseDate(start_time);
-          const cutoffDate = parseDate(cutoff_time);
-          const diff = cutoffDate.diff(startDate, 'days').toObject().days;
-          if (diff > 0) {
-            return cutoffDate.toRelative({ base: startDate });
-          }
-          return null;
-        }, [cutoff_time, start_time]);
-
-        return (
-          <FormContainer
-            submitting={wizardProps.submitting}
-            clearOnUnmount={false}
-          >
-            <TimezoneField
-              label={translate('Time zone')}
-              name="timezone"
-              required={true}
-              isSearchable={true}
-              isClearable={false}
-              validate={required}
-            />
-            <DateTimeField
-              label={translate('Start date')}
-              name="start_time"
-              required
-              validate={required}
-              dateFormat="Y-m-d H:i"
-              parse={(value) => (value ? formatISOWithoutZone(value) : value)}
-              format={(value) => (value ? new Date(value) : value)}
-            />
-            <DateTimeField
-              label={translate('Cutoff date')}
-              name="cutoff_time"
-              required
-              validate={required}
-              dateFormat="Y-m-d H:i"
-              parse={(value) => (value ? formatISOWithoutZone(value) : value)}
-              format={(value) => (value ? new Date(value) : value)}
-            />
-            {translate('Duration')}: {duration || '-'}
-            <NumberField
-              label={translate('Minimum Required Uploads')}
-              name="minimum_required_uploads"
-              description={translate(
-                'Minimum number of documents required to submit a proposal. Set to 0 for no requirement.',
-              )}
-              min={0}
-              step={1}
-            />
-            <SelectField
-              label={translate('Default membership control')}
-              name="default_membership_control"
-              options={MEMBERSHIP_CONTROL_CHOICES}
-              simpleValue
-              isClearable={false}
-              description={translate(
-                'Default membership control policy for projects created from proposals in this round.',
-              )}
-            />
-            <TextField
-              label={translate('Default allowed domains')}
-              name="default_allowed_domains"
-              rows={4}
-              placeholder={'@example.ac.uk\n*.bristol.ac.uk'}
-              description={translate(
-                'Enter one domain pattern per line. Leave empty to allow all domains.',
-              )}
-            />
-            <StringField
-              label={translate('Default reapply URL')}
-              name="default_reapply_url"
-              placeholder="https://example.com/reapply"
-              description={translate(
-                'URL for successful applicants to reapply or extend their award. Leave empty if not applicable.',
-              )}
-              validate={url}
-            />
-            <StringFieldWithCount
-              label={translate('Default reapply link text')}
-              name="default_reapply_text"
-              maxLength={MAX_REAPPLY_TEXT_LENGTH}
-              placeholder={translate('Apply for an extension')}
-              description={translate(
-                'Link text displayed for the reapply URL.',
-              )}
-              validate={validateReapplyText}
-            />
-          </FormContainer>
-        );
-      }}
+      <div className="size-sm">
+        <TimezoneGroup
+          name="timezone"
+          label={translate('Time zone')}
+          required={true}
+          isSearchable={true}
+          isClearable={false}
+          validate={required}
+        />
+        <DateTimeGroup
+          label={translate('Start date')}
+          name="start_time"
+          required
+          validate={required}
+          dateFormat="Y-m-d H:i"
+          parse={(value) => (value ? formatISOWithoutZone(value) : value)}
+          format={(value) => (value ? new Date(value) : value)}
+        />
+        <BooleanGroup
+          name="repeats"
+          label={translate('Repeats')}
+          help={translate('Create multiple rounds at a regular cadence.')}
+        />
+        {!repeats && (
+          <DateTimeGroup
+            label={translate('Cutoff date')}
+            name="cutoff_time"
+            required
+            validate={required}
+            dateFormat="Y-m-d H:i"
+            parse={(value) => (value ? formatISOWithoutZone(value) : value)}
+            format={(value) => (value ? new Date(value) : value)}
+            description={
+              duration
+                ? translate('Duration: {duration}', { duration })
+                : undefined
+            }
+          />
+        )}
+        {repeats && (
+          <NumberGroup
+            label={translate('Submission window (days)')}
+            name="submission_window_days"
+            required
+            validate={required}
+            min={1}
+            description={
+              submission_window_days
+                ? translate('Each round closes {n} days after its start.', {
+                    n: submission_window_days,
+                  })
+                : undefined
+            }
+            disabled={submitting}
+          />
+        )}
+        {repeats && (
+          <SelectGroup
+            name="cadence"
+            label={translate('Cadence')}
+            simpleValue={true}
+            options={cadenceOptions}
+            required={true}
+            isClearable={false}
+            validate={required}
+            description={translate(
+              'How often a new round starts after the previous one.',
+            )}
+            disabled={submitting}
+          />
+        )}
+        {repeats && cadence === 'custom' && (
+          <NumberGroup
+            label={translate('Custom interval (months)')}
+            name="custom_interval_months"
+            required
+            validate={required}
+            min={1}
+            disabled={submitting}
+          />
+        )}
+        {repeats && (
+          <NumberGroup
+            label={translate('Number of rounds')}
+            name="number_of_rounds"
+            required
+            validate={required}
+            min={1}
+            description={translate(
+              'Each round gets a slug based on the call and its start month. You can rename rounds individually after creation.',
+            )}
+            disabled={submitting}
+          />
+        )}
+      </div>
     </WizardForm>
   );
 };

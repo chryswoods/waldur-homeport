@@ -1,16 +1,14 @@
-import { TrashIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { marketplaceServiceProvidersDeleteUser } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { GenericPermission } from '@waldur/permissions/types';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { getCustomer, getUser } from '@waldur/workspace/selectors';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { GenericPermission } from '@/permissions/types';
+import { getPermissionDisabledTooltip } from '@/permissions/utils';
+import { RemovalActionItem } from '@/resource/actions/RemovalActionItem';
+import { useUser, useCustomer } from '@/workspace/hooks';
 
 interface UserRemoveButtonProps {
   user: GenericPermission;
@@ -21,54 +19,45 @@ export const UserRemoveButton: FC<UserRemoveButtonProps> = ({
   user,
   refetch,
 }) => {
-  const currentUser = useSelector(getUser);
-  const currentCustomer = useSelector(getCustomer);
-  const dispatch = useDispatch();
-  const disabled = !hasPermission(currentUser, {
-    permission: PermissionEnum.DELETE_CUSTOMER_PERMISSION,
-    customerId: currentCustomer.uuid,
-  });
+  const currentUser = useUser();
+  const currentCustomer = useCustomer();
 
-  const callback = async () => {
-    try {
-      await waitForConfirmation(
-        dispatch,
-        translate('Confirmation'),
-        translate('Are you sure you want to remove {userName}?', {
-          userName: user.user_full_name || user.user_username,
-        }),
-      );
-    } catch {
-      return;
-    }
-    try {
-      await marketplaceServiceProvidersDeleteUser({
+  const { mutate, isPending } = useManagedMutation<any, any, void>({
+    mutationFn: () =>
+      marketplaceServiceProvidersDeleteUser({
         path: { uuid: currentCustomer.service_provider_uuid },
         body: {
           user: user.user_uuid,
           role: user.role_name,
         },
-      });
+      }),
+    successMessage: translate('Team member has been removed.'),
+    errorMessage: translate('Unable to delete team member.'),
+    refetch,
+    confirmation: {
+      title: translate('Confirmation'),
+      body: translate('Are you sure you want to remove {userName}?', {
+        userName: user.user_full_name || user.user_username,
+      }),
+    },
+  });
 
-      await refetch();
-      dispatch(showSuccess(translate('Team member has been removed.')));
-    } catch (e) {
-      dispatch(
-        showErrorResponse(e, translate('Unable to delete team member.')),
-      );
-    }
-  };
+  const disabled = !hasPermission(currentUser, {
+    permission: PermissionEnum.DELETE_CUSTOMER_PERMISSION,
+    customerId: currentCustomer.uuid,
+  });
+
   return (
-    <ActionItem
-      className="text-danger"
-      iconColor="danger"
+    <RemovalActionItem
       title={translate('Remove')}
-      action={callback}
-      iconNode={<TrashIcon weight="bold" />}
-      disabled={disabled}
+      action={mutate}
+      disabled={disabled || isPending}
       tooltip={
         disabled &&
-        translate("You don't have enough privileges to perform this operation.")
+        getPermissionDisabledTooltip(
+          PermissionEnum.DELETE_CUSTOMER_PERMISSION,
+          ['customer'],
+        )
       }
     />
   );

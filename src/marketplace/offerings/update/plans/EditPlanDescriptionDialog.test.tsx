@@ -1,71 +1,16 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { marketplacePlansUpdate } from 'waldur-js-client';
+
+import { ENV } from '@/core/config';
+import { renderWithProviders } from '@/test/harness';
+import { openAndSelectOption } from '@/test/select';
 
 import { EditPlanDescriptionDialog } from './EditPlanDescriptionDialog';
 import { mockOffering, mockPlan } from './test-utils';
 
-// Mock API specific to EditPlanDescriptionDialog
-vi.mock('waldur-js-client', () => ({
-  marketplacePlansUpdate: vi.fn(),
-}));
-
-// Mock config to prevent errors from ENV access
-vi.mock('@waldur/core/config', () => ({
-  ENV: {
-    plugins: {
-      WALDUR_CORE: {
-        ENABLE_PROJECT_KIND_COURSE: false,
-      },
-    },
-  },
-}));
-
-// Mock store hooks
-vi.mock('@waldur/store/hooks', () => ({
-  useNotify: () => ({
-    showSuccess: vi.fn(),
-    showErrorResponse: vi.fn(),
-  }),
-}));
-
-// Mock modal hooks
-vi.mock('@waldur/modal/hooks', () => ({
-  useModal: () => ({
-    closeDialog: vi.fn(),
-  }),
-}));
-
-// Mock translation
-vi.mock('@waldur/core/translate', () => ({
-  translate: (str: string) => str,
-}));
-
-// Mock local constants
-vi.mock('./constants', () => ({
-  getBillingPeriods: () => [
-    { value: 'month', label: 'Per month' },
-    { value: 'half_month', label: 'Per half month' },
-    { value: 'day', label: 'Per day' },
-    { value: 'hour', label: 'Per hour' },
-  ],
-}));
-
-// Mock marketplace utils
-vi.mock('@waldur/marketplace/details/utils', () => ({
-  formatPlan: (data: any) => ({
-    name: data.name,
-    unit: data.unit?.value || data.unit,
-    description: data.description,
-    article_code: data.article_code,
-  }),
-}));
-
-// Mock plan validation utils
-vi.mock('@waldur/marketplace/offerings/update/plans/utils', () => ({
-  articleCodeValidator: () => {},
-}));
+ENV.plugins.WALDUR_CORE.ENABLE_PROJECT_KIND_COURSE = false;
 
 const mockResolve = {
   offering: mockOffering,
@@ -74,7 +19,7 @@ const mockResolve = {
 };
 
 const renderComponent = (resolve = mockResolve) => {
-  return render(<EditPlanDescriptionDialog resolve={resolve} />);
+  return renderWithProviders(<EditPlanDescriptionDialog resolve={resolve} />);
 };
 
 describe('EditPlanDescriptionDialog', () => {
@@ -97,12 +42,8 @@ describe('EditPlanDescriptionDialog', () => {
     renderComponent();
 
     // Check that form is populated with existing plan data
-    const nameInput = document.querySelector(
-      'input[name="name"]',
-    ) as HTMLInputElement;
-    const articleCodeInput = document.querySelector(
-      'input[name="article_code"]',
-    ) as HTMLInputElement;
+    const nameInput = screen.getByLabelText(/Name/i);
+    const articleCodeInput = screen.getByLabelText(/Article code/i);
 
     expect(nameInput).toHaveValue('Test Plan');
     expect(articleCodeInput).toHaveValue('TEST001');
@@ -118,9 +59,7 @@ describe('EditPlanDescriptionDialog', () => {
     const user = userEvent.setup();
 
     // Modify the plan name
-    const nameInput = document.querySelector(
-      'input[name="name"]',
-    ) as HTMLInputElement;
+    const nameInput = screen.getByLabelText(/Name/i);
     await user.clear(nameInput);
     await user.type(nameInput, 'Updated Plan Name');
 
@@ -165,33 +104,20 @@ describe('EditPlanDescriptionDialog', () => {
     const user = userEvent.setup();
 
     // Edit name
-    const nameInput = document.querySelector(
-      'input[name="name"]',
-    ) as HTMLInputElement;
+    const nameInput = screen.getByLabelText(/Name/i);
     expect(nameInput).toHaveValue('Test Plan');
     await user.clear(nameInput);
     await user.type(nameInput, 'New Plan Name');
     expect(nameInput).toHaveValue('New Plan Name');
 
     // Edit article code
-    const articleCodeInput = document.querySelector(
-      'input[name="article_code"]',
-    ) as HTMLInputElement;
+    const articleCodeInput = screen.getByLabelText(/Article code/i);
     expect(articleCodeInput).toHaveValue('TEST001');
     await user.clear(articleCodeInput);
     await user.type(articleCodeInput, 'NEW001');
     expect(articleCodeInput).toHaveValue('NEW001');
 
-    // For description, just check that the MarkdownEditor exists
-    const editorContent = document.querySelector('.mdxeditor [role="textbox"]');
-    expect(editorContent).toBeInTheDocument();
-
-    // Change billing period
-    const selectContainer = document.querySelector('.metronic-select__control');
-    await user.click(selectContainer!);
-    const hourlyOption = screen.getByText('Per hour');
-    await user.click(hourlyOption);
-    expect(screen.getByText('Per hour')).toBeInTheDocument();
+    await openAndSelectOption(user, 'Billing period', 'Per hour');
   });
 
   it('handles different billing period formats', () => {
@@ -216,32 +142,41 @@ describe('EditPlanDescriptionDialog', () => {
     const user = userEvent.setup();
 
     // Clear required field
-    const nameInput = document.querySelector(
-      'input[name="name"]',
-    ) as HTMLInputElement;
+    const nameInput = screen.getByLabelText(/Name/i);
     await user.clear(nameInput);
 
     const saveButton = screen.getByText('Save');
-    expect(saveButton).toBeDisabled();
+    await waitFor(() => {
+      expect(saveButton).toBeDisabled();
+    });
   });
 
   it('shows loading state during submission', async () => {
     const mockPlansUpdate = vi.mocked(marketplacePlansUpdate);
-    // Mock a delayed response
-    mockPlansUpdate.mockImplementation(
-      () => new Promise((resolve) => setTimeout(resolve, 100)),
-    );
+    // Mock a delayed response with controllable promise
+    let resolvePromise: () => void;
+    const delayedPromise = new Promise<void>((resolve) => {
+      resolvePromise = resolve;
+    });
+    mockPlansUpdate.mockImplementation(() => delayedPromise as any);
 
-    renderComponent();
     const user = userEvent.setup();
+    renderComponent();
 
     const saveButton = screen.getByText('Save');
-    await user.click(saveButton);
+    const clickPromise = user.click(saveButton);
 
     // Button should be disabled during submission
-    await waitFor(() => {
-      expect(saveButton).toBeDisabled();
-    });
+    await waitFor(
+      () => {
+        expect(saveButton).toBeDisabled();
+      },
+      { timeout: 2000 },
+    );
+
+    // Resolve the promise to clean up
+    resolvePromise!();
+    await clickPromise;
   });
 
   it('handles API errors gracefully', async () => {

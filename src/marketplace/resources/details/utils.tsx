@@ -1,9 +1,9 @@
 import { Resource } from 'waldur-js-client';
 
-import { formatDate } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { CreatedField } from '@waldur/resource/summary/CreatedField';
-import { formatResourceType } from '@waldur/resource/utils';
+import { formatDate } from '@/core/dateUtils';
+import { translate } from '@/i18n';
+import { CreatedField } from '@/resource/summary/CreatedField';
+import { formatResourceType } from '@/resource/utils';
 
 import { KeyValueButton } from '../KeyValueButton';
 import { ResourceStateField } from '../list/ResourceStateField';
@@ -67,7 +67,7 @@ export const getResourceSummaryFields = ({
     {
       name: 'status',
       label: translate('Status'),
-      value: <ResourceStateField resource={resource} outline pill size="sm" />,
+      value: <ResourceStateField resource={resource} pill outline size="sm" />,
     },
     {
       name: 'created',
@@ -75,9 +75,52 @@ export const getResourceSummaryFields = ({
       value: <CreatedField resource={resource} />,
     },
     {
+      name: 'start_date',
+      label: translate('Start date'),
+      value: resource.creation_order?.start_date
+        ? formatDate(resource.creation_order.start_date)
+        : null,
+    },
+    {
       name: 'end_date',
       label: translate('Termination date'),
       value: resource.end_date ? formatDate(resource.end_date) : null,
+      tooltip:
+        resource.end_date &&
+        resource.resource_effective_end_date &&
+        new Date(resource.end_date) >
+          new Date(resource.resource_effective_end_date)
+          ? translate(
+              'Resource will be terminated with the project on {date}, before its own end date.',
+              { date: formatDate(resource.resource_effective_end_date) },
+            )
+          : undefined,
+    },
+    {
+      name: 'effective_termination',
+      label: translate('Scheduled termination'),
+      // Backend-computed: the earliest of the resource's own end date and the
+      // project-driven termination date, already grace-aware.
+      value: resource.resource_effective_end_date
+        ? formatDate(resource.resource_effective_end_date)
+        : null,
+      tooltip:
+        !resource.end_date && resource.resource_effective_end_date
+          ? translate(
+              'Resource has no own end date — it will be terminated with the project on {date}.',
+              { date: formatDate(resource.resource_effective_end_date) },
+            )
+          : undefined,
+    },
+    {
+      name: 'project_end_date',
+      label: translate('Project end date'),
+      value: resource.project_end_date
+        ? resource.project_effective_end_date &&
+          resource.project_effective_end_date !== resource.project_end_date
+          ? `${formatDate(resource.project_end_date)} (+${Math.round((new Date(resource.project_effective_end_date).getTime() - new Date(resource.project_end_date).getTime()) / 86400000)}d grace → ${formatDate(resource.project_effective_end_date)})`
+          : formatDate(resource.project_end_date)
+        : null,
     },
     {
       name: 'uuid',
@@ -114,6 +157,15 @@ export const getResourceSummaryFields = ({
       name: 'paused',
       label: translate('Paused'),
       value: resource.paused,
+      tooltip:
+        resource.paused && resource.project_is_in_grace_period
+          ? translate('Paused due to project grace period')
+          : undefined,
+    },
+    {
+      name: 'project_is_in_grace_period',
+      label: translate('Project in grace period'),
+      value: resource.project_is_in_grace_period,
     },
     {
       name: 'downscaled',

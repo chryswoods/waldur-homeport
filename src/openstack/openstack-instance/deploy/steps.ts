@@ -1,18 +1,19 @@
-import { required } from '@waldur/core/validators';
-import { translate } from '@waldur/i18n';
+import { required } from '@/core/validators';
+import { translate } from '@/i18n';
 import {
   DetailsOverviewStep,
   FinalConfigurationStep,
-} from '@waldur/marketplace/deploy/steps/constants';
-import { FormCloudStep } from '@waldur/marketplace/deploy/steps/FormCloudStep';
-import { OfferingConfigurationFormStep } from '@waldur/marketplace/deploy/types';
-import { INSTANCE_TYPE } from '@waldur/openstack/constants';
+} from '@/marketplace/deploy/steps/constants';
+import { FormCloudStep } from '@/marketplace/deploy/steps/FormCloudStep';
+import { OfferingConfigurationFormStep } from '@/marketplace/deploy/types';
+import { INSTANCE_TYPE } from '@/openstack/constants';
 
 import { validateOpenstackInstanceName } from '../utils';
 
 import { FormHardwareConfigurationStep } from './FormHardwareConfigurationStep';
 import { FormImageStep } from './FormImageStep';
 import { FormNetworkSecurityStep } from './FormNetworkSecurityStep';
+import { FormSchedulingStep } from './FormSchedulingStep';
 import { FormStartupScriptStep } from './FormStartupScriptStep';
 
 export const deployOfferingSteps: OfferingConfigurationFormStep[] = [
@@ -65,9 +66,16 @@ export const deployOfferingSteps: OfferingConfigurationFormStep[] = [
     component: FormNetworkSecurityStep,
   },
   {
+    label: translate('Scheduling'),
+    id: 'step-scheduling',
+    fields: ['attributes.server_group'],
+    required: false,
+    component: FormSchedulingStep,
+  },
+  {
     label: translate('Automation'),
     id: 'step-startup-script',
-    fields: ['attributes.user_data'],
+    fields: ['attributes.user_data', 'attributes.config_drive'],
     required: false,
     component: FormStartupScriptStep,
   },

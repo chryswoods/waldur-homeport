@@ -1,17 +1,13 @@
 import React from 'react';
-import { Field } from 'redux-form';
 
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-
-import { OptionalNumberField } from './OptionalNumberField';
+import { NumberGroup } from '@/form';
+import { translate } from '@/i18n';
 
 export const ComponentMinValueField: React.FC = () => (
-  <FormGroup label={translate('Minimum allowed value')}>
-    <Field
-      component={OptionalNumberField}
-      name="min_value"
-      parse={(value) => Number(value)}
-    />
-  </FormGroup>
+  <NumberGroup
+    name="min_value"
+    parse={(value) => Number(value)}
+    label={translate('Min value')}
+    spaceless
+  />
 );

@@ -1,11 +1,11 @@
 import { Form, Stack } from 'react-bootstrap';
 
-import { CopyToClipboardButton } from '@waldur/core/CopyToClipboardButton';
-import { formatMediumDateTime } from '@waldur/core/dateUtils';
-import { SecretField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { Field } from '@waldur/resource/summary';
+import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
+import { formatMediumDateTime } from '@/core/dateUtils';
+import { BaseSecretField } from '@/form';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { Field } from '@/resource/summary';
 
 interface OwnProps {
   resolve: { username; token; expiresAt };
@@ -13,7 +13,7 @@ interface OwnProps {
 
 export const ServiceAccountShowInfoDialog = ({ resolve }: OwnProps) => {
   return (
-    <ModalDialog title={translate('Your API token')} closeButton>
+    <ModalDialog title={translate('Your API token')}>
       <Form.Group className="mb-7">
         <Form.Label>{translate('Username')}</Form.Label>
         <Form.Control value={resolve.username} disabled />
@@ -24,8 +24,8 @@ export const ServiceAccountShowInfoDialog = ({ resolve }: OwnProps) => {
       <Form.Group className="mb-7">
         <Form.Label>{translate('API token')}</Form.Label>
         <Stack gap={2} direction="horizontal">
-          <SecretField
-            input={{ value: resolve.token } as any}
+          <BaseSecretField
+            value={resolve.token}
             disabled
             className="flex-grow-1"
           />

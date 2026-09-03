@@ -3,13 +3,14 @@ import classNames from 'classnames';
 import { FC, PropsWithChildren, ReactNode } from 'react';
 import { Card, Table } from 'react-bootstrap';
 
-import { RefreshButton } from '@waldur/marketplace/offerings/update/components/RefreshButton';
-import { wrapTooltip } from '@waldur/table/ActionButton';
+import { RefreshButton } from '@/marketplace/offerings/update/components/RefreshButton';
+import { wrapTooltip } from '@/table/ActionButton';
 
 import './FormTable.scss';
 
 export interface FormTableItemProps {
   label?: ReactNode;
+  colon?: boolean;
   description?: ReactNode;
   value?: ReactNode;
   group?: boolean;
@@ -20,7 +21,10 @@ export interface FormTableItemProps {
   className?: string;
   descriptionClassName?: string;
   valueClass?: string;
+  actionsClass?: string;
   required?: boolean;
+  'data-testid'?: string;
+  htmlFor?: string;
 }
 
 const FormTableItem: FC<PropsWithChildren<FormTableItemProps>> = ({
@@ -31,13 +35,13 @@ const FormTableItem: FC<PropsWithChildren<FormTableItemProps>> = ({
   const groupValues = props.group && Array.isArray(value);
   const titleRowSpan = groupValues ? (value as any[]).length : 1;
   return (groupValues ? (value as any[]) : [value]).map((row, i) => (
-    <tr
-      key={i}
-      className={classNames(props.disabled && 'opacity-50', props.className)}
-    >
+    <tr key={i} className={props.className} data-testid={props['data-testid']}>
       {i === 0 && props.description ? (
         <th className={row ? 'col-md-4' : 'col-md-auto'} rowSpan={titleRowSpan}>
-          <div className="title fw-bolder">
+          <label
+            htmlFor={props.htmlFor}
+            className="title fw-medium mb-0 d-block"
+          >
             {props.label}
             {props.required && <span className="text-danger ms-1">*</span>}
             {Boolean(props.tooltip) &&
@@ -47,7 +51,6 @@ const FormTableItem: FC<PropsWithChildren<FormTableItemProps>> = ({
                   size={20}
                   weight="bold"
                   className="ms-2 text-muted mb-1"
-                  data-testid="tooltip"
                 />,
               )}
             {Boolean(props.warnTooltip) &&
@@ -57,42 +60,47 @@ const FormTableItem: FC<PropsWithChildren<FormTableItemProps>> = ({
                   size={20}
                   weight="bold"
                   className="ms-2 text-warning mb-1"
-                  data-testid="warning"
                 />,
               )}
-          </div>
-          <div
-            className={classNames(
-              'description fw-normal',
-              props.descriptionClassName,
-            )}
-          >
-            {props.description}
-          </div>
+            {props.colon && ':'}
+          </label>
+          {wrapTooltip(
+            props.description,
+            <div
+              className={classNames(
+                'description fw-normal',
+                props.descriptionClassName,
+              )}
+            >
+              {props.description}
+            </div>,
+          )}
         </th>
       ) : i === 0 && props.label ? (
         <th className="title col-md-3" rowSpan={titleRowSpan}>
-          {props.label}
-          {props.required && <span className="text-danger ms-1">*</span>}{' '}
-          {Boolean(props.tooltip) &&
-            wrapTooltip(
-              props.tooltip,
-              <QuestionIcon
-                size={20}
-                weight="bold"
-                className="ms-2 text-muted mb-1"
-                data-testid="tooltip"
-              />,
-            )}
-          {Boolean(props.warnTooltip) &&
-            wrapTooltip(
-              props.warnTooltip,
-              <WarningCircleIcon
-                size={20}
-                weight="bold"
-                className="ms-2 text-warning mb-1"
-              />,
-            )}
+          <label htmlFor={props.htmlFor} className="mb-0 d-block">
+            {props.label}
+            {props.required && <span className="text-danger ms-1">*</span>}
+            {Boolean(props.tooltip) &&
+              wrapTooltip(
+                props.tooltip,
+                <QuestionIcon
+                  size={20}
+                  weight="bold"
+                  className="ms-2 text-muted mb-1"
+                />,
+              )}
+            {Boolean(props.warnTooltip) &&
+              wrapTooltip(
+                props.warnTooltip,
+                <WarningCircleIcon
+                  size={20}
+                  weight="bold"
+                  className="ms-2 text-warning mb-1"
+                />,
+              )}
+            {props.colon && ':'}
+          </label>
         </th>
       ) : null}
       {row || [false, 0].includes(row) ? (
@@ -105,7 +113,14 @@ const FormTableItem: FC<PropsWithChildren<FormTableItemProps>> = ({
       ) : (
         <td className="value col-md" />
       )}
-      <td className="col-md-auto col-actions text-end">{actions}</td>
+      <td
+        className={classNames(
+          'col-md-auto col-actions text-end',
+          props.actionsClass,
+        )}
+      >
+        {actions}
+      </td>
     </tr>
   ));
 };
@@ -114,6 +129,7 @@ type FormTableCardProps = FC<
   PropsWithChildren<{
     title?: ReactNode;
     className?: string;
+    headerClassName?: string;
     refetch?(): void;
     loading?: boolean;
     actions?: ReactNode;
@@ -124,7 +140,7 @@ const FormTableCard: FormTableCardProps = (props) => {
   return (
     <Card className={classNames('form-table-card', props.className)}>
       {props.title && (
-        <Card.Header>
+        <Card.Header className={props.headerClassName}>
           <Card.Title>
             <h3>{props.title}</h3>
             {props.refetch && (
@@ -132,7 +148,9 @@ const FormTableCard: FormTableCardProps = (props) => {
             )}
           </Card.Title>
           {props.actions && (
-            <div className="card-toolbar gap-3">{props.actions}</div>
+            <div className="card-toolbar flex-grow-1 justify-content-end gap-3">
+              {props.actions}
+            </div>
           )}
         </Card.Header>
       )}
@@ -147,6 +165,8 @@ interface FormTableProps {
   detailsMode?: boolean;
   alignTop?: boolean;
   className?: string;
+  /** Show the outer table cell borders. Default true. Set false when nesting inside an already-bordered container. */
+  bordered?: boolean;
 }
 
 const TABLE_GY_SPACE_REGEX = /(?<=\s|^)(g[y]?-([1-9]\d*))( ?)(?=\s|$)/;
@@ -158,7 +178,7 @@ const FormTable: FC<PropsWithChildren<FormTableProps>> & {
 } = (props) => {
   return (
     <Table
-      bordered={true}
+      bordered={props.bordered ?? true}
       responsive={true}
       className={classNames(
         'form-table',

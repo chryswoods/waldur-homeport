@@ -1,21 +1,22 @@
 import { FC, useCallback, useMemo } from 'react';
-import { useSelector } from 'react-redux';
-import { marketplacePlansList } from 'waldur-js-client';
+import {
+  marketplacePlansList,
+  ProviderPlanDetails as Plan,
+} from 'waldur-js-client';
 
-import { StateIndicator } from '@waldur/core/StateIndicator';
-import { FilteredEventsButton } from '@waldur/events/FilteredEventsButton';
-import { translate } from '@waldur/i18n';
-import { hidePlanAddButton } from '@waldur/marketplace/common/registry';
-import { ValidationIcon } from '@waldur/marketplace/common/ValidationIcon';
-import { Plan } from '@waldur/marketplace/types';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { createFetcher } from '@waldur/table/api';
-import { DASH_ESCAPE_CODE } from '@waldur/table/constants';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { getUser } from '@waldur/workspace/selectors';
+import { StateIndicator } from '@/core/StateIndicator';
+import { FilteredEventsButton } from '@/events/FilteredEventsButton';
+import { translate } from '@/i18n';
+import { hidePlanAddButton } from '@/marketplace/common/registry';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { createFetcher } from '@/table/api';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { useUser } from '@/workspace/hooks';
 
+import { offeringOwnsPricing } from '../../utils';
 import { OfferingSectionProps } from '../types';
 import { useOfferingAccountingTableTabs } from '../utils';
 
@@ -24,7 +25,7 @@ import { PlanActions } from './PlanActions';
 import { PlanExpandableRow } from './PlanExpandableRow';
 
 export const PlansSection: FC<OfferingSectionProps> = (props) => {
-  const user = useSelector(getUser);
+  const user = useUser();
 
   const columns = [
     {
@@ -78,6 +79,7 @@ export const PlansSection: FC<OfferingSectionProps> = (props) => {
   });
 
   const canCreatePlan =
+    offeringOwnsPricing(props.offering) &&
     !hidePlanAddButton(props.offering.type, props.offering.plans) &&
     hasPermission(user, {
       permission: PermissionEnum.CREATE_OFFERING_PLAN,
@@ -97,12 +99,7 @@ export const PlansSection: FC<OfferingSectionProps> = (props) => {
     <Table<Plan>
       {...tableProps}
       columns={columns}
-      title={
-        <>
-          <ValidationIcon value={props.offering.plans?.length > 0} />
-          {translate('Accounting')}
-        </>
-      }
+      title={translate('Accounting')}
       verboseName={translate('plans')}
       tabs={tableTabs}
       tableActions={

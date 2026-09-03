@@ -1,17 +1,18 @@
+import classNames from 'classnames';
+import { get } from 'lodash-es';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Col, Row } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
-import { Field } from 'redux-form';
+import { useForm } from 'react-final-form';
 
-import { AwesomeCheckbox } from '@waldur/core/AwesomeCheckbox';
-import { required } from '@waldur/core/validators';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { OpenstackFeatures } from '@waldur/FeaturesEnums';
-import { FormGroup, SelectField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { orderFormSelector } from '@waldur/marketplace/deploy/selectors';
-import { FormStepProps } from '@waldur/marketplace/deploy/types';
-import { QuotaUsageBarChart } from '@waldur/quotas/QuotaUsageBarChart';
+import { AwesomeCheckbox } from '@/core/AwesomeCheckbox';
+import { composeValidators, required } from '@/core/validators';
+import { isFeatureVisible } from '@/features/connect';
+import { OpenstackFeatures } from '@/FeaturesEnums';
+import { CreatableSelectGroup, SelectGroup } from '@/form';
+import { translate } from '@/i18n';
+import { useOrderFormData } from '@/marketplace/deploy/selectors';
+import { FormStepProps } from '@/marketplace/deploy/types';
+import { QuotaUsageBarChart } from '@/quotas/QuotaUsageBarChart';
 
 import { VolumeTypeChoice } from '../utils';
 
@@ -44,12 +45,9 @@ export const FormAbstractVolumeFields = (
   const { quotas } = useQuotasData(props.offering);
   const { data, isLoading } = useVolumeDataLoader(props.offering);
 
-  const volumeType: VolumeTypeChoice = useSelector((state) =>
-    orderFormSelector(state, props.typeField),
-  );
-  const volumeSize: number = useSelector((state) =>
-    orderFormSelector(state, props.sizeField),
-  );
+  const formData = useOrderFormData();
+  const volumeType: VolumeTypeChoice = get(formData, props.typeField);
+  const volumeSize: number = get(formData, props.sizeField);
 
   const extendedSizeOptions = useMemo(() => {
     const options = [...defaultSizeOptions];
@@ -67,7 +65,7 @@ export const FormAbstractVolumeFields = (
     OpenstackFeatures.hide_volume_type_selector,
   );
 
-  const { change } = props;
+  const { change } = useForm();
 
   useEffect(() => {
     if (hideVolumeTypeSelector) {
@@ -125,10 +123,9 @@ export const FormAbstractVolumeFields = (
     <Row>
       {showTypeField && (
         <Col sm={6}>
-          <Field
+          <SelectGroup
             name={props.typeField}
-            component={FormGroup}
-            validate={props.optional ? undefined : [required]}
+            validate={props.optional ? undefined : required}
             label={props.typeTitle}
             required={!props.optional}
             space={5}
@@ -144,23 +141,16 @@ export const FormAbstractVolumeFields = (
                 />
               )
             }
-          >
-            <SelectField
-              options={data.volumeTypeChoices}
-              isDisabled={!fieldsEnabled}
-              isLoading={isLoading}
-            />
-          </Field>
+            options={data.volumeTypeChoices}
+            isDisabled={!fieldsEnabled}
+            isLoading={isLoading}
+          />
         </Col>
       )}
       <Col xs>
-        <Field
+        <CreatableSelectGroup
           name={props.sizeField}
-          component={FormGroup}
-          validate={!fieldsEnabled ? undefined : [required, exceeds]}
           label={props.sizeTitle}
-          format={formatVolumeSize}
-          normalize={(v) => Number(v) * 1024}
           required
           space={5}
           quickAction={
@@ -175,23 +165,24 @@ export const FormAbstractVolumeFields = (
               )}
               {!props.hideQuotas && quota && (
                 <QuotaUsageBarChart
-                  className={
-                    'capacity-bar mb-2' +
-                    (!showTypeField && props.optional ? ' ms-4' : '')
-                  }
+                  className={classNames(
+                    'capacity-bar mb-2',
+                    !showTypeField && props.optional && 'ms-4',
+                  )}
                   quotas={[quota]}
                 />
               )}
             </>
           }
-        >
-          <SelectField
-            creatable
-            simpleValue
-            options={extendedSizeOptions}
-            isDisabled={!fieldsEnabled}
-          />
-        </Field>
+          validate={
+            !fieldsEnabled ? undefined : composeValidators(required, exceeds)
+          }
+          format={formatVolumeSize}
+          parse={(v: any) => Number(v) * 1024}
+          simpleValue
+          options={extendedSizeOptions}
+          isDisabled={!fieldsEnabled}
+        />
       </Col>
     </Row>
   );

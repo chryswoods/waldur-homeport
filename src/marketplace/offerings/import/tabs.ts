@@ -1,5 +1,5 @@
-import { ProgressStep } from '@waldur/core/ProgressSteps';
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
+import { ProgressStep } from '@/wizard';
 
 import { CredentialsTab } from './CredentialsTab';
 import { ImportReviewTab } from './ImportReviewTab';

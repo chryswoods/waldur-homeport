@@ -1,214 +1,22 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { projectsAddUser, customersAddUser } from 'waldur-js-client';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  customersAddUser,
+  customersUsersList,
+  projectsAddUser,
+  projectsOtherUsersList,
+  rolesList,
+  usersList,
+  usersMeRetrieve,
+} from 'waldur-js-client';
+
+import { renderWithProviders } from '@/test/harness';
+import { openAndSelectOption, typeAndSelectOption } from '@/test/select';
+import { mockListResponse } from '@/test/utils';
+import { useCustomer, useProject, useUser } from '@/workspace/hooks';
 
 import { AddUserDialog } from './AddUserDialog';
-
-// Mock API calls
-vi.mock('waldur-js-client', () => ({
-  projectsAddUser: vi.fn(),
-  customersAddUser: vi.fn(),
-  customersUsersList: vi.fn(),
-  projectsOtherUsersList: vi.fn(),
-}));
-
-// Mock store hooks
-vi.mock('@waldur/store/hooks', () => ({
-  useNotify: () => ({
-    showSuccess: vi.fn(),
-    showErrorResponse: vi.fn(),
-  }),
-}));
-
-// Mock modal hooks
-vi.mock('@waldur/modal/hooks', () => ({
-  useModal: () => ({
-    closeDialog: vi.fn(),
-  }),
-}));
-
-// Mock translation
-vi.mock('@waldur/i18n', () => ({
-  translate: (str: string) => str,
-}));
-
-// Mock workspace hooks and selectors
-vi.mock('@waldur/workspace/hooks', () => ({
-  useUser: () => ({
-    uuid: 'user-uuid',
-    is_staff: true,
-    full_name: 'Test User',
-    username: 'testuser',
-    email: 'test@example.com',
-  }),
-}));
-
-vi.mock('@waldur/workspace/selectors', () => ({
-  getProject: () => ({
-    uuid: 'project-uuid',
-    name: 'Test Project',
-  }),
-  getCustomer: () => ({
-    uuid: 'customer-uuid',
-    name: 'Test Customer',
-    service_provider_uuid: 'sp-uuid',
-    call_managing_organization_uuid: 'cmo-uuid',
-  }),
-}));
-
-// Mock customer team utils
-vi.mock('@waldur/customer/team/utils', () => ({
-  usersAutocomplete: vi.fn().mockResolvedValue({
-    options: [
-      {
-        uuid: 'user1-uuid',
-        full_name: 'John Doe',
-        username: 'john',
-        email: 'john@example.com',
-      },
-    ],
-    hasMore: false,
-    additional: { page: 1 },
-  }),
-}));
-
-// Mock permissions
-vi.mock('@waldur/permissions/hasPermission', () => ({
-  hasPermission: vi.fn().mockReturnValue(true),
-}));
-
-// Mock other dependencies
-vi.mock('@waldur/core/api', () => ({
-  parseSelectData: vi.fn((data) => data),
-}));
-
-vi.mock('@waldur/core/config', () => ({
-  ENV: { pageSize: 10 },
-}));
-
-vi.mock('@waldur/core/utils', () => ({
-  returnReactSelectAsyncPaginateObject: vi.fn(
-    (options, _prevOptions, page) => ({
-      options,
-      hasMore: false,
-      additional: { page },
-    }),
-  ),
-}));
-
-vi.mock('@waldur/core/validators', () => ({
-  required: vi.fn(),
-}));
-
-vi.mock('@waldur/user/UsersService', () => ({
-  getCurrentUser: vi.fn().mockResolvedValue({
-    uuid: 'user-uuid',
-    full_name: 'Test User',
-  }),
-}));
-
-vi.mock('@waldur/workspace/actions', () => ({
-  setCurrentUser: vi.fn(),
-}));
-
-// Mock React Redux
-vi.mock('react-redux', () => ({
-  useDispatch: () => vi.fn(),
-  useSelector: (selector) => selector(),
-}));
-
-// Mock only the UserListOptionInline component which is not related to forms
-vi.mock('./UserListOptionInline', () => ({
-  UserListOptionInline: ({ children }) => (
-    <div data-testid="user-option">{children}</div>
-  ),
-}));
-
-// Mock the customer workspace hook
-vi.mock('@waldur/customer/workspace/fetchCustomer', () => ({
-  useCustomerProjects: () => ({
-    loading: false,
-  }),
-}));
-
-// Mock permissions utils
-vi.mock('@waldur/permissions/utils', () => ({
-  getRoles: (types) =>
-    types.map((type) => ({
-      name: `${type}_role`,
-      description: `${type} role`,
-      content_type: type,
-    })),
-}));
-
-vi.mock('./utils', () => ({
-  hasCurrentCustomerPermission: () => true,
-}));
-
-// Mock form components using shared implementations
-vi.mock('@waldur/form/AsyncSelectField', () => ({
-  AsyncSelectFieldFinal: ({ name, label, placeholder }) => (
-    <div data-testid={`async-select-${name}`}>
-      <label>{label}</label>
-      <select>
-        <option>{placeholder}</option>
-      </select>
-    </div>
-  ),
-}));
-
-vi.mock('@waldur/form/AwesomeCheckboxField', () => ({
-  AwesomeCheckboxField: ({ name, label, className }) => (
-    <div data-testid={`checkbox-${name}`} className={className}>
-      <input type="checkbox" />
-      <label>{label}</label>
-    </div>
-  ),
-}));
-
-vi.mock('@waldur/form/SelectField', () => ({
-  SelectField: ({ options, getOptionLabel }) => (
-    <select data-testid="role-select">
-      {options?.map((option, index) => (
-        <option key={index} value={option.name}>
-          {getOptionLabel ? getOptionLabel(option) : option.name}
-        </option>
-      ))}
-    </select>
-  ),
-}));
-
-vi.mock('@waldur/form/DateField', () => ({
-  DateField: ({ placeholder }) => (
-    <input type="date" placeholder={placeholder} data-testid="date-field" />
-  ),
-}));
-
-vi.mock('@waldur/form', () => ({
-  FormGroup: ({ children, label, required }) => (
-    <div data-testid="form-group">
-      {label && (
-        <label>
-          {label}
-          {required && ' *'}
-        </label>
-      )}
-      {children}
-    </div>
-  ),
-  SubmitButton: ({ children, disabled, submitting }) => (
-    <button
-      type="submit"
-      disabled={disabled || submitting}
-      data-testid="submit-button"
-    >
-      {submitting ? 'Loading...' : children}
-    </button>
-  ),
-  FormContainer: ({ children }) => (
-    <div data-testid="form-container">{children}</div>
-  ),
-}));
 
 const mockProps = {
   refetch: vi.fn(),
@@ -223,12 +31,61 @@ const mockCustomerProps = {
 };
 
 const renderComponent = (props: any = mockProps) => {
-  return render(<AddUserDialog {...props} />);
+  return renderWithProviders(<AddUserDialog {...props} />);
 };
+
+const mockUserData = [
+  {
+    uuid: 'user1-uuid',
+    full_name: 'John Doe',
+    username: 'john',
+    email: 'john@example.com',
+  },
+];
 
 describe('AddUserDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Staff by default so getGrantableRoles is a pass-through here — these tests
+    // exercise the dialog wiring, not the grantable-role permission filter (a
+    // non-staff user with no grant permission would see an empty role list).
+    vi.mocked(useUser).mockReturnValue({
+      uuid: 'current-user',
+      is_staff: true,
+    } as any);
+    vi.mocked(useCustomer).mockReturnValue({ uuid: 'customer-uuid' } as any);
+    vi.mocked(useProject).mockReturnValue({ uuid: 'project-uuid' } as any);
+
+    vi.mocked(customersUsersList).mockResolvedValue(
+      mockListResponse(mockUserData),
+    );
+    vi.mocked(projectsOtherUsersList).mockResolvedValue(
+      mockListResponse(mockUserData),
+    );
+    vi.mocked(usersList).mockResolvedValue(mockListResponse(mockUserData));
+    vi.mocked(usersMeRetrieve).mockResolvedValue({
+      data: { uuid: 'user-uuid', full_name: 'Test User' },
+    } as any);
+    // RoleGroup now fetches the organization's roles via available_for_customer
+    // when a customer is in scope (see useCustomer mock above).
+    vi.mocked(rolesList).mockResolvedValue(
+      mockListResponse([
+        {
+          uuid: 'customer-role-uuid',
+          name: 'customer_role',
+          description: 'customer role',
+          content_type: 'customer',
+          is_active: true,
+        },
+        {
+          uuid: 'project-role-uuid',
+          name: 'project_role',
+          description: 'project role',
+          content_type: 'project',
+          is_active: true,
+        },
+      ]),
+    );
   });
 
   it('renders dialog with correct title and form fields', () => {
@@ -242,83 +99,111 @@ describe('AddUserDialog', () => {
   });
 
   it('shows staff-only checkbox when user is staff', () => {
+    vi.mocked(useUser).mockReturnValue({
+      uuid: 'staff-user',
+      is_staff: true,
+    } as any);
     renderComponent();
 
     expect(
-      screen.getByText('Show users outside organization'),
+      screen.getByLabelText('Show users outside organization'),
     ).toBeInTheDocument();
   });
 
-  it('renders role group with appropriate types for customer level', () => {
+  it('renders role group with appropriate types for customer level', async () => {
+    const user = userEvent.setup();
+    vi.mocked(useUser).mockReturnValue({
+      uuid: 'staff-user',
+      is_staff: true,
+    } as any);
     renderComponent(mockCustomerProps);
 
-    expect(screen.getByText('Role')).toBeInTheDocument();
-    expect(screen.getByTestId('role-select')).toBeInTheDocument();
+    await openAndSelectOption(user, 'Role', 'customer role');
+    expect(screen.getByText('customer role')).toBeInTheDocument();
+
+    const combobox = screen.getByRole('combobox', { name: 'Role' });
+    await user.click(combobox);
+
+    expect(await screen.findByText('project role')).toBeInTheDocument();
   });
 
-  it('renders role group with single type for project level', () => {
+  it('renders role group with single type for project level', async () => {
+    const user = userEvent.setup();
     renderComponent({ ...mockProps, level: 'project' });
 
-    expect(screen.getByText('Role')).toBeInTheDocument();
-    expect(screen.getByTestId('role-select')).toBeInTheDocument();
+    const combobox = screen.getByRole('combobox', { name: 'Role' });
+    await user.click(combobox);
+
+    expect(await screen.findByText('project role')).toBeInTheDocument();
+    expect(screen.queryByText('customer role')).not.toBeInTheDocument();
   });
 
-  it('shows expiration time group', () => {
+  it('enables submit button when form is valid', async () => {
+    const user = userEvent.setup();
+    renderComponent();
+
+    // Fill the form
+    await typeAndSelectOption(user, 'User', 'John', /John Doe/);
+    await openAndSelectOption(user, 'Role', 'project role');
+
+    const submitButton = screen.getByRole('button', { name: 'Add role' });
+    await waitFor(() => expect(submitButton).not.toBeDisabled());
+  });
+
+  it('calls correct API endpoint for project role', async () => {
+    const user = userEvent.setup();
+    const mockProjectsAddUser = vi
+      .mocked(projectsAddUser)
+      .mockResolvedValue({} as any);
+
+    renderComponent();
+
+    await typeAndSelectOption(user, 'User', 'John', /John Doe/);
+    await openAndSelectOption(user, 'Role', 'project role');
+
+    const submitButton = screen.getByRole('button', { name: 'Add role' });
+    await waitFor(() => expect(submitButton).not.toBeDisabled());
+    await user.click(submitButton);
+
+    await waitFor(() => {
+      expect(mockProjectsAddUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: { uuid: 'project-uuid' },
+          body: expect.objectContaining({
+            user: 'user1-uuid',
+            role: 'project_role',
+          }),
+        }),
+      );
+    });
+  });
+
+  it('calls correct API endpoint for customer role', async () => {
+    const user = userEvent.setup();
+    const mockCustomersAddUser = vi
+      .mocked(customersAddUser)
+      .mockResolvedValue({} as any);
+
     renderComponent(mockCustomerProps);
 
-    expect(screen.getByText('Role expires on')).toBeInTheDocument();
-    expect(screen.getByTestId('date-field')).toBeInTheDocument();
-  });
+    await typeAndSelectOption(user, 'User', 'John', /John Doe/);
+    await openAndSelectOption(user, 'Role', 'customer role');
 
-  it('renders submit button initially', () => {
-    renderComponent();
+    const submitButton = screen.getByRole('button', { name: 'Add role' });
+    await waitFor(() => expect(submitButton).not.toBeDisabled());
+    await user.click(submitButton);
 
-    const submitButton = screen.getByText('Add role');
-    expect(submitButton).toBeInTheDocument();
-    // Note: React Final Form doesn't disable submit button by default for empty forms
-    // The validation happens on submit
-  });
-
-  it('enables submit button when form is valid', () => {
-    renderComponent();
-
-    // In a real test, we would need to fill in the required fields
-    // to make the form valid, which would require proper async select
-    // and role selection mocking
-    const submitButton = screen.getByText('Add role');
-    expect(submitButton).toBeInTheDocument();
-  });
-
-  it('calls correct API endpoint for project role', () => {
-    const mockProjectsAddUser = vi.mocked(projectsAddUser);
-    mockProjectsAddUser.mockResolvedValue({} as any);
-
-    renderComponent();
-
-    // This would require form interaction to actually submit
-    // For now, we just verify the mock is available
-    expect(mockProjectsAddUser).toHaveBeenCalledTimes(0);
-  });
-
-  it('calls correct API endpoint for customer role', () => {
-    const mockCustomersAddUser = vi.mocked(customersAddUser);
-    mockCustomersAddUser.mockResolvedValue({} as any);
-
-    renderComponent();
-
-    // This would require form interaction to actually submit
-    expect(mockCustomersAddUser).toHaveBeenCalledTimes(0);
-  });
-
-  it('handles API errors gracefully', () => {
-    const mockProjectsAddUser = vi.mocked(projectsAddUser);
-    const mockError = new Error('API Error');
-    mockProjectsAddUser.mockRejectedValue(mockError);
-
-    renderComponent();
-
-    // Error handling would be tested through form submission
-    expect(screen.getByText('Add team member')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockCustomersAddUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: { uuid: 'customer-uuid' },
+          body: expect.objectContaining({
+            user: 'user1-uuid',
+            role: 'customer_role',
+          }),
+        }),
+      );
+    });
   });
 
   it('uses default title when none provided', () => {

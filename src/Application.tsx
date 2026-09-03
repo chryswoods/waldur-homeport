@@ -1,17 +1,21 @@
 import { ErrorBoundary } from '@sentry/react';
-import {
-  QueryCache,
-  QueryClient,
-  QueryClientProvider,
-} from '@tanstack/react-query';
+import { QueryClientProvider, useSuspenseQuery } from '@tanstack/react-query';
 import { UIRouter, UIView } from '@uirouter/react';
-import { FunctionComponent } from 'react';
+import { FunctionComponent, Suspense } from 'react';
 import { Provider } from 'react-redux';
-import { useAsync } from 'react-use';
+import { NotificationsProvider, setUpNotifications } from 'reapop';
 
-import { DrawerRoot } from '@waldur/drawer/DrawerRoot';
-import { ModalRoot } from '@waldur/modal/ModalRoot';
-import store from '@waldur/store/store';
+import { AnonymousThreadProvider } from '@/ai-assistant/anonymous/AnonymousThreadProvider';
+import { ThreadProvider } from '@/ai-assistant/logic/ThreadProvider';
+import { ThreadRuntimeProvider } from '@/ai-assistant/logic/ThreadRuntimeProvider';
+import { BOOTSTRAP_QUERY_KEY, queryClient } from '@/core/queryClient';
+import { DrawerProvider } from '@/drawer/DrawerContext';
+import { DrawerRoot } from '@/drawer/DrawerRoot';
+import { MatrixRoot } from '@/matrix/MatrixRoot';
+import { ModalProvider } from '@/modal/ModalContext';
+import { ModalRoot } from '@/modal/ModalRoot';
+import { RealtimeRoot } from '@/realtime/RealtimeRoot';
+import store from '@/store/store';
 
 import { loadConfig } from './core/bootstrap';
 import { ErrorMessage } from './ErrorMessage';
@@ -24,42 +28,72 @@ import { router } from './router';
 import { states } from './states';
 import { ThemeProvider } from './theme/ThemeProvider';
 
-export const queryClient = new QueryClient({
-  queryCache: new QueryCache({
-    onError: (error: any) => {
-      if (error?.response?.status == 404) {
-        router.stateService.go('errorPage.notFound');
-      }
-    },
-  }),
-});
-
 states.forEach((state) => router.stateRegistry.register(state));
 
-export const Application: FunctionComponent = () => {
-  const { loading, error, value } = useAsync(loadConfig);
-  if (!value) {
-    return <LoadingScreen loading={loading} error={error} />;
-  }
+setUpNotifications({
+  defaultProps: {
+    position: 'top-right',
+    dismissible: true,
+    dismissAfter: 7000,
+    showDismissButton: true,
+  },
+});
+
+const ApplicationInner: FunctionComponent = () => {
+  useSuspenseQuery({
+    queryKey: BOOTSTRAP_QUERY_KEY,
+    queryFn: loadConfig,
+  });
 
   return (
     <ErrorBoundary fallback={ErrorMessage}>
-      <UIRouter router={router}>
-        <QueryClientProvider client={queryClient}>
+      <NotificationsProvider>
+        <UIRouter router={router}>
           <Provider store={store}>
             <LayoutProvider>
               <ThemeProvider>
-                <NotificationContainer />
-                <ModalRoot />
-                <ConfirmModalRoot />
-                <DrawerRoot />
-                <UIView />
-                <MasterInit />
+                {/* Drawer/Modal providers must wrap MatrixRoot: MatrixCallHost
+                    (rendered inside MatrixRoot) opens the chat drawer from the
+                    call widget via useDrawer, so it needs the same shared
+                    DrawerProvider instance as the rest of the app. */}
+                <ModalProvider>
+                  <DrawerProvider>
+                    <MatrixRoot>
+                      <ThreadProvider>
+                        <ThreadRuntimeProvider>
+                          <AnonymousThreadProvider>
+                            <RealtimeRoot />
+                            <NotificationContainer />
+                            <ModalRoot />
+                            <ConfirmModalRoot />
+                            <DrawerRoot />
+                            <UIView />
+                            <MasterInit />
+                          </AnonymousThreadProvider>
+                        </ThreadRuntimeProvider>
+                      </ThreadProvider>
+                    </MatrixRoot>
+                  </DrawerProvider>
+                </ModalProvider>
               </ThemeProvider>
             </LayoutProvider>
           </Provider>
-        </QueryClientProvider>
-      </UIRouter>
+        </UIRouter>
+      </NotificationsProvider>
     </ErrorBoundary>
   );
 };
+
+export const Application: FunctionComponent = () => (
+  <QueryClientProvider client={queryClient}>
+    <ErrorBoundary
+      fallback={({ error }) => (
+        <LoadingScreen loading={false} error={error as Error} />
+      )}
+    >
+      <Suspense fallback={<LoadingScreen loading={true} />}>
+        <ApplicationInner />
+      </Suspense>
+    </ErrorBoundary>
+  </QueryClientProvider>
+);

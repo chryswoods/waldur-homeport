@@ -4,37 +4,38 @@ import {
   QueryFunction,
   useInfiniteQuery,
 } from '@tanstack/react-query';
-import { debounce } from 'lodash-es';
-import { useCallback, useState } from 'react';
-import { Button } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
+import { debounce, isEqual } from 'lodash-es';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Field, Form, useFormState } from 'react-final-form';
 import { useBoolean } from 'react-use';
-import { Field, getFormValues } from 'redux-form';
 
-import { InfiniteList } from '@waldur/core/async/InfiniteList';
-import { BaseAsyncListProps, RowData } from '@waldur/core/async/types';
-import { isEmpty } from '@waldur/core/utils';
-import { FilterBox } from '@waldur/form/FilterBox';
-import { Form } from '@waldur/form/Form';
-import { translate } from '@waldur/i18n';
-import { DataPage, processApiResponse, SdkFunction } from '@waldur/table/api';
+import { InfiniteList } from '@/core/async/InfiniteList';
+import { BaseAsyncListProps, RowData } from '@/core/async/types';
+import { IconButton } from '@/core/buttons/IconButton';
+import { isEmpty } from '@/core/utils';
+import { FilterBox } from '@/form/FilterBox';
+import { translate } from '@/i18n';
+import { DataPage, processApiResponse, SdkFunction } from '@/table/api';
 
+import { useFavoritePages } from '../favorite-pages/FavoritePageService';
 import { HeaderButtonBullet } from '../HeaderButtonBullet';
 
+import { BreadcrumbDropdownContext } from './BreadcrumbDropdownContext';
 import { FilterSelect } from './FilterSelect';
 
-const FILTERS_FORM_ID = 'BreadcrumbsFiltersForm';
-
-interface BreadcrumbDropdownProps<Fetcher extends SdkFunction>
-  extends BaseAsyncListProps<Fetcher> {
+interface BreadcrumbDropdownProps<
+  Fetcher extends SdkFunction,
+> extends BaseAsyncListProps<Fetcher> {
   filters?: Array<{
     field: string;
     label: string;
     options: Array<{ value; label }>;
   }>;
+  /** Callback to close the dropdown popover */
+  close?: () => void;
 }
 
-export const BreadcrumbDropdown = <Fetcher extends SdkFunction>({
+const BreadcrumbDropdownContent = <Fetcher extends SdkFunction>({
   fetcher,
   queryKey,
   queryField,
@@ -44,19 +45,44 @@ export const BreadcrumbDropdown = <Fetcher extends SdkFunction>({
   filters,
   emptyMessage = translate('There are no results for this keyword.'),
   placeholder = translate('Search'),
-}: BreadcrumbDropdownProps<Fetcher>): JSX.Element => {
+  close,
+}: BreadcrumbDropdownProps<Fetcher>) => {
   const [query, setQuery] = useState('');
+  const { addFavoritePage, removeFavorite, isFavorite } = useFavoritePages();
+
+  const contextValue = useMemo(
+    () => ({
+      addFavoritePage,
+      removeFavorite,
+      isFavorite,
+      close: close || (() => {}),
+    }),
+    [addFavoritePage, removeFavorite, isFavorite, close],
+  );
   const [filterOpen, setFilterOpen] = useBoolean(false);
 
-  const formValues = useSelector((state) => {
-    const values = getFormValues(FILTERS_FORM_ID)(state);
-    return Object.keys(values || {}).reduce((acc, key) => {
-      if (values[key]?.length) {
-        acc[key] = values[key].map((option) => option.value);
-      }
-      return acc;
-    }, {});
-  });
+  // Get raw form values from React Final Form
+  const { values: rawFormValues } = useFormState();
+
+  // Memoize transformed values to prevent infinite re-renders
+  const prevFormValuesRef = useRef({});
+  const formValues = useMemo(() => {
+    const transformed = Object.keys(rawFormValues || {}).reduce(
+      (acc, key) => {
+        if (rawFormValues[key]?.length) {
+          acc[key] = rawFormValues[key].map((option) => option.value);
+        }
+        return acc;
+      },
+      {} as Record<string, unknown[]>,
+    );
+    // Only return new object if values actually changed
+    if (isEqual(transformed, prevFormValuesRef.current)) {
+      return prevFormValuesRef.current;
+    }
+    prevFormValuesRef.current = transformed;
+    return transformed;
+  }, [rawFormValues]);
 
   const applyQuery = useCallback(
     debounce((value) => {
@@ -107,26 +133,22 @@ export const BreadcrumbDropdown = <Fetcher extends SdkFunction>({
         />
 
         {Boolean(filters) && (
-          <Button
-            variant="tertiary"
-            className="btn-icon btn-toggle-filters position-relative"
-            onClick={setFilterOpen}
-          >
-            <span className="svg-icon svg-icon-1">
-              <FunnelSimpleIcon weight="bold" />
-            </span>
+          <div className="position-relative">
+            <IconButton
+              iconNode={<FunnelSimpleIcon weight="bold" />}
+              tooltip={translate('Toggle filters')}
+              variant="tertiary"
+              className="btn-toggle-filters"
+              onClick={setFilterOpen}
+            />
             {!isEmpty(formValues) && (
               <HeaderButtonBullet size={8} blink={false} className="me-n2" />
             )}
-          </Button>
+          </div>
         )}
       </div>
       {filterOpen && (
-        <Form
-          form={FILTERS_FORM_ID}
-          destroyOnUnmount={false}
-          className="d-flex border-bottom py-1 px-5"
-        >
+        <div className="d-flex border-bottom py-1 px-5">
           {filters.map((filter) => (
             <Field
               key={filter.field}
@@ -140,15 +162,30 @@ export const BreadcrumbDropdown = <Fetcher extends SdkFunction>({
               )}
             />
           ))}
-        </Form>
+        </div>
       )}
-      <div className="mh-300px overflow-auto">
-        <InfiniteList
-          RowComponent={RowComponent}
-          context={context}
-          emptyMessage={emptyMessage}
-        />
-      </div>
+      <BreadcrumbDropdownContext.Provider value={contextValue}>
+        <div className="mh-300px overflow-auto">
+          <InfiniteList
+            RowComponent={RowComponent}
+            context={context}
+            emptyMessage={emptyMessage}
+          />
+        </div>
+      </BreadcrumbDropdownContext.Provider>
     </div>
   );
 };
+
+export const BreadcrumbDropdown = <Fetcher extends SdkFunction>(
+  props: BreadcrumbDropdownProps<Fetcher>,
+): JSX.Element => (
+  <Form
+    onSubmit={() => {}}
+    render={({ handleSubmit }) => (
+      <form onSubmit={handleSubmit}>
+        <BreadcrumbDropdownContent {...props} />
+      </form>
+    )}
+  />
+);

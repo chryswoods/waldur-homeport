@@ -1,15 +1,17 @@
-import { connect } from 'react-redux';
-import { reduxForm } from 'redux-form';
-import { marketplacePlansUpdateDiscounts } from 'waldur-js-client';
+import { FC, useMemo } from 'react';
+import { Form } from 'react-final-form';
+import {
+  marketplacePlansUpdateDiscounts,
+  ProviderOfferingDetails as Offering,
+  ProviderPlanDetails as Plan,
+} from 'waldur-js-client';
 
-import { SubmitButton } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { Plan } from '@waldur/marketplace/types';
-import { useModal } from '@waldur/modal/hooks';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { useNotify } from '@waldur/store/hooks';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
-import { EDIT_PLAN_DISCOUNTS_FORM_ID } from './constants';
+import { ActiveCallDiscountNotice } from './ActiveCallDiscountNotice';
 import { DiscountsTable } from './DiscountsTable';
 
 const getInitialValues = (plan: Plan) => {
@@ -17,60 +19,80 @@ const getInitialValues = (plan: Plan) => {
   if (plan.components) {
     for (const planComponent of plan.components) {
       initialDiscounts[planComponent.type] = {
-        discount_threshold: planComponent.discount_threshold,
-        discount_rate: planComponent.discount_rate,
+        discount_formula: planComponent.discount_formula,
+        discount_aggregation: planComponent.discount_aggregation || 'customer',
       };
     }
   }
   return { discounts: initialDiscounts };
 };
 
-export const EditPlanDiscountsDialog = connect<
-  {},
-  {},
-  { resolve: { plan: Plan } }
->((_, ownProps) => ({
-  initialValues: getInitialValues(ownProps.resolve.plan),
-}))(
-  reduxForm<{}, { resolve: { offering; plan; refetch } }>({
-    form: EDIT_PLAN_DISCOUNTS_FORM_ID,
-  })((props) => {
-    const { showErrorResponse, showSuccess } = useNotify();
-    const { closeDialog } = useModal();
+interface EditPlanDiscountsDialogProps {
+  resolve: {
+    offering: Offering;
+    plan: Plan;
+    refetch?: () => void;
+  };
+}
 
-    const update = async (formData) => {
-      try {
-        await marketplacePlansUpdateDiscounts({
-          path: { uuid: props.resolve.plan.uuid },
-          body: {
-            discounts: formData.discounts,
-          },
-        });
-        showSuccess(translate('Discounts have been updated successfully.'));
-        await props.resolve.refetch();
-        closeDialog();
-      } catch (error) {
-        showErrorResponse(error, translate('Unable to update discounts.'));
-      }
-    };
+export const EditPlanDiscountsDialog: FC<EditPlanDiscountsDialogProps> = (
+  props,
+) => {
+  const initialValues = useMemo(
+    () => getInitialValues(props.resolve.plan),
+    [props.resolve.plan],
+  );
 
-    return (
-      <form onSubmit={props.handleSubmit(update)}>
-        <ModalDialog
-          title={translate('Edit discounts for plan {planName}', {
-            planName: props.resolve.plan.name,
-          })}
-          footer={
-            <SubmitButton
-              disabled={props.invalid}
-              submitting={props.submitting}
-              label={translate('Save')}
-            />
-          }
-        >
-          <DiscountsTable components={props.resolve.offering.components} />
-        </ModalDialog>
-      </form>
+  // Only components that exist on this plan can have their discount saved (the
+  // backend updates plan components), so render an editor for those only —
+  // avoids showing a scope/formula for offering components the plan lacks.
+  const components = useMemo(() => {
+    const planTypes = new Set(
+      (props.resolve.plan.components || []).map((pc) => pc.type),
     );
-  }),
-);
+    return (props.resolve.offering.components || []).filter((component) =>
+      planTypes.has(component.type),
+    );
+  }, [props.resolve.plan.components, props.resolve.offering.components]);
+
+  const updateDiscountsMutation = useManagedMutation<any, any, any>({
+    mutationFn: (formData) =>
+      marketplacePlansUpdateDiscounts({
+        path: { uuid: props.resolve.plan.uuid },
+        body: {
+          discounts: formData.discounts,
+        },
+      }),
+    successMessage: translate('Discounts have been updated successfully.'),
+    errorMessage: translate('Unable to update discounts.'),
+    refetch: props.resolve.refetch,
+  });
+
+  return (
+    <Form
+      onSubmit={(values) => updateDiscountsMutation.mutateAsync(values)}
+      initialValues={initialValues}
+      render={({ handleSubmit, submitting, invalid }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate('Edit discounts for plan {planName}', {
+              planName: props.resolve.plan.name,
+            })}
+            footer={
+              <SubmitButton
+                disabled={invalid}
+                submitting={submitting}
+                label={translate('Save')}
+              />
+            }
+          >
+            <ActiveCallDiscountNotice
+              offeringUuid={props.resolve.offering.uuid}
+            />
+            <DiscountsTable components={components} />
+          </ModalDialog>
+        </form>
+      )}
+    />
+  );
+};

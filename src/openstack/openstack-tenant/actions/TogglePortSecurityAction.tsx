@@ -1,18 +1,16 @@
 import { ShieldCheckIcon } from '@phosphor-icons/react';
-import { useDispatch } from 'react-redux';
 import {
   OpenStackPort,
   openstackPortsDisablePortSecurity,
   openstackPortsEnablePortSecurity,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { validateState } from '@waldur/resource/actions/base';
-import { ActionItemType } from '@waldur/resource/actions/types';
-import { useValidators } from '@waldur/resource/actions/useValidators';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { validateState } from '@/resource/actions/base';
+import { ActionItemType } from '@/resource/actions/types';
+import { useValidators } from '@/resource/actions/useValidators';
 
 const validators = [validateState('OK')];
 
@@ -20,41 +18,27 @@ export const TogglePortSecurityAction: ActionItemType<OpenStackPort> = ({
   resource,
   refetch,
 }) => {
-  const dispatch = useDispatch();
   const { tooltip, disabled } = useValidators(validators, resource);
 
-  const callback = async () => {
-    try {
-      await waitForConfirmation(
-        dispatch,
-        translate('Confirmation'),
-        resource.port_security_enabled
-          ? translate('Are you sure you want to disable port security?')
-          : translate('Are you sure you want to enable port security?'),
-      );
-    } catch {
-      return;
-    }
-    try {
+  const { mutate, isPending } = useManagedMutation<any, any, void>({
+    mutationFn: () => {
       const apiMethod = resource.port_security_enabled
         ? openstackPortsDisablePortSecurity
         : openstackPortsEnablePortSecurity;
-
-      await apiMethod({ path: { uuid: resource.uuid } } as any);
-      dispatch(
-        showSuccess(
-          resource.port_security_enabled
-            ? translate('Port security has been disabled.')
-            : translate('Port security has been enabled.'),
-        ),
-      );
-      if (refetch) {
-        await refetch();
-      }
-    } catch (e) {
-      dispatch(showErrorResponse(e, translate('Unable to apply action.')));
-    }
-  };
+      return apiMethod({ path: { uuid: resource.uuid } } as any);
+    },
+    successMessage: resource.port_security_enabled
+      ? translate('Port security has been disabled.')
+      : translate('Port security has been enabled.'),
+    errorMessage: translate('Unable to apply action.'),
+    refetch,
+    confirmation: {
+      title: translate('Confirmation'),
+      body: resource.port_security_enabled
+        ? translate('Are you sure you want to disable port security?')
+        : translate('Are you sure you want to enable port security?'),
+    },
+  });
 
   return (
     <ActionItem
@@ -64,8 +48,8 @@ export const TogglePortSecurityAction: ActionItemType<OpenStackPort> = ({
           : translate('Enable port security')
       }
       tooltip={tooltip}
-      disabled={disabled}
-      action={callback}
+      disabled={isPending || disabled}
+      action={mutate}
       important
       iconNode={<ShieldCheckIcon weight="bold" />}
     />

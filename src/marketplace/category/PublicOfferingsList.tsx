@@ -1,53 +1,81 @@
+import { DotsThreeVerticalIcon } from '@phosphor-icons/react';
+import { useRouter } from '@uirouter/react';
 import { FunctionComponent, useMemo } from 'react';
-import { useSelector } from 'react-redux';
+import { Dropdown } from 'react-bootstrap';
 import {
   marketplacePublicOfferingsList,
   MarketplacePublicOfferingsListData,
+  NestedTag,
   PublicOfferingDetails,
 } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { Link } from '@waldur/core/Link';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import {
-  getLabel,
-  getOfferingTypes,
-} from '@waldur/marketplace/common/registry';
-import { createFetcher } from '@waldur/table/api';
-import { BooleanField } from '@waldur/table/BooleanField';
-import { SLUG_COLUMN } from '@waldur/table/slug';
-import Table from '@waldur/table/Table';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { renderFieldOrDash } from '@waldur/table/utils';
-import { getUser } from '@waldur/workspace/selectors';
+import { formatDateTime } from '@/core/dateUtils';
+import { Link } from '@/core/Link';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { getLabel, getOfferingTypes } from '@/marketplace/common/registry';
+import { createFetcher } from '@/table/api';
+import { BooleanField } from '@/table/BooleanField';
+import { SLUG_COLUMN } from '@/table/slug';
+import Table from '@/table/Table';
+import { Column } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
+import { useUser } from '@/workspace/hooks';
 
+import { CardStyleType } from '../common/cards/index';
 import { OfferingCard } from '../common/OfferingCard';
-import { OfferingLink } from '../links/OfferingLink';
-import { AdminOfferingsFilter } from '../offerings/admin/AdminOfferingsFilter';
-import { mapStateToFilter } from '../offerings/admin/AdminOfferingsList';
+import { useCardStyle } from '../landing/CardStyleContext';
+import { getOfferingGridSize } from '../landing/utils';
+import { buildOfferingsFilter } from '../offerings/admin/AdminOfferingsList';
+import { OFFERINGS_FILTER_FORM_ID } from '../offerings/constants';
+import { OfferingsListFilter } from '../offerings/list/OfferingsListFilter';
 import { getStates } from '../offerings/list/OfferingStateFilter';
 import { OfferingStateField } from '../offerings/OfferingStateField';
 import { isOfferingRestrictedToProject } from '../offerings/utils';
-import { Offering } from '../types';
 
 const RowActions = ({ row }) => {
-  const user = useSelector(getUser);
+  const user = useUser();
+  const router = useRouter();
   const { isAllowed } = isOfferingRestrictedToProject(row, user);
+  // An offering the user cannot order (restricted role or no accessible plan)
+  // is reported by the backend as is_accessible === false; keep its Deploy
+  // action disabled so it matches the offering detail page.
+  const isInaccessible = Boolean(user) && row.is_accessible === false;
+  const canDeploy = isAllowed && !isInaccessible;
   if (isFeatureVisible(MarketplaceFeatures.catalogue_only)) {
     return null;
   }
 
   return (
-    <OfferingLink
-      offering_uuid={row.uuid}
-      className="btn btn-secondary btn-sm"
-      disabled={!isAllowed}
-    >
-      {translate('Deploy')}
-    </OfferingLink>
+    <Dropdown drop="down" align="start">
+      <Dropdown.Toggle
+        variant="text-secondary"
+        className="btn-icon no-arrow"
+        disabled={!canDeploy}
+        size="sm"
+      >
+        <DotsThreeVerticalIcon size={22} weight="bold" />
+      </Dropdown.Toggle>
+      <Dropdown.Menu flip={false}>
+        <Dropdown.Item
+          onClick={() => {
+            if (canDeploy) {
+              setTimeout(() => {
+                router.stateService.go('marketplace-offering-public', {
+                  offering_uuid: row.uuid,
+                });
+              }, 100);
+            }
+          }}
+          disabled={!canDeploy}
+        >
+          {translate('Deploy')}
+        </Dropdown.Item>
+      </Dropdown.Menu>
+    </Dropdown>
   );
 };
 
@@ -55,6 +83,7 @@ const mandatoryFields: MarketplacePublicOfferingsListData['query']['field'] = [
   // OfferingCard
   'uuid',
   'name',
+  'description',
   'state',
   'paused_reason',
   'customer_name',
@@ -62,6 +91,9 @@ const mandatoryFields: MarketplacePublicOfferingsListData['query']['field'] = [
   'thumbnail',
   'image',
   'type',
+  'tags',
+  'is_accessible',
+  'open_for_proposals',
   // OfferingCard and RowActions
   'customer_uuid',
   'shared',
@@ -73,16 +105,38 @@ export const PublicOfferingsList: FunctionComponent<{
   showCategory?;
   showOrganization?;
   initialMode?;
-}> = ({ filter, showCategory, showOrganization = true, initialMode }) => {
-  const baseFilter = useSelector(mapStateToFilter);
+  variant?: CardStyleType;
+  onTagClick?(tag: NestedTag): void;
+}> = ({
+  filter,
+  showCategory,
+  showOrganization = true,
+  initialMode,
+  variant,
+  onTagClick,
+}) => {
+  const contextCardStyle = useCardStyle();
+  const resolvedVariant = variant ?? contextCardStyle;
+
+  const values = useFilterValues('PublicOfferingsList');
+  const filterValues: any = values;
+
+  const baseFilter = useMemo(
+    () => buildOfferingsFilter(filterValues),
+    [filterValues],
+  );
 
   const mergedFilter = useMemo(
-    () => ({ ...baseFilter, ...filter }),
+    // accessible: hide offerings the current user cannot order (e.g. restricted
+    // to roles they do not hold) from the marketplace catalog. They remain
+    // reachable from an existing resource via the offering detail page.
+    () => ({ ...baseFilter, ...filter, accessible: true }),
     [baseFilter, filter],
   );
 
   const props = useTable({
     table: 'PublicOfferingsList',
+    syncFiltersToURL: true,
     filter: mergedFilter,
     fetchData: createFetcher(marketplacePublicOfferingsList),
     queryField: 'keyword',
@@ -92,7 +146,7 @@ export const PublicOfferingsList: FunctionComponent<{
   const columns: Column<PublicOfferingDetails>[] = [
     {
       title: translate('Name'),
-      render: ({ row }: { row: Offering }) => (
+      render: ({ row }: { row: PublicOfferingDetails }) => (
         <Link
           state="public-offering.marketplace-public-offering"
           params={{ uuid: row.uuid }}
@@ -172,18 +226,24 @@ export const PublicOfferingsList: FunctionComponent<{
       columns={columns}
       verboseName={translate('offerings')}
       hasQuery={true}
-      gridSize={{ lg: 6, xl: 4 }}
-      gridItem={({ row }) => <OfferingCard offering={row} />}
+      gridSize={getOfferingGridSize(resolvedVariant)}
+      gridItem={({ row }) => (
+        <OfferingCard
+          offering={row}
+          variant={resolvedVariant}
+          onTagClick={onTagClick}
+        />
+      )}
       hoverShadow={{ grid: false }}
+      formId={OFFERINGS_FILTER_FORM_ID}
       filters={
-        <AdminOfferingsFilter
+        <OfferingsListFilter
           showCategory={showCategory}
           showOrganization={showOrganization}
         />
       }
       initialSorting={{ field: 'created', mode: 'desc' }}
       initialMode={initialMode === 'table' ? 'table' : 'grid'}
-      standalone
       showPageSizeSelector={true}
       title={translate('Offerings')}
       rowActions={RowActions}

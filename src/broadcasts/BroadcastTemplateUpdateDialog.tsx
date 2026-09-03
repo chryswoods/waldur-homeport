@@ -1,71 +1,46 @@
-import { useCallback } from 'react';
-import { connect, useDispatch } from 'react-redux';
-import { reduxForm } from 'redux-form';
+import { FC } from 'react';
+import { Form } from 'react-final-form';
 import {
   broadcastMessageTemplatesUpdate,
   MessageTemplate,
 } from 'waldur-js-client';
 
-import { BroadcastTemplateForm } from '@waldur/broadcasts/BroadcastTemplateForm';
-import { BROADCAST_TEMPLATE_CREATE_FORM_ID } from '@waldur/broadcasts/constants';
-import { SubmitButton } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { BroadcastTemplateForm } from '@/broadcasts/BroadcastTemplateForm';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
-interface OwnProps {
-  refetch?(): void;
-  resolve;
-}
+export const BroadcastTemplateUpdateDialog: FC<{
+  resolve: { template; refetch };
+}> = ({ resolve }) => {
+  const callbackMutation = useManagedMutation<any, any, MessageTemplate>({
+    mutationFn: (formData) =>
+      broadcastMessageTemplatesUpdate({
+        path: { uuid: formData.uuid },
+        body: formData,
+      }),
+    successMessage: translate('Broadcast template has been updated.'),
+    errorMessage: translate('Unable to update a broadcast template.'),
+    refetch: resolve.refetch,
+  });
 
-const enhance = reduxForm<MessageTemplate, OwnProps>({
-  form: BROADCAST_TEMPLATE_CREATE_FORM_ID,
-});
-
-export const BroadcastTemplateUpdateDialog = connect<{}, {}, OwnProps>(
-  (_, ownProps: OwnProps) => ({
-    initialValues: ownProps.resolve.template,
-  }),
-)(
-  enhance(({ submitting, handleSubmit, resolve }) => {
-    const dispatch = useDispatch();
-
-    const callback = useCallback(
-      async (formData: MessageTemplate) => {
-        try {
-          await broadcastMessageTemplatesUpdate({
-            path: { uuid: formData.uuid },
-            body: formData,
-          });
-          await resolve.refetch();
-          dispatch(
-            showSuccess(translate('Broadcast template has been updated.')),
-          );
-          dispatch(closeModalDialog());
-        } catch (e) {
-          dispatch(
-            showErrorResponse(
-              e,
-              translate('Unable to update a broadcast template.'),
-            ),
-          );
-        }
-      },
-      [dispatch, resolve],
-    );
-
-    return (
-      <form onSubmit={handleSubmit(callback)}>
-        <ModalDialog
-          title={translate('Update a broadcast template')}
-          footer={
-            <SubmitButton submitting={submitting} label={translate('Save')} />
-          }
-        >
-          <BroadcastTemplateForm submitting={submitting} />
-        </ModalDialog>
-      </form>
-    );
-  }),
-);
+  return (
+    <Form<MessageTemplate>
+      onSubmit={(values) => callbackMutation.mutateAsync(values)}
+      initialValues={resolve.template}
+      render={({ handleSubmit, submitting }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate('Update a broadcast template')}
+            footer={
+              <SubmitButton submitting={submitting} label={translate('Save')} />
+            }
+          >
+            <BroadcastTemplateForm />
+          </ModalDialog>
+        </form>
+      )}
+    />
+  );
+};

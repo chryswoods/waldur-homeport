@@ -6,11 +6,12 @@ import {
 } from '@phosphor-icons/react';
 import { Col, Row, Stack } from 'react-bootstrap';
 
-import { PublicDashboardHero } from '@waldur/dashboard/hero/PublicDashboardHero';
-import { CountryFlag } from '@waldur/marketplace/common/CountryFlag';
-import { ProviderOfferingPermissions } from '@waldur/marketplace/service-providers/dashboard/ProviderOfferingPermissions';
-import { getItemAbbreviation } from '@waldur/navigation/workspace/context-selector/utils';
-import { Customer } from '@waldur/workspace/types';
+import { formatPhoneNumber } from '@/core/utils';
+import { PublicDashboardHero } from '@/dashboard/hero/PublicDashboardHero';
+import { CountryFlag } from '@/marketplace/common/CountryFlag';
+import { ProviderOfferingPermissions } from '@/marketplace/service-providers/dashboard/ProviderOfferingPermissions';
+import { getItemAbbreviation } from '@/navigation/workspace/context-selector/utils';
+import { Customer } from '@/workspace/types';
 
 import { CustomerActions } from './CustomerActions';
 
@@ -60,13 +61,12 @@ export const CustomerProfile = ({
               {customer.email}
             </span>
           )}
-          {customer.phone_number &&
-            typeof customer.phone_number === 'string' && (
-              <span className="text-nowrap">
-                <DeviceMobileIcon size={18} weight="duotone" className="me-1" />
-                {customer.phone_number}
-              </span>
-            )}
+          {customer.phone_number && (
+            <span className="text-nowrap">
+              <DeviceMobileIcon size={18} weight="duotone" className="me-1" />
+              {formatPhoneNumber(customer.phone_number)}
+            </span>
+          )}
           {customer.registration_code &&
             typeof customer.registration_code === 'string' && (
               <span className="text-nowrap">

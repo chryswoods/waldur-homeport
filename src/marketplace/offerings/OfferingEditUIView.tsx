@@ -1,48 +1,34 @@
 import { useQuery } from '@tanstack/react-query';
-import { UIView, useCurrentStateAndParams } from '@uirouter/react';
+import { UIView } from '@uirouter/react';
 import { useMemo } from 'react';
 import {
-  marketplaceCategoriesRetrieve,
   marketplacePluginsList,
-  marketplaceProviderOfferingsRetrieve,
+  ProviderOfferingDetails as Offering,
 } from 'waldur-js-client';
 
-import { OFFERING_TYPE_BOOKING } from '@waldur/booking/constants';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { Offering, ServiceProvider } from '@waldur/marketplace/types';
-import { OFFERING_TYPE_CUSTOM_SCRIPTS } from '@waldur/marketplace-script/constants';
-import { useBreadcrumbs, usePageHero } from '@waldur/navigation/context';
-import { PageBarTab } from '@waldur/navigation/types';
-import { usePageTabsTransmitter } from '@waldur/navigation/usePageTabsTransmitter';
-import { TENANT_TYPE } from '@waldur/openstack/constants';
+import { UI_STALE_TIME } from '@/core/constants';
+import { lazyComponent } from '@/core/lazyComponent';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { PageBarTab } from '@/navigation/types';
+import { usePageTabsTransmitter } from '@/navigation/usePageTabsTransmitter';
 
 import {
-  getCredentialsForm,
-  getPluginOptionsForm,
-  getProvisioningConfigForm,
-  getSecretOptionsForm,
+  getCredentialsSection,
+  getProvisioningConfigSection,
+  getUserManagementSection,
   showComponentsList,
 } from '../common/registry';
-import { ValidationIcon } from '../common/ValidationIcon';
 
-import { PROVIDER_OFFERING_DATA_QUERY_KEY } from './constants';
-import { getOfferingBreadcrumbItems } from './hooks';
-import { OfferingViewHero } from './OfferingViewHero';
-import { SCRIPT_ROWS } from './update/integration/utils';
+import { offeringOwnsPricing } from './utils';
 
 const OverviewSection = lazyComponent(() =>
   import('./update/overview/OverviewSection').then((module) => ({
     default: module.OverviewSection,
   })),
 );
-const CredentialsSection = lazyComponent(() =>
-  import('./update/integration/CredentialsSection').then((module) => ({
-    default: module.CredentialsSection,
-  })),
-);
+
 const LifecyclePolicySection = lazyComponent(() =>
   import('./update/integration/LifecyclePolicySection').then((module) => ({
     default: module.LifecyclePolicySection,
@@ -55,19 +41,20 @@ const ResourceDisplayOptionsSection = lazyComponent(() =>
     }),
   ),
 );
-const UserManagementSection = lazyComponent(() =>
-  import('./update/integration/UserManagementSection').then((module) => ({
-    default: module.UserManagementSection,
+const BackendIdRulesSection = lazyComponent(() =>
+  import('./update/integration/BackendIdRulesSection').then((module) => ({
+    default: module.BackendIdRulesSection,
+  })),
+);
+
+const AdvancedIntegrationSection = lazyComponent(() =>
+  import('./update/integration/AdvancedIntegrationSection').then((module) => ({
+    default: module.AdvancedIntegrationSection,
   })),
 );
 const TosManagementSection = lazyComponent(() =>
   import('./update/tos/TosManagementSection').then((module) => ({
     default: module.TosManagementSection,
-  })),
-);
-const ProvisioningConfigSection = lazyComponent(() =>
-  import('./update/integration/ProvisioningConfigSection').then((module) => ({
-    default: module.ProvisioningConfigSection,
   })),
 );
 const OfferingEndpointsSection = lazyComponent(() =>
@@ -85,6 +72,16 @@ const OfferingSoftwareCatalogsSection = lazyComponent(() =>
 const OfferingPartitionsSection = lazyComponent(() =>
   import('./update/partitions/OfferingPartitionsSection').then((module) => ({
     default: module.OfferingPartitionsSection,
+  })),
+);
+const OfferingQoSSection = lazyComponent(() =>
+  import('./update/qos/OfferingQoSSection').then((module) => ({
+    default: module.OfferingQoSSection,
+  })),
+);
+const OfferingDocumentsSection = lazyComponent(() =>
+  import('./update/documents/OfferingDocumentsSection').then((module) => ({
+    default: module.OfferingDocumentsSection,
   })),
 );
 const OfferingOptionsSection = lazyComponent(() =>
@@ -117,170 +114,132 @@ const OfferingImagesList = lazyComponent(() =>
     default: module.OfferingImagesList,
   })),
 );
-const TenantImagesTable = lazyComponent(() =>
-  import('./openstack-tenant/TenantImagesTable').then((module) => ({
-    default: module.TenantImagesTable,
-  })),
-);
-const TenantFlavorsTable = lazyComponent(() =>
-  import('./openstack-tenant/TenantFlavorsTable').then((module) => ({
-    default: module.TenantFlavorsTable,
-  })),
-);
-const TenantVolumeTypesTable = lazyComponent(() =>
-  import('./openstack-tenant/TenantVolumeTypesTable').then((module) => ({
-    default: module.TenantVolumeTypesTable,
-  })),
-);
 const RolesSection = lazyComponent(() =>
   import('./update/roles/RolesSection').then((module) => ({
     default: module.RolesSection,
   })),
 );
 
-const getOfferingData = async (offering_uuid: string) => {
-  const offering = (await marketplaceProviderOfferingsRetrieve({
-    path: { uuid: offering_uuid },
-  }).then((response) => response.data)) as Offering;
-  const category = await marketplaceCategoriesRetrieve({
-    path: { uuid: offering.category_uuid },
-  }).then((response) => response.data);
-  return { offering, category };
+const buildIntegrationTab = (offering: Offering): PageBarTab => {
+  const CredentialsSection = getCredentialsSection(offering.type);
+  const UserManagementSection = getUserManagementSection(offering.type);
+  const provisioningConfigSection = getProvisioningConfigSection(offering.type);
+
+  return {
+    key: 'integration',
+    title: translate('Integration'),
+    children: [
+      CredentialsSection && {
+        key: 'credentials',
+        component: CredentialsSection,
+        title: translate('Credentials'),
+      },
+      {
+        key: 'lifecycle-policy',
+        component: LifecyclePolicySection,
+        title: translate('Operations'),
+      },
+      {
+        key: 'resource-display-options',
+        component: ResourceDisplayOptionsSection,
+        title: translate('Resource display options'),
+      },
+      {
+        key: 'backend-id-rules',
+        component: BackendIdRulesSection,
+        title: translate('Backend ID rules'),
+      },
+      UserManagementSection && {
+        key: 'user-management',
+        component: UserManagementSection,
+        title: translate('User management'),
+      },
+      (offering.plugin_options?.service_provider_can_create_offering_user ||
+        isFeatureVisible(MarketplaceFeatures.lexis_links)) && {
+        key: 'advanced',
+        component: AdvancedIntegrationSection,
+        title: translate('Advanced'),
+      },
+      provisioningConfigSection && {
+        key: 'provisioning-configuration',
+        component: provisioningConfigSection,
+        title: translate('Provisioning configuration'),
+      },
+    ].filter(Boolean),
+  };
 };
 
-const getTabs = (offering: Offering): PageBarTab[] => {
-  const tabs: PageBarTab[] = [
+const buildPublicInfoTab = (): PageBarTab => ({
+  key: 'public_information',
+  title: translate('Public information'),
+  children: [
+    {
+      key: 'endpoints',
+      component: OfferingEndpointsSection,
+      title: translate('Endpoints'),
+    },
+    isFeatureVisible(MarketplaceFeatures.display_software_catalog) && {
+      key: 'software_catalogs',
+      component: OfferingSoftwareCatalogsSection,
+      title: translate('Software catalogs'),
+    },
+    isFeatureVisible(MarketplaceFeatures.display_offering_partitions) && {
+      key: 'slurm_partitions',
+      component: OfferingPartitionsSection,
+      title: translate('Slurm partitions'),
+    },
+    isFeatureVisible(MarketplaceFeatures.display_offering_partitions) && {
+      key: 'slurm_qos',
+      component: OfferingQoSSection,
+      title: translate('QoS profiles'),
+    },
+    {
+      key: 'category',
+      component: AttributesSection,
+      title: translate('Category'),
+    },
+    {
+      key: 'images',
+      component: OfferingImagesList,
+      title: translate('Images'),
+    },
+    {
+      key: 'documents',
+      component: OfferingDocumentsSection,
+      title: translate('Documents'),
+    },
+  ].filter(Boolean),
+});
+
+const buildAccountingTab = (offering: Offering): PageBarTab => ({
+  title: translate('Accounting'),
+  key: 'accounting',
+  defaultKey: 'plans',
+  children: [
+    {
+      title: translate('Accounting plans'),
+      key: 'plans',
+      component: PlansSection,
+      visible: false,
+    },
+    showComponentsList(offering.type) && {
+      key: 'components',
+      component: ComponentsSection,
+      title: translate('Accounting components'),
+      visible: false,
+    },
+  ].filter(Boolean),
+});
+
+const getTabs = (offering: Offering): PageBarTab[] =>
+  [
     {
       key: 'general',
       component: OverviewSection,
       title: translate('General'),
     },
-  ];
-
-  // Integration
-  const CredentialsForm = getCredentialsForm(offering.type);
-  const SecretOptionsForm = getSecretOptionsForm(offering.type);
-  const PluginOptionsForm = getPluginOptionsForm(offering.type);
-  const provisioningConfigForm = getProvisioningConfigForm(offering.type);
-
-  if (
-    CredentialsForm ||
-    SecretOptionsForm ||
-    PluginOptionsForm ||
-    provisioningConfigForm
-  ) {
-    tabs.push({
-      key: 'integration',
-      title: (
-        <>
-          <ValidationIcon
-            value={
-              offering.type !== OFFERING_TYPE_CUSTOM_SCRIPTS ||
-              SCRIPT_ROWS.every(
-                (option) => offering.secret_options[option.type],
-              )
-            }
-          />
-
-          {translate('Integration')}
-        </>
-      ),
-
-      children: [
-        CredentialsForm
-          ? {
-            key: 'credentials',
-            component: CredentialsSection,
-            title: translate('Credentials'),
-          }
-          : null,
-        {
-          key: 'lifecycle-policy',
-          component: LifecyclePolicySection,
-          title: translate('Lifecycle policy'),
-        },
-        {
-          key: 'resource-display-options',
-          component: ResourceDisplayOptionsSection,
-          title: translate('Resource display options'),
-        },
-        SecretOptionsForm || PluginOptionsForm
-          ? {
-            key: 'user-management',
-            component: UserManagementSection,
-            title: translate('User management'),
-          }
-          : null,
-        provisioningConfigForm ||
-          [OFFERING_TYPE_CUSTOM_SCRIPTS, OFFERING_TYPE_BOOKING].includes(
-            offering.type,
-          )
-          ? {
-            key: 'provisioning-configuration',
-            component: ProvisioningConfigSection,
-            title: translate('Provisioning configuration'),
-          }
-          : null,
-      ].filter(Boolean),
-    });
-  }
-
-  if (offering.type === TENANT_TYPE) {
-    tabs.push({
-      key: 'system_information',
-      title: translate('System information'),
-      children: [
-        {
-          key: 'images',
-          component: TenantImagesTable,
-          title: translate('Images'),
-        },
-        {
-          key: 'flavors',
-          component: TenantFlavorsTable,
-          title: translate('Flavors'),
-        },
-        {
-          key: 'volume-types',
-          component: TenantVolumeTypesTable,
-          title: translate('Volume types'),
-        },
-      ],
-    });
-  }
-
-  tabs.push(
-    {
-      key: 'public_information',
-      title: translate('Public information'),
-      children: [
-        {
-          key: 'endpoints',
-          component: OfferingEndpointsSection,
-          title: translate('Endpoints'),
-        },
-        isFeatureVisible(MarketplaceFeatures.display_software_catalog) && {
-          key: 'software_catalogs',
-          component: OfferingSoftwareCatalogsSection,
-          title: translate('Software catalogs'),
-        },
-        isFeatureVisible(MarketplaceFeatures.display_offering_partitions) && {
-          key: 'slurm_partitions',
-          component: OfferingPartitionsSection,
-          title: translate('Slurm partitions'),
-        },
-        {
-          key: 'category',
-          component: AttributesSection,
-          title: translate('Category'),
-        },
-        {
-          key: 'images',
-          component: OfferingImagesList,
-          title: translate('Images'),
-        },
-      ].filter(Boolean),
-    },
+    buildIntegrationTab(offering),
+    buildPublicInfoTab(),
     {
       key: 'options',
       component: OfferingOptionsSection,
@@ -297,99 +256,44 @@ const getTabs = (offering: Offering): PageBarTab[] => {
       component: TosManagementSection,
       title: translate('ToS management'),
     },
-  );
-
-  tabs.push({
-    title: translate('Accounting'),
-    key: 'accounting',
-    defaultKey: 'plans',
-    children: [
-      {
-        title: (
-          <>
-            <ValidationIcon value={offering.plans.length > 0} />
-            {translate('Accounting plans')}
-          </>
-        ),
-
-        key: 'plans',
-        component: PlansSection,
-        visible: false,
-      },
-      showComponentsList(offering.type) && {
-        key: 'components',
-        component: ComponentsSection,
-        title: (
-          <>
-            <ValidationIcon value={offering.components.length > 0} />
-            {translate('Accounting components')}
-          </>
-        ),
-
-        visible: false,
-      },
-    ].filter(Boolean),
-  });
-
-  return tabs.filter(Boolean);
-};
+    offeringOwnsPricing(offering) && buildAccountingTab(offering),
+  ].filter(Boolean) as PageBarTab[];
 
 export const OfferingEditUIView = ({
-  provider,
+  offeringData,
+  refetchOffering,
+  isLoadingOffering,
+  isRefetchingOffering,
+  errorOffering,
 }: {
-  provider: ServiceProvider;
+  offeringData: any;
+  refetchOffering: any;
+  isLoadingOffering: boolean;
+  isRefetchingOffering: boolean;
+  errorOffering: any;
 }) => {
-  const {
-    params: { offering_uuid },
-  } = useCurrentStateAndParams();
-
-  const { isLoading, error, data, refetch, isRefetching } = useQuery({
-    queryKey: [PROVIDER_OFFERING_DATA_QUERY_KEY, offering_uuid],
-    queryFn: () => getOfferingData(offering_uuid),
-    refetchOnWindowFocus: false,
-    staleTime: 3 * 60 * 1000,
-  });
-
   const { data: plugins } = useQuery({
     queryKey: ['marketplacePlugins'],
     queryFn: () => marketplacePluginsList(),
     refetchOnWindowFocus: false,
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
 
   const components = useMemo(
     () =>
-      data?.offering && plugins
+      offeringData?.offering && plugins
         ? plugins.data.find(
-          (plugin) => plugin.offering_type === data.offering.type,
-        )?.components || []
+            (plugin) => plugin.offering_type === offeringData.offering.type,
+          ).components
         : [],
-    [plugins, data?.offering],
+    [plugins, offeringData?.offering],
   );
 
   const tabs = useMemo(
-    () => (data?.offering ? getTabs(data.offering) : []),
-    [data?.offering],
+    () => (offeringData?.offering ? getTabs(offeringData.offering) : []),
+    [offeringData?.offering],
   );
   const { tabSpec } = usePageTabsTransmitter(tabs);
-
-  usePageHero(
-    <OfferingViewHero
-      offering={data?.offering}
-      refetch={refetch}
-      isRefetching={isRefetching}
-      isLoading={isLoading}
-      error={error}
-    />,
-
-    [data?.offering, refetch, isRefetching, isLoading, error],
-  );
-
-  const breadcrumbItems = useMemo(
-    () => getOfferingBreadcrumbItems(data?.offering, provider, 'edit'),
-    [data?.offering],
-  );
-  useBreadcrumbs(breadcrumbItems);
 
   return (
     <UIView
@@ -397,14 +301,14 @@ export const OfferingEditUIView = ({
         <Component
           key={key}
           {...props}
-          refetch={refetch}
+          refetch={refetchOffering}
           data={{
-            ...data,
+            ...offeringData,
             components,
           }}
-          isLoading={isLoading}
-          isRefetching={isRefetching}
-          error={error}
+          isLoading={isLoadingOffering}
+          isRefetching={isRefetchingOffering}
+          error={errorOffering}
           tabSpec={tabSpec}
         />
       )}

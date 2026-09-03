@@ -8,58 +8,31 @@ import {
 } from 'waldur-js-client';
 import { User } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { usePresetBreadcrumbItems } from '@waldur/navigation/header/breadcrumb/utils';
-import { IBreadcrumbItem } from '@waldur/navigation/types';
-import { RoleEnum } from '@waldur/permissions/enums';
+import { translate } from '@/i18n';
+import { usePresetBreadcrumbItems } from '@/navigation/header/breadcrumb/utils';
+import { IBreadcrumbItem } from '@/navigation/types';
+import { RoleEnum } from '@/permissions/enums';
 import {
+  AllocationTime,
   Call,
   CallOfferingState,
   CallState,
   ProposalState,
-  RoundAllocationStrategy,
-  RoundAllocationTime,
-  RoundReviewStrategy,
-} from '@waldur/proposals/types';
+} from '@/proposals/types';
 
-export const getRoundReviewStrategyOptions = () =>
-  [
-    { value: 'after_round', label: translate('After round is closed') },
-    { value: 'after_proposal', label: translate('After proposal submission') },
-  ] as { value: RoundReviewStrategy; label: string }[];
-
-export const formatRoundReviewStrategy = (value: RoundReviewStrategy) =>
-  getRoundReviewStrategyOptions().find((option) => option.value === value)
-    ?.label || value;
-
-export const getRoundAllocationStrategyOptions = () =>
-  [
-    { value: 'by_call_manager', label: translate('By call manager') },
-    {
-      value: 'automatic',
-      label: translate('Automatic based on review scoring'),
-    },
-  ] as { value: RoundAllocationStrategy; label: string }[];
-
-export const formatRoundAllocationStrategy = (value: RoundAllocationStrategy) =>
-  getRoundAllocationStrategyOptions().find((option) => option.value === value)
-    ?.label || value;
-
-export const getRoundAllocationTimeOptions = () =>
+// Allocation timing is a call-level policy on the allocation_decision workflow
+// step (not per-round): 'on_decision' provisions immediately, 'fixed_date' uses
+// the round's allocation date.
+export const getAllocationTimeOptions = () =>
   [
     { value: 'on_decision', label: translate('On decision') },
     { value: 'fixed_date', label: translate('Fixed date') },
-  ] as { value: RoundAllocationTime; label: string }[];
+  ] as { value: AllocationTime; label: string }[];
 
-export const formatRoundAllocationTime = (value: RoundAllocationTime) =>
-  getRoundAllocationTimeOptions().find((option) => option.value === value)
-    ?.label || value;
-
-export const getCallStateActions = () =>
-  [
-    { label: translate('Activate'), value: 'active', action: 'activate' },
-    { label: translate('Archive'), value: 'archived', action: 'archive' },
-  ] as { value: CallState; label: string; action: string }[];
+export const formatAllocationTime = (value: AllocationTime) =>
+  getAllocationTimeOptions().find(
+    (option) => option.value === value?.toLowerCase(),
+  )?.label || value;
 
 export const getCallStateOptions = () =>
   [
@@ -72,7 +45,7 @@ export const formatCallState = (value: CallState) =>
   getCallStateOptions().find((option) => option.value === value)?.label ||
   value;
 
-export const getCallOfferingStateOptions = () =>
+const getCallOfferingStateOptions = () =>
   [
     { value: 'requested', label: translate('Requested') },
     { value: 'accepted', label: translate('Accepted') },
@@ -124,27 +97,46 @@ export const formatProposalState = (value: ProposalState) =>
 
 export const getReviewStateOptions = () =>
   [
-    { value: 'created', label: translate('Created') },
     { value: 'in_review', label: translate('In review') },
     { value: 'submitted', label: translate('Submitted') },
-    { value: 'rejected', label: translate('Declined') },
+    { value: 'rejected', label: translate('Rejected') },
   ] as { value: ProposalReviewStateEnum; label: string }[];
 
 export const formatReviewState = (value: ProposalReviewStateEnum) =>
   getReviewStateOptions().find((option) => option.value === value)?.label ||
   value;
 
+/**
+ * The same states, named from the reviewer's own side.
+ *
+ * `in_review` describes the proposal — it is under review — which in a
+ * reviewer's own list reads as "someone is handling this" when it means "you
+ * have not done this yet". `rejected` is likewise the system's word for the
+ * reviewer having declined the assignment.
+ *
+ * Only for a reviewer looking at their own work; a manager reading someone
+ * else's review wants the neutral wording.
+ */
+export const getOwnReviewStateOptions = () =>
+  [
+    { value: 'in_review', label: translate('To do') },
+    { value: 'submitted', label: translate('Submitted') },
+    { value: 'rejected', label: translate('Declined') },
+  ] as { value: ProposalReviewStateEnum; label: string }[];
+
+export const formatOwnReviewState = (value: ProposalReviewStateEnum) =>
+  getOwnReviewStateOptions().find((option) => option.value === value)?.label ||
+  value;
+
 export const getReviewStateBadgeVariant = (value: ProposalReviewStateEnum) =>
-  value === 'created'
-    ? 'default'
-    : value === 'in_review' || value === 'submitted'
-      ? 'warning'
-      : value === 'rejected'
-        ? 'danger'
-        : 'secondary';
+  value === 'in_review' || value === 'submitted'
+    ? 'warning'
+    : value === 'rejected'
+      ? 'danger'
+      : 'secondary';
 
 export const isReviewInFinalState = (state: ProposalReviewStateEnum) =>
-  !['in_review', 'created'].includes(state);
+  !['in_review'].includes(state);
 
 export const getRoundStatus = (round: NestedRound) => {
   if (!round) {
@@ -174,7 +166,7 @@ export const getCallStatus = (call: Call) => {
   else if (call.state == 'draft')
     return { label: translate('Draft'), color: 'danger' };
   else if (call.state == 'archived')
-    return { label: translate('Archived'), color: 'secondary' };
+    return { label: translate('Archived'), color: 'gray' };
   else {
     return { label: call.state, color: 'secondary' };
   }
@@ -200,15 +192,12 @@ export const checkIsCallManager = (call: Call, user: User): boolean =>
 export const useCallBreadcrumbItems = (
   call: Pick<Call, 'customer_uuid' | 'customer_name' | 'name'>,
 ): IBreadcrumbItem[] => {
-  const { getOrganizationBreadcrumbItem } = usePresetBreadcrumbItems();
+  const { getOrganizationsBreadcrumbItem, getOrganizationBreadcrumbItem } =
+    usePresetBreadcrumbItems();
 
   return useMemo(
     () => [
-      {
-        key: 'organizations',
-        text: translate('Organizations'),
-        to: 'organizations',
-      },
+      getOrganizationsBreadcrumbItem(),
       call?.customer_uuid
         ? getOrganizationBreadcrumbItem({
             uuid: call.customer_uuid,
@@ -235,3 +224,35 @@ export const useCallBreadcrumbItems = (
     [call],
   );
 };
+
+/**
+ * Simplified breadcrumb for public call pages.
+ * Uses public routes that don't require organization access.
+ */
+export const usePublicCallBreadcrumbItems = (
+  call: Pick<Call, 'name'>,
+): IBreadcrumbItem[] => {
+  return useMemo(
+    () => [
+      {
+        key: 'calls-list',
+        text: translate('Calls for proposals'),
+        to: 'public-calls.list-public',
+      },
+      {
+        key: 'call',
+        text: call?.name || '...',
+        truncate: true,
+        active: true,
+      },
+    ],
+    [call],
+  );
+};
+
+// Tooltip explaining why a call's fields are read-only, for the disabled edit
+// controls on the call-edit tabs (a call can only be edited while draft).
+export const getCallReadOnlyReason = (call?: { state?: string }): string =>
+  call?.state === 'archived'
+    ? translate('This call is archived and cannot be edited.')
+    : translate('This call is active and cannot be edited.');

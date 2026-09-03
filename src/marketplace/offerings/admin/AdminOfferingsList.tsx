@@ -1,60 +1,65 @@
 import { useMemo } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
 import { MarketplaceProviderOfferingsListData } from 'waldur-js-client';
 
+import { translate } from '@/i18n';
+import { useFilterValues } from '@/table/useFilterValues';
+
+import { OFFERINGS_FILTER_FORM_ID } from '../constants';
 import { BaseOfferingsList } from '../list/OfferingsList';
+import { OfferingsListFilter } from '../list/OfferingsListFilter';
 import { getStates } from '../list/OfferingStateFilter';
 
-import { AdminOfferingsFilter } from './AdminOfferingsFilter';
-import {
-  ADMIN_OFFERING_TABLE_NAME,
-  ADMIN_OFFERINGS_FILTER_FORM_ID,
-} from './constants';
+import { ADMIN_OFFERING_TABLE_NAME } from './constants';
 
-export const mapStateToFilter = createSelector(
-  getFormValues(ADMIN_OFFERINGS_FILTER_FORM_ID),
-  (filterValues: any) => {
-    const filter: MarketplaceProviderOfferingsListData['query'] = {};
-    if (filterValues?.organization) {
-      filter.customer_uuid = filterValues.organization.uuid;
+export const buildOfferingsFilter = (filterValues: any) => {
+  const filter: MarketplaceProviderOfferingsListData['query'] = {};
+  if (filterValues?.organization) {
+    filter.customer_uuid = filterValues.organization.customer_uuid;
+  }
+  if (filterValues) {
+    if (filterValues.state && Array.isArray(filterValues.state)) {
+      filter.state = filterValues.state.map((option) => option.value);
     }
-    if (filterValues) {
-      if (filterValues.state) {
-        filter.state = filterValues.state.map((option) => option.value);
-      }
-      if (filterValues.offering_type) {
-        filter.type = filterValues.offering_type.value;
-      }
-      if (filterValues.category) {
-        filter.category_uuid = filterValues.category.uuid;
-      }
-      if (filterValues.shared) {
-        filter.shared = filterValues.shared;
-      }
+    if (filterValues.offering_type) {
+      filter.type = filterValues.offering_type.value;
     }
-    return filter;
-  },
-);
+    if (filterValues.category) {
+      filter.category_uuid = filterValues.category.uuid;
+    }
+    if (filterValues.tag) {
+      filter.tag = filterValues.tag.uuid;
+    }
+    if (filterValues.shared !== undefined && filterValues.shared !== null) {
+      filter.shared =
+        typeof filterValues.shared === 'object'
+          ? filterValues.shared.value
+          : filterValues.shared;
+    }
+  }
+  return filter;
+};
 
 export const AdminOfferingsList = () => {
-  const filter = useSelector(mapStateToFilter);
-  const initialValues = useMemo(
-    () => ({
-      state: [getStates()[1], getStates()[2]],
-      shared: true,
-    }),
-    [],
+  const filterValues = useFilterValues(ADMIN_OFFERING_TABLE_NAME);
+
+  const filter = useMemo(
+    () => buildOfferingsFilter(filterValues),
+    [filterValues],
   );
+
   return (
     <BaseOfferingsList
       table={ADMIN_OFFERING_TABLE_NAME}
       filter={filter}
+      formId={OFFERINGS_FILTER_FORM_ID}
       hasOrganizationColumn
       showActions
       showProvider
-      filters={<AdminOfferingsFilter initialValues={initialValues} />}
+      filters={<OfferingsListFilter />}
+      initialFilters={{
+        state: [getStates()[1], getStates()[2]],
+        shared: { label: translate('Yes'), value: true },
+      }}
     />
   );
 };

@@ -2,31 +2,35 @@ import { QuestionIcon } from '@phosphor-icons/react';
 import { useCurrentStateAndParams, useRouter } from '@uirouter/react';
 import { FC, useMemo } from 'react';
 import { Nav, Tab, Table } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
-import { createSelector } from 'reselect';
+import { Offering } from 'waldur-js-client';
 
-import { CopyToClipboardButton } from '@waldur/core/CopyToClipboardButton';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { Tip } from '@waldur/core/Tooltip';
-import { PublicDashboardHero } from '@waldur/dashboard/hero/PublicDashboardHero';
-import { translate } from '@waldur/i18n';
-import { useTitle } from '@waldur/navigation/title';
-import { isDescendantOf } from '@waldur/navigation/useTabs';
-import {
-  isOwnerOrStaff,
-  isServiceManagerSelector,
-} from '@waldur/workspace/selectors';
+import { ANNOUNCEMENT_ICON } from '@/administration/utils';
+import { ENV } from '@/core/config';
+import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { Tip } from '@/core/Tooltip';
+import { PublicDashboardHero } from '@/dashboard/hero/PublicDashboardHero';
+import { translate } from '@/i18n';
+import { ParentLink } from '@/marketplace/resources/details/ParentResourceLink';
+import { useExtraAnnouncementBar } from '@/navigation/context';
+import { AnnouncementBar } from '@/navigation/header/announcements/AnnouncementBar';
+import { useTitle } from '@/navigation/title';
+import { isDescendantOf } from '@/navigation/useTabs';
+import { INSTANCE_TYPE, TENANT_TYPE, VOLUME_TYPE } from '@/openstack/constants';
+import { useCustomer, useUser } from '@/workspace/hooks';
+import { checkIsOwner, checkIsServiceManager } from '@/workspace/selectors';
 
+import { useOfferingAccessibility } from '../common/cards/useOfferingAccessibility';
 import { RefreshButton } from '../common/RefreshButton';
 import { getLabel } from '../common/registry';
-import { Offering } from '../types';
 
+import { RequestAccessButton } from './access/RequestAccessButton';
 import { OfferingStateActions } from './actions/OfferingStateActions';
-import { DeployButton } from './DeployButton';
-import { PreviewButton } from './list/PreviewButton';
 import { OfferingAccessButton } from './OfferingAccessButton';
+import { OfferingExtraActionsButton } from './OfferingExtraActionsButton';
 import { OfferingStateField } from './OfferingStateField';
+import { OfferingSupportButton } from './OfferingSupportButton';
 
 interface OfferingViewHeroProps {
   offering: Offering;
@@ -37,19 +41,34 @@ interface OfferingViewHeroProps {
   error?: any;
 }
 
-const serviceManagerOrOwnerOrStaffSelector = createSelector(
-  isOwnerOrStaff,
-  isServiceManagerSelector,
-  (ownerOrStaff, serviceManager) => ownerOrStaff || serviceManager,
-);
-
 export const OfferingViewHero: FC<OfferingViewHeroProps> = (props) => {
   const router = useRouter();
   const { state } = useCurrentStateAndParams();
+  const customer = useCustomer();
+  const user = useUser();
 
   const offering = props.offering;
 
   useTitle(offering ? offering.name : translate('Marketplace offering'));
+
+  useExtraAnnouncementBar(
+    offering?.state === 'Unavailable' ? (
+      <AnnouncementBar
+        label={translate('This offering is temporarily unavailable.')}
+        description={
+          [TENANT_TYPE, VOLUME_TYPE, INSTANCE_TYPE].includes(offering.type)
+            ? translate(
+                'Operations on its resources (tenants, instances and volumes) are currently blocked.',
+              )
+            : translate('Operations on its resources are currently blocked.')
+        }
+        icon={ANNOUNCEMENT_ICON.warning.icon}
+        variant={ANNOUNCEMENT_ICON.warning.variant}
+        colored
+      />
+    ) : null,
+    [offering],
+  );
 
   const goTo = (stateName) =>
     router.stateService.go(
@@ -62,16 +81,24 @@ export const OfferingViewHero: FC<OfferingViewHeroProps> = (props) => {
           },
     );
 
-  const canDeploy = useMemo(() => offering?.state === 'Active', [offering]);
+  const { isDisabled: isNotAccessible, disabledButtonTooltip } =
+    useOfferingAccessibility(offering);
+
+  const canDeploy = useMemo(
+    () => offering?.state === 'Active' && !isNotAccessible,
+    [offering, isNotAccessible],
+  );
 
   const isEditPage = [
     'admin-marketplace-offering-update',
     'marketplace-offering-update',
   ].includes(state.name);
 
-  const canManageAndEditOfferings = useSelector(
-    serviceManagerOrOwnerOrStaffSelector,
-  );
+  const canManageAndEditOfferings = useMemo(() => {
+    const ownerOrStaff = user?.is_staff || checkIsOwner(customer, user);
+    const serviceManager = checkIsServiceManager(customer, user);
+    return ownerOrStaff || serviceManager;
+  }, [customer, user]);
 
   if (props.isLoading) {
     return <LoadingSpinner />;
@@ -99,10 +126,11 @@ export const OfferingViewHero: FC<OfferingViewHeroProps> = (props) => {
                 >
                   <Nav.Link
                     disabled
-                    className="d-flex align-items-center text-center min-w-60px opacity-50"
+                    className="d-flex align-items-center text-center min-w-60px"
+                    data-testid="offering-tab-public"
                   >
                     {translate('Public')}
-                    <QuestionIcon size={18} className="ms-1" />
+                    <QuestionIcon size={18} className="ms-1" weight="bold" />
                   </Nav.Link>
                 </Tip>
               </Nav.Item>
@@ -111,6 +139,7 @@ export const OfferingViewHero: FC<OfferingViewHeroProps> = (props) => {
                 <Nav.Link
                   eventKey="public-offering.marketplace-public-offering"
                   className="text-center min-w-60px"
+                  data-testid="offering-tab-public"
                 >
                   {translate('Public')}
                 </Nav.Link>
@@ -124,6 +153,7 @@ export const OfferingViewHero: FC<OfferingViewHeroProps> = (props) => {
                     : 'marketplace-offering-details'
                 }
                 className="text-center min-w-60px"
+                data-testid="offering-tab-manage"
               >
                 {translate('Manage')}
               </Nav.Link>
@@ -136,6 +166,7 @@ export const OfferingViewHero: FC<OfferingViewHeroProps> = (props) => {
                     : 'marketplace-offering-update'
                 }
                 className="text-center min-w-60px"
+                data-testid="offering-tab-edit"
               >
                 {translate('Edit')}
               </Nav.Link>
@@ -147,47 +178,97 @@ export const OfferingViewHero: FC<OfferingViewHeroProps> = (props) => {
         hideQuickSection
         cardBordered
         mobileBottomActions
+        backgroundImage={
+          ENV.plugins?.WALDUR_CORE?.SHOW_OFFERING_COVER_IMAGE
+            ? offering.image
+            : undefined
+        }
         logo={offering.thumbnail}
-        logoSize={100}
+        logoSize={48}
         logoAlt={offering.name}
         logoTooltip={offering.category_title}
         logoCircle
         title={
-          <>
-            <div className="d-flex flex-wrap align-items-center gap-2 mb-1">
-              <h3 className="mb-0">{offering.name}</h3>
+          <div className="d-flex flex-column">
+            <div className="d-flex flex-wrap align-items-center gap-2">
+              <h3 className="mb-0 lh-1">{offering.name}</h3>
               <CopyToClipboardButton
                 value={offering.name}
                 className="text-hover-primary cursor-pointer"
                 size={20}
               />
 
-              <OfferingStateField
-                offering={offering}
-                mode="outline"
-                hasBullet
-              />
+              <OfferingStateField offering={offering} hasBullet />
             </div>
             <p className="text-muted fs-7 mb-0">
               {translate('By {organization}', {
                 organization: offering.customer_name,
               })}
+              {offering.parent_name && offering.parent_uuid && (
+                <>
+                  <span className="mx-2">•</span>
+                  <ParentLink
+                    parent_name={offering.parent_name}
+                    state="public-offering.marketplace-public-offering"
+                    params={{ uuid: offering.parent_uuid }}
+                  />
+                </>
+              )}
             </p>
-          </>
+            {/* Plugin type is an internal integration detail: it names the
+                backend the offering is wired to, not anything a prospective
+                customer can act on. Keep it to the provider/staff view. */}
+            {!props.isPublic && (
+              <Table className="mb-0 px-0 h-auto fs-7 w-auto mt-1">
+                <tbody>
+                  <tr>
+                    <th className="fw-bold w-150px p-0 pe-3">
+                      {translate('Shared/Billing enabled')}:
+                    </th>
+                    <td className="text-muted p-0">
+                      {(offering.shared ? translate('Yes') : translate('No')) +
+                        '/' +
+                        (offering.billable
+                          ? translate('Yes')
+                          : translate('No'))}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th className="fw-bold w-100px p-0 pe-3">
+                      {translate('Type')}:
+                    </th>
+                    <td className="text-muted p-0">
+                      {getLabel(offering.type)}
+                    </td>
+                  </tr>
+                </tbody>
+              </Table>
+            )}
+          </div>
         }
         actions={
           <>
             {props.isPublic && (
-              <DeployButton offering={offering} disabled={!canDeploy} />
+              <RequestAccessButton
+                offering={offering}
+                orderDisabledReason={
+                  !canDeploy ? disabledButtonTooltip : undefined
+                }
+              />
             )}
+            {props.isPublic && <OfferingSupportButton offering={offering} />}
             <OfferingAccessButton offering={offering} />
-            <PreviewButton offering={offering} />
             {isEditPage && (
               <OfferingStateActions
                 offering={offering}
                 refreshOffering={props.refetch}
                 className="order-2 order-sm-1 flex-sm-column-auto flex-root"
               />
+            )}
+            {!props.isPublic && (
+              <div className="order-2 order-sm-2">
+                <OfferingExtraActionsButton offering={offering} />
+              </div>
             )}
             <RefreshButton
               refetch={props.refetch}
@@ -196,28 +277,7 @@ export const OfferingViewHero: FC<OfferingViewHeroProps> = (props) => {
             />
           </>
         }
-      >
-        <Table className="mb-0 px-0 h-auto fs-7 w-auto">
-          <tbody>
-            {!props.isPublic && (
-              <tr>
-                <th className="fw-bold w-sm-175px">
-                  {translate('Shared/Billing enabled')}:
-                </th>
-                <td className="text-muted">
-                  {(offering.shared ? translate('Yes') : translate('No')) +
-                    '/' +
-                    (offering.billable ? translate('Yes') : translate('No'))}
-                </td>
-              </tr>
-            )}
-            <tr>
-              <th className="fw-bold w-sm-175px">{translate('Type')}:</th>
-              <td className="text-muted">{getLabel(offering.type)}</td>
-            </tr>
-          </tbody>
-        </Table>
-      </PublicDashboardHero>
+      />
     </div>
   );
 };

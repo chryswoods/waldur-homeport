@@ -1,26 +1,29 @@
-import { FC, ReactNode, useMemo } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
+import { FC, ReactNode, useCallback, useMemo } from 'react';
 import { invoicesItemsRetrieve } from 'waldur-js-client';
 
-import { Badge } from '@waldur/core/Badge';
-import { defaultCurrency } from '@waldur/core/formatCurrency';
-import { getUUID } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
-import { PriceTooltip } from '@waldur/price/PriceTooltip';
-import { ResourceLink } from '@waldur/resource/ResourceLink';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { Badge } from '@/core/Badge';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { getUUID } from '@/core/utils';
+import { translate } from '@/i18n';
+import { PriceTooltip } from '@/price/PriceTooltip';
+import { ResourceLink } from '@/resource/ResourceLink';
+import { createFetcher } from '@/table/api';
+import {
+  InvoicesItemsFilter,
+  selectInvoicesItemsFilter,
+  InvoicesItemsFilterFormId,
+} from '@/table/generated/InvoicesItemsFilter';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { useUser, useCustomer } from '@/workspace/hooks';
 
-import { INVOICE_ITEMS_FILTER_FORM } from '../constants';
-import { Invoice, InvoiceItemsFilterData, InvoiceTableItem } from '../types';
+import { Invoice, InvoiceTableItem } from '../types';
 import { formatPeriod } from '../utils';
 
 import { InvoiceDetailActions } from './InvoiceDetailActions';
 import { InvoiceItemExpandableRow } from './InvoiceItemExpandableRow';
-import { InvoiceItemsFilter } from './InvoiceItemsFilter';
+import { InvoiceItemsBulkDelete } from './InvoiceItemsBulkDelete';
 import { groupInvoiceItems } from './utils';
 
 interface InvoiceItemsTableProps {
@@ -37,30 +40,6 @@ interface InvoiceItemsTableProps {
   footer?: ReactNode;
 }
 
-const useFilters = () => {
-  const filterValues = useSelector(
-    getFormValues(INVOICE_ITEMS_FILTER_FORM),
-  ) as InvoiceItemsFilterData;
-  return useMemo(() => {
-    const filter: Record<string, string> = {};
-    if (filterValues) {
-      if (filterValues.provider) {
-        filter.provider_uuid = filterValues.provider.uuid;
-      }
-      if (filterValues.project) {
-        filter.project_uuid = filterValues.project.uuid;
-      }
-      if (filterValues.offering) {
-        filter.offering_uuid = filterValues.offering.uuid;
-      }
-      if (filterValues.conceal_compensation_items) {
-        filter.conceal_compensation_items = 'true';
-      }
-    }
-    return filter;
-  }, [filterValues]);
-};
-
 export const InvoiceItemsTable: FC<InvoiceItemsTableProps> = ({
   invoice,
   invoiceView,
@@ -70,8 +49,10 @@ export const InvoiceItemsTable: FC<InvoiceItemsTableProps> = ({
   refreshInvoiceItems,
   setTotalFiltered,
 }) => {
-  const filter = useFilters();
-  const customer = useSelector(getCustomer);
+  const values = useFilterValues('invoiceItems-' + invoice.uuid);
+  const filter = useMemo(() => selectInvoicesItemsFilter(values), [values]);
+  const customer = useCustomer();
+  const user = useUser();
 
   const fetchItems = useMemo(() => {
     return createFetcher(invoicesItemsRetrieve, {
@@ -81,6 +62,7 @@ export const InvoiceItemsTable: FC<InvoiceItemsTableProps> = ({
 
   const tableProps = useTable({
     table: 'invoiceItems-' + invoice.uuid,
+    syncFiltersToURL: true,
     fetchData: async (request) => {
       const response = await fetchItems(request);
       const rows = groupInvoiceItems(response.rows, request.filter?.o);
@@ -108,10 +90,17 @@ export const InvoiceItemsTable: FC<InvoiceItemsTableProps> = ({
     filter,
   });
 
+  // Per-row actions must refresh the items table's own React Query cache
+  // (refreshInvoiceItems only refetches the invoice header) and the header.
+  const refresh = useCallback(() => {
+    tableProps.fetch(true);
+    refreshInvoiceItems();
+  }, [tableProps.fetch, refreshInvoiceItems]);
+
   return (
     <Table<InvoiceTableItem>
       {...tableProps}
-      filters={<InvoiceItemsFilter customerUuid={getUUID(invoice.customer)} />}
+      filters={<InvoicesItemsFilter customerUuid={getUUID(invoice.customer)} />}
       columns={[
         {
           title: translate('Resource name'),
@@ -129,7 +118,7 @@ export const InvoiceItemsTable: FC<InvoiceItemsTableProps> = ({
         {
           title: translate('Project name'),
           render: ({ row }) => <>{row.project_name}</>,
-          filter: 'project',
+          filter: 'project_uuid',
           orderField: 'project_name',
           inlineFilter: (row) => ({
             name: row.project_name,
@@ -182,9 +171,9 @@ export const InvoiceItemsTable: FC<InvoiceItemsTableProps> = ({
           {!invoiceView && customer.agreement_number && (
             <Badge
               variant="default"
+              size="sm"
               pill
               outline
-              size="sm"
               className="fw-bold ms-2"
             >
               {translate('Agreement no:')} {customer.agreement_number}
@@ -198,6 +187,8 @@ export const InvoiceItemsTable: FC<InvoiceItemsTableProps> = ({
       })}
       hasQuery={true}
       minHeight="auto"
+      enableMultiSelect={user?.is_staff}
+      multiSelectActions={InvoiceItemsBulkDelete}
       tableActions={<InvoiceDetailActions invoice={invoice} />}
       expandableRowClassName="py-2 pe-2"
       expandableRow={({ row }) => (
@@ -207,10 +198,11 @@ export const InvoiceItemsTable: FC<InvoiceItemsTableProps> = ({
           items={row.items}
           showPrice={showPrice}
           showVat={showVat}
-          refresh={refreshInvoiceItems}
+          refresh={refresh}
         />
       )}
       footer={footer}
+      formId={InvoicesItemsFilterFormId}
     />
   );
 };

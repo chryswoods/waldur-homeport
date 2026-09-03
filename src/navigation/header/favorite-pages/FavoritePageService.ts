@@ -15,17 +15,12 @@ import {
   Resource,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { getTitle } from '@waldur/navigation/title';
-import { isDescendantOf } from '@waldur/navigation/useTabs';
-import store from '@waldur/store/store';
-import { useUser } from '@waldur/workspace/hooks';
-import {
-  getCustomer,
-  getProject,
-  getResource,
-} from '@waldur/workspace/selectors';
-import { Customer, Project, User } from '@waldur/workspace/types';
+import { translate } from '@/i18n';
+import { getTitle, getSubtitle } from '@/navigation/title';
+import { isDescendantOf } from '@/navigation/useTabs';
+import { useUser, useCustomer, useProject } from '@/workspace/hooks';
+import { getResource } from '@/workspace/selectors';
+import { Customer, Project, User } from '@/workspace/types';
 
 const FAVORITE_PAGES_KEY = 'waldur/favorite/pages';
 
@@ -88,8 +83,8 @@ const getDataForFavoritePage = async (
   params: RawParams,
   context: FavoritePageContext,
 ) => {
-  let title = store.getState().title?.title;
-  let subtitle = store.getState().title?.subtitle;
+  let title = getTitle();
+  let subtitle = getSubtitle();
   let image;
   const newParams = params ? { ...params } : {};
   if (state.name.startsWith('marketplace-offering') && params.offering_uuid) {
@@ -145,10 +140,7 @@ const getDataForFavoritePage = async (
     title = context.customer?.name || context.customer?.display_name;
     image = context.customer?.image;
   } else if (isDescendantOf('project', state)) {
-    const titleFromState = store
-      .getState()
-      .title.title.replace('resources', '')
-      .trim();
+    const titleFromState = getTitle().replace('resources', '').trim();
     title = context.project?.name;
     image = context.project?.image;
     subtitle = titleFromState;
@@ -179,11 +171,11 @@ const getDataForFavoritePage = async (
 export const useFavoritePages = () => {
   const router = useRouter();
   const { state, params } = useCurrentStateAndParams();
-  const pageTitle = useSelector(getTitle);
+  const pageTitle = getTitle();
 
   const user = useUser();
-  const customer = useSelector(getCustomer);
-  const project = useSelector(getProject);
+  const customer = useCustomer();
+  const project = useProject();
   const resource = useSelector(getResource);
 
   const getPagesList = () => FavoritePageService.list().reverse();

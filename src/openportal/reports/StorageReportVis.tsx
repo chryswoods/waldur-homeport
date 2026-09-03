@@ -15,10 +15,11 @@
  */
 
 import { FileArrowDownIcon, FileXlsIcon } from '@phosphor-icons/react';
-import React, { FC, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, useEffect, useMemo, useRef, useState } from 'react';
 
-import { EChart } from '@waldur/core/EChart';
-import { Tip } from '@waldur/core/Tooltip';
+import { EChart } from '@/core/EChart';
+import { Tip } from '@/core/Tooltip';
+import { translate } from '@/i18n';
 
 import { ProjectStorageReport } from './ProjectStorageReport';
 import { downloadStorageExcel, downloadJson } from './reportExcel';
@@ -40,7 +41,11 @@ interface Props {
   nameMaps?: NameMaps;
 }
 
-export const StorageReportVis: FC<Props> = ({ reports, height = '420px', nameMaps }) => {
+export const StorageReportVis: FC<Props> = ({
+  reports,
+  height = '420px',
+  nameMaps,
+}) => {
   const multipleProjects = useMemo(
     () => new Set(reports.map((r) => r.project)).size > 1,
     [reports],
@@ -56,10 +61,7 @@ export const StorageReportVis: FC<Props> = ({ reports, height = '420px', nameMap
     [reports],
   );
 
-  const volumes = useMemo(
-    () => (report ? report.volumes() : []),
-    [report],
-  );
+  const volumes = useMemo(() => (report ? report.volumes() : []), [report]);
 
   const hasDailyData = useMemo(() => (report?.dates.length ?? 0) > 0, [report]);
 
@@ -73,7 +75,11 @@ export const StorageReportVis: FC<Props> = ({ reports, height = '420px', nameMap
 
   // Animation auto-detect: disable animations when data sets are large
   const [animationsEnabled, setAnimationsEnabled] = useState(() => {
-    try { return localStorage.getItem('openportal-animations-disabled') !== '1'; } catch { return true; }
+    try {
+      return localStorage.getItem('openportal-animations-disabled') !== '1';
+    } catch {
+      return true;
+    }
   });
   const computeStartRef = useRef(0);
 
@@ -82,7 +88,10 @@ export const StorageReportVis: FC<Props> = ({ reports, height = '420px', nameMap
   const updateRafRef = useRef<number | undefined>(undefined);
 
   // Excel download progress
-  const [excelProgress, setExcelProgress] = useState<{ current: number; total: number } | null>(null);
+  const [excelProgress, setExcelProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
 
   const fullNames = multipleProjects && groupMode === 'user';
   const activeMaps = showMapped ? nameMaps : undefined;
@@ -95,18 +104,37 @@ export const StorageReportVis: FC<Props> = ({ reports, height = '420px', nameMap
         ? buildStorageProjectTimeseriesOptions(reports, groupBy, activeMaps)
         : buildStorageProjectBarOptions(reports, activeMaps);
     }
-    if (view === 'timeseries') return buildStorageTimeseriesOptions(report, groupBy, fullNames, activeMaps);
+    if (view === 'timeseries')
+      return buildStorageTimeseriesOptions(
+        report,
+        groupBy,
+        fullNames,
+        activeMaps,
+      );
     return buildStorageBarOptions(report, volumeFilter, fullNames, activeMaps);
-  }, [report, reports, view, volumeFilter, groupBy, groupMode, fullNames, activeMaps]);
+  }, [
+    report,
+    reports,
+    view,
+    volumeFilter,
+    groupBy,
+    groupMode,
+    fullNames,
+    activeMaps,
+  ]);
 
   // Animation auto-detect effect
   useEffect(() => {
     const elapsed = performance.now() - computeStartRef.current;
     if (elapsed > 1000 && animationsEnabled) {
       setAnimationsEnabled(false);
-      try { localStorage.setItem('openportal-animations-disabled', '1'); } catch {}
+      try {
+        localStorage.setItem('openportal-animations-disabled', '1');
+      } catch {
+        /* do nothing */
+      }
     }
-  }, [options]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [options]);
 
   // Updating indicator effect
   useEffect(() => {
@@ -117,12 +145,17 @@ export const StorageReportVis: FC<Props> = ({ reports, height = '420px', nameMap
       });
     });
     return () => {
-      if (updateRafRef.current !== undefined) cancelAnimationFrame(updateRafRef.current);
+      if (updateRafRef.current !== undefined)
+        cancelAnimationFrame(updateRafRef.current);
     };
   }, [options]);
 
   if (!report) {
-    return <div className="text-muted p-4">No storage data available.</div>;
+    return (
+      <div className="text-muted p-4">
+        {translate('No storage data available.')}
+      </div>
+    );
   }
 
   const numUsers = report.userIdentifiers().length;
@@ -140,32 +173,47 @@ export const StorageReportVis: FC<Props> = ({ reports, height = '420px', nameMap
       {/* ── Row 1: summary + downloads ───────────────────────────────── */}
       <div className="d-flex align-items-center gap-3 mb-2 flex-wrap">
         <span className="text-muted small">
-          {destinationLabel} &middot; <strong>{numUsers}</strong> user
-          {numUsers !== 1 ? 's' : ''} &middot;{' '}
-          <strong>{numProjects}</strong> project{numProjects !== 1 ? 's' : ''}{' '}
-          &middot; Last generated {lastGenerated.toLocaleString()}
+          {translate(
+            '{destination} · {numUsers} {user} · {numProjects} {project} · Last generated {date}',
+            {
+              destination: destinationLabel,
+              numUsers,
+              user: numUsers !== 1 ? translate('users') : translate('user'),
+              numProjects,
+              project:
+                numProjects !== 1
+                  ? translate('projects')
+                  : translate('project'),
+              date: lastGenerated.toLocaleString(),
+            },
+          )}
           {report.isEmpty && (
-            <span className="badge bg-secondary ms-2">Empty</span>
+            <span className="badge bg-secondary ms-2">
+              {translate('Empty')}
+            </span>
           )}
         </span>
 
         <div className="d-flex gap-2 ms-auto">
-          <Tip id="tip-storage-excel" label="Download Excel">
+          <Tip id="tip-storage-excel" label={translate('Download Excel')}>
             <button
               type="button"
               className="text-btn text-hover-primary"
               onClick={async () => {
                 setExcelProgress({ current: 0, total: 1 });
-                await downloadStorageExcel(report, `storage_report`, nameMaps, (current, total) =>
-                  setExcelProgress({ current, total }),
+                await downloadStorageExcel(
+                  report,
+                  `storage_report`,
+                  nameMaps,
+                  (current, total) => setExcelProgress({ current, total }),
                 );
                 setExcelProgress(null);
               }}
             >
-              <FileXlsIcon size={20} />
+              <FileXlsIcon size={20} weight="bold" />
             </button>
           </Tip>
-          <Tip id="tip-storage-json" label="Download JSON">
+          <Tip id="tip-storage-json" label={translate('Download JSON')}>
             <button
               type="button"
               className="text-btn text-hover-primary"
@@ -176,13 +224,16 @@ export const StorageReportVis: FC<Props> = ({ reports, height = '420px', nameMap
                 )
               }
             >
-              <FileArrowDownIcon size={20} />
+              <FileArrowDownIcon size={20} weight="bold" />
             </button>
           </Tip>
         </div>
         {excelProgress && (
           <span className="text-muted small ms-2">
-            Preparing Excel — sheet {excelProgress.current} of {excelProgress.total}…
+            {translate('Preparing Excel — sheet {current} of {total}…', {
+              current: excelProgress.current,
+              total: excelProgress.total,
+            })}
           </span>
         )}
       </div>
@@ -196,7 +247,7 @@ export const StorageReportVis: FC<Props> = ({ reports, height = '420px', nameMap
             className={`btn btn-${view === 'bar' ? 'primary' : 'secondary'}`}
             onClick={() => setView('bar')}
           >
-            Bar
+            {translate('Bar')}
           </button>
           {hasDailyData && (
             <button
@@ -204,7 +255,7 @@ export const StorageReportVis: FC<Props> = ({ reports, height = '420px', nameMap
               className={`btn btn-${view === 'timeseries' ? 'primary' : 'secondary'}`}
               onClick={() => setView('timeseries')}
             >
-              Timeline
+              {translate('Timeline')}
             </button>
           )}
         </div>
@@ -217,14 +268,14 @@ export const StorageReportVis: FC<Props> = ({ reports, height = '420px', nameMap
               className={`btn btn-${groupBy === 'day' ? 'primary' : 'secondary'}`}
               onClick={() => setGroupBy('day')}
             >
-              Day
+              {translate('Day')}
             </button>
             <button
               type="button"
               className={`btn btn-${groupBy === 'month' ? 'primary' : 'secondary'}`}
               onClick={() => setGroupBy('month')}
             >
-              Month
+              {translate('Month')}
             </button>
           </div>
         )}
@@ -237,14 +288,14 @@ export const StorageReportVis: FC<Props> = ({ reports, height = '420px', nameMap
               className={`btn btn-${showMapped ? 'primary' : 'secondary'}`}
               onClick={() => setShowMapped(true)}
             >
-              Names
+              {translate('Names')}
             </button>
             <button
               type="button"
               className={`btn btn-${!showMapped ? 'primary' : 'secondary'}`}
               onClick={() => setShowMapped(false)}
             >
-              IDs
+              {translate('IDs')}
             </button>
           </div>
         )}
@@ -257,7 +308,7 @@ export const StorageReportVis: FC<Props> = ({ reports, height = '420px', nameMap
             value={volumeFilter}
             onChange={(e) => setVolumeFilter(e.target.value)}
           >
-            <option value="all">All volumes</option>
+            <option value="all">{translate('All volumes')}</option>
             {volumes.map((v) => (
               <option key={v} value={v}>
                 {v}
@@ -271,14 +322,19 @@ export const StorageReportVis: FC<Props> = ({ reports, height = '420px', nameMap
       {/* Updating indicator */}
       {isUpdating && (
         <div className="text-muted small mb-1" style={{ minHeight: '1.2em' }}>
-          <span className="spinner-border spinner-border-sm me-1" style={{ width: '0.75rem', height: '0.75rem' }} />
-          Updating...
+          <span
+            className="spinner-border spinner-border-sm me-1"
+            style={{ width: '0.75rem', height: '0.75rem' }}
+          />
+          {translate('Updating...')}
         </div>
       )}
       <EChart
         options={animationsEnabled ? options : { ...options, animation: false }}
         height={height}
-        exportTitle={`${destinationLabel} storage`}
+        exportTitle={translate('{destination} storage', {
+          destination: destinationLabel,
+        })}
       />
     </div>
   );

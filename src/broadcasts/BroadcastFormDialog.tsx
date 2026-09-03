@@ -1,21 +1,30 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Modal } from 'react-bootstrap';
-import { Form } from 'react-final-form';
 import {
-  BroadcastMessage,
-  broadcastMessagesCreate,
-  broadcastMessagesRetrieve,
-  broadcastMessagesUpdate,
-} from 'waldur-js-client';
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  FloppyDiskIcon,
+  ShareIcon,
+} from '@phosphor-icons/react';
+import { FC, useCallback, useMemo } from 'react';
 
-import { translate } from '@waldur/i18n';
+import { lazyComponent } from '@/core/lazyComponent';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ActionButton } from '@/table/ActionButton';
+import { ProgressStep, Wizard, WizardFooterRenderProps } from '@/wizard';
 
-import { BroadcastFooter } from './BroadcastFooter';
-import { BroadcastForm } from './BroadcastForm';
-import { BroadcastAttachment, BroadcastFormData } from './types';
-import { serializeBroadcast, useBroadcastFormSubmit } from './utils';
+import { MessageStep, RecipientsStep } from './steps';
+import { BroadcastFormData } from './types';
+import { useBroadcastFormSubmit } from './utils';
 
-interface BroadcastUpdateDialogOwnProps {
+const BroadcastSaveAsTemplateDialog = lazyComponent(() =>
+  import('./BroadcastSaveAsTemplateDialog').then((module) => ({
+    default: module.BroadcastSaveAsTemplateDialog,
+  })),
+);
+
+interface BroadcastFormDialogProps {
   initialValues?: BroadcastFormData;
   resolve: {
     uuid?: string;
@@ -23,101 +32,135 @@ interface BroadcastUpdateDialogOwnProps {
   };
 }
 
-export const BroadcastFormDialog = ({
+const steps: ProgressStep[] = [
+  { key: 'message', label: translate('Create message'), completed: false },
+  {
+    key: 'recipients',
+    label: translate('Select recipients'),
+    completed: false,
+  },
+];
+
+const wizardForms = [MessageStep, RecipientsStep];
+
+export const BroadcastFormDialog: FC<BroadcastFormDialogProps> = ({
   initialValues,
   resolve,
-}: BroadcastUpdateDialogOwnProps) => {
-  const [step, setStep] = useState(0);
-  const [attachments, setAttachments] = useState<BroadcastAttachment[]>([]);
-  const [broadcastData, setBroadcastData] = useState<BroadcastMessage | null>(
-    null,
-  );
-  const [currentUuid, setCurrentUuid] = useState<string | undefined>(
-    resolve.uuid,
-  );
-
+}) => {
+  const { openDialog } = useModal();
   const isEdit = Boolean(resolve.uuid);
+  const onSubmit = useBroadcastFormSubmit(resolve.refetch, resolve.uuid);
 
-  const onSubmit = useBroadcastFormSubmit(resolve.refetch, currentUuid);
+  const saveAsTemplate = useCallback((formValues: BroadcastFormData) => {
+    openDialog(BroadcastSaveAsTemplateDialog, {
+      dialogClassName: 'modal-dialog-centered',
+      resolve: {
+        refetch: resolve.refetch,
+        broadcastData: formValues,
+      },
+      size: 'lg',
+    });
+  }, []);
 
-  // Fetch broadcast data including attachments when editing
-  useEffect(() => {
-    if (resolve.uuid) {
-      broadcastMessagesRetrieve({ path: { uuid: resolve.uuid } })
-        .then((response) => {
-          setBroadcastData(response.data);
-          setAttachments(response.data.attachments || []);
-        })
-        .catch((error) => {
-          console.error('Failed to fetch broadcast data:', error);
-        });
-    }
-  }, [resolve.uuid]);
+  const renderFooter = useCallback(
+    (props: WizardFooterRenderProps<BroadcastFormData>) => {
+      const disabled = props.invalid || props.submitting;
 
-  // Set default value for send_to_me if not editing
-  const defaultInitialValues = isEdit
-    ? initialValues
-    : { ...initialValues, send_to_me: true };
+      if (props.step === 0) {
+        return (
+          <>
+            <CloseDialogButton />
+            <SubmitButton
+              submitting={false}
+              onClick={() => props.form.change('action', 'draft')}
+              variant="secondary"
+              disabled={disabled}
+              iconNode={<FloppyDiskIcon weight="bold" />}
+              iconOnLeft
+              label={translate('Save as draft')}
+            />
+            <ActionButton
+              action={() => saveAsTemplate(props.values)}
+              variant="secondary"
+              disabled={disabled}
+              disabledReason={
+                props.submitting
+                  ? translate('Submitting...')
+                  : translate('Please fill in all required fields')
+              }
+              iconNode={<FloppyDiskIcon weight="bold" />}
+              title={translate('Save as a template')}
+            />
+            <ActionButton
+              action={props.handleSubmit}
+              disabled={disabled}
+              disabledReason={
+                props.submitting
+                  ? translate('Submitting...')
+                  : translate('Please fill in all required fields')
+              }
+              iconNode={<ArrowRightIcon weight="bold" />}
+              title={translate('Select recipients')}
+            />
+          </>
+        );
+      }
+
+      return (
+        <>
+          <ActionButton
+            action={props.onPrev}
+            variant="secondary"
+            iconNode={<ArrowLeftIcon weight="bold" />}
+            title={translate('Back')}
+          />
+          <SubmitButton
+            submitting={false}
+            variant="secondary"
+            onClick={() => props.form.change('action', 'draft')}
+            disabled={disabled}
+            iconNode={<FloppyDiskIcon weight="bold" />}
+            iconOnLeft
+            label={translate('Save as draft')}
+          />
+          <SubmitButton
+            submitting={false}
+            onClick={() => props.form.change('action', 'submit')}
+            disabled={disabled}
+            iconNode={<ShareIcon weight="bold" />}
+            iconOnLeft
+            label={
+              props.values.send_at
+                ? translate('Schedule broadcast')
+                : translate('Send now')
+            }
+          />
+        </>
+      );
+    },
+    [saveAsTemplate],
+  );
+
+  const defaultInitialValues = useMemo(
+    () => ({
+      ...initialValues,
+    }),
+    [initialValues],
+  );
 
   return (
-    <Form
+    <Wizard<BroadcastFormData>
+      title={
+        isEdit
+          ? translate('Update a broadcast')
+          : translate('Create a broadcast')
+      }
+      subtitle={translate('Create and send broadcast messages to users')}
+      steps={steps}
+      wizardForms={wizardForms}
       onSubmit={onSubmit}
       initialValues={defaultInitialValues}
-      render={({ handleSubmit, submitting, errors, values, form }) => {
-        const handleSaveDraft = useCallback(async (): Promise<string> => {
-          const formData = values as BroadcastFormData;
-
-          try {
-            let response;
-            if (currentUuid) {
-              response = await broadcastMessagesUpdate({
-                path: { uuid: currentUuid },
-                body: serializeBroadcast(formData),
-              });
-            } else {
-              response = await broadcastMessagesCreate({
-                body: serializeBroadcast(formData),
-              });
-              const newUuid = response.data.uuid;
-              setCurrentUuid(newUuid);
-              return newUuid;
-            }
-            return currentUuid;
-          } catch (error) {
-            throw error;
-          }
-        }, [values, currentUuid]);
-
-        return (
-          <form onSubmit={handleSubmit}>
-            <Modal.Header closeButton className="without-border">
-              <h2 className="fw-bolder">
-                {isEdit
-                  ? translate('Update a broadcast')
-                  : translate('Create a broadcast')}
-              </h2>
-            </Modal.Header>
-            <BroadcastForm
-              step={step}
-              setStep={setStep}
-              broadcastUuid={currentUuid}
-              attachments={attachments}
-              onAttachmentsChange={setAttachments}
-              broadcastState={broadcastData?.state}
-              onSaveDraft={handleSaveDraft}
-            />
-            <BroadcastFooter
-              step={step}
-              setStep={setStep}
-              refetch={resolve.refetch}
-              form={form}
-              disabled={(errors && Object.keys(errors).length > 0) || submitting}
-              formValues={values}
-              uuid={currentUuid}
-            />
-          </form>
-        );
-      }}
+      renderFooter={renderFooter}
     />
   );
 };

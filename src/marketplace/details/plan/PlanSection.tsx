@@ -1,84 +1,167 @@
-import { Card } from 'react-bootstrap';
-import { OrderDetails as OrderResponse } from 'waldur-js-client';
+import {
+  OrderDetails,
+  ProviderOfferingDetails as Offering,
+} from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { DetailsField } from '@waldur/marketplace/common/DetailsField';
-import { PlanDescriptionButton } from '@waldur/marketplace/details/plan/PlanDescriptionButton';
-import { PlanDetailsTable } from '@waldur/marketplace/details/plan/PlanDetailsTable';
-import { Offering } from '@waldur/marketplace/types';
-import { NoResult } from '@waldur/navigation/header/search/NoResult';
+import { Panel } from '@/core/Panel';
+import { translate } from '@/i18n';
+import { useShouldConcealPrices } from '@/marketplace/common/useShouldConcealPrices';
+import { PlanDescriptionButton } from '@/marketplace/details/plan/PlanDescriptionButton';
+import {
+  ComponentsSection,
+  useGroupedComponents,
+} from '@/marketplace/orders/details/type-based/ComponentsSection';
+import { NoResult } from '@/navigation/header/search/NoResult';
+import { Field } from '@/resource/summary';
+
+import { useOrderPrices } from './utils';
 
 interface PlanDetailsProps {
-  order: OrderResponse;
+  order: OrderDetails;
   offering: Offering;
 }
-
-const renderValue = (value) => (value ? value : <>&mdash;</>);
 
 const PlanCard = ({
   title,
   planName,
   planDescription,
-  order,
-  offering,
-  type,
-}) => (
-  <Card className="card-bordered">
-    <Card.Header className="custom-card-header custom-padding-zero">
-      <Card.Title>
-        <h3>{title}</h3>
-      </Card.Title>
-    </Card.Header>
-    <Card.Body>
-      <DetailsField label={translate('Name')}>
-        {renderValue(planName)}
-      </DetailsField>
-      {planDescription ? (
-        <DetailsField label={translate('Description')}>
-          <PlanDescriptionButton
-            className="btn btn-sm btn-secondary"
-            planDescription={planDescription}
-          />
-        </DetailsField>
-      ) : null}
-      <DetailsField>
-        <PlanDetailsTable
-          formGroupClassName="form-group row"
-          columnClassName="col-sm-12"
-          viewMode={true}
-          order={order}
-          offering={offering}
-          type={type}
+  concealBillingInfo,
+  ...pricesProps
+}: {
+  title: string;
+  planName: string;
+  planDescription?: string;
+  concealBillingInfo?: boolean;
+  offering: Offering;
+  order?: OrderDetails;
+  viewMode?: boolean;
+  type?: string;
+}) => {
+  const prices = useOrderPrices(pricesProps);
+  const {
+    usageRows,
+    initialRows,
+    prepaidRows,
+    switchRows,
+    totalLimitedRows,
+    hasPeriodicRows,
+    periodicComponents,
+  } = useGroupedComponents(prices.components);
+
+  const renderValue = (value) => (value ? value : <>&mdash;</>);
+
+  return (
+    <Panel title={title} cardBordered>
+      <Field
+        label={translate('Name')}
+        labelWidth={200}
+        value={renderValue(planName)}
+      />
+      {planDescription && (
+        <Field
+          label={translate('Description')}
+          labelWidth={200}
+          value={
+            <PlanDescriptionButton
+              className="btn btn-sm btn-secondary"
+              planDescription={planDescription}
+            />
+          }
         />
-      </DetailsField>
-    </Card.Body>
-  </Card>
-);
+      )}
+
+      {hasPeriodicRows && (
+        <ComponentsSection
+          title={translate('Periodic cost components')}
+          components={periodicComponents}
+          showQuantity
+          hidePrices={concealBillingInfo}
+        />
+      )}
+
+      {usageRows.length > 0 && (
+        <ComponentsSection
+          title={
+            hasPeriodicRows
+              ? translate(
+                  'Additionally service provider can charge for usage of the following components',
+                )
+              : translate(
+                  'Service provider can charge for usage of the following components',
+                )
+          }
+          components={usageRows}
+          hidePrices={concealBillingInfo}
+        />
+      )}
+
+      {totalLimitedRows.length > 0 && (
+        <ComponentsSection
+          title={translate(
+            'Fee applied according to the maximum value reported by service provider over the whole active state of resource.',
+          )}
+          components={totalLimitedRows}
+          showQuantity
+          hidePrices={concealBillingInfo}
+        />
+      )}
+
+      {initialRows.length > 0 && (
+        <ComponentsSection
+          title={translate('A one-time fee applied on activation.')}
+          components={initialRows}
+          hidePrices={concealBillingInfo}
+        />
+      )}
+
+      {prepaidRows.length > 0 && (
+        <ComponentsSection
+          title={translate(
+            'Prepaid fee applied on activation based on ordered quantity and duration.',
+          )}
+          components={prepaidRows}
+          showQuantity
+          hidePrices={concealBillingInfo}
+        />
+      )}
+
+      {switchRows.length > 0 && (
+        <ComponentsSection
+          title={translate('Fee applied each time this plan is activated.')}
+          components={switchRows}
+          hidePrices={concealBillingInfo}
+        />
+      )}
+    </Panel>
+  );
+};
 
 export const PlanSection = (props: PlanDetailsProps) => {
+  const shouldConcealPrices = useShouldConcealPrices(props.order.project_uuid);
   const { plan_name, plan_description, old_plan_name } = props.order;
+
   if (!plan_name) {
     return (
-      <Card className="card-bordered">
-        <Card.Header className="custom-card-header custom-padding-zero">
-          <Card.Title>
-            <h3>{translate('Plan')}</h3>
-          </Card.Title>
-        </Card.Header>
-        <Card.Body>
-          <NoResult
-            title={translate('No plans found for this order')}
-            buttonTitle={null}
-            message={null}
-          />
-        </Card.Body>
-      </Card>
+      <Panel title={translate('Plan')} cardBordered>
+        <NoResult
+          title={translate('No plans found for this order')}
+          buttonTitle={null}
+          message={null}
+          noAction
+        />
+      </Panel>
     );
   }
 
+  const isRenewal =
+    props.order.type === 'Update' &&
+    (props.order.attributes as any)?.action === 'renew';
+  const isPlanChange =
+    props.order.type === 'Update' && !isRenewal && old_plan_name;
+
   return (
     <>
-      {props.order.type === 'Update' ? (
+      {isPlanChange ? (
         <>
           <PlanCard
             title={translate('Old plan')}
@@ -86,9 +169,10 @@ export const PlanSection = (props: PlanDetailsProps) => {
             planDescription={plan_description}
             order={props.order}
             offering={props.offering}
+            viewMode
             type="old"
+            concealBillingInfo={shouldConcealPrices}
           />
-
           <hr />
           <PlanCard
             title={translate('New plan')}
@@ -96,7 +180,9 @@ export const PlanSection = (props: PlanDetailsProps) => {
             planDescription={plan_description}
             order={props.order}
             offering={props.offering}
+            viewMode
             type="new"
+            concealBillingInfo={shouldConcealPrices}
           />
         </>
       ) : (
@@ -106,7 +192,9 @@ export const PlanSection = (props: PlanDetailsProps) => {
           planDescription={plan_description}
           order={props.order}
           offering={props.offering}
+          viewMode
           type="new"
+          concealBillingInfo={shouldConcealPrices}
         />
       )}
     </>

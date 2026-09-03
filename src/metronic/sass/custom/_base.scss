@@ -1,4 +1,8 @@
-@import '@waldur/metronic/sass/core/components/_variables.scss';
+@import '@/metronic/sass/core/components/_variables.scss';
+
+body {
+  overflow-x: hidden;
+}
 
 /* CARD */
 .card {
@@ -13,6 +17,8 @@
   }
 
   &.card-solid {
+    overflow: hidden;
+
     .card-header {
       margin: 0;
       padding-left: $card-px;
@@ -25,18 +31,23 @@
   }
 
   &.card-sm {
-    padding-top: 0.25rem;
-    padding-bottom: 0.25rem;
+    padding-top: 0.307rem;
+    padding-bottom: 0.307rem;
 
     .card-header {
-      margin-left: $card-px / 2;
-      margin-right: $card-px / 2;
+      margin-left: 1.23rem; // 16px
+      margin-right: 1.23rem;
       padding: 0;
       min-height: 36px;
+
+      .card-title {
+        margin-top: 0.615rem;
+        margin-bottom: 0.615rem;
+      }
     }
     .card-body {
-      padding-left: $card-px / 2;
-      padding-right: $card-px / 2;
+      padding: 1.23rem;
+      padding-bottom: 0.923rem;
     }
   }
 }
@@ -70,8 +81,8 @@
 }
 
 .image-placeholder {
-  color: if(isDarkMode(), $primary-500, $primary);
-  background-color: if(isDarkMode(), $gray-100, $primary-50);
+  color: $gray-500;
+  background-color: $gray-100;
 }
 
 /* Typography */
@@ -130,6 +141,7 @@
   background-color: transparent;
   color: $link-color;
   text-decoration: $link-decoration;
+  font-size: $font-size-lg;
   border: none;
   cursor: pointer;
   display: inline;
@@ -141,7 +153,47 @@
     text-decoration: underline !important;
     transition: $transition-base;
   }
+  &:disabled {
+    color: $text-disabled;
+    cursor: not-allowed;
+    text-decoration: none !important;
+  }
+
+  &.text-anchor-danger {
+    color: $text-error-primary;
+    &:hover {
+      color: $text-error-primary;
+    }
+  }
 }
+// Icon button sizes — sm: 28px, md: 36px, lg: 44px
+.btn.btn-icon.btn-sm {
+  width: 28px;
+  height: 28px;
+}
+
+.btn.btn-icon.btn-icon-md {
+  width: 36px;
+  height: 36px;
+}
+
+// Medium button size — 36px (between sm and lg)
+.btn.btn-md,
+.btn.btn-md.btn-lg,
+.btn.btn-md.btn-sm,
+.card-toolbar .btn.btn-md {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0.5rem 1rem !important;
+  font-size: $font-size-base !important;
+  line-height: 1.2 !important;
+
+  &.btn-icon {
+    width: 36px !important;
+    padding: 0 !important;
+  }
+}
+
 .text-btn {
   background-color: transparent;
   color: $text-muted;

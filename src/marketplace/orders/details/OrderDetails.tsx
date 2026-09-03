@@ -1,154 +1,313 @@
 import { FunctionComponent, useMemo } from 'react';
-import { Stack } from 'react-bootstrap';
-import { OrderDetails as OrderDetailsType } from 'waldur-js-client';
+import { Form } from 'react-final-form';
+import { Resource } from 'waldur-js-client';
 
-import { PublicDashboardHero } from '@waldur/dashboard/hero/PublicDashboardHero';
-import { translate } from '@waldur/i18n';
-import { RefreshButton } from '@waldur/marketplace/common/RefreshButton';
-import { getFormLimitParser } from '@waldur/marketplace/common/registry';
-import { PlanSection } from '@waldur/marketplace/details/plan/PlanSection';
-import { Offering } from '@waldur/marketplace/types';
-import { getOrderBreadcrumbItems } from '@waldur/marketplace/utils';
-import { useBreadcrumbs, usePageHero } from '@waldur/navigation/context';
-import { useTitle } from '@waldur/navigation/title';
-import { PageBarTab } from '@waldur/navigation/types';
-import { usePageTabsTransmitter } from '@waldur/navigation/usePageTabsTransmitter';
+import { PublicDashboardHero } from '@/dashboard/hero/PublicDashboardHero';
+import { translate } from '@/i18n';
+import { RefreshButton } from '@/marketplace/common/RefreshButton';
+import { getFormLimitParser } from '@/marketplace/common/registry';
+import { PlanSection } from '@/marketplace/details/plan/PlanSection';
+import { OrderErredView } from '@/marketplace/resources/resource-pending/OrderErredView';
+import { OrderInProgressView } from '@/marketplace/resources/resource-pending/OrderInProgressView';
+import { useBreadcrumbs, usePageHero } from '@/navigation/context';
+import { usePresetBreadcrumbItems } from '@/navigation/header/breadcrumb/utils';
+import { useTitle } from '@/navigation/title';
+import { IBreadcrumbItem, PageBarTab } from '@/navigation/types';
+import { usePageTabsTransmitter } from '@/navigation/usePageTabsTransmitter';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { useUser } from '@/workspace/hooks';
 
 import { OrderActionsButton } from '../actions/OrderActionsButton';
 
 import { ErrorDetailsTab } from './ErrorDetailsTab';
 import { LimitsSection } from './LimitsSection';
 import { OrderAccordion } from './OrderAccordion';
-import { OrderDetailsApprovalsTab } from './OrderDetailsApprovalsTab';
+import { OrderBreadcrumbPopover } from './OrderBreadcrumbPopover';
 import { OrderDetailsHeaderBody } from './OrderDetailsHeaderBody';
 import { OrderDetailsHeaderTitle } from './OrderDetailsHeaderTitle';
-import { OrderDetailsQuickBody } from './OrderDetailsQuickBody';
 import { OrderMetadataTab } from './OrderMetadataTab';
+import { OrderReviewButton } from './OrderReviewButton';
+import { OrderSummaryTab } from './OrderSummaryTab';
 import { OutputTab } from './OutputTab';
+import { ProjectBreadcrumbPopover } from './ProjectBreadcrumbPopover';
+import { ProviderConsumerInfoTab } from './ProviderConsumerInfoTab';
+import { RejectionDetailsTab } from './RejectionDetailsTab';
+import { ResourceBreadcrumbPopover } from './ResourceBreadcrumbPopover';
+import { ResourceRenewal } from './type-based/ResourceRenewal';
 import { UserSubmittedFieldsTab } from './UserSubmittedFieldsTab';
 
-import '@waldur/core/CustomCard.scss';
+import '@/core/CustomCard.scss';
 
-const getOrderPageTabs = (data: {
-  order: OrderDetailsType;
-  offering: Offering;
-}): PageBarTab[] => {
-  const limitParser = getFormLimitParser(data.order.offering_type);
-  const limits = limitParser(data.order.limits);
-  return [
+const getOrderPageTabs = (props: OrderDetailsProps): PageBarTab[] => {
+  const tabs = [
     {
-      key: 'approvals',
-      title: translate('Approvals'),
+      key: 'summary',
+      title: translate('Summary'),
       component: () => (
-        <OrderDetailsApprovalsTab order={data.order} offering={data.offering} />
+        <OrderSummaryTab order={props.order} offering={props.offering} />
       ),
     },
     {
       key: 'metadata',
       title: translate('Metadata'),
       component: () => (
-        <OrderMetadataTab order={data.order} offering={data.offering} />
+        <OrderMetadataTab order={props.order} offering={props.offering} />
       ),
     },
     {
       key: 'user-submitted-fields',
       title: translate('User submitted fields'),
-      component: () => <UserSubmittedFieldsTab order={data.order} />,
-    },
-    {
-      key: 'output',
-      title: translate('Output'),
-      component: () => <OutputTab order={data.order} />,
-    },
-    {
-      key: 'error-details',
-      title: translate('Error details'),
-      component: () => <ErrorDetailsTab order={data.order} />,
+      component: () => <UserSubmittedFieldsTab order={props.order} />,
     },
     {
       key: 'accounting',
       title: translate('Accounting'),
-      component: () => (
-        <PlanSection offering={data.offering} order={data.order} />
-      ),
+      component: () => {
+        const isRenewal =
+          props.order.type === 'Update' &&
+          (props.order.attributes as any)?.action === 'renew';
+        return isRenewal ? (
+          <div className="d-flex flex-column gap-3">
+            <ResourceRenewal order={props.order} offering={props.offering} />
+          </div>
+        ) : (
+          <PlanSection offering={props.offering} order={props.order} />
+        );
+      },
     },
     {
       key: 'limits',
       title: translate('Limits'),
-      component: () => (
-        <LimitsSection components={data.offering.components} limits={limits} />
-      ),
+      component: () => {
+        const limitParser = getFormLimitParser(props.order.offering_type);
+        const limits = limitParser(props.order.limits);
+        return (
+          <LimitsSection
+            components={props.offering.components}
+            limits={limits}
+            order={props.order}
+            offering={props.offering}
+          />
+        );
+      },
     },
-  ].filter(Boolean);
+  ];
+
+  // Only show Provider info tab when provider has sent a message or attachment
+  if (props.order.provider_message || props.order.provider_message_attachment) {
+    tabs.push({
+      key: 'provider-info',
+      title: translate('Provider info'),
+      component: () => (
+        <ProviderConsumerInfoTab
+          order={props.order}
+          offering={props.offering}
+          refetch={props.refetch}
+        />
+      ),
+    });
+  }
+
+  // Only show Output tab if there is output
+  if (props.order.output) {
+    tabs.push({
+      key: 'output',
+      title: translate('Output'),
+      component: () => <OutputTab order={props.order} />,
+    });
+  }
+
+  // Only show Error details tab if there are errors
+  if (props.order.error_message) {
+    tabs.push({
+      key: 'error-details',
+      title: translate('Error details'),
+      component: () => <ErrorDetailsTab order={props.order} />,
+    });
+  }
+
+  // Only show Rejection details tab if there are rejection comments
+  if (
+    props.order.consumer_rejection_comment ||
+    props.order.provider_rejection_comment
+  ) {
+    tabs.push({
+      key: 'rejection-details',
+      title: translate('Rejection details'),
+      component: () => <RejectionDetailsTab order={props.order} />,
+    });
+  }
+
+  return tabs.filter(Boolean);
 };
 
 interface OrderDetailsProps {
   offering: any;
   order: any;
-  data: any;
+  resource: Resource;
+  limits: any;
   refetch: any;
   isRefetching: boolean;
 }
 
-const PageHero = ({ data, isRefetching }) => (
-  <PublicDashboardHero
-    hideQuickSection
-    cardBordered
-    className="container-fluid my-5 d-print-none"
-    logo={data.offering.thumbnail}
-    logoAlt={data.offering.name}
-    logoTooltip={data.offering.name}
-    logoCircle
-    title={
-      <Stack direction="horizontal">
-        <Stack direction="vertical">
-          <OrderDetailsHeaderTitle order={data.order} />
-          <OrderDetailsQuickBody order={data.order} />
-          <OrderDetailsHeaderBody order={data.order} />
-        </Stack>
-        <Stack direction="vertical" gap={3} className="align-items-end">
-          <RefreshButton
-            refetch={data.refetch}
-            isLoading={isRefetching}
-            size="sm"
-          />
+const PageHero = ({ isRefetching, ...props }: OrderDetailsProps) => {
+  return (
+    <>
+      {props.resource.order_in_progress ? (
+        <OrderInProgressView
+          customerView
+          resource={props.resource}
+          offering={props.offering}
+          refetch={props.refetch}
+        />
+      ) : props.resource.creation_order ? (
+        <OrderErredView resource={props.resource} />
+      ) : null}
 
-          <OrderActionsButton
-            order={data.order}
-            offering={data.offering}
-            loadData={data.refetch}
-          />
-        </Stack>
-      </Stack>
-    }
-  />
-);
+      <PublicDashboardHero
+        hideQuickSection
+        cardBordered
+        className="container-fluid my-5 d-print-none"
+        logo={props.offering.thumbnail}
+        logoAlt={props.offering.name}
+        logoTooltip={props.offering.name}
+        logoCircle
+        title={<OrderDetailsHeaderTitle order={props.order} />}
+        actions={
+          <>
+            <RefreshButton refetch={props.refetch} isLoading={isRefetching} />
 
-export const OrderDetails: FunctionComponent<OrderDetailsProps> = (data) => {
-  useTitle(translate('Order details'));
-  usePageHero(<PageHero data={data} isRefetching={data.isRefetching} />, [
-    data.isRefetching,
-    data.offering,
-    data.order,
-    data.refetch,
-  ]);
-  const breadcrumbItems = useMemo(
-    () => getOrderBreadcrumbItems(data.order),
-    [data.order],
+            {props.order.attachment &&
+            props.order.state === 'pending-provider' ? (
+              <OrderReviewButton order={props.order} loadData={props.refetch} />
+            ) : (
+              <OrderActionsButton
+                order={props.order}
+                offering={props.offering}
+                loadData={props.refetch}
+              />
+            )}
+          </>
+        }
+      >
+        <OrderDetailsHeaderBody order={props.order} offering={props.offering} />
+      </PublicDashboardHero>
+    </>
   );
+};
+
+export const OrderDetails: FunctionComponent<OrderDetailsProps> = (props) => {
+  useTitle(translate('Order details'));
+  usePageHero(<PageHero {...props} isRefetching={props.isRefetching} />, [
+    props.isRefetching,
+    props.offering,
+    props.order,
+    props.resource,
+    props.refetch,
+  ]);
+
+  const {
+    getOrganizationsBreadcrumbItem,
+    getOrganizationBreadcrumbItem,
+    getOrganizationProjectsBreadcrumbItem,
+  } = usePresetBreadcrumbItems();
+
+  const user = useUser();
+  const canActAsProvider = useMemo(
+    () =>
+      hasPermission(user, {
+        permission: PermissionEnum.APPROVE_ORDER,
+        customerId: props.order?.provider_uuid,
+      }),
+    [user, props.order?.provider_uuid],
+  );
+
+  const breadcrumbItems = useMemo<IBreadcrumbItem[]>(() => {
+    const order = props.order;
+    if (!order) return [];
+    return [
+      getOrganizationsBreadcrumbItem({ ellipsis: 'xxl' }),
+      getOrganizationBreadcrumbItem({
+        uuid: order.customer_uuid,
+        name: order.customer_name,
+      }),
+      getOrganizationProjectsBreadcrumbItem(order.customer_uuid, {
+        ellipsis: 'xxl',
+      }),
+      {
+        key: 'project.dashboard',
+        text: order.project_name,
+        to: 'project.dashboard',
+        params: { uuid: order.project_uuid },
+        dropdown: (close) => (
+          <ProjectBreadcrumbPopover order={order} close={close} />
+        ),
+        ellipsis: 'xl',
+        truncate: true,
+      },
+      {
+        key: 'project.resources',
+        text: order.category_title,
+        to: 'project.resources',
+        params: { uuid: order.project_uuid },
+        ellipsis: 'xxl',
+      },
+      {
+        key: 'resource',
+        text: order.resource_name,
+        to: 'marketplace-resource-details',
+        params: { resource_uuid: order.marketplace_resource_uuid },
+        dropdown: (close) => (
+          <ResourceBreadcrumbPopover order={order} close={close} />
+        ),
+        truncate: true,
+        tooltipText: `${order.category_title}: ${order.resource_name}`,
+      },
+      // A provider arriving from their Orders table would otherwise have no way
+      // back to it: the rest of this trail is the customer's project hierarchy.
+      canActAsProvider && {
+        key: 'marketplace-provider-orders',
+        text: translate('Orders'),
+        to: 'marketplace-provider-orders',
+        params: { uuid: order.provider_uuid },
+        ellipsis: 'xxl',
+      },
+      {
+        key: 'order',
+        text:
+          (order.attributes?.name || translate('Order')) +
+          ' (' +
+          order.type +
+          ')',
+        dropdown: (close) => (
+          <OrderBreadcrumbPopover order={order} close={close} />
+        ),
+        active: true,
+        truncate: true,
+      },
+    ].filter(Boolean) as IBreadcrumbItem[];
+  }, [props.order, canActAsProvider]);
   useBreadcrumbs(breadcrumbItems);
 
-  const tabs = useMemo(() => getOrderPageTabs(data), []);
+  const tabs = useMemo(
+    () => getOrderPageTabs(props),
+    [props.order, props.offering, props.limits],
+  );
   const {
     tabSpec: { component: Component },
   } = usePageTabsTransmitter(tabs);
 
-  if (data) {
+  if (props) {
     return (
-      <>
-        <Component />
-        <OrderAccordion {...data} loadData={data.refetch} />
-      </>
+      <Form onSubmit={() => {}}>
+        {() => (
+          <>
+            <Component />
+            <OrderAccordion {...props} loadData={props.refetch} />
+          </>
+        )}
+      </Form>
     );
   }
   return null;

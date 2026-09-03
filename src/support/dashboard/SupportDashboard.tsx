@@ -1,61 +1,37 @@
-import { useQuery } from '@tanstack/react-query';
 import { FC } from 'react';
-import { useSelector } from 'react-redux';
 
-import { AdministrationProfile } from '@waldur/administration/dashboard/AdministrationProfile';
-import { HealthChecks } from '@waldur/administration/dashboard/HealthChecks';
-import { BroadcastList } from '@waldur/broadcasts/BroadcastList';
-import { ENV } from '@waldur/core/config';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { IssuesList } from '@waldur/issues/list/IssuesList';
-import {
-  getBackendHealthStatus,
-  isWorking,
-} from '@waldur/navigation/BackendHealthStatusIndicator';
-import { PAGE_SIZE_COMPACT } from '@waldur/table/constants';
-import { getUser } from '@waldur/workspace/selectors';
+import { BroadcastList } from '@/broadcasts/BroadcastList';
+import { ENV } from '@/core/config';
+import { translate } from '@/i18n';
+import { IssuesList } from '@/issues/list/IssuesList';
+import { PAGE_SIZE_COMPACT } from '@/table/constants';
+import { useUser } from '@/workspace/hooks';
 
 import { SupportStatistics } from './SupportStatistics';
 
 export const SupportDashboard: FC = () => {
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['HealthStatus'],
-    queryFn: () => getBackendHealthStatus(),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const healthy = isWorking(data);
   const isSupportEnabled = ENV.plugins.WALDUR_SUPPORT?.ENABLED;
-  const user = useSelector(getUser);
+  const user = useUser();
 
   return (
     <>
-      {isLoading ? (
-        <LoadingSpinner />
-      ) : error ? (
-        <LoadingErred
-          message={translate('Unable to load health information')}
-          loadData={refetch}
-        />
-      ) : data ? (
-        <AdministrationProfile healthy={healthy} supportOnly />
-      ) : null}
       {isSupportEnabled ? <SupportStatistics /> : null}
-      {data && <HealthChecks healthInfoItems={data} />}
       {isSupportEnabled ? (
         <IssuesList
           className="mb-5"
           title={translate('Open issues')}
-          filter={{ status: 'Open' }}
+          // `is_open` is the same definition the statistics card above counts
+          // with. Filtering on the literal status "Open" left the card saying 1
+          // while the table below it said none.
+          filter={{ is_open: true }}
           initialPageSize={PAGE_SIZE_COMPACT}
           showPageSizeSelector={false}
           scope={user}
+          standalone={false}
         />
       ) : null}
 
-      <BroadcastList />
+      <BroadcastList standalone={false} />
     </>
   );
 };

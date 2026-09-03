@@ -1,121 +1,36 @@
-import { reduxForm } from 'redux-form';
+import React from 'react';
 
-import { syncFiltersToURL } from '@waldur/core/filters';
-import { CUSTOMER_ORDERS_LIST_FILTER_FORM_ID } from '@waldur/customer/constants';
-import { REACT_SELECT_TABLE_FILTER } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { OFFERING_ORDERS_LIST_FILTER_FORM_ID } from '@waldur/marketplace/details/constants';
-import { OfferingAutocomplete } from '@waldur/marketplace/offerings/details/OfferingAutocomplete';
-import { MARKETPLACE_ORDERS_LIST_FILTER_FORM_ID } from '@waldur/marketplace/orders/list/constants';
-import { OrganizationAutocomplete } from '@waldur/marketplace/orders/OrganizationAutocomplete';
-import { ProjectFilter } from '@waldur/marketplace/resources/list/ProjectFilter';
-import { PROVIDER_ORDERS_LIST_FILTER_FORM_ID } from '@waldur/marketplace/service-providers/constants';
-import { TableFilterItem } from '@waldur/table/TableFilterItem';
+import { OfferingFilter } from '@/marketplace/offerings/details/OfferingFilter';
+import { OrganizationFilter } from '@/marketplace/orders/OrganizationFilter';
+import { ProviderFilter } from '@/marketplace/orders/ProviderFilter';
+import { ProjectFilter } from '@/marketplace/resources/list/ProjectFilter';
 
 import { createOrderStateOptions } from '../OrderStates';
-import { ProviderAutocomplete } from '../ProviderAutocomplete';
 
+import { OrderAutoApprovedFilter } from './OrderAutoApprovedFilter';
 import { OrderStateFilter } from './OrderStateFilter';
 import { OrderTypeFilter } from './OrderTypeFilter';
 
-const PureMarketplaceOrdersListFilter = (props) => {
+interface OrdersListFilterProps {
+  hasOffering?: boolean;
+  hasOrganization?: boolean;
+  provider_uuid?: string;
+}
+
+export const OrdersListFilter: React.FC<OrdersListFilterProps> = (props) => {
   const { provider_uuid } = props;
 
   return (
     <>
-      {props.hasOffering && (
-        <TableFilterItem
-          title={translate('Offering')}
-          name="offering"
-          badgeValue={(value) => `${value?.category_title} / ${value?.name}`}
-        >
-          <OfferingAutocomplete reactSelectProps={REACT_SELECT_TABLE_FILTER} />
-        </TableFilterItem>
-      )}
-      {props.hasOrganization && (
-        <TableFilterItem
-          title={translate('Organization')}
-          name="organization"
-          badgeValue={(value) => value?.name}
-        >
-          <OrganizationAutocomplete
-            reactSelectProps={REACT_SELECT_TABLE_FILTER}
-          />
-        </TableFilterItem>
-      )}
-      <TableFilterItem
-        title={translate('Project')}
-        name="project"
-        badgeValue={(value) => value?.name}
-      >
-        <ProjectFilter reactSelectProps={REACT_SELECT_TABLE_FILTER} />
-      </TableFilterItem>
+      {props.hasOffering && <OfferingFilter />}
+      {props.hasOrganization && <OrganizationFilter />}
+      <ProjectFilter />
       {props.hasOrganization && !provider_uuid && (
-        <TableFilterItem
-          title={translate('Service provider')}
-          name="provider"
-          getValueLabel={(option) => option.customer_name}
-        >
-          <ProviderAutocomplete reactSelectProps={REACT_SELECT_TABLE_FILTER} />
-        </TableFilterItem>
+        <ProviderFilter getValueLabel={(option) => option.customer_name} />
       )}
-      <TableFilterItem
-        title={translate('State')}
-        name="state"
-        badgeValue={(value) => value?.label}
-        ellipsis={false}
-      >
-        <OrderStateFilter options={createOrderStateOptions} />
-      </TableFilterItem>
-      <TableFilterItem
-        title={translate('Type')}
-        name="type"
-        badgeValue={(value) => value?.label}
-        ellipsis={true}
-      >
-        <OrderTypeFilter />
-      </TableFilterItem>
+      <OrderStateFilter options={createOrderStateOptions} ellipsis={false} />
+      <OrderTypeFilter />
+      <OrderAutoApprovedFilter />
     </>
   );
 };
-
-export const MarketplaceOrdersListFilter = reduxForm({
-  form: MARKETPLACE_ORDERS_LIST_FILTER_FORM_ID,
-  onChange: syncFiltersToURL,
-  initialValues: {
-    state: createOrderStateOptions()[0],
-  },
-  touchOnChange: true,
-  destroyOnUnmount: false,
-})((props) => (
-  <PureMarketplaceOrdersListFilter {...props} hasOffering hasOrganization />
-));
-
-export const ProviderOrdersListFilter = reduxForm({
-  form: PROVIDER_ORDERS_LIST_FILTER_FORM_ID,
-  onChange: syncFiltersToURL,
-  touchOnChange: true,
-  initialValues: {
-    state: createOrderStateOptions()[0],
-  },
-  destroyOnUnmount: false,
-})((props) => (
-  <PureMarketplaceOrdersListFilter {...props} hasOffering hasOrganization />
-)) as React.ComponentType<{
-  provider_uuid?: string;
-}>;
-
-export const OfferingOrdersListFilter = reduxForm({
-  form: OFFERING_ORDERS_LIST_FILTER_FORM_ID,
-  touchOnChange: true,
-  initialValues: {
-    state: createOrderStateOptions()[0],
-  },
-  destroyOnUnmount: false,
-})((props) => <PureMarketplaceOrdersListFilter {...props} hasOrganization />);
-
-export const CustomerOrdersListFilter = reduxForm({
-  form: CUSTOMER_ORDERS_LIST_FILTER_FORM_ID,
-  touchOnChange: true,
-  destroyOnUnmount: false,
-})((props) => <PureMarketplaceOrdersListFilter {...props} hasOffering />);

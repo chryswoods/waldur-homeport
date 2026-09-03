@@ -1,19 +1,21 @@
 import { FunnelIcon, TrashIcon } from '@phosphor-icons/react';
+import classNames from 'classnames';
 import { FC, useCallback, useEffect, useMemo } from 'react';
-import { Button } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
 import { components, OptionProps } from 'react-select';
-import { change, clearFields, getFormValues, reset } from 'redux-form';
+
+import { CompactIconButton } from '@/core/buttons/IconButton';
+import { WindowedSelect } from '@/form/select';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { useNotify } from '@/store/notify';
 
 import {
-  REACT_SELECT_TABLE_FILTER,
-  WindowedSelect,
-} from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { showErrorResponse } from '@waldur/store/notify';
-
-import { selectSavedFilter, setSavedFilters } from './actions';
+  clearAllFilters,
+  selectSavedFilter,
+  setFilter,
+  setSavedFilters,
+} from './actions';
 import {
   selectSelectedSavedFilter,
   selectTableSavedFilters,
@@ -26,23 +28,23 @@ import './SavedFilterSelect.scss';
 
 const Control = (props) => (
   <div className="d-flex align-items-center gap-2">
-    <components.Control {...props} className={props.className + ' flex-grow-1'}>
+    <components.Control
+      {...props}
+      className={classNames('flex-grow-1', props.className)}
+    >
       <span className="svg-icon svg-icon-2 svg-icon-gray-700 ms-3">
         <FunnelIcon weight="bold" />
       </span>
       {props.children}
     </components.Control>
     {Boolean(props.getValue()[0]) && (
-      <Button
-        variant="text-danger"
-        size="sm"
-        className="btn-icon me-3"
+      <CompactIconButton
+        iconNode={<TrashIcon weight="bold" />}
+        tooltip={translate('Delete filter')}
         onClick={(e) => props.remove(e, props.getValue()[0])}
-      >
-        <span className="svg-icon svg-icon-2">
-          <TrashIcon weight="bold" />
-        </span>
-      </Button>
+        variant="text-danger"
+        className="me-3"
+      />
     )}
   </div>
 );
@@ -51,16 +53,13 @@ const ListOption: FC<OptionProps & { remove }> = (props) => (
   <components.Option {...props}>
     <div className="d-flex justify-content-between align-items-center">
       {props.children}
-      <Button
-        variant="text-danger"
-        size="sm"
-        className="btn-remove btn-icon"
+      <CompactIconButton
+        iconNode={<TrashIcon weight="bold" />}
+        tooltip={translate('Delete filter')}
         onClick={(e) => props.remove(e, props.getValue()[0])}
-      >
-        <span className="svg-icon svg-icon-2">
-          <TrashIcon weight="bold" />
-        </span>
-      </Button>
+        variant="text-danger"
+        className="btn-remove"
+      />
     </div>
   </components.Option>
 );
@@ -78,15 +77,15 @@ export const SavedFilterSelect = ({
   filterPosition,
   onSelect,
 }: SavedFilterSelectProps) => {
+  const { confirm } = useModal();
   const dispatch = useDispatch();
-
-  const formValues = useSelector(getFormValues(formId));
+  const { showErrorResponse } = useNotify();
 
   const key = useMemo(() => getSavedFiltersKey(table, formId), [table, formId]);
 
   useEffect(() => {
     dispatch(setSavedFilters(table, TableFilterService.list(key).reverse()));
-  }, [table, key]);
+  }, [table, key, dispatch]);
 
   const list = useSelector((state: any) =>
     selectTableSavedFilters(state, table),
@@ -98,33 +97,35 @@ export const SavedFilterSelect = ({
   const setSelected = useCallback(
     (value: TableFiltersGroup) => {
       const deselect = selected && value?.id === selected.id;
-      if (value) {
-        if (formValues) {
-          dispatch(clearFields(formId, true, true, ...Object.keys(formValues)));
-        }
-        Object.entries(value.values).forEach((field) => {
-          dispatch(change(formId, field[0], field[1]));
+      dispatch(clearAllFilters(table));
+      if (value && !deselect) {
+        Object.entries(value.values).forEach(([name, val]) => {
+          dispatch(
+            setFilter(table, {
+              name,
+              value: val,
+              label: null,
+              component: null,
+            }),
+          );
         });
-      } else {
-        dispatch(reset(formId));
       }
       dispatch(setSavedFilters(table, TableFilterService.list(key).reverse()));
-      if (!deselect || !value) {
+      if (!deselect && value) {
         dispatch(selectSavedFilter(table, value));
         if (onSelect) onSelect();
       } else {
         dispatch(selectSavedFilter(table, null));
       }
     },
-    [table, formId, formValues, key, onSelect, selected],
+    [table, key, onSelect, selected, dispatch],
   );
 
   const remove = useCallback(
     async (e, item) => {
       e.stopPropagation();
       try {
-        await waitForConfirmation(
-          dispatch,
+        await confirm(
           translate('Delete filter'),
           translate(
             'Are you sure you want to delete this filter? This action cannot be undone.',
@@ -139,12 +140,10 @@ export const SavedFilterSelect = ({
         setSelected(null);
         if (onSelect) onSelect();
       } catch (error) {
-        dispatch(
-          showErrorResponse(error, translate('Unable to remove the filter.')),
-        );
+        showErrorResponse(error, translate('Unable to remove the filter.'));
       }
     },
-    [dispatch, setSelected, key, onSelect],
+    [setSelected, key, onSelect, confirm, showErrorResponse],
   );
 
   return (
@@ -162,11 +161,10 @@ export const SavedFilterSelect = ({
         options={list || []}
         isClearable={true}
         noOptionsMessage={() => translate('No saved filter')}
-        {...(filterPosition === 'menu' ? REACT_SELECT_TABLE_FILTER : {})}
+        {...(filterPosition === 'menu' ? { variant: 'tableFilter' } : {})}
         components={
           filterPosition === 'menu'
             ? {
-                ...REACT_SELECT_TABLE_FILTER.components,
                 Option: (props) => <ListOption {...props} remove={remove} />,
               }
             : {

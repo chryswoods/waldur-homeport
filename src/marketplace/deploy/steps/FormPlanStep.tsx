@@ -1,14 +1,13 @@
 import { useMemo } from 'react';
-import { useSelector } from 'react-redux';
 
-import { VStepperFormStepCard } from '@waldur/form/VStepperFormStep';
-import { translate } from '@waldur/i18n';
-import { OrderSummaryButton } from '@waldur/marketplace/details/OrderSummaryButton';
-import { PlanDescriptionButton } from '@waldur/marketplace/details/plan/PlanDescriptionButton';
-import { PlanSelectField } from '@waldur/marketplace/details/plan/PlanSelectField';
-import { TabbedPlanComponents } from '@waldur/marketplace/details/plan/TabbedPlanComponents';
+import { translate } from '@/i18n';
+import { OrderSummaryButton } from '@/marketplace/details/OrderSummaryButton';
+import { PlanDescriptionButton } from '@/marketplace/details/plan/PlanDescriptionButton';
+import { PlanSelectField } from '@/marketplace/details/plan/PlanSelectField';
+import { TabbedPlanComponents } from '@/marketplace/details/plan/TabbedPlanComponents';
+import { VStepperFormStepCard } from '@/wizard';
 
-import { orderCustomerSelector } from '../selectors';
+import { useOrderFormData } from '../selectors';
 import { FormStepProps } from '../types';
 
 export const FormPlanStep = (props: FormStepProps) => {
@@ -17,7 +16,9 @@ export const FormPlanStep = (props: FormStepProps) => {
     [props.offering],
   );
 
-  const customer = useSelector(orderCustomerSelector);
+  const { customer } = useOrderFormData();
+  const concealBillingInfo =
+    customer?.display_billing_info_in_projects === false;
 
   if (plans.length === 0) {
     return null;
@@ -34,6 +35,7 @@ export const FormPlanStep = (props: FormStepProps) => {
             offering={props.offering}
             className="ms-auto"
             disabled={props.disabled}
+            disabledReason={props.disabledTooltip}
           />
         )
       }
@@ -44,7 +46,10 @@ export const FormPlanStep = (props: FormStepProps) => {
         </div>
         <PlanDescriptionButton />
       </div>
-      <TabbedPlanComponents offering={props.offering} customer={customer} />
+      <TabbedPlanComponents
+        offering={props.offering}
+        concealBillingInfo={concealBillingInfo}
+      />
     </VStepperFormStepCard>
   );
 };

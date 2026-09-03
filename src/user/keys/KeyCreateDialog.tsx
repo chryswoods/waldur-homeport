@@ -1,18 +1,17 @@
-import React from 'react';
-import { Field, Form } from 'react-final-form';
-import { useDispatch } from 'react-redux';
+import { InfoIcon } from '@phosphor-icons/react';
+import React, { useMemo } from 'react';
+import { Card } from 'react-bootstrap';
+import { Form } from 'react-final-form';
 import { keysCreate, SshKeyRequest } from 'waldur-js-client';
 
-import { required } from '@waldur/core/validators';
-import { StringField } from '@waldur/form/StringField';
-import { SubmitButton } from '@waldur/form/SubmitButton';
-import { TextField } from '@waldur/form/TextField';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-import { useModal } from '@waldur/modal/hooks';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { useNotify } from '@waldur/store/hooks';
-import { createEntity } from '@waldur/table/actions';
+import { ENV } from '@/core/config';
+import { FeaturedIcon } from '@/core/FeaturedIcon';
+import { required } from '@/core/validators';
+import { StringGroup, TextGroup } from '@/form';
+import { SubmitButton } from '@/form/SubmitButton';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
 import * as constants from './constants';
 
@@ -30,46 +29,73 @@ interface KeyCreateDialogProps {
   refetch?: () => void;
 }
 
+const SshKeyRestrictionsBanner = () => {
+  const allowedTypes = ENV.plugins.WALDUR_CORE.SSH_KEY_ALLOWED_TYPES || [];
+  const minRsaKeySize = ENV.plugins.WALDUR_CORE.SSH_KEY_MIN_RSA_KEY_SIZE || 0;
+
+  const showMinRsa = useMemo(
+    () =>
+      minRsaKeySize > 0 &&
+      (allowedTypes.length === 0 || allowedTypes.includes('ssh-rsa')),
+    [allowedTypes, minRsaKeySize],
+  );
+
+  if (allowedTypes.length === 0 && minRsaKeySize <= 0) {
+    return null;
+  }
+
+  return (
+    <Card className="card-bordered bg-light-info mb-4">
+      <Card.Body className="d-flex align-items-center gap-3 p-4">
+        {/* eslint-disable-next-line waldur-custom/enforce-phosphor-icon-weight */}
+        <FeaturedIcon IconComponent={InfoIcon} variant="info" />
+        <div>
+          {allowedTypes.length > 0 && (
+            <div>
+              {translate('Allowed key types: {types}', {
+                types: allowedTypes.join(', '),
+              })}
+            </div>
+          )}
+          {showMinRsa && (
+            <div>
+              {translate('Minimum RSA key size: {size} bits', {
+                size: minRsaKeySize,
+              })}
+            </div>
+          )}
+        </div>
+      </Card.Body>
+    </Card>
+  );
+};
+
 export const KeyCreateDialog: React.FC<KeyCreateDialogProps> = ({
   refetch,
 }) => {
-  const dispatch = useDispatch();
-  const { showSuccess, showErrorResponse } = useNotify();
-  const { closeDialog } = useModal();
-
-  const processRequest = React.useCallback(
-    async (values: SshKeyRequest) => {
+  const createKeyMutation = useManagedMutation<any, any, SshKeyRequest>({
+    mutationFn: async (values) => {
       let data = { ...values };
-      try {
-        if (!values.name) {
-          const name = extractNameFromKey(values.public_key);
-          data = { ...values, name };
-        }
-        const response = await keysCreate({ body: data });
-        const createdKey = response.data;
-        dispatch(
-          createEntity(constants.keysListTable, createdKey.uuid, createdKey),
-        );
-        if (refetch) {
-          await refetch();
-        }
-        showSuccess(translate('The key has been created.'));
-        closeDialog();
-      } catch (e) {
-        showErrorResponse(e, translate('Unable to create key.'));
+      if (!values.name) {
+        const name = extractNameFromKey(values.public_key);
+        data = { ...values, name };
       }
+      const response = await keysCreate({ body: data });
+      return response.data;
     },
-    [dispatch, showSuccess, showErrorResponse, closeDialog, refetch],
-  );
+    successMessage: translate('The key has been created.'),
+    errorMessage: translate('Unable to create key.'),
+    refetch,
+    invalidateQueries: [{ queryKey: ['table', constants.keysListTable] }],
+  });
 
   return (
-    <Form
-      onSubmit={processRequest}
+    <Form<SshKeyRequest>
+      onSubmit={(values) => createKeyMutation.mutateAsync(values)}
       render={({ handleSubmit, submitting, invalid }) => (
         <form onSubmit={handleSubmit}>
           <ModalDialog
             title={translate('Import public key')}
-            closeButton
             footer={
               <SubmitButton
                 disabled={invalid}
@@ -80,22 +106,20 @@ export const KeyCreateDialog: React.FC<KeyCreateDialogProps> = ({
             }
           >
             <div className="size-lg">
-              <FormGroup label={translate('Key name')}>
-                <Field
-                  component={StringField as any}
-                  name="name"
-                  placeholder={translate('e.g. my-ssh-key')}
-                />
-              </FormGroup>
-              <FormGroup label={translate('Public key')} required>
-                <Field
-                  component={TextField as any}
-                  name="public_key"
-                  validate={required}
-                  style={{ height: 100 }}
-                  placeholder={translate('Paste your SSH public key here...')}
-                />
-              </FormGroup>
+              <SshKeyRestrictionsBanner />
+              <StringGroup
+                name="name"
+                placeholder={translate('e.g. my-ssh-key')}
+                label={translate('Key name')}
+              />
+              <TextGroup
+                name="public_key"
+                validate={required}
+                style={{ height: 100 }}
+                placeholder={translate('Paste your SSH public key here...')}
+                label={translate('Public key')}
+                required
+              />
             </div>
           </ModalDialog>
         </form>

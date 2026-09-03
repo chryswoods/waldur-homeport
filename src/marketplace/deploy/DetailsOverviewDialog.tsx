@@ -1,28 +1,25 @@
 import { useQueries } from '@tanstack/react-query';
 import { FC } from 'react';
 import { Tab, Tabs } from 'react-bootstrap';
-import { projectsRetrieve } from 'waldur-js-client';
-import { Project } from 'waldur-js-client';
+import { projectsRetrieve, Offering, Project } from 'waldur-js-client';
 
-import { CopyToClipboardButton } from '@waldur/core/CopyToClipboardButton';
-import { formatDate } from '@waldur/core/dateUtils';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { formatPhoneNumber } from '@waldur/core/utils';
-import { getCustomer } from '@waldur/customer/utils';
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { renderFieldOrDash } from '@waldur/table/utils';
-import { Customer } from '@waldur/workspace/types';
+import { STALE_TIME } from '@/core/constants';
+import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
+import { formatDate } from '@/core/dateUtils';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { formatPhoneNumber } from '@/core/utils';
+import { getCustomer } from '@/customer/utils';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { renderFieldOrDash } from '@/table/utils';
+import { Customer } from '@/workspace/types';
 
 import { getServiceProviderByCustomer } from '../common/api';
 import { getLabel } from '../common/registry';
-import { Offering } from '../types';
 
 import './DetailsOverviewDialog.scss';
-
-const STALE_TIME = 5 * 60 * 1000;
 
 const withCopy = (value) => {
   return (
@@ -101,7 +98,6 @@ export const DetailsOverviewDialog: FC<{
       subtitle={translate(
         'View key details about the organization, project, offering, and provider for your resource.',
       )}
-      closeButton
       className="resource-details-overview"
     >
       {isLoading ? (

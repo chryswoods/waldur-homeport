@@ -5,18 +5,16 @@ import {
   useCallback,
   useState,
 } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { change } from 'redux-form';
+import { useDispatch } from 'react-redux';
 
-import { RootState } from '@waldur/store/reducers';
-
+import { setFilter } from './actions';
 import { FilterItem, TableProps, TableState } from './types';
-import { getFiltersFormId } from './utils';
 
 interface ITableFilterContext {
+  table: string;
   filterPosition: TableState['filterPosition'];
   form: string;
-  changeFormField?: (field: string, value: any) => void;
+  changeFilterValue?: (name: string, value: any) => void;
   setFilter: (item: FilterItem) => void;
   apply?: (hideMenu?: boolean) => void;
   columnFilter?: boolean;
@@ -27,37 +25,31 @@ interface ITableFilterContext {
 
 export const TableFilterContext = createContext<ITableFilterContext>({} as any);
 
-interface FilterContextProviderProps
-  extends Pick<
-    TableProps,
-    | 'table'
-    | 'filters'
-    | 'filterPosition'
-    | 'setFilter'
-    | 'applyFiltersFn'
-    | 'selectedSavedFilter'
-  > {
+interface FilterContextProviderProps extends Pick<
+  TableProps,
+  | 'table'
+  | 'filters'
+  | 'formId'
+  | 'filterPosition'
+  | 'setFilter'
+  | 'applyFiltersFn'
+  | 'selectedSavedFilter'
+> {
   toggleFilterMenu?(show?): void;
 }
 
 export const FilterContextProvider: FC<
   PropsWithChildren<FilterContextProviderProps>
 > = (props) => {
-  const originalFilterPosition = useSelector((state: RootState) => {
-    if (props.table && state.tables && state.tables[props.table]) {
-      return state.tables[props.table].filterPosition;
-    }
-    return 'header';
-  });
-  const filtersFormId = getFiltersFormId(props.filters);
+  const filtersFormId = props.formId || '';
 
   const [filterComponents, setFilterComponents] = useState([]);
 
-  const registerFilterComponent = (comp) => {
+  const registerFilterComponent = useCallback((comp) => {
     setFilterComponents((prev) =>
       prev.some((p) => p.name === comp.name) ? prev : [...prev, comp],
     );
-  };
+  }, []);
 
   const apply = () => {
     props.applyFiltersFn(true);
@@ -65,20 +57,29 @@ export const FilterContextProvider: FC<
   };
 
   const dispatch = useDispatch();
-  const changeFormField = useCallback(
-    (field: string, value) => {
-      dispatch(change(filtersFormId, field, value));
+
+  const changeFilterValue = useCallback(
+    (name: string, value) => {
+      dispatch(
+        setFilter(props.table, {
+          name,
+          value,
+          label: null,
+          component: null,
+        }),
+      );
     },
-    [dispatch, filtersFormId],
+    [dispatch, props.table],
   );
 
   return (
     <TableFilterContext.Provider
       value={{
+        table: props.table,
         selectedSavedFilter: props.selectedSavedFilter,
-        filterPosition: originalFilterPosition,
+        filterPosition: props.filterPosition,
         form: filtersFormId,
-        changeFormField,
+        changeFilterValue,
         setFilter: props.setFilter,
         apply,
         filterComponents,

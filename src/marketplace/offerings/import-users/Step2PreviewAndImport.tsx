@@ -1,36 +1,30 @@
 import { uniq } from 'lodash-es';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useDispatch } from 'react-redux';
+import { useForm, useFormState } from 'react-final-form';
 import { useToggle } from 'react-use';
-import { change } from 'redux-form';
 import {
   marketplaceProviderOfferingsList,
   ServiceProvider,
   usersList,
 } from 'waldur-js-client';
 
-import { Badge } from '@waldur/core/Badge';
-import { Tip } from '@waldur/core/Tooltip';
-import { truncate } from '@waldur/core/utils';
-import { deleteDuplicateRecords } from '@waldur/customer/import/utils';
-import { FieldErrorMessage } from '@waldur/form/FieldError';
-import { WizardForm, WizardFormStepProps } from '@waldur/form/WizardForm';
-import { translate } from '@waldur/i18n';
-import { SkipErrorsCheck } from '@waldur/project/import/SkipErrorsCheck';
-import { showError } from '@waldur/store/notify';
-import { DASH_ESCAPE_CODE } from '@waldur/table/constants';
-import Table from '@waldur/table/Table';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
+import { Badge } from '@/core/Badge';
+import { Tip } from '@/core/Tooltip';
+import { truncate } from '@/core/utils';
+import { deleteDuplicateRecords } from '@/customer/import/utils';
+import { FieldErrorMessage } from '@/form/FieldError';
+import { translate } from '@/i18n';
+import { SkipErrorsCheck } from '@/project/import/SkipErrorsCheck';
+import { useNotify } from '@/store/notify';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
+import Table, { TableColumns } from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { WizardForm, WizardFormStepProps } from '@/wizard';
 
 import { OfferingUserRecord, RecordStatus } from './types';
-import {
-  BULK_IMPORT_OFFERING_USERS_FORM_ID,
-  parseOfferingUsersFile,
-  validateOfferingUserCreation,
-} from './utils';
+import { parseOfferingUsersFile, validateOfferingUserCreation } from './utils';
 
-const statusMessages = {
+const getStatusMessages = () => ({
   invalid: translate('Invalid user'),
   username: translate('Missing username'),
   offering: translate('Invalid offering'),
@@ -39,7 +33,7 @@ const statusMessages = {
   ready: translate('Ready'),
   created: translate('Created'),
   erred: translate('Erred'),
-};
+});
 const statusColors = {
   ready: 'default',
   created: 'success',
@@ -54,6 +48,7 @@ const StatusField = ({
   status?: RecordStatus;
 }) => {
   const validate = validateOfferingUserCreation(row);
+  const statusMessages = getStatusMessages();
   return status ? (
     <Tip
       id={`tip-error-${row.uuid}`}
@@ -61,13 +56,13 @@ const StatusField = ({
         status.status === 'erred' && <FieldErrorMessage error={status.error} />
       }
     >
-      <Badge variant={statusColors[status.status]} outline pill>
+      <Badge variant={statusColors[status.status]} pill outline>
         {statusMessages[status.status]}
       </Badge>
     </Tip>
   ) : (
     <Tip id={`tip-error-${row.uuid}`} label={validate.reason[0]}>
-      <Badge variant={validate.valid ? 'default' : 'danger'} outline pill>
+      <Badge variant={validate.valid ? 'default' : 'danger'} pill outline>
         {validate.valid
           ? translate('Ready')
           : statusMessages[validate.errors[0]]}
@@ -86,7 +81,13 @@ const WithTooltip = ({ label = '', len = 24 }) =>
   );
 
 export const Step2PreviewAndImport: FC<WizardFormStepProps> = (props) => {
-  const dispatch = useDispatch();
+  const form = useForm();
+  const { values } = useFormState({
+    subscription: { values: true },
+  });
+
+  const { showError } = useNotify();
+
   const [data, setData] = useState<OfferingUserRecord[]>([]);
   const [loading, setLoading] = useToggle(false);
   const [skipErrors, setSkipErrors] = useToggle(false);
@@ -96,7 +97,7 @@ export const Step2PreviewAndImport: FC<WizardFormStepProps> = (props) => {
 
   const getRecordStatus = useCallback(
     (row: OfferingUserRecord) => {
-      return recordsStatus.find(
+      return recordsStatus?.find(
         (rec) =>
           rec.data.offering_uuid === row.offering_uuid &&
           rec.data.user_uuid === row.user_uuid,
@@ -129,28 +130,27 @@ export const Step2PreviewAndImport: FC<WizardFormStepProps> = (props) => {
     tableProps.fetch();
   }, [data]);
 
-  const columns = useMemo<Column<OfferingUserRecord>[]>(
-    () =>
-      [
-        {
-          title: translate('Waldur username'),
-          render: ({ row }) => <WithTooltip label={row.user_username} />,
-        },
-        {
-          title: translate('Offering'),
-          render: ({ row }) => <WithTooltip label={row.offering_name} />,
-        },
-        {
-          title: translate('Offering username'),
-          render: ({ row }) => <WithTooltip label={row.username} />,
-        },
-        {
-          title: translate('Status'),
-          render: ({ row }) => (
-            <StatusField row={row} status={getRecordStatus(row)} />
-          ),
-        },
-      ].filter(Boolean),
+  const columns = useMemo<TableColumns<OfferingUserRecord>>(
+    () => [
+      {
+        title: translate('Waldur username'),
+        render: ({ row }) => <WithTooltip label={row.user_username} />,
+      },
+      {
+        title: translate('Offering'),
+        render: ({ row }) => <WithTooltip label={row.offering_name} />,
+      },
+      {
+        title: translate('Offering username'),
+        render: ({ row }) => <WithTooltip label={row.username} />,
+      },
+      {
+        title: translate('Status'),
+        render: ({ row }) => (
+          <StatusField row={row} status={getRecordStatus(row)} />
+        ),
+      },
+    ],
     [data, getRecordStatus],
   );
 
@@ -159,7 +159,7 @@ export const Step2PreviewAndImport: FC<WizardFormStepProps> = (props) => {
       const _file = acceptedFiles[0];
 
       if (!_file) {
-        dispatch(showError(translate('No file has been imported')));
+        showError(translate('No file has been imported'));
         return;
       }
       setLoading(true);
@@ -191,7 +191,11 @@ export const Step2PreviewAndImport: FC<WizardFormStepProps> = (props) => {
             );
             const user = users.find((user) => row.username === user.username);
             let providerOwned = true;
-            if (provider && offering.customer_uuid !== provider.customer_uuid) {
+            if (
+              provider &&
+              offering &&
+              offering.customer_uuid !== provider.customer_uuid
+            ) {
               providerOwned = false;
             }
             return {
@@ -212,25 +216,21 @@ export const Step2PreviewAndImport: FC<WizardFormStepProps> = (props) => {
           );
 
           if (duplicates) {
-            dispatch(
-              showError(
-                translate('{count} duplicate records were removed.', {
-                  count: duplicates,
-                }),
-              ),
+            showError(
+              translate('{count} duplicate records were removed.', {
+                count: duplicates,
+              }),
             );
           }
 
           setData(uniqueRows);
-          dispatch(
-            change(BULK_IMPORT_OFFERING_USERS_FORM_ID, 'payload', uniqueRows),
-          );
+          form.change('payload', uniqueRows);
         })
         .finally(() => {
           setLoading(false);
         });
     },
-    [dispatch, setData, setLoading],
+    [setData, setLoading, form, provider, showError],
   );
 
   const validation = useMemo(() => {
@@ -273,60 +273,52 @@ export const Step2PreviewAndImport: FC<WizardFormStepProps> = (props) => {
     };
   }, [data]);
 
+  const file = values?.file;
+
+  useEffect(() => {
+    if (file?.length > 0) {
+      parseCsvFile(file);
+    }
+  }, []);
   return (
     <WizardForm
       {...props}
       submitDisabled={!!validation.message && !skipErrors}
       submitTooltip={!skipErrors && validation.message}
     >
-      {(wizardProps) => {
-        const file = wizardProps.formValues?.file;
-
-        useEffect(() => {
-          if (file?.length > 0) {
-            parseCsvFile(file);
+      <div>
+        <div className="d-flex justify-content-start mb-3">
+          <div ref={refToolbar}>{/* Portal destination */}</div>
+        </div>
+        <div className="d-flex justify-content-between text-muted mb-3">
+          <span>
+            {validation.invalid === 0
+              ? translate('{n} valid', { n: validation.valid })
+              : translate('{n} valid, {m} errors found', {
+                  n: validation.valid,
+                  m: validation.invalid,
+                })}
+          </span>
+          <span>{translate('Verify your data before importing')}</span>
+        </div>
+        <Table
+          {...tableProps}
+          columns={columns}
+          verboseName={translate('Users')}
+          hasActionBar={false}
+          fullWidth
+          cardBordered={false}
+          minHeight="auto"
+          portal={{ toolbar: refToolbar?.current }}
+          hasQuery
+          loading={loading}
+          footer={
+            Boolean(validation.message && data?.length) && (
+              <SkipErrorsCheck checked={skipErrors} onChange={setSkipErrors} />
+            )
           }
-        }, []);
-
-        return (
-          <div>
-            <div className="d-flex justify-content-start mb-3">
-              <div ref={refToolbar}>{/* Portal destination */}</div>
-            </div>
-            <div className="d-flex justify-content-between text-muted mb-3">
-              <span>
-                {validation.invalid === 0
-                  ? translate('{n} valid', { n: validation.valid })
-                  : translate('{n} valid, {m} errors found', {
-                      n: validation.valid,
-                      m: validation.invalid,
-                    })}
-              </span>
-              <span>{translate('Verify your data before importing')}</span>
-            </div>
-            <Table
-              {...tableProps}
-              columns={columns}
-              verboseName={translate('Users')}
-              hasActionBar={false}
-              fullWidth
-              cardBordered={false}
-              minHeight="auto"
-              portal={{ toolbar: refToolbar?.current }}
-              hasQuery
-              loading={loading}
-              footer={
-                Boolean(validation.message && data?.length) && (
-                  <SkipErrorsCheck
-                    checked={skipErrors}
-                    onChange={setSkipErrors}
-                  />
-                )
-              }
-            />
-          </div>
-        );
-      }}
+        />
+      </div>
     </WizardForm>
   );
 };

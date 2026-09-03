@@ -1,17 +1,20 @@
 import { Col, Row } from 'react-bootstrap';
 import { useMediaQuery } from 'react-responsive';
+import { Resource, OfferingComponent } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { Limits } from '@waldur/marketplace/common/types';
-import { OfferingComponent } from '@waldur/marketplace/types';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
 
 import { ResourceComponentItem } from './ResourceComponentItem';
 
 interface ResourceComponentsDialogProps {
   resolve: {
-    resource: { current_usages: Limits; limits: Limits; limit_usage: Limits };
+    resource: Pick<
+      Resource,
+      'name' | 'current_usages' | 'limits' | 'limit_usage'
+    >;
     components: OfferingComponent[];
   };
 }
@@ -24,6 +27,12 @@ export const ResourceComponentsDialog: React.FC<
   return (
     <ModalDialog
       title={translate('Components')}
+      subtitle={
+        <ScopeSubtitle
+          label={translate('Resource name')}
+          name={resolve.resource?.name}
+        />
+      }
       footer={<CloseDialogButton label={translate('Done')} />}
     >
       <Row>
@@ -36,7 +45,7 @@ export const ResourceComponentsDialog: React.FC<
             lg={3}
           >
             <ResourceComponentItem
-              resource={resolve.resource}
+              resource={resolve.resource as any}
               component={component}
             />
           </Col>

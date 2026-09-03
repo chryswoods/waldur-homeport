@@ -1,28 +1,34 @@
-import { Form } from 'react-bootstrap';
-import { Field } from 'redux-form';
+import { useMemo } from 'react';
 
-import { required } from '@waldur/core/validators';
-import { Select } from '@waldur/form/AsyncSelectField';
-import { translate } from '@waldur/i18n';
-import { organizationAutocomplete } from '@waldur/marketplace/common/autocompletes';
+import { requiredUnless } from '@/core/validators';
+import { AsyncSelectGroup } from '@/form';
+import { translate } from '@/i18n';
+import { organizationAutocomplete } from '@/marketplace/common/autocompletes';
 
-export const OrganizationGroup = ({ disabled }) => (
-  <Form.Group className="mb-5 flex-equal">
-    <Form.Label>{translate('Organization')}</Form.Label>
-    <Field
-      component={Select}
+/** A standalone issue has no organization, so the field is not required then. */
+const validateCustomer = requiredUnless((values) => values.standaloneIssue);
+
+export const OrganizationGroup = ({ disabled }) => {
+  const loadOrganizations = useMemo(
+    () =>
+      organizationAutocomplete({
+        field: ['name', 'uuid', 'url'],
+        o: 'name',
+      }),
+    [],
+  );
+
+  return (
+    <AsyncSelectGroup
       name="customer"
-      validate={!disabled ? [required] : undefined}
+      label={translate('Organization')}
+      validate={validateCustomer}
+      containerClassName="flex-equal"
       defaultOptions
-      loadOptions={(query, prevOptions, page) =>
-        organizationAutocomplete(query, prevOptions, page, {
-          field: ['name', 'uuid', 'url'],
-          o: 'name',
-        })
-      }
+      loadOptions={loadOrganizations}
       getOptionLabel={(option) => option.name}
       getOptionValue={(option) => option.uuid}
       isDisabled={disabled}
     />
-  </Form.Group>
-);
+  );
+};

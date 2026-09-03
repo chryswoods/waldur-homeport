@@ -1,26 +1,28 @@
 import { UIView } from '@uirouter/react';
 
-import { ENV } from '@waldur/core/config';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { StateDeclaration } from '@waldur/core/types';
-import { isFeatureVisible } from '@waldur/features/connect';
+import { ENV } from '@/core/config';
+import { lazyComponent } from '@/core/lazyComponent';
+import { StateDeclaration } from '@/core/types';
+import { isFeatureVisible } from '@/features/connect';
 import {
   CustomerFeatures,
   InvitationsFeatures,
   MarketplaceFeatures,
-} from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { getActivePaymentProfile } from '@waldur/invoices/details/utils';
-import { hasSupport } from '@waldur/issues/hooks';
-import { PermissionEnum } from '@waldur/permissions/enums';
+  ResellerFeatures,
+} from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { getActivePaymentProfile } from '@/invoices/details/utils';
+import { hasSupport } from '@/issues/hooks';
+import { PermissionEnum } from '@/permissions/enums';
 import {
   getCustomer,
   isOwnerOrStaff,
   isStaff,
+  isStaffOrSupport,
   isOwner,
-} from '@waldur/workspace/selectors';
+} from '@/workspace/selectors';
 
-import { userHasCustomerPermission } from './utils';
+import { canAccessOrganization, userHasCustomerPermission } from './utils';
 import { fetchCustomer } from './workspace/fetchCustomer';
 
 function canAccessPaymentProfiles(state) {
@@ -38,10 +40,11 @@ export const states: StateDeclaration[] = [
     data: {
       auth: true,
       title: () => translate('Organization'),
+      permissions: [canAccessOrganization],
     },
     parent: 'layout',
     component: lazyComponent(() =>
-      import('@waldur/organization/OrganizationUIView').then((module) => ({
+      import('@/organization/OrganizationUIView').then((module) => ({
         default: module.OrganizationUIView,
       })),
     ),
@@ -55,8 +58,20 @@ export const states: StateDeclaration[] = [
   },
 
   {
-    name: 'organization-resources',
+    name: 'organization-resources-group',
+    abstract: true,
     parent: 'organization',
+    component: UIView,
+    url: '',
+    data: {
+      breadcrumb: () => translate('Resources'),
+      priority: 110,
+    },
+  },
+
+  {
+    name: 'organization-resources',
+    parent: 'organization-resources-group',
     url: 'marketplace-resources/',
     component: lazyComponent(() =>
       import('../marketplace/resources/list/OrganizationResourcesAllList').then(
@@ -65,13 +80,12 @@ export const states: StateDeclaration[] = [
     ),
     data: {
       breadcrumb: () => translate('Resources'),
-      priority: 110,
       permissions: [userHasCustomerPermission(PermissionEnum.LIST_RESOURCES)],
     },
   },
   {
     name: 'organization-orders',
-    parent: 'organization',
+    parent: 'organization-resources-group',
     url: 'marketplace-orders/',
     component: lazyComponent(() =>
       import('./orders/CustomerOrdersList').then((module) => ({
@@ -80,7 +94,6 @@ export const states: StateDeclaration[] = [
     ),
     data: {
       breadcrumb: () => translate('Orders'),
-      priority: 120,
       permissions: [
         userHasCustomerPermission(PermissionEnum.LIST_ORDERS),
         () => !isFeatureVisible(MarketplaceFeatures.catalogue_only),
@@ -125,6 +138,12 @@ export const states: StateDeclaration[] = [
     data: {
       breadcrumb: () => translate('Audit logs'),
       priority: 180,
+      permissions: [
+        (state) =>
+          !isFeatureVisible(
+            MarketplaceFeatures.conceal_audit_log_from_end_users,
+          ) || isStaffOrSupport(state),
+      ],
     },
   },
 
@@ -137,7 +156,7 @@ export const states: StateDeclaration[] = [
       })),
     ),
     data: {
-      breadcrumb: () => translate('Requests'),
+      breadcrumb: () => translate('Support'),
       skipBreadcrumb: true,
       permissions: [hasSupport],
     },
@@ -147,7 +166,7 @@ export const states: StateDeclaration[] = [
     name: 'organization.projects',
     url: 'projects/',
     component: lazyComponent(() =>
-      import('@waldur/project/ProjectsList').then((module) => ({
+      import('@/project/ProjectsList').then((module) => ({
         default: module.ProjectsList,
       })),
     ),
@@ -161,8 +180,8 @@ export const states: StateDeclaration[] = [
     name: 'organization-users',
     url: 'users/',
     component: lazyComponent(() =>
-      import('./team/CustomerUsersTab').then((module) => ({
-        default: module.CustomerUsersTab,
+      import('./team/CustomerUsersList').then((module) => ({
+        default: module.CustomerUsersList,
       })),
     ),
     parent: 'organization-team',
@@ -250,7 +269,11 @@ export const states: StateDeclaration[] = [
   },
   {
     name: 'organization-manage',
-    url: 'manage/?tab',
+    url: 'manage/?tab&section',
+    params: {
+      tab: { dynamic: true },
+      section: { dynamic: true },
+    },
     component: lazyComponent(() =>
       import('./details/CustomerManage').then((module) => ({
         default: module.CustomerManage,
@@ -304,8 +327,8 @@ export const states: StateDeclaration[] = [
     url: 'payments/',
     parent: 'organization-billing',
     component: lazyComponent(() =>
-      import('./details/CustomerPayments').then((module) => ({
-        default: module.CustomerPayments,
+      import('./payments/PaymentsPanel').then((module) => ({
+        default: module.PaymentsPanel,
       })),
     ),
     data: {
@@ -330,22 +353,6 @@ export const states: StateDeclaration[] = [
   },
 
   {
-    name: 'organization-cost-policies',
-    url: 'cost-policies/',
-    parent: 'organization-billing',
-    component: lazyComponent(() =>
-      import('./cost-policies/CostPoliciesList').then((module) => ({
-        default: module.CostPoliciesList,
-      })),
-    ),
-    data: {
-      breadcrumb: () => translate('Cost policies'),
-      permissions: [isOwnerOrStaff],
-      priority: 135,
-    },
-  },
-
-  {
     name: 'project-credit-management',
     url: 'credit-management/',
     parent: 'organization-billing',
@@ -361,6 +368,70 @@ export const states: StateDeclaration[] = [
         (state) => Boolean(state.workspace.customer?.credit),
       ],
       priority: 137,
+    },
+  },
+
+  {
+    name: 'organization-affiliate-earnings',
+    url: 'affiliate-earnings/',
+    parent: 'organization-billing',
+    component: lazyComponent(() =>
+      import('./affiliate-earnings/AffiliateEarningsPanel').then((module) => ({
+        default: module.AffiliateEarningsPanel,
+      })),
+    ),
+    data: {
+      breadcrumb: () => translate('Affiliate earnings'),
+      feature: ResellerFeatures.affiliates,
+      permissions: [
+        isOwnerOrStaff,
+        () => Boolean(ENV.plugins.WALDUR_CORE?.AFFILIATES_ENABLED),
+        (state) => Boolean(state.workspace.customer?.has_affiliate_links),
+      ],
+      priority: 138,
+    },
+  },
+
+  {
+    name: 'organization-policies',
+    abstract: true,
+    parent: 'organization',
+    component: UIView,
+    url: '',
+    data: {
+      breadcrumb: () => translate('Policy'),
+      priority: 150,
+      permissions: [isOwnerOrStaff],
+    },
+  },
+
+  {
+    name: 'organization-component-policies',
+    url: 'component-policies/',
+    parent: 'organization-policies',
+    component: lazyComponent(() =>
+      import('./component-policies/ComponentPoliciesList').then((module) => ({
+        default: module.ComponentPoliciesList,
+      })),
+    ),
+    data: {
+      breadcrumb: () => translate('Component policies'),
+      permissions: [isOwnerOrStaff],
+    },
+  },
+
+  {
+    name: 'organization-cost-policies',
+    url: 'cost-policies/',
+    parent: 'organization-policies',
+    component: lazyComponent(() =>
+      import('./cost-policies/CostPoliciesList').then((module) => ({
+        default: module.CostPoliciesList,
+      })),
+    ),
+    data: {
+      breadcrumb: () => translate('Cost policies'),
+      permissions: [isOwnerOrStaff],
     },
   },
 ];

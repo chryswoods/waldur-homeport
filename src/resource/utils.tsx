@@ -1,9 +1,12 @@
-import { detectOS, formatFilesize } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
+import { detectOS, formatFilesize } from '@/core/utils';
+import { translate } from '@/i18n';
 
 export const getResourceAccessEndpoints = (resource, offering) => {
   const os = detectOS();
-  let endpoints = [...resource.endpoints, ...offering.endpoints];
+  let endpoints = [
+    ...(resource.endpoints || []),
+    ...(offering.endpoints || []),
+  ];
   if (os === 'Windows') {
     endpoints = endpoints.filter((endpoint) => !isSshFormat(endpoint.url));
   }
@@ -23,7 +26,6 @@ const RESOURCE_TYPE_LABELS = {
   'VMware.VirtualMachine': translate('vSphere virtual machine'),
   'VMware.Disk': translate('VM disk'),
   'VMware.Port': translate('VM network adapter'),
-  'SLURM.Allocation': translate('Batch processing allocation'),
 };
 
 export const formatResourceType = (resource) => {

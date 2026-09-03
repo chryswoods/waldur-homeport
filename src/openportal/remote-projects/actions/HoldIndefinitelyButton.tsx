@@ -1,34 +1,41 @@
-import { ClockIcon } from '@phosphor-icons/react';
-import { useMutation } from '@tanstack/react-query';
-import { useDispatch } from 'react-redux';
-import { openportalRemoteProjectsHoldIndefinitely } from 'waldur-js-client';
+import { PauseCircleIcon } from '@phosphor-icons/react';
+import {
+  RemoteProject,
+  openportalRemoteProjectsHoldIndefinitely,
+} from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ActionItem } from '@/resource/actions/ActionItem';
 
-export const HoldIndefinitelyButton = ({ row, refetch }) => {
-  const dispatch = useDispatch();
-  const { mutate, isPending } = useMutation({
+interface Props {
+  row: RemoteProject;
+  refetch: () => void;
+}
+
+export const HoldIndefinitelyButton = ({ row, refetch }: Props) => {
+  const { mutate, isPending } = useManagedMutation<any, any, void>({
     mutationFn: () =>
       openportalRemoteProjectsHoldIndefinitely({
         path: { uuid: row.uuid },
-        body: { destination: row.destination, identifier: row.identifier },
       }),
-    onSuccess: async () => {
-      dispatch(showSuccess(translate('Remote project is now held indefinitely.')));
-      await refetch();
+    refetch,
+    successMessage: translate('Remote project is now held indefinitely.'),
+    errorMessage: translate('Unable to hold remote project.'),
+    confirmation: {
+      title: translate('Hold indefinitely'),
+      body: translate(
+        'This suspends automatic approval for this project until it is explicitly approved. Continue?',
+      ),
     },
-    onError: (error) =>
-      dispatch(showErrorResponse(error, translate('Unable to hold remote project.'))),
   });
 
   return (
     <ActionItem
       title={translate('Hold indefinitely')}
-      action={() => mutate()}
+      action={mutate}
       disabled={isPending}
-      iconNode={<ClockIcon weight="bold" />}
+      iconNode={<PauseCircleIcon weight="bold" />}
     />
   );
 };

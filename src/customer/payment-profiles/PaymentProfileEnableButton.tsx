@@ -1,41 +1,36 @@
 import { PlayIcon } from '@phosphor-icons/react';
-import { useDispatch, useSelector } from 'react-redux';
 import { paymentProfilesEnable } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { setCurrentCustomer } from '@waldur/workspace/actions';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { useCustomer, useSetCustomer } from '@/workspace/hooks';
 
 import { getCustomer as getCustomerApi } from '../utils';
 
 export const PaymentProfileEnableButton = (props) => {
-  const dispatch = useDispatch();
-  const customer = useSelector(getCustomer);
-  const callback = async () => {
-    try {
-      await paymentProfilesEnable({ path: { uuid: props.row.uuid } });
-      dispatch(showSuccess(translate('Payment profile has been enabled.')));
-      await props.refetch();
+  const setCurrentCustomer = useSetCustomer();
+  const customer = useCustomer();
+
+  const { mutate, isPending } = useManagedMutation<any, any, void>({
+    mutationFn: () => paymentProfilesEnable({ path: { uuid: props.row.uuid } }),
+    refetch: props.refetch,
+    successMessage: translate('Payment profile has been enabled.'),
+    errorMessage: translate('Unable to enable payment profile.'),
+    onSuccess: async () => {
       const updatedCustomer = await getCustomerApi(customer.uuid);
-      dispatch(setCurrentCustomer(updatedCustomer));
-    } catch (error) {
-      dispatch(
-        showErrorResponse(
-          error,
-          translate('Unable to enable payment profile.'),
-        ),
-      );
-    }
-  };
+      setCurrentCustomer(updatedCustomer);
+    },
+  });
+
   if (props.row.is_active) {
     return null;
   }
   return (
     <ActionItem
       title={translate('Enable')}
-      action={callback}
+      action={mutate}
+      disabled={isPending}
       iconNode={<PlayIcon weight="bold" />}
       {...props.tooltipAndDisabledAttributes}
     />

@@ -1,30 +1,35 @@
 import {
   marketplaceResourcesDetailsRetrieve,
   marketplaceResourcesOfferingRetrieve,
-  PublicOfferingDetails,
+  Offering,
   Resource,
 } from 'waldur-js-client';
 
-import { OFFERING_TYPE_BOOKING } from '@waldur/booking/constants';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { isFeatureVisible } from '@waldur/features/connect';
+import { OFFERING_TYPE_BOOKING } from '@/booking/constants';
+import { lazyComponent } from '@/core/lazyComponent';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures, OpenstackFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { hasSupport } from '@/issues/hooks';
 import {
-  MarketplaceFeatures,
-  OpenstackFeatures,
-  SlurmFeatures,
-} from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { hasSupport } from '@waldur/issues/hooks';
-import {
+  countEndDateChangeRequests,
   countLexisLinks,
   countRobotAccounts,
-} from '@waldur/marketplace/common/api';
-import { PageBarTab } from '@waldur/navigation/types';
-import { INSTANCE_TYPE, TENANT_TYPE } from '@waldur/openstack/constants';
-import { MARKETPLACE_RANCHER } from '@waldur/rancher/cluster/create/constants';
-import { getTabs } from '@waldur/resource/tabs/registry';
-import { getResourceAccessEndpoints } from '@waldur/resource/utils';
-import { SLURM_PLUGIN } from '@waldur/slurm/constants';
+} from '@/marketplace/common/api';
+import { hasEditableLimitComponents } from '@/marketplace/resources/change-limits/utils';
+import { isInferenceServiceEnabled } from '@/marketplace/resources/inference';
+import { PageBarTab } from '@/navigation/types';
+import { INSTANCE_TYPE, TENANT_TYPE } from '@/openstack/constants';
+import { MARKETPLACE_RANCHER } from '@/rancher/cluster/create/constants';
+import { getTabs } from '@/resource/tabs/registry';
+import { getResourceAccessEndpoints } from '@/resource/utils';
+
+function isOfferingLbaasEnabled(offering: Offering): boolean {
+  return Boolean(
+    (offering.plugin_options as { lbaas_enabled?: boolean } | undefined)
+      ?.lbaas_enabled,
+  );
+}
 
 export const getResourceTabs = ({
   resource,
@@ -32,12 +37,24 @@ export const getResourceTabs = ({
   scope,
   lexisLinksCount,
   robotAccountsCount,
+  isStaff,
+  isSupport,
+  isRPOnly = false,
+  canManageLimitRequests = false,
+  canManageEndDateRequests = false,
+  endDateChangeRequestsCount = 0,
 }: {
   resource: Resource;
-  offering: PublicOfferingDetails;
+  offering: Offering;
   scope;
   lexisLinksCount;
   robotAccountsCount;
+  isStaff: boolean;
+  isSupport?: boolean;
+  isRPOnly?: boolean;
+  canManageLimitRequests?: boolean;
+  canManageEndDateRequests?: boolean;
+  endDateChangeRequestsCount?: number;
 }) => {
   // Generate tabs
   const tabs: PageBarTab<{
@@ -45,7 +62,7 @@ export const getResourceTabs = ({
     resourceScope;
     nestedScope?;
     scope;
-    offering: PublicOfferingDetails;
+    offering: Offering;
     refetch: () => void;
   }>[] = [];
 
@@ -92,36 +109,12 @@ export const getResourceTabs = ({
         })),
       ),
     });
-  } else if (resource.offering_type === SLURM_PLUGIN && scope) {
-    tabs.push({
-      key: 'allocation-users',
-      title: translate('Allocation users'),
-      component: lazyComponent(() =>
-        import('@waldur/slurm/details/AllocationUsersTable').then((module) => ({
-          default: module.AllocationUsersTable,
-        })),
-      ),
-    });
-    const isSlurmJobsVisible = isFeatureVisible(SlurmFeatures.jobs);
-    if (isSlurmJobsVisible) {
-      tabs.push({
-        key: 'jobs',
-        title: translate('Jobs'),
-        component: lazyComponent(() =>
-          import('@waldur/slurm/details/AllocationJobsTable').then(
-            (module) => ({
-              default: module.AllocationJobsTable,
-            }),
-          ),
-        ),
-      });
-    }
   } else if ([MARKETPLACE_RANCHER].includes(resource.offering_type) && scope) {
     tabs.push({
       key: 'dashboard',
       title: translate('Dashboard'),
       component: lazyComponent(() =>
-        import('@waldur/rancher/cluster/dashboard/ClusterDashboard').then(
+        import('@/rancher/cluster/dashboard/ClusterDashboard').then(
           (module) => ({
             default: module.ClusterDashboard,
           }),
@@ -133,7 +126,7 @@ export const getResourceTabs = ({
         key: 'security_groups',
         title: translate('Security groups'),
         component: lazyComponent(() =>
-          import('@waldur/rancher/cluster/ClusterSecurityGroupsList').then(
+          import('@/rancher/cluster/ClusterSecurityGroupsList').then(
             (module) => ({
               default: module.ClusterSecurityGroupsList,
             }),
@@ -143,8 +136,54 @@ export const getResourceTabs = ({
     }
   }
 
+  if (isInferenceServiceEnabled(resource)) {
+    tabs.push({
+      key: 'inference',
+      title: translate('Inference'),
+      component: lazyComponent(() =>
+        import('./inference/InferenceServiceView').then((module) => ({
+          default: module.InferenceServiceView,
+        })),
+      ),
+    });
+  }
+
+  // Any backend that reports API keys gets the tab — the resource says whether it
+  // owns any, so there is no offering type or flag for a provider to get wrong.
+  // The cast goes away once a waldur-js-client carrying has_api_keys is published;
+  // the field ships with the mastermind side of this change.
+  if ((resource as Resource & { has_api_keys?: boolean }).has_api_keys) {
+    tabs.push({
+      key: 'api-keys',
+      title: translate('API keys'),
+      component: lazyComponent(() =>
+        import('./api-keys/ResourceApiKeysTab').then((module) => ({
+          default: module.ResourceApiKeysTab,
+        })),
+      ),
+    });
+  }
+
   if (scope) {
-    tabs.push(...(getTabs(scope.resource_type) as any));
+    const resourceTabs = getTabs(scope.resource_type) as any[];
+    if (
+      resource.offering_type === TENANT_TYPE &&
+      !isOfferingLbaasEnabled(offering)
+    ) {
+      const filteredTabs = resourceTabs.map((tab) =>
+        tab.key === 'networking'
+          ? {
+              ...tab,
+              children: tab.children?.filter(
+                (child: any) => child.key !== 'load_balancers',
+              ),
+            }
+          : tab,
+      );
+      tabs.push(...filteredTabs);
+    } else {
+      tabs.push(...resourceTabs);
+    }
   }
 
   if (lexisLinksCount) {
@@ -164,7 +203,7 @@ export const getResourceTabs = ({
       key: 'robot-accounts',
       title: translate('Robot accounts'),
       component: lazyComponent(() =>
-        import('@waldur/marketplace/robot-accounts/RobotAccountCard').then(
+        import('@/marketplace/robot-accounts/RobotAccountCard').then(
           (module) => ({ default: module.RobotAccountCard }),
         ),
       ),
@@ -181,19 +220,6 @@ export const getResourceTabs = ({
     });
   }
 
-  const showIssues = hasSupport();
-  if (showIssues) {
-    tabs.push({
-      key: 'requests',
-      title: translate('Requests'),
-      component: lazyComponent(() =>
-        import('./ResourceIssuesCard').then((module) => ({
-          default: module.ResourceIssuesCard,
-        })),
-      ),
-    });
-  }
-
   if (offering.resource_options?.order?.length) {
     tabs.push({
       key: 'resource-options',
@@ -206,53 +232,93 @@ export const getResourceTabs = ({
     });
   }
 
-  if (offering.roles?.length > 0) {
+  if ((offering.plugin_options as any)?.enable_resource_projects) {
     tabs.push({
-      key: 'users',
-      title: translate('Roles'),
+      key: 'team',
+      title: translate('Team'),
       component: lazyComponent(() =>
-        import('../users/ResourceUsersList').then((module) => ({
-          default: module.ResourceUsersList,
-        })),
+        import('@/marketplace/resources/users/ResourceTeamTab').then(
+          (module) => ({
+            default: module.ResourceTeamTab,
+          }),
+        ),
+      ),
+    });
+    tabs.push({
+      key: 'resource-projects',
+      title: translate('Resource projects'),
+      component: lazyComponent(() =>
+        import('@/marketplace/resources/projects/ResourceProjectsList').then(
+          (module) => ({
+            default: module.ResourceProjectsList,
+          }),
+        ),
       ),
     });
   }
 
-  tabs.push({
-    key: 'metadata',
-    title: translate('Resource metadata'),
-    children: [
-      {
-        key: 'resource-details',
-        title: translate('Resource details'),
-        component: lazyComponent(() =>
-          import('./ResourceMetadataCard').then((module) => ({
-            default: module.ResourceMetadataCard,
-          })),
+  if ((offering.plugin_options as any)?.enable_resource_access_subnets) {
+    tabs.push({
+      key: 'access-subnets',
+      title: translate('Access subnets'),
+      component: lazyComponent(() =>
+        import('@/marketplace/resources/access-subnets/ResourceAccessSubnetsCard').then(
+          (module) => ({
+            default: module.ResourceAccessSubnetsCard,
+          }),
         ),
-      },
-      {
-        key: 'activity',
-        title: translate('Audit logs'),
-        component: lazyComponent(() =>
-          import('./ActivityCard').then((module) => ({
-            default: module.ActivityCard,
-          })),
-        ),
-      },
-      {
-        key: 'order-history',
-        title: translate('Order history'),
-        component: lazyComponent(() =>
-          import('@waldur/marketplace/orders/list/ResourceOrders').then(
-            (module) => ({
-              default: module.ResourceOrders,
-            }),
+      ),
+    });
+  }
+
+  if (
+    !isFeatureVisible(MarketplaceFeatures.conceal_resource_metadata) ||
+    isStaff
+  ) {
+    tabs.push({
+      key: 'metadata',
+      title: translate('Resource metadata'),
+      children: [
+        {
+          key: 'resource-details',
+          title: translate('Resource details'),
+          component: lazyComponent(() =>
+            import('./ResourceMetadataCard').then((module) => ({
+              default: module.ResourceMetadataCard,
+            })),
           ),
-        ),
-      },
-    ],
-  });
+        },
+        ...(!isFeatureVisible(
+          MarketplaceFeatures.conceal_audit_log_from_end_users,
+        ) ||
+        isStaff ||
+        isSupport
+          ? [
+              {
+                key: 'activity',
+                title: translate('Audit logs'),
+                component: lazyComponent(() =>
+                  import('./ActivityCard').then((module) => ({
+                    default: module.ActivityCard,
+                  })),
+                ),
+              },
+            ]
+          : []),
+        {
+          key: 'order-history',
+          title: translate('Order history'),
+          component: lazyComponent(() =>
+            import('@/marketplace/orders/list/ResourceOrders').then(
+              (module) => ({
+                default: module.ResourceOrders,
+              }),
+            ),
+          ),
+        },
+      ],
+    });
+  }
 
   if (
     resource.offering_type === TENANT_TYPE &&
@@ -263,7 +329,7 @@ export const getResourceTabs = ({
       key: 'replications',
       title: translate('Replications'),
       component: lazyComponent(() =>
-        import('@waldur/openstack/openstack-tenant/TenantMigrationsList').then(
+        import('@/openstack/openstack-tenant/TenantMigrationsList').then(
           (module) => ({ default: module.TenantMigrationsList }),
         ),
       ),
@@ -274,7 +340,7 @@ export const getResourceTabs = ({
       key: 'longhorn',
       title: translate('Longhorn'),
       component: lazyComponent(() =>
-        import('@waldur/rancher/cluster/ClusterLonghornTab').then((module) => ({
+        import('@/rancher/cluster/ClusterLonghornTab').then((module) => ({
           default: module.ClusterLonghornTab,
         })),
       ),
@@ -291,6 +357,101 @@ export const getResourceTabs = ({
       ),
     });
   }
+
+  const showIssues = hasSupport();
+  if (showIssues) {
+    tabs.push({
+      key: 'support',
+      title: translate('Support'),
+      component: lazyComponent(() =>
+        import('./ResourceIssuesCard').then((module) => ({
+          default: module.ResourceIssuesCard,
+        })),
+      ),
+    });
+  }
+
+  // Requests a consumer raises for someone to approve. Limits and end dates are
+  // separate endpoints with separate permissions, so each is gated on its own
+  // and they are grouped only when both are actually available — a dropdown
+  // holding a single entry is worse than a plain tab, and one of the two is the
+  // common case.
+  const changeRequestTabs = [];
+
+  // Show only when a limit change is actually feasible for this resource,
+  // mirroring the conditions under which ChangeLimitsAction is usable:
+  // editable limit components and an associated plan. This hides the tab on
+  // child resources (e.g. OpenStack instances/volumes) that merely inherit the
+  // parent offering's limit components but have no plan of their own.
+  if (
+    canManageLimitRequests &&
+    hasEditableLimitComponents(offering) &&
+    Boolean(resource.plan_uuid)
+  ) {
+    changeRequestTabs.push({
+      key: 'limit-change-requests',
+      groupedTitle: translate('Limits'),
+      title: translate('Limit change requests'),
+      component: lazyComponent(() =>
+        import('@/marketplace/resources/request-limits-change/ResourceLimitChangeRequests').then(
+          (module) => ({
+            default: module.ResourceLimitChangeRequests,
+          }),
+        ),
+      ),
+    });
+  }
+
+  // Only offerings that accept end date change requests have anything to show
+  // here, and only whoever may decide one sees the tab.
+  if (
+    (canManageEndDateRequests || endDateChangeRequestsCount > 0) &&
+    offering?.plugin_options?.enable_resource_end_date_change_requests &&
+    !offering?.components?.some((component) => component.is_prepaid)
+  ) {
+    changeRequestTabs.push({
+      key: 'end-date-change-requests',
+      groupedTitle: translate('End date'),
+      title: translate('End date change requests'),
+      component: lazyComponent(() =>
+        import('@/marketplace/resources/request-end-date-change/ResourceEndDateChangeRequests').then(
+          (module) => ({
+            default: module.ResourceEndDateChangeRequests,
+          }),
+        ),
+      ),
+    });
+  }
+
+  if (changeRequestTabs.length === 1) {
+    const [{ groupedTitle: _groupedTitle, ...tab }] = changeRequestTabs;
+    tabs.push(tab);
+  } else if (changeRequestTabs.length > 1) {
+    tabs.push({
+      key: 'change-requests',
+      title: translate('Change requests'),
+      // Child keys are unchanged, so existing ?tab= deep links keep working.
+      defaultKey: changeRequestTabs[0].key,
+      children: changeRequestTabs.map(({ groupedTitle, ...tab }) => ({
+        ...tab,
+        title: groupedTitle,
+      })),
+    });
+  }
+
+  if (isRPOnly) {
+    // ResourceProject-only viewers get a minimal subset: a way to land on the
+    // page (Getting started), navigate to "their" sub-project, and reach
+    // support. Everything else (quotas, usage, metadata, team, invitations,
+    // resource-type-specific dashboards) is hidden.
+    const RP_ONLY_TAB_KEYS = new Set([
+      'getting-started',
+      'resource-projects',
+      'support',
+    ]);
+    return tabs.filter((tab) => RP_ONLY_TAB_KEYS.has(tab.key));
+  }
+
   return tabs;
 };
 
@@ -319,11 +480,23 @@ export const fetchData = async (resource: Resource) => {
     resource: resource.url,
   });
 
+  // The requester is not an approver, so the tab is otherwise invisible to
+  // them and they cannot tell what became of what they asked for. The list
+  // endpoint already scopes rows to own-or-decidable, so counting without a
+  // created_by filter answers "is there anything here for me?" for both.
+  let endDateChangeRequestsCount = 0;
+  if (offering?.plugin_options?.enable_resource_end_date_change_requests) {
+    endDateChangeRequestsCount = await countEndDateChangeRequests({
+      resource_uuid: resource.uuid,
+    });
+  }
+
   return {
     scope,
     components,
     offering,
     lexisLinksCount,
     robotAccountsCount,
+    endDateChangeRequestsCount,
   };
 };

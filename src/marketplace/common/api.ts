@@ -1,16 +1,21 @@
 import {
   LexisLinksListData,
+  lexisLinksCount,
   marketplaceCategoriesList,
   marketplaceCategoryGroupsList,
   MarketplaceCategoryGroupsListData,
+  marketplaceOrdersCount,
   MarketplaceOrdersListData,
+  marketplaceResourceEndDateChangeRequestsCount,
+  MarketplaceResourceEndDateChangeRequestsListData,
+  marketplaceRobotAccountsCount,
   MarketplaceRobotAccountsListData,
   marketplaceServiceProvidersList,
   MarketplaceServiceProvidersListData,
+  ServiceProvider,
 } from 'waldur-js-client';
 
-import { getAllPages, count } from '@waldur/core/api';
-import { ServiceProvider } from '@waldur/marketplace/types';
+import { fetchResultCount, getAllPages } from '@/core/api';
 
 export const getCategoryGroups = (
   query?: MarketplaceCategoryGroupsListData['query'],
@@ -30,11 +35,18 @@ export const getServiceProviderByCustomer = async (
 };
 
 export const countOrders = (query?: MarketplaceOrdersListData['query']) =>
-  count('/api/marketplace-orders/', query);
+  marketplaceOrdersCount({ query }).then(fetchResultCount);
 
 export const countRobotAccounts = (
   query: MarketplaceRobotAccountsListData['query'],
-) => count('/api/marketplace-robot-accounts/', query);
+) => marketplaceRobotAccountsCount({ query }).then(fetchResultCount);
 
 export const countLexisLinks = (query?: LexisLinksListData['query']) =>
-  count('/api/lexis-links/', query);
+  lexisLinksCount({ query }).then(fetchResultCount);
+
+export const countEndDateChangeRequests = (
+  query: MarketplaceResourceEndDateChangeRequestsListData['query'],
+) =>
+  marketplaceResourceEndDateChangeRequestsCount({ query }).then(
+    fetchResultCount,
+  );

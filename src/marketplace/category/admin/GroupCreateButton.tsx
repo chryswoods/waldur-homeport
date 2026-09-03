@@ -1,25 +1,16 @@
-import { useCallback } from 'react';
-import { useDispatch } from 'react-redux';
+import { CreateModalButton } from '@/core/buttons';
+import { lazyComponent } from '@/core/lazyComponent';
 
-import { AddButton } from '@waldur/core/AddButton';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { openModalDialog } from '@waldur/modal/actions';
-
-const GroupCreateDialog = lazyComponent(() =>
-  import('./GroupFromDialog').then((module) => ({
-    default: module.GroupFromDialog,
+const CategoryGroupDialog = lazyComponent(() =>
+  import('./CategoryGroupDialog').then((module) => ({
+    default: module.CategoryGroupDialog,
   })),
 );
 
-const groupCreateDialog = (refetch) =>
-  openModalDialog(GroupCreateDialog, { resolve: { refetch }, size: 'lg' });
-
-export const GroupCreateButton = ({ refetch }) => {
-  const dispatch = useDispatch();
-  const openFormDialog = useCallback(
-    () => dispatch(groupCreateDialog(refetch)),
-    [dispatch],
-  );
-
-  return <AddButton action={openFormDialog} />;
-};
+export const GroupCreateButton = ({ refetch }) => (
+  <CreateModalButton
+    dialog={CategoryGroupDialog}
+    resolve={{ refetch }}
+    size="lg"
+  />
+);

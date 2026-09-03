@@ -4,11 +4,12 @@ import { FunctionComponent } from 'react';
 import { ButtonProps } from 'react-bootstrap';
 import { Variant } from 'react-bootstrap/esm/types';
 
-import { Link } from '@waldur/core/Link';
-import { translate } from '@waldur/i18n';
-import { ActionButton } from '@waldur/table/ActionButton';
+import { Link } from '@/core/Link';
+import { translate } from '@/i18n';
+import { ActionButton } from '@/table/ActionButton';
+import { CompactActionButton } from '@/table/CompactActionButton';
 
-interface EditButtonProps extends ButtonProps {
+export interface EditButtonProps extends ButtonProps {
   disabled?: boolean;
   tooltip?: string;
   label?: string;
@@ -19,6 +20,8 @@ interface EditButtonProps extends ButtonProps {
   size?: 'sm' | 'lg';
   width?: number | 'auto';
   btnIcon?: boolean;
+  iconNode?: React.ReactNode;
+  'data-testid'?: string;
 }
 
 export const EditButton: FunctionComponent<EditButtonProps> = (props) => {
@@ -28,11 +31,14 @@ export const EditButton: FunctionComponent<EditButtonProps> = (props) => {
     state,
     params,
     iconRight = true,
-    variant = 'secondary',
-    size,
+    variant = 'tertiary',
+    size = 'sm',
     width = 90,
     btnIcon,
     className,
+    disabled,
+    tooltip,
+    iconNode = <PencilSimpleIcon weight="bold" />,
     ...rest
   } = props;
 
@@ -58,19 +64,32 @@ export const EditButton: FunctionComponent<EditButtonProps> = (props) => {
       <span
         className={`svg-icon svg-icon-${size === 'sm' && !btnIcon ? '4' : '2'}`}
       >
-        <PencilSimpleIcon weight="bold" />
+        {iconNode}
       </span>
       {!btnIcon && !iconRight && label}
     </Link>
-  ) : (
-    <ActionButton
+  ) : size === 'sm' ? (
+    <CompactActionButton
       action={onClick}
-      iconNode={<PencilSimpleIcon weight="bold" />}
+      iconNode={iconNode}
       title={!btnIcon && label}
-      size={size}
       variant={variant}
       iconRight={iconRight}
       className={classNames(widthClass, className)}
+      disabled={disabled}
+      tooltip={tooltip}
+      {...rest}
+    />
+  ) : (
+    <ActionButton
+      action={onClick}
+      iconNode={iconNode}
+      title={!btnIcon && label}
+      variant={variant}
+      iconRight={iconRight}
+      className={classNames(widthClass, className)}
+      disabled={disabled}
+      tooltip={tooltip}
       {...rest}
     />
   );

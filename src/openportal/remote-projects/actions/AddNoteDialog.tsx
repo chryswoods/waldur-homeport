@@ -1,85 +1,64 @@
-import { useMutation } from '@tanstack/react-query';
-import { Form, Field } from 'react-final-form';
-import { useSelector } from 'react-redux';
-import { openportalRemoteProjectsAddNote } from 'waldur-js-client';
+import { Form } from 'react-final-form';
+import {
+  RemoteProject,
+  openportalRemoteProjectsAddNote,
+} from 'waldur-js-client';
 
-import { SubmitButton } from '@waldur/auth/SubmitButton';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-import { useModal } from '@waldur/modal/hooks';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { useNotify } from '@waldur/store/hooks';
-import { getUser } from '@waldur/workspace/selectors';
+import { required } from '@/core/validators';
+import { SubmitButton, TextGroup } from '@/form';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
-interface Props {
-  row: any;
-  resolve: { refetch(): Promise<void> };
+interface FormValues {
+  text: string;
 }
 
-export const AddNoteDialog = ({ row, resolve }: Props) => {
-  const user = useSelector(getUser);
-  const { showSuccess, showErrorResponse } = useNotify();
-  const { closeDialog } = useModal();
+interface AddNoteDialogProps {
+  row: RemoteProject;
+  resolve: {
+    refetch: () => Promise<void> | void;
+  };
+}
 
-  const { mutateAsync } = useMutation({
-    mutationFn: (values: { text: string }) =>
+export const AddNoteDialog: React.FC<AddNoteDialogProps> = ({
+  row,
+  resolve,
+}) => {
+  const addNoteMutation = useManagedMutation<any, any, FormValues>({
+    mutationFn: (values) =>
+      // The author is recorded from the authenticated user server-side.
       openportalRemoteProjectsAddNote({
         path: { uuid: row.uuid },
-        body: { author: user?.full_name || user?.username || '', text: values.text },
+        body: { text: values.text },
       }),
+    successMessage: translate('Note has been added.'),
+    errorMessage: translate('Unable to add note.'),
+    refetch: resolve.refetch,
   });
 
-  const handleSubmit = async (values: { text: string }) => {
-    try {
-      await mutateAsync(values);
-      showSuccess(translate('Note added.'));
-      closeDialog();
-      await resolve.refetch();
-    } catch (e) {
-      showErrorResponse(e, translate('Unable to add note.'));
-    }
-  };
-
   return (
-    <Form
-      onSubmit={handleSubmit}
-      render={({ handleSubmit, submitting, invalid, pristine }) => (
+    <Form<FormValues>
+      onSubmit={(values) => addNoteMutation.mutateAsync(values)}
+      subscription={{ submitting: true, invalid: true }}
+      render={({ handleSubmit, submitting, invalid }) => (
         <form onSubmit={handleSubmit} noValidate>
           <ModalDialog
             title={translate('Add note')}
             footer={
-              <div className="text-end">
-                <SubmitButton
-                  submitting={submitting}
-                  invalid={invalid || pristine}
-                  label={translate('Add note')}
-                />
-              </div>
+              <SubmitButton
+                submitting={submitting}
+                invalid={invalid}
+                label={translate('Add note')}
+              />
             }
           >
-            <FormGroup
-              controlId="text"
-              label={translate('Note')}
+            <TextGroup
+              name="text"
+              label={translate('Note text')}
+              validate={required}
               required
-            >
-              <Field
-                name="text"
-                validate={(v) => (v?.trim() ? undefined : translate('Required.'))}
-                render={({ input, meta }) => (
-                  <>
-                    <textarea
-                      {...input}
-                      className="form-control"
-                      rows={4}
-                      placeholder={translate('Enter note text...')}
-                    />
-                    {meta.touched && meta.error && (
-                      <div className="text-danger mt-1">{meta.error}</div>
-                    )}
-                  </>
-                )}
-              />
-            </FormGroup>
+            />
           </ModalDialog>
         </form>
       )}

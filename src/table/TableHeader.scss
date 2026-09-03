@@ -3,16 +3,57 @@
   align-items: center;
 }
 
-.filter-column > button,
-.filter-column > .th-wrapper > button {
+// First data header cell when table is expandable: arrow + text with same padding/gap as body
+.cell-with-expander-header {
+  display: inline-flex;
+  align-items: center;
+  column-gap: 12px;
+}
+
+.cell-with-expander-header .all-rows-expander {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// First expandable data header cell (arrow + text) should have no outer padding.
+// Inner wrapper applies exact 16 / 12 spacing.
+.table.table-expandable > thead > tr > th.first-expandable-column {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.filter-column .th-main > button,
+.filter-column .th-main > .th-wrapper > button {
   margin-left: 4px;
 }
 
-.sorting-column > span,
-.sorting-column > .th-wrapper > span {
+.sorting-column .th-main > span,
+.sorting-column .th-main > .th-wrapper > span {
   vertical-align: middle;
 
   .sorting-buttons {
     margin-left: 4px;
+  }
+}
+
+// Header cell layout: pin toggle sits right after the title/sorting/filter,
+// not at the far edge of the cell where it reads as the next column's icon.
+.th-content {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  column-gap: 4px;
+
+  .th-main {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .pin-toggle {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
   }
 }

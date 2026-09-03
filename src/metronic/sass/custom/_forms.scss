@@ -2,20 +2,33 @@
 /* LABEL */
 .col-form-label,
 .form-label {
-  font-size: 1.075rem; // fs-6
+  font-size: $font-size-lg; // fs-6
   font-weight: 500; // fw-bold
-  color: $gray-700;
+  color: $text-secondary;
 }
 
 .form-text {
-  font-size: 1.075rem;
+  font-size: $font-size-lg;
   font-weight: 400;
-  color: $gray-700;
+  color: $text-tertiary;
   display: block;
   line-height: 1;
 }
 
 /* FORM CONTROL (INPUT) */
+.form-control,
+.form-select,
+.form-check-input,
+.metronic-select__control {
+  &:hover:not(:disabled):not([readonly]):not(:checked):not(:focus):not(
+      .is-invalid
+    ):not(.metronic-select__control--is-disabled):not(
+      .metronic-select__control--is-focused
+    ) {
+    border-color: var(--bs-primary);
+  }
+}
+
 .form-control {
   &:focus {
     box-shadow: $input-focus-box-shadow;
@@ -89,7 +102,7 @@
 /* CHECKBOX */
 .form-check {
   &-label {
-    font-size: 1.075rem;
+    font-size: $font-size-lg;
   }
 }
 
@@ -165,6 +178,36 @@
     .form-control.is-invalid,
     .was-validated .form-control:invalid {
       background-position: right 4.4rem center;
+    }
+  }
+
+  &.has-icon {
+    input.form-control {
+      border-radius: $border-radius !important;
+      margin-left: unset !important;
+      padding-left: 40px;
+    }
+
+    .input-group-icon {
+      position: absolute;
+      left: 12px;
+      transform: translateY(-50%);
+      top: 50%;
+      z-index: 5;
+
+      @include svg-icon-size(20px);
+      @include svg-icon-color($fg-quinary);
+    }
+  }
+
+  &.has-icon-right {
+    input.form-control {
+      padding-right: 40px;
+    }
+
+    .input-group-icon-right {
+      left: auto;
+      right: 12px;
     }
   }
 }

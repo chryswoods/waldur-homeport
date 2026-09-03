@@ -1,16 +1,14 @@
 import { FunctionComponent } from 'react';
-import { Field } from 'redux-form';
 
-import { AwesomeCheckboxField } from '@waldur/form/AwesomeCheckboxField';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
+import { BooleanGroup } from '@/form';
+import { translate } from '@/i18n';
 
 export const ComponentBooleanLimitField: FunctionComponent = () => (
-  <FormGroup>
-    <Field
-      name="is_boolean"
-      component={AwesomeCheckboxField}
-      label={translate('Allow to enable/disable component only')}
-    />
-  </FormGroup>
+  <BooleanGroup
+    name="is_boolean"
+    label={translate('Allow to enable/disable component only')}
+    size="sm"
+    alignMiddle
+    space={5}
+  />
 );

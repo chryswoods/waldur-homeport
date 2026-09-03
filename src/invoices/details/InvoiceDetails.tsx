@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { Card, Col, Row } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
 
-import { defaultCurrency } from '@waldur/core/formatCurrency';
-import { translate } from '@waldur/i18n';
-import { renderFieldOrDash } from '@waldur/table/utils';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { translate } from '@/i18n';
+import { renderFieldOrDash } from '@/table/utils';
+import { useCustomer } from '@/workspace/hooks';
 
 import { Invoice } from '../types';
 
@@ -20,7 +19,7 @@ export const InvoiceDetails = ({
   invoice: Invoice;
   refreshInvoiceItems(): void;
 }) => {
-  const customer = useSelector(getCustomer);
+  const customer = useCustomer();
   const showPrice = !getActiveFixedPricePaymentProfile(
     customer.payment_profiles,
   );

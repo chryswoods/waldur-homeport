@@ -1,19 +1,21 @@
 import { CaretDownIcon, FunnelSimpleIcon } from '@phosphor-icons/react';
-import { useCallback, useEffect, useState } from 'react';
-import { Button, Card, OverlayTrigger, Popover, Stack } from 'react-bootstrap';
-import { useSelector, useDispatch } from 'react-redux';
-import { getFormValues, reduxForm } from 'redux-form';
+import classNames from 'classnames';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Card, Dropdown, Stack } from 'react-bootstrap';
+import { Form, useForm } from 'react-final-form';
+import { useDispatch } from 'react-redux';
 import { Project } from 'waldur-js-client';
 
-import { getInitialValues, syncFiltersToURL } from '@waldur/core/filters';
-import { translate } from '@waldur/i18n';
-import { useOrganizationAndProjectFiltersForResources } from '@waldur/navigation/sidebar/resources-filter/utils';
-import { getUser } from '@waldur/workspace/selectors';
-import { Customer } from '@waldur/workspace/types';
+import { getInitialValues, syncFiltersToURL } from '@/core/filters';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { useOrganizationAndProjectAutocompletesForResources } from '@/navigation/sidebar/resources-filter/utils';
+import { ActionButton } from '@/table/ActionButton';
+import { useUser } from '@/workspace/hooks';
+import { Customer } from '@/workspace/types';
 
-import { MARKETPLACE_LANDING_FILTER_FORM } from '../constants';
 import { OrganizationAutocomplete } from '../orders/OrganizationAutocomplete';
-import { ProjectFilter } from '../resources/list/ProjectFilter';
+import { ProjectAutocomplete } from '../resources/list/ProjectAutocomplete';
 
 import { setMarketplaceFilter } from './filter/store/actions';
 
@@ -29,21 +31,42 @@ interface FormData {
   project?: Project;
 }
 
-export const MarketplaceLandingFilter = reduxForm<FormData>({
-  form: MARKETPLACE_LANDING_FILTER_FORM,
-  destroyOnUnmount: false,
-  initialValues: getInitialValues(),
-})((props) => {
-  const user = useSelector(getUser);
+const LandingFilterFields = ({ values }) => {
+  const form = useForm();
+  const organization = values?.organization;
+  const project = values?.project;
+  const organizationUuid = organization?.uuid;
+
+  const prevOrgUuid = useRef(organizationUuid);
+
+  // Clear project filter if organization changes
+  useEffect(() => {
+    if (prevOrgUuid.current !== organizationUuid) {
+      prevOrgUuid.current = organizationUuid;
+      if (project) {
+        form.change('project', undefined);
+      }
+    }
+  }, [organizationUuid, project, form]);
+
+  return (
+    <>
+      <OrganizationAutocomplete />
+      <ProjectAutocomplete
+        customer_uuid={organizationUuid}
+        isDisabled={!organizationUuid}
+      />
+    </>
+  );
+};
+
+export const MarketplaceLandingFilter = () => {
+  const user = useUser();
   const dispatch = useDispatch<any>();
   const [show, setShow] = useState(false);
 
-  const formValues = useSelector(
-    getFormValues(MARKETPLACE_LANDING_FILTER_FORM),
-  ) as FormData;
-
   const { syncResourceFilters } =
-    useOrganizationAndProjectFiltersForResources();
+    useOrganizationAndProjectAutocompletesForResources();
 
   const apply = useCallback(
     (formData) => {
@@ -64,79 +87,67 @@ export const MarketplaceLandingFilter = reduxForm<FormData>({
     [setShow, dispatch, syncResourceFilters],
   );
 
-  // To initialize & apply filters (from URL)
-  useEffect(() => formValues && apply(formValues), []);
-
-  // Clear project filter if organization is cleared
-  useEffect(() => {
-    if (!formValues?.project) return;
-    if (
-      !formValues?.organization ||
-      formValues.organization.uuid !== formValues.project.customer_uuid
-    ) {
-      dispatch(props.change('project', undefined));
-      const newValues = { ...formValues, project: null };
-      apply(newValues);
-    }
-  }, [formValues, props.change]);
-
   if (!user) return null;
 
   return (
-    <OverlayTrigger
-      trigger="click"
-      placement="bottom-end"
-      show={show}
-      overlay={
-        <Popover id="MarketplaceLandingFilter">
-          <Card className="menu menu-sub menu-sub-dropdown menu-gray-800 menu-hover-bg-light menu-hover-title-primary fs-5 show shadow-sm">
-            <Card.Body
-              as="form"
-              onSubmit={props.handleSubmit(apply)}
-              className="d-flex flex-column gap-8"
-            >
-              <div>
-                <Card.Title as="div" className="h3 mb-5">
-                  {translate('Filter by organization/project')}
-                </Card.Title>
-                <Card.Subtitle className="fw-normal text-muted">
-                  {translate(
-                    'Filter results by chosen organization and project',
-                  )}
-                </Card.Subtitle>
-              </div>
-              <OrganizationAutocomplete />
-              <ProjectFilter
-                customer_uuid={formValues?.organization?.uuid}
-                isDisabled={!formValues?.organization?.uuid}
-              />
+    <Form<FormData>
+      onSubmit={apply}
+      initialValues={getInitialValues()}
+      render={({ handleSubmit, values }) => (
+        <Dropdown show={show} onToggle={setShow} align="end" autoClose={false}>
+          <Dropdown.Toggle
+            variant="tertiary"
+            className={classNames(
+              'd-flex text-nowrap btn-icon-right no-arrow',
+              show && 'active',
+            )}
+            id="marketplace-landing-filter-toggle"
+          >
+            <FunnelSimpleIcon size={20} className="svg-icon" weight="bold" />
+            {translate('Organization')} & {translate('Project')}
+            <CaretDownIcon
+              size={18}
+              className="svg-icon rotate-180 ms-2 me-0"
+              weight="bold"
+            />
+          </Dropdown.Toggle>
+          <Dropdown.Menu className="p-0 border-0 min-w-400px">
+            <Card className="menu menu-sub menu-sub-dropdown menu-gray-800 menu-hover-bg-light menu-hover-title-primary fs-5 show shadow-sm m-0">
+              <Card.Body
+                as="form"
+                onSubmit={handleSubmit}
+                className="d-flex flex-column gap-8"
+              >
+                <div>
+                  <Card.Title as="div" className="h3 mb-5">
+                    {translate('Filter by organization/project')}
+                  </Card.Title>
+                  <Card.Subtitle className="fw-normal text-muted">
+                    {translate(
+                      'Filter results by chosen organization and project',
+                    )}
+                  </Card.Subtitle>
+                </div>
+                <LandingFilterFields values={values} />
 
-              <Stack direction="horizontal" gap={4}>
-                <Button
-                  variant="tertiary"
-                  className="flex-equal"
-                  onClick={() => setShow(false)}
-                >
-                  {translate('Cancel')}
-                </Button>
-                <Button type="submit" className="flex-equal">
-                  {translate('Apply')}
-                </Button>
-              </Stack>
-            </Card.Body>
-          </Card>
-        </Popover>
-      }
-    >
-      <Button
-        variant="tertiary"
-        className={'d-flex text-nowrap' + (show ? ' active' : '')}
-        onClick={() => setShow((v) => !v)}
-      >
-        <FunnelSimpleIcon size={20} className="svg-icon" />
-        {translate('Organization')} & {translate('Project')}
-        <CaretDownIcon size={18} className="svg-icon rotate-180 ms-2 me-0" />
-      </Button>
-    </OverlayTrigger>
+                <Stack direction="horizontal" gap={4}>
+                  <ActionButton
+                    variant="tertiary"
+                    className="flex-equal"
+                    action={() => setShow(false)}
+                    title={translate('Cancel')}
+                  />
+                  <SubmitButton
+                    submitting={false}
+                    className="flex-equal"
+                    label={translate('Apply')}
+                  />
+                </Stack>
+              </Card.Body>
+            </Card>
+          </Dropdown.Menu>
+        </Dropdown>
+      )}
+    />
   );
-});
+};

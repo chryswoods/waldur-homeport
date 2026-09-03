@@ -3,13 +3,14 @@ import { FunctionComponent, useMemo, useState } from 'react';
 import { Card, Nav } from 'react-bootstrap';
 import { OpenStackInstance, openstackPortsRetrieve } from 'waldur-js-client';
 
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { getUUID } from '@waldur/core/utils';
-import { TableTabsContainer } from '@waldur/customer/list/TableTabsContainer';
-import { translate } from '@waldur/i18n';
-import { RefreshButton } from '@waldur/marketplace/offerings/update/components/RefreshButton';
-import { TablePlaceholder } from '@waldur/table/TablePlaceholder';
+import { SHORT_STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { getUUID } from '@/core/utils';
+import { TableTabsContainer } from '@/customer/list/TableTabsContainer';
+import { translate } from '@/i18n';
+import { RefreshButton } from '@/marketplace/offerings/update/components/RefreshButton';
+import { TablePlaceholder } from '@/table/TablePlaceholder';
 
 import { OpenStackSecurityGroupsTable } from '../openstack-security-groups/OpenStackSecurityGroupsDialog';
 
@@ -41,14 +42,14 @@ export const OpenStackSecurityGroupsList: FunctionComponent<OwnProps> = (
   const ports = useMemo(() => {
     if (!props.resourceScope?.ports) return [];
     return props.resourceScope.ports.map((port) =>
-      port.fixed_ips.map((fip) => fip.ip_address).join(', '),
+      (port.fixed_ips ?? []).map((fip) => fip.ip_address).join(', '),
     );
   }, [props.resourceScope]);
 
   const activePort = useMemo(() => {
     if (activeKey === 'resource') return null;
     const port = props.resourceScope.ports.find((p) =>
-      p.fixed_ips.some((fip) => activeKey.includes(fip.ip_address)),
+      (p.fixed_ips ?? []).some((fip) => activeKey.includes(fip.ip_address)),
     );
     return port;
   }, [activeKey, props.resourceScope]);
@@ -81,7 +82,7 @@ export const OpenStackSecurityGroupsList: FunctionComponent<OwnProps> = (
           }).then((res) => res.data)
         : null,
     refetchOnWindowFocus: false,
-    staleTime: 60 * 1000,
+    staleTime: SHORT_STALE_TIME,
   });
 
   return (
@@ -114,7 +115,7 @@ export const OpenStackSecurityGroupsList: FunctionComponent<OwnProps> = (
         </div>
       </Card.Header>
       <Card.Body className="min-h-300px">
-        {ports?.length && (
+        {ports?.length > 0 && (
           <TableTabsContainer
             onSelect={setActiveKey}
             defaultActiveKey="resource"

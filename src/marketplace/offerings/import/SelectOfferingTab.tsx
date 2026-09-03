@@ -1,23 +1,26 @@
 import { useQuery } from '@tanstack/react-query';
 import { groupBy } from 'lodash-es';
-import { useDispatch, useSelector } from 'react-redux';
-import { change } from 'redux-form';
-import { remoteWaldurApiSharedOfferings } from 'waldur-js-client';
+import { useForm, useFormState } from 'react-final-form';
+import {
+  remoteWaldurApiSharedOfferings,
+  ProviderOfferingDetails as Offering,
+} from 'waldur-js-client';
 
-import { required } from '@waldur/core/validators';
-import { FormContainer, SelectField } from '@waldur/form';
-import { MultiSelectOption } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { getLabel } from '@waldur/marketplace/common/registry';
-import { Offering } from '@waldur/marketplace/types';
-import { Field } from '@waldur/resource/summary';
+import { SHORT_STALE_TIME } from '@/core/constants';
+import { required } from '@/core/validators';
+import { SelectGroup } from '@/form';
+import { MultiSelectOption } from '@/form/select';
+import { translate } from '@/i18n';
+import { getLabel } from '@/marketplace/common/registry';
+import { Field } from '@/resource/summary';
 
-import { OFFERING_IMPORT_FORM_ID } from './constants';
 import { ErredRemoteConnection } from './ErredRemoteConnection';
-import { importOfferingSelector } from './selectors';
+import { OfferingImportFormData } from './types';
 
 export const SelectOfferingTab = () => {
-  const formData = useSelector(importOfferingSelector);
+  const { values: formData } = useFormState<OfferingImportFormData>();
+  const form = useForm();
+
   const {
     isLoading,
     error,
@@ -50,11 +53,10 @@ export const SelectOfferingTab = () => {
       );
     },
 
-    staleTime: 60 * 1000,
+    staleTime: SHORT_STALE_TIME,
     retry: false,
   });
 
-  const dispatch = useDispatch();
   const updateCategoriesMapping = (offerings: Offering[]) => {
     const groupedByCategory = groupBy(
       offerings,
@@ -64,15 +66,11 @@ export const SelectOfferingTab = () => {
       remote_category: category,
       local_category: '',
     }));
-    dispatch(change(OFFERING_IMPORT_FORM_ID, 'categories_set', categoriesMap));
+    form.change('categories_set', categoriesMap);
   };
 
   return (
-    <FormContainer
-      submitting={false}
-      clearOnUnmount={false}
-      className="size-lg"
-    >
+    <div className="size-lg">
       <Field
         label={translate('API URL')}
         value={formData?.api_url}
@@ -80,8 +78,7 @@ export const SelectOfferingTab = () => {
         className="border-bottom border-top py-5 mb-5"
         labelClass="fw-bolder me-3"
       />
-
-      <SelectField
+      <SelectGroup
         name="offerings"
         label={translate('Offerings')}
         isLoading={isLoading}
@@ -109,8 +106,8 @@ export const SelectOfferingTab = () => {
             />
           ),
         }}
+        disabled={false}
       />
-
       {isLoading ? null : error ? (
         <ErredRemoteConnection
           error={error}
@@ -121,6 +118,6 @@ export const SelectOfferingTab = () => {
           {translate('There are no offerings yet.')}
         </p>
       ) : null}
-    </FormContainer>
+    </div>
   );
 };

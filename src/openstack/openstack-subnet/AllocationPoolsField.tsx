@@ -1,34 +1,24 @@
-import { PlusCircleIcon, TrashIcon } from '@phosphor-icons/react';
+import { PlusCircleIcon } from '@phosphor-icons/react';
 import { FunctionComponent, useEffect, useRef, useState } from 'react';
-import { Form, Button, InputGroup } from 'react-bootstrap';
-import { useSelector, useDispatch } from 'react-redux';
-import { FieldArray, Field, formValueSelector, change } from 'redux-form';
-import { FieldArrayFieldsProps, FieldArrayMetaProps } from 'redux-form';
-import { OpenStackSubNetAllocationPool } from 'waldur-js-client';
+import { Form, InputGroup } from 'react-bootstrap';
+import { Field, useForm, useFormState } from 'react-final-form';
+import { FieldArray, FieldArrayRenderProps } from 'react-final-form-arrays';
 
-import { translate } from '@waldur/i18n';
-import { RESOURCE_ACTION_FORM } from '@waldur/resource/actions/constants';
-import { RootState } from '@waldur/store/reducers';
+import { translate } from '@/i18n';
+import { CompactActionButton } from '@/table/CompactActionButton';
+import { RemovalActionButton } from '@/table/RemovalActionButton';
 
 import {
   getDefaultAllocationPool,
   validateAllocationPool,
 } from '../openstack-network/utils';
 
-const selector = formValueSelector(RESOURCE_ACTION_FORM);
-const cidrSelector = (state: RootState) => selector(state, 'cidr');
-
-interface FieldArrayProps {
-  fields: FieldArrayFieldsProps<OpenStackSubNetAllocationPool>;
-  meta: FieldArrayMetaProps;
-}
-
-const AllocationPoolsList: FunctionComponent<FieldArrayProps> = ({
-  fields,
-  meta,
-}) => {
-  const cidr = useSelector(cidrSelector);
-  const dispatch = useDispatch();
+const AllocationPoolsList: FunctionComponent<
+  FieldArrayRenderProps<any, any>
+> = ({ fields, meta }) => {
+  const { values } = useFormState();
+  const cidr = values.cidr;
+  const form = useForm();
   const prevCidrRef = useRef<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<{
     [key: string]: string;
@@ -37,10 +27,17 @@ const AllocationPoolsList: FunctionComponent<FieldArrayProps> = ({
   useEffect(() => {
     if (!cidr) return;
 
-    if (fields.length === 0) {
-      const defaultPool = getDefaultAllocationPool(cidr);
-      fields.push(defaultPool);
-    }
+    let isMounted = true;
+    setTimeout(() => {
+      if (isMounted && fields.length === 0) {
+        const defaultPool = getDefaultAllocationPool(cidr);
+        fields.push(defaultPool);
+      }
+    }, 0);
+
+    return () => {
+      isMounted = false;
+    };
   }, [fields, cidr]);
 
   useEffect(() => {
@@ -54,27 +51,15 @@ const AllocationPoolsList: FunctionComponent<FieldArrayProps> = ({
       const defaultPool = getDefaultAllocationPool(cidr);
 
       for (let i = 0; i < fields.length; i++) {
-        dispatch(
-          change(
-            RESOURCE_ACTION_FORM,
-            `allocation_pools[${i}].start`,
-            defaultPool.start,
-          ),
-        );
-        dispatch(
-          change(
-            RESOURCE_ACTION_FORM,
-            `allocation_pools[${i}].end`,
-            defaultPool.end,
-          ),
-        );
+        form.change(`allocation_pools[${i}].start`, defaultPool.start);
+        form.change(`allocation_pools[${i}].end`, defaultPool.end);
       }
 
       setValidationErrors({});
     }
 
     prevCidrRef.current = cidr;
-  }, [cidr, dispatch, fields]);
+  }, [cidr, form, fields]);
 
   const validateField = (
     value: string,
@@ -83,7 +68,7 @@ const AllocationPoolsList: FunctionComponent<FieldArrayProps> = ({
   ) => {
     if (!cidr) return;
 
-    const currentValues = fields.getAll() || [];
+    const currentValues = fields.value || [];
     if (!currentValues[index]) return;
 
     const pool = {
@@ -95,10 +80,14 @@ const AllocationPoolsList: FunctionComponent<FieldArrayProps> = ({
       const validationResult = validateAllocationPool(pool, cidr);
 
       if (validationResult) {
-        setValidationErrors((prev) => ({
-          ...prev,
-          [`${index}-${validationResult.field}`]: validationResult.error,
-        }));
+        setValidationErrors((prev) => {
+          const newErrors = { ...prev };
+          delete newErrors[`${index}-start`];
+          delete newErrors[`${index}-end`];
+          newErrors[`${index}-${validationResult.field}`] =
+            validationResult.error;
+          return newErrors;
+        });
       } else {
         setValidationErrors((prev) => {
           const newErrors = { ...prev };
@@ -124,32 +113,40 @@ const AllocationPoolsList: FunctionComponent<FieldArrayProps> = ({
           {translate('No allocation pools defined. Default pool will be used.')}
         </p>
       )}
-
-      {fields.map((pool, index) => (
+      {fields.map((name, index) => (
         <div key={index} className="mb-3">
           <InputGroup>
-            <Field
-              name={`${pool}.start`}
-              component="input"
-              type="text"
-              placeholder={translate('Start IP')}
-              className="form-control"
-              onChange={(e) => validateField(e.target.value, index, 'start')}
-            />
+            <Field name={`${name}.start`} type="text">
+              {({ input }) => (
+                <input
+                  {...input}
+                  placeholder={translate('Start IP')}
+                  className="form-control"
+                  onChange={(e) => {
+                    input.onChange(e);
+                    validateField(e.target.value, index, 'start');
+                  }}
+                />
+              )}
+            </Field>
 
             <InputGroup.Text>-</InputGroup.Text>
-            <Field
-              name={`${pool}.end`}
-              component="input"
-              type="text"
-              placeholder={translate('End IP')}
-              className="form-control"
-              onChange={(e) => validateField(e.target.value, index, 'end')}
-            />
+            <Field name={`${name}.end`} type="text">
+              {({ input }) => (
+                <input
+                  {...input}
+                  placeholder={translate('End IP')}
+                  className="form-control"
+                  onChange={(e) => {
+                    input.onChange(e);
+                    validateField(e.target.value, index, 'end');
+                  }}
+                />
+              )}
+            </Field>
 
-            <Button
-              variant="danger"
-              onClick={() => {
+            <RemovalActionButton
+              action={() => {
                 fields.remove(index);
                 setValidationErrors((prev) => {
                   const newErrors = { ...prev };
@@ -158,10 +155,8 @@ const AllocationPoolsList: FunctionComponent<FieldArrayProps> = ({
                   return newErrors;
                 });
               }}
-              title={translate('Remove')}
-            >
-              <TrashIcon />
-            </Button>
+              tooltip={translate('Remove')}
+            />
           </InputGroup>
           {validationErrors[`${index}-start`] && (
             <div className="text-danger small mt-1">
@@ -175,13 +170,13 @@ const AllocationPoolsList: FunctionComponent<FieldArrayProps> = ({
           )}
         </div>
       ))}
-
       <div className="mb-3">
-        <Button size="sm" onClick={addPool}>
-          <PlusCircleIcon /> {translate('Add allocation pool')}
-        </Button>
+        <CompactActionButton
+          action={addPool}
+          title={translate('Add allocation pool')}
+          iconNode={<PlusCircleIcon weight="bold" />}
+        />
       </div>
-
       {meta.error && meta.submitFailed && (
         <div className="text-danger">{meta.error}</div>
       )}

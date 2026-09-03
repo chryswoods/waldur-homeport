@@ -6,7 +6,7 @@ import {
 import classNames from 'classnames';
 import { FunctionComponent, useCallback, useEffect, useRef } from 'react';
 
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
 
 import { FormField } from './types';
 
@@ -69,7 +69,7 @@ export const ImageField: FunctionComponent<ImageFieldProps> = (props) => {
 
   const isChanged = Boolean(
     input.value instanceof File ||
-      Boolean(input.value) !== Boolean(initialValue),
+    Boolean(input.value) !== Boolean(initialValue),
   );
 
   return (
@@ -83,7 +83,7 @@ export const ImageField: FunctionComponent<ImageFieldProps> = (props) => {
       <div className="imagefield-upload-row">
         <div className="imagefield-avatar-box">
           {!input.value ? (
-            <ImageIcon size={32} color="forestgreen" />
+            <ImageIcon size={32} color="forestgreen" weight="bold" />
           ) : (
             <img style={style} ref={previewRef} alt="preview" />
           )}
@@ -100,11 +100,11 @@ export const ImageField: FunctionComponent<ImageFieldProps> = (props) => {
             {input.value ? (
               <>
                 <span>{translate('Replace')}</span>
-                <ArrowsClockwiseIcon size={20} />
+                <ArrowsClockwiseIcon size={20} weight="bold" />
               </>
             ) : (
               <>
-                <UploadSimpleIcon size={20} />
+                <UploadSimpleIcon size={20} weight="bold" />
                 <span>{translate('Upload')}</span>
               </>
             )}
@@ -115,6 +115,7 @@ export const ImageField: FunctionComponent<ImageFieldProps> = (props) => {
               accept=".png, .jpg, .jpeg"
               onChange={(event) => changeImage(event.target.files[0])}
               style={{ display: 'none' }}
+              data-testid="image-input"
             />
           </label>
         </div>

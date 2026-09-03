@@ -2,8 +2,8 @@ import { FC } from 'react';
 import { Col, Row } from 'react-bootstrap';
 import { Offering } from 'waldur-js-client';
 
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
 
 import { OfferingCard } from './OfferingCard';
 
@@ -40,7 +40,7 @@ export const OfferingGrid: FC<OfferingGridProps> = ({
     <Row>
       {props.items.map((offering) => (
         <Col key={offering.uuid} lg={6} xl={width} className="mb-3">
-          <OfferingCard offering={offering as any} />
+          <OfferingCard offering={offering} />
         </Col>
       ))}
     </Row>

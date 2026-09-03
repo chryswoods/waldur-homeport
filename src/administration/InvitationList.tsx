@@ -1,42 +1,36 @@
 import { FunctionComponent, useMemo } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import {
-  Invitation,
-  userInvitationsList,
-  UserInvitationsListData,
-} from 'waldur-js-client';
+import { Invitation, userInvitationsList } from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
-import { CopyToClipboardButton } from '@waldur/core/CopyToClipboardButton';
-import { formatDate } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { formatInvitationState } from '@waldur/invitations/InvitationStateFilter';
-import { useTitle } from '@waldur/navigation/title';
-import { RoleType } from '@waldur/permissions/types';
-import { formatRoleType } from '@waldur/permissions/utils';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { RoleField } from '@waldur/user/affiliations/RoleField';
+import { ENV } from '@/core/config';
+import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
+import { formatDate } from '@/core/dateUtils';
+import { translate } from '@/i18n';
+import { formatInvitationState } from '@/invitations/choices';
+import { useTitle } from '@/navigation/title';
+import { RoleType } from '@/permissions/types';
+import { formatRoleType } from '@/permissions/utils';
+import { createFetcher } from '@/table/api';
+import {
+  selectUserInvitationsFilter,
+  UserInvitationsFilter,
+  UserInvitationsFilterFormId,
+} from '@/table/generated/UserInvitationsFilter';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { RoleField } from '@/user/affiliations/RoleField';
 
 import { InvitationScopeLink } from './InvitationScopeLink';
-import { InvitationsFilter } from './InvitationsFilter';
 
 export const InvitationList: FunctionComponent = () => {
   useTitle(translate('Invitations'));
-  const filterForm: any = useSelector(getFormValues('AdminInvitationsFilter'));
-  const filter = useMemo(
-    (): UserInvitationsListData['query'] => ({
-      state: filterForm?.state?.map((option) => option.value),
-      role_uuid: filterForm?.role?.uuid,
-      customer_uuid: filterForm?.organization?.uuid,
-      scope_type: filterForm?.scope_type?.value,
-    }),
-    [filterForm],
-  );
+  const values = useFilterValues('admin-invitations');
+
+  const filter = useMemo(() => selectUserInvitationsFilter(values), [values]);
+
   const props = useTable({
     table: 'admin-invitations',
+    syncFiltersToURL: true,
     fetchData: createFetcher(userInvitationsList),
     queryField: 'email',
     filter,
@@ -45,7 +39,7 @@ export const InvitationList: FunctionComponent = () => {
   return (
     <Table<Invitation>
       {...props}
-      filters={<InvitationsFilter />}
+      filters={<UserInvitationsFilter />}
       columns={[
         {
           title: translate('Email'),
@@ -100,6 +94,7 @@ export const InvitationList: FunctionComponent = () => {
       ]}
       verboseName={translate('invitations')}
       hasQuery={true}
+      formId={UserInvitationsFilterFormId}
     />
   );
 };

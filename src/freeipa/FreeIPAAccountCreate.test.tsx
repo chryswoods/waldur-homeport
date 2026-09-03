@@ -1,48 +1,29 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Provider } from 'react-redux';
-import { createStore } from 'redux';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { freeipaProfilesCreate } from 'waldur-js-client';
 
-import * as config from '@waldur/core/config';
+import { ENV } from '@/core/config';
+import { renderWithProviders } from '@/test/harness';
+import * as workspaceHooks from '@/workspace/hooks';
 
 import { FreeIPAAccountCreate } from './FreeIPAAccountCreate';
 
-// Mock API calls and dependencies
-vi.mock('waldur-js-client');
-vi.mock('@waldur/core/config');
+ENV.plugins.WALDUR_CORE.FREEIPA_USERNAME_PREFIX = 'test_';
+
+vi.mocked(workspaceHooks.useUser).mockReturnValue({
+  username: 'testuser',
+  uuid: 'test-uuid',
+} as any);
 
 describe('FreeIPAAccountCreate', () => {
   const mockOnProfileAdded = vi.fn();
 
   const renderComponent = () => {
-    // Mock Redux store
-    const mockStore = createStore(() => ({
-      workspace: {
-        user: {
-          username: 'testuser',
-          uuid: 'test-uuid',
-        },
-      },
-    }));
-
-    return render(
-      <Provider store={mockStore}>
-        <FreeIPAAccountCreate onProfileAdded={mockOnProfileAdded} />
-      </Provider>,
+    return renderWithProviders(
+      <FreeIPAAccountCreate onProfileAdded={mockOnProfileAdded} />,
     );
   };
-
-  beforeEach(() => {
-    vi.mocked(config).ENV = {
-      plugins: {
-        WALDUR_CORE: {
-          FREEIPA_USERNAME_PREFIX: 'test_',
-        },
-      },
-    } as any;
-  });
 
   afterEach(() => {
     vi.clearAllMocks();
@@ -52,7 +33,7 @@ describe('FreeIPAAccountCreate', () => {
     renderComponent();
 
     expect(screen.getByText('Username')).toBeInTheDocument();
-    expect(screen.getByRole('textbox')).toBeInTheDocument();
+    expect(screen.getByLabelText(/Username/i)).toBeInTheDocument();
     expect(screen.getByRole('button')).toBeInTheDocument();
   });
 
@@ -73,14 +54,13 @@ describe('FreeIPAAccountCreate', () => {
     renderComponent();
 
     // After refactoring, help text is shown as a tooltip with question mark icon
-    const svg = document.querySelector('svg[viewBox="0 0 256 256"]');
-    expect(svg).toBeInTheDocument();
+    expect(screen.getByTestId('QuestionIcon')).toBeInTheDocument();
   });
 
   it('should validate required username field', async () => {
     renderComponent();
 
-    const usernameInput = screen.getByRole('textbox');
+    const usernameInput = screen.getByLabelText(/Username/i);
     const submitButton = screen.getByRole('button');
 
     // Clear the input to test validation
@@ -95,7 +75,7 @@ describe('FreeIPAAccountCreate', () => {
   it('should validate username pattern', async () => {
     renderComponent();
 
-    const usernameInput = screen.getByRole('textbox');
+    const usernameInput = screen.getByLabelText(/Username/i);
     const submitButton = screen.getByRole('button');
 
     // Test invalid username pattern
@@ -113,7 +93,7 @@ describe('FreeIPAAccountCreate', () => {
   it('should validate minimum username length', async () => {
     renderComponent();
 
-    const usernameInput = screen.getByRole('textbox');
+    const usernameInput = screen.getByLabelText(/Username/i);
     const submitButton = screen.getByRole('button');
 
     // Test username too short
@@ -131,7 +111,7 @@ describe('FreeIPAAccountCreate', () => {
   it('should validate maximum username length with prefix', async () => {
     renderComponent();
 
-    const usernameInput = screen.getByRole('textbox');
+    const usernameInput = screen.getByLabelText(/Username/i);
     const submitButton = screen.getByRole('button');
 
     // Test username too long (32 - 5 prefix = 27 max, so 28 should fail)
@@ -156,7 +136,7 @@ describe('FreeIPAAccountCreate', () => {
 
     renderComponent();
 
-    const usernameInput = screen.getByRole('textbox');
+    const usernameInput = screen.getByLabelText(/Username/i);
     const submitButton = screen.getByRole('button');
 
     // Enter valid username
@@ -180,7 +160,7 @@ describe('FreeIPAAccountCreate', () => {
 
     renderComponent();
 
-    const usernameInput = screen.getByRole('textbox');
+    const usernameInput = screen.getByLabelText(/Username/i);
     const submitButton = screen.getByRole('button');
 
     // Enter valid username

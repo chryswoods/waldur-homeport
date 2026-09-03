@@ -4,27 +4,19 @@ import {
   PhoneCallIcon,
   UserSquareIcon,
 } from '@phosphor-icons/react';
-import { useMemo, useEffect } from 'react';
+import { useMemo } from 'react';
 import { Stack } from 'react-bootstrap';
-import { useDispatch, useSelector } from 'react-redux';
 import { User } from 'waldur-js-client';
 
-import { CopyToClipboardButton } from '@waldur/core/CopyToClipboardButton';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { StateIndicator } from '@waldur/core/StateIndicator';
-import { PublicDashboardHero } from '@waldur/dashboard/hero/PublicDashboardHero';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { DeploymentFeatures, UserFeatures } from '@waldur/FeaturesEnums';
-import { openModalDialog } from '@waldur/modal/actions';
-import { getItemAbbreviation } from '@waldur/navigation/workspace/context-selector/utils';
-import { isStaffOrSupport, getUser as getCurrentUser } from '@waldur/workspace/selectors';
+import { StateIndicator } from '@/core/StateIndicator';
+import { formatPhoneNumber } from '@/core/utils';
+import { PublicDashboardHero } from '@/dashboard/hero/PublicDashboardHero';
+import { getItemAbbreviation } from '@/navigation/workspace/context-selector/utils';
+import { useUser } from '@/workspace/hooks';
 
 import { formatUserIsActive } from '../support/utils';
 
-const SetUnixShortNameDialog = lazyComponent(
-  () => import('./SetUnixShortNameDialog'),
-  'SetUnixShortNameDialog',
-);
+import { UserActions } from './UserActions';
 
 export const UserProfile = ({
   user,
@@ -33,32 +25,12 @@ export const UserProfile = ({
   user: User;
   className?: string;
 }) => {
-  const dispatch = useDispatch();
-  const showStatus = useSelector(isStaffOrSupport);
-  const currentUser = useSelector(getCurrentUser);
+  const currentUser = useUser();
+  const showStatus = currentUser?.is_staff || currentUser?.is_support;
   const abbreviation = useMemo(
     () => getItemAbbreviation(user, 'full_name'),
     [user],
   );
-
-  // Check if we should prompt for unix_shortname
-  const shouldPromptForShortname =
-    currentUser?.uuid === user.uuid && // Viewing own profile
-    isFeatureVisible(UserFeatures.show_slug) &&
-    isFeatureVisible(UserFeatures.show_slug_as_id) &&
-    !isFeatureVisible(DeploymentFeatures.application_portal_only) &&
-    (!user.unix_username || user.unix_username === '');
-
-  useEffect(() => {
-    if (shouldPromptForShortname) {
-      dispatch(
-        openModalDialog(SetUnixShortNameDialog, {
-          resolve: { user },
-        }),
-      );
-    }
-  }, [shouldPromptForShortname, dispatch, user]);
-
   return (
     <PublicDashboardHero
       hideQuickSection
@@ -83,26 +55,13 @@ export const UserProfile = ({
           )}
         </div>
       }
+      actions={<UserActions user={user} />}
     >
       <Stack
         direction="horizontal"
         className="flex-wrap text-gray-500 lh-1"
         gap={5}
       >
-        {isFeatureVisible(UserFeatures.show_slug) &&
-          isFeatureVisible(UserFeatures.show_slug_as_id) &&
-          user.slug &&
-          user.unix_username && (
-            <span className="fw-semibold text-dark text-nowrap">
-              ID: {user.slug}
-              <CopyToClipboardButton
-                value={user.slug}
-                onlyButton
-                size={16}
-                buttonClassName="ms-2"
-              />
-            </span>
-          )}
         {user.job_title && (
           <span className="text-nowrap">
             <UserSquareIcon size={18} weight="duotone" className="me-1" />
@@ -124,7 +83,7 @@ export const UserProfile = ({
         {user.phone_number && (
           <span className="text-nowrap">
             <PhoneCallIcon size={18} weight="duotone" className="me-1" />
-            {user.phone_number}
+            {formatPhoneNumber(user.phone_number)}
           </span>
         )}
       </Stack>

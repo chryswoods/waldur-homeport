@@ -1,29 +1,45 @@
-import { DropdownButton, DropdownDivider } from 'react-bootstrap';
+import { DropdownDivider } from 'react-bootstrap';
 import { Resource } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { useUser } from '@waldur/workspace/hooks';
+import { translate } from '@/i18n';
+import { ActionDropdownButton } from '@/table/ActionDropdownButton';
+import { useUser } from '@/workspace/hooks';
 
-import { MultiDestroyAction } from './MultiDestroyAction';
+import { MultiChangeLimitsAction } from './MultiChangeLimitsAction';
 import { MultiEditOptionsAction } from './MultiEditOptionsAction';
 import { MultiMoveAction } from './MultiMoveAction';
+import { MultiPlacementMapAction } from './MultiPlacementMapAction';
 import { MultiPullAction } from './MultiPullAction';
+import { MultiRenewAllocationsAction } from './MultiRenewAllocationsAction';
 import { MultiRestartAction } from './MultiRestartAction';
+import { MultiSetDownscaledAction } from './MultiSetDownscaledAction';
+import { MultiSetEndDateAction } from './MultiSetEndDateAction';
 import { MultiSetErredAction } from './MultiSetErredAction';
+import { MultiSetPausedAction } from './MultiSetPausedAction';
 import { MultiStartAction } from './MultiStartAction';
 import { MultiStopAction } from './MultiStopAction';
+import { MultiTerminateAction } from './MultiTerminateAction';
 import { MultiUnlinkAction } from './MultiUnlinkAction';
 
 export const ResourceMultiSelectAction = ({
   rows,
   refetch,
+  className,
 }: {
   rows: Resource[];
   refetch(): void;
+  className?: string;
 }) => {
   const user = useUser();
   return (
-    <DropdownButton variant="primary" title={translate('All actions')}>
+    <ActionDropdownButton
+      variant="primary"
+      title={translate('All actions')}
+      className={className}
+    >
+      <MultiRenewAllocationsAction rows={rows} refetch={refetch} />
+      <MultiChangeLimitsAction rows={rows} refetch={refetch} />
+      <MultiSetEndDateAction rows={rows} refetch={refetch} />
       <MultiEditOptionsAction rows={rows} refetch={refetch} />
       <MultiStopAction rows={rows} refetch={refetch} />
       <MultiStartAction rows={rows} refetch={refetch} />
@@ -31,14 +47,17 @@ export const ResourceMultiSelectAction = ({
       <MultiPullAction rows={rows} refetch={refetch} />
       <MultiMoveAction rows={rows} refetch={refetch} />
       <DropdownDivider className="border-top m-0" />
-      <MultiDestroyAction rows={rows} refetch={refetch} />
+      <MultiTerminateAction rows={rows} refetch={refetch} />
       {user.is_staff && (
         <>
           <DropdownDivider className="border-top m-0" />
+          <MultiPlacementMapAction rows={rows} />
+          <MultiSetDownscaledAction rows={rows} refetch={refetch} />
+          <MultiSetPausedAction rows={rows} refetch={refetch} />
           <MultiSetErredAction rows={rows} refetch={refetch} />
           <MultiUnlinkAction rows={rows} refetch={refetch} />
         </>
       )}
-    </DropdownButton>
+    </ActionDropdownButton>
   );
 };

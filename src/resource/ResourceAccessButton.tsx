@@ -4,12 +4,12 @@ import {
   CopyIcon,
 } from '@phosphor-icons/react';
 import { FC, useCallback, useMemo } from 'react';
-import { Button, Dropdown } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
+import { Dropdown } from 'react-bootstrap';
 
-import { Tip } from '@waldur/core/Tooltip';
-import { translate } from '@waldur/i18n';
-import { showSuccess } from '@waldur/store/notify';
+import { Tip } from '@/core/Tooltip';
+import { translate } from '@/i18n';
+import { useNotify } from '@/store/notify';
+import { CompactActionButton } from '@/table/CompactActionButton';
 
 import { getResourceAccessEndpoints, isSshFormat } from './utils';
 
@@ -31,7 +31,7 @@ export const ResourceAccessButton: FC<ResourceAccessButtonProps> = ({
   resource,
   offering,
 }) => {
-  const dispatch = useDispatch();
+  const { showSuccess } = useNotify();
 
   const extendURLWithUsername = (url) => {
     const [protocol, restUrl] = url.split('://');
@@ -41,25 +41,22 @@ export const ResourceAccessButton: FC<ResourceAccessButtonProps> = ({
     }${port ? `:${port}` : ''}`;
   };
 
-  const copyText = useCallback(
-    (value) => {
-      if (isSshFormat(value) && resource.username) {
-        const [hostname, port] = value.split('://')[1].split(':');
-        const valueToCopy = `ssh ${resource.username}@${hostname}${
-          port ? ` -p ${port}` : ''
-        }`;
+  const copyText = useCallback((value) => {
+    if (isSshFormat(value) && resource.username) {
+      const [hostname, port] = value.split('://')[1].split(':');
+      const valueToCopy = `ssh ${resource.username}@${hostname}${
+        port ? ` -p ${port}` : ''
+      }`;
 
-        navigator.clipboard.writeText(valueToCopy).then(() => {
-          dispatch(showSuccess(translate('Text has been copied')));
-        });
-      } else {
-        navigator.clipboard.writeText(value).then(() => {
-          dispatch(showSuccess(translate('Text has been copied')));
-        });
-      }
-    },
-    [dispatch, resource.username],
-  );
+      navigator.clipboard.writeText(valueToCopy).then(() => {
+        showSuccess(translate('Text has been copied'));
+      });
+    } else {
+      navigator.clipboard.writeText(value).then(() => {
+        showSuccess(translate('Text has been copied'));
+      });
+    }
+  }, []);
 
   const endpoints = useMemo(
     () => getResourceAccessEndpoints(resource, offering),
@@ -101,19 +98,15 @@ export const ResourceAccessButton: FC<ResourceAccessButtonProps> = ({
                   : endpoint.url
               }
             >
-              <Button
+              <CompactActionButton
                 variant="link"
-                size="sm"
-                className="btn-icon h-20px"
-                onClick={(e) => {
+                className="h-20px"
+                action={(e) => {
                   copyText(endpoint.url);
                   e.preventDefault();
                 }}
-              >
-                <span className="svg-icon svg-icon-2">
-                  <CopyIcon weight="bold" />
-                </span>
-              </Button>
+                iconNode={<CopyIcon weight="bold" />}
+              />
             </Tip>
           </Dropdown.Item>
         ))}

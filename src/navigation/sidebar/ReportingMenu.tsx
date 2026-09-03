@@ -1,13 +1,26 @@
 import { ChartBarIcon } from '@phosphor-icons/react';
-import { useSelector } from 'react-redux';
+import { FC, useMemo } from 'react';
 
-import { translate } from '@waldur/i18n';
-import { isStaffOrSupport } from '@waldur/workspace/selectors';
+import { translate } from '@/i18n';
+import { useUser } from '@/workspace/hooks';
+
+import { hasAnyReportingEnabled } from '../../reporting/utils';
 
 import { MenuItem } from './MenuItem';
 
-export const ReportingMenu = () => {
-  const visible = useSelector(isStaffOrSupport);
+interface ReportingMenuProps {
+  disabled?: boolean;
+  disabledTooltip?: string;
+}
+
+export const ReportingMenu: FC<ReportingMenuProps> = ({
+  disabled,
+  disabledTooltip,
+}) => {
+  const user = useUser();
+  const isStaff = user?.is_staff || user?.is_support;
+  const anyEnabled = useMemo(() => hasAnyReportingEnabled(), []);
+  const visible = isStaff && anyEnabled;
   if (!visible) {
     return null;
   }
@@ -18,6 +31,8 @@ export const ReportingMenu = () => {
       activeState="reporting"
       child={false}
       icon={<ChartBarIcon weight="bold" />}
+      disabled={disabled}
+      disabledTooltip={disabledTooltip}
     />
   );
 };

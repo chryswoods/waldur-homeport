@@ -1,13 +1,51 @@
 import { UIView } from '@uirouter/react';
 
-import { ENV } from '@waldur/core/config';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { StateDeclaration } from '@waldur/core/types';
-import { MarketplaceFeatures, UserFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { hasSupport } from '@waldur/issues/hooks';
+import { ENV } from '@/core/config';
+import { lazyComponent } from '@/core/lazyComponent';
+import { StateDeclaration } from '@/core/types';
+import { isFeatureVisible } from '@/features/connect';
+import {
+  CustomerFeatures,
+  MarketplaceFeatures,
+  UserFeatures,
+} from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { hasSupport } from '@/issues/hooks';
+import {
+  isCallsSectionVisible,
+  isProposalRequestEnabled,
+} from '@/marketplace/serviceAccessMode';
+import { requestListTitle } from '@/proposals/presentation';
+import {
+  getUser,
+  hasNonProjectPermissions,
+  isStaffOrSupport,
+} from '@/workspace/selectors';
 
+import { arePasskeysEnabled } from './passkeys/utils';
 import { UsersService } from './UsersService';
+
+// PAT is gated globally (PAT_ENABLED) and then per-user: staff are implicitly
+// allowed, other users need the can_use_personal_access_tokens flag.
+const canUsePersonalAccessTokens = (state) => {
+  if (!ENV.plugins.WALDUR_CORE.PAT_ENABLED) {
+    return false;
+  }
+  const user = getUser(state);
+  return Boolean(
+    user && (user.is_staff || user.can_use_personal_access_tokens),
+  );
+};
+
+const canAccessOrganization = (state) => {
+  const hideFromProjectMembers = isFeatureVisible(
+    MarketplaceFeatures.hide_organization_information_from_project_members,
+  );
+  if (!hideFromProjectMembers) {
+    return true;
+  }
+  return hasNonProjectPermissions(state);
+};
 
 export const states: StateDeclaration[] = [
   {
@@ -33,9 +71,18 @@ export const states: StateDeclaration[] = [
     component: UIView,
     url: '',
     data: {
-      feature: UserFeatures.credentials,
       breadcrumb: () => translate('Credentials'),
       priority: 110,
+      permissions: [
+        (state) =>
+          isFeatureVisible(UserFeatures.ssh_keys) ||
+          ENV.plugins.WALDUR_CORE.FREEIPA_ENABLED ||
+          !isFeatureVisible(UserFeatures.conceal_remote_accounts) ||
+          isStaffOrSupport(state) ||
+          !isFeatureVisible(UserFeatures.conceal_api_token) ||
+          canUsePersonalAccessTokens(state) ||
+          arePasskeysEnabled(),
+      ],
     },
   },
 
@@ -53,6 +100,58 @@ export const states: StateDeclaration[] = [
     },
   },
   {
+    name: 'profile.onboarding-applications',
+    url: 'onboarding-applications/',
+    component: lazyComponent(() =>
+      import('./UserOnboardingVerificationsList').then((module) => ({
+        default: module.UserOnboardingVerificationsList,
+      })),
+    ),
+    data: {
+      breadcrumb: () => translate('Onboarding applications'),
+      feature: CustomerFeatures.show_onboarding,
+      priority: 121,
+    },
+  },
+  {
+    // One entry replacing `profile.resource-requests` and
+    // `profile.proposals`, which sat next to each other both ending in
+    // "requests". The page carries a lens switch between the two instead.
+    //
+    // The permission gate is the union of the two it replaces: the resource
+    // view needs somewhere to have requested from (isProposalRequestEnabled),
+    // and the request view was previously marketplace-only because calls own
+    // the list in the other modes. Keeping the union means the page appears
+    // wherever either half used to.
+    name: 'profile.requests',
+    url: 'requests/',
+    component: lazyComponent(() =>
+      import('@/proposals/requests/ProfileRequests').then((module) => ({
+        default: module.ProfileRequests,
+      })),
+    ),
+    data: {
+      breadcrumb: () => requestListTitle(),
+      permissions: [
+        () => isProposalRequestEnabled() || !isCallsSectionVisible(),
+      ],
+      priority: 122,
+    },
+  },
+  {
+    name: 'profile.verification-details',
+    url: 'verifications/:uuid/',
+    component: lazyComponent(() =>
+      import('./UserOnboardingJustificationDetailsPage').then((module) => ({
+        default: module.UserOnboardingJustificationDetailsPage,
+      })),
+    ),
+    data: {
+      breadcrumb: () => translate('Verification details'),
+      skipBreadcrumb: true,
+    },
+  },
+  {
     name: 'profile.events',
     url: 'events/',
     component: lazyComponent(() =>
@@ -62,20 +161,27 @@ export const states: StateDeclaration[] = [
     ),
     data: {
       breadcrumb: () => translate('Audit logs'),
+      permissions: [
+        (state) =>
+          !isFeatureVisible(
+            MarketplaceFeatures.conceal_audit_log_from_end_users,
+          ) || isStaffOrSupport(state),
+      ],
     },
   },
   {
     name: 'profile.issues',
     url: 'issues/',
     component: lazyComponent(() =>
-      import(
-        '@waldur/navigation/header/quick-issue-drawer/UserIssuesTable'
-      ).then((module) => ({
-        default: module.UserIssuesTable,
-      })),
+      import('@/navigation/header/quick-issue-drawer/UserIssuesTable').then(
+        (module) => ({
+          default: module.UserIssuesTable,
+        }),
+      ),
     ),
     data: {
-      breadcrumb: () => translate('Issues'),
+      breadcrumb: () => translate('Support'),
+      skipBreadcrumb: true,
       permissions: [hasSupport],
     },
   },
@@ -112,7 +218,7 @@ export const states: StateDeclaration[] = [
     name: 'profile.tos-management',
     url: 'tos-management/',
     component: lazyComponent(() =>
-      import('./dashboard/UserTosManagementSection').then((module) => ({
+      import('./dashboard/UserTosManagement').then((module) => ({
         default: module.UserTosManagementSection,
       })),
     ),
@@ -135,8 +241,12 @@ export const states: StateDeclaration[] = [
   },
   {
     name: 'profile-manage',
-    url: 'manage/?tab',
+    url: 'manage/?tab&section',
     parent: 'profile-manage-container',
+    params: {
+      tab: { dynamic: true },
+      section: { dynamic: true },
+    },
     component: lazyComponent(() =>
       import('./UserManage').then((module) => ({ default: module.UserManage })),
     ),
@@ -149,7 +259,7 @@ export const states: StateDeclaration[] = [
     name: 'profile-freeipa',
     url: 'freeipa-account/',
     component: lazyComponent(() =>
-      import('@waldur/freeipa/FreeIPAAccount').then((module) => ({
+      import('@/freeipa/FreeIPAAccount').then((module) => ({
         default: module.FreeIpaAccount,
       })),
     ),
@@ -162,6 +272,7 @@ export const states: StateDeclaration[] = [
   {
     name: 'profile-remote-accounts',
     url: 'remote-accounts/',
+    params: { filterState: null, filterAttention: false },
     component: lazyComponent(() =>
       import('./UserOfferingList').then((module) => ({
         default: module.UserOfferingList,
@@ -170,6 +281,11 @@ export const states: StateDeclaration[] = [
     parent: 'profile-credentials',
     data: {
       breadcrumb: () => translate('Remote accounts'),
+      permissions: [
+        (state) =>
+          !isFeatureVisible(UserFeatures.conceal_remote_accounts) ||
+          isStaffOrSupport(state),
+      ],
     },
   },
   {
@@ -181,8 +297,12 @@ export const states: StateDeclaration[] = [
       })),
     ),
     data: {
-      feature: UserFeatures.permission_requests,
       breadcrumb: () => translate('Permission requests'),
+      permissions: [
+        (state) =>
+          !isFeatureVisible(UserFeatures.conceal_permission_requests) ||
+          isStaffOrSupport(state),
+      ],
       priority: 130,
     },
   },
@@ -197,13 +317,64 @@ export const states: StateDeclaration[] = [
     parent: 'profile-credentials',
     data: {
       breadcrumb: () => translate('API token'),
+      permissions: [
+        (state) =>
+          !isFeatureVisible(UserFeatures.conceal_api_token) ||
+          isStaffOrSupport(state),
+      ],
     },
   },
+  {
+    // Deliberately not under profile-credentials: this is an interstitial the
+    // transition hook forces users onto, not a tab they browse to.
+    name: 'profile-passkeys-required',
+    url: '/passkey-required/',
+    component: lazyComponent(() =>
+      import('./passkeys/PasskeyEnrollmentRequired').then((module) => ({
+        default: module.PasskeyEnrollmentRequired,
+      })),
+    ),
+    data: {
+      breadcrumb: () => translate('Passkey required'),
+      permissions: [() => arePasskeysEnabled()],
+    },
+  },
+  {
+    name: 'profile-passkeys',
+    url: 'passkeys/',
+    component: lazyComponent(() =>
+      import('./passkeys/PasskeysList').then((module) => ({
+        default: module.PasskeysList,
+      })),
+    ),
+    parent: 'profile-credentials',
+    data: {
+      breadcrumb: () => translate('Passkeys'),
+      permissions: [() => arePasskeysEnabled()],
+    },
+  },
+  {
+    name: 'profile-personal-access-tokens',
+    url: 'personal-access-tokens/',
+    component: lazyComponent(() =>
+      import('./personal-access-tokens/PersonalAccessTokensList').then(
+        (module) => ({
+          default: module.PersonalAccessTokensList,
+        }),
+      ),
+    ),
+    parent: 'profile-credentials',
+    data: {
+      breadcrumb: () => translate('Personal access tokens'),
+      permissions: [canUsePersonalAccessTokens],
+    },
+  },
+
   {
     name: 'projects',
     url: '/projects/',
     component: lazyComponent(() =>
-      import('@waldur/user/affiliations/ProjectsList').then((module) => ({
+      import('@/user/affiliations/ProjectsList').then((module) => ({
         default: module.ProjectsList,
       })),
     ),
@@ -213,11 +384,30 @@ export const states: StateDeclaration[] = [
     name: 'organizations',
     url: '/organizations/',
     component: lazyComponent(() =>
-      import('@waldur/user/affiliations/OrganizationsList').then((module) => ({
+      import('@/user/affiliations/OrganizationsList').then((module) => ({
         default: module.OrganizationsList,
       })),
     ),
     parent: 'layout',
+    data: {
+      permissions: [canAccessOrganization],
+    },
+  },
+  {
+    name: 'organizations-create',
+    url: '/organizations/create/',
+    component: lazyComponent(() =>
+      import('./organization-create/OrganizationCreatePage').then((module) => ({
+        default: module.OrganizationCreatePage,
+      })),
+    ),
+    parent: 'layout',
+    data: {
+      auth: true,
+      breadcrumb: () => translate('Create organization'),
+      feature: CustomerFeatures.show_onboarding,
+      permissions: [canAccessOrganization],
+    },
   },
   {
     name: 'user-email-change',
@@ -230,19 +420,19 @@ export const states: StateDeclaration[] = [
   },
   {
     name: 'category-resources',
-    url: '/resources/:category_uuid/',
+    url: '/resources/:category_uuid/?organization&project',
     component: lazyComponent(() =>
-      import(
-        '@waldur/marketplace/resources/list/CategoryResourcesContainer'
-      ).then((module) => ({ default: module.CategoryResourcesContainer })),
+      import('@/marketplace/resources/list/CategoryResourcesContainer').then(
+        (module) => ({ default: module.CategoryResourcesContainer }),
+      ),
     ),
     parent: 'layout',
   },
   {
     name: 'all-resources',
-    url: '/all-resources/?offering',
+    url: '/all-resources/?organization&project',
     component: lazyComponent(() =>
-      import('@waldur/marketplace/resources/list/AllResourcesList').then(
+      import('@/marketplace/resources/list/AllResourcesList').then(
         (module) => ({ default: module.AllResourcesList }),
       ),
     ),

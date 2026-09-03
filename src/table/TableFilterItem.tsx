@@ -1,4 +1,4 @@
-import { CaretDownIcon, CaretRightIcon, XIcon } from '@phosphor-icons/react';
+import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react';
 import classNames from 'classnames';
 import { isEqual } from 'lodash-es';
 import React, {
@@ -9,19 +9,22 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Accordion, Badge, Button } from 'react-bootstrap';
-import { useDispatch, useSelector } from 'react-redux';
+import { Accordion } from 'react-bootstrap';
+import { useSelector } from 'react-redux';
 import { useDebounce } from 'react-use';
-import { Field, change, formValueSelector } from 'redux-form';
 
-import { translate } from '@waldur/i18n';
-import { MenuComponent } from '@waldur/metronic/components';
+import { Badge } from '@/core/Badge';
+import { RemoveFilterBadgeButton } from '@/core/RemoveFilterBadgeButton';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { MenuComponent } from '@/metronic/components';
 
 import { TableFilterContext } from './FilterContextProvider';
+import { selectFilterValues } from './selectors';
 
 const DELAY_WAITING_FOR_FILTER = 50; // ms
 
-interface TableFilterItem {
+export interface TableFilterItemProps {
   title: string;
   name?: string;
   badgeValue?(value: any): string | number;
@@ -34,7 +37,7 @@ interface TableFilterItem {
   instantApply?: boolean;
 }
 
-const TableHeaderFilterItem: FC<PropsWithChildren<TableFilterItem>> = ({
+const TableHeaderFilterItem: FC<PropsWithChildren<TableFilterItemProps>> = ({
   badgeValue = (value) => {
     if (value) {
       if (value instanceof Array) {
@@ -46,6 +49,8 @@ const TableHeaderFilterItem: FC<PropsWithChildren<TableFilterItem>> = ({
   },
   ...props
 }) => {
+  const { table } = React.useContext(TableFilterContext);
+  const values = useSelector(selectFilterValues(table));
   const [open, setOpen] = React.useState(false);
   const toggleClick = React.useCallback(
     (value, e) => {
@@ -59,6 +64,8 @@ const TableHeaderFilterItem: FC<PropsWithChildren<TableFilterItem>> = ({
     [setOpen],
   );
 
+  const value = values?.[props.name];
+
   return (
     <button
       type="button"
@@ -69,40 +76,27 @@ const TableHeaderFilterItem: FC<PropsWithChildren<TableFilterItem>> = ({
     >
       {props.title}
       {open && <div className="filter-field">{props.children}</div>}
-      <Field
-        name={props.name}
-        component={({ input: { value } }) =>
-          !['', undefined].includes(value) ? (
-            <div
-              className="filter-value"
-              style={!props.ellipsis ? { maxWidth: 'unset' } : undefined}
-            >
-              {badgeValue(value) ? (
-                <Badge bg="secondary" className="text-dark">
-                  {badgeValue(value)}
-                </Badge>
-              ) : null}
-            </div>
-          ) : null
-        }
-      />
+      {!['', undefined].includes(value) ? (
+        <div
+          className="filter-value"
+          style={!props.ellipsis ? { maxWidth: 'unset' } : undefined}
+        >
+          {badgeValue(value) ? (
+            <Badge variant="default" pill outline>
+              {badgeValue(value)}
+            </Badge>
+          ) : null}
+        </div>
+      ) : null}
 
       <span className="svg-icon svg-icon-3 rotate-90 ms-2 lh-base">
-        <CaretDownIcon size={20} />
+        <CaretDownIcon size={20} weight="bold" />
       </span>
     </button>
   );
 };
 
-export const RemoveFilterBadgeButton = ({ onClick, size = 20 }) => (
-  <button
-    type="button"
-    className="text-btn text-gray-400 text-hover-gray-500 lh-0 ps-2"
-    onClick={onClick}
-  >
-    <XIcon weight="bold" size={size} />
-  </button>
-);
+export { RemoveFilterBadgeButton };
 
 export const TableSidebarFilterValues = ({
   value,
@@ -120,16 +114,17 @@ export const TableSidebarFilterValues = ({
           style={!ellipsis ? { maxWidth: 'unset' } : undefined}
         >
           <Badge
-            bg=""
-            className="badge-outline-default badge-lg fw-bold fs-7 py-2"
+            variant="default"
+            size="lg"
+            rightIcon={
+              !hideRemoveButton && (
+                <RemoveFilterBadgeButton onClick={() => remove(value, value)} />
+              )
+            }
+            outline
+            className="fs-7"
           >
             {badgeValue(value)}
-            {!hideRemoveButton && (
-              <RemoveFilterBadgeButton
-                size={12}
-                onClick={() => remove(value, value)}
-              />
-            )}
           </Badge>
         </div>
       ) : null
@@ -138,39 +133,41 @@ export const TableSidebarFilterValues = ({
         {value.map((v, i) => (
           <Badge
             key={i}
-            bg=""
-            className="filter-value badge-outline-default badge-lg fw-bold fs-7 px-2"
+            variant="default"
+            size="lg"
+            rightIcon={
+              !hideRemoveButton && (
+                <RemoveFilterBadgeButton onClick={() => remove(value, v)} />
+              )
+            }
+            outline
+            className="filter-value fs-7"
             style={!ellipsis ? { maxWidth: 'unset' } : undefined}
           >
             {getValueLabel(v)}
-            {!hideRemoveButton && (
-              <RemoveFilterBadgeButton
-                size={12}
-                onClick={() => remove(value, v)}
-              />
-            )}
           </Badge>
         ))}
       </>
     ) : (
       <Badge
-        bg=""
-        className="filter-value badge-outline-default badge-lg fw-bold fs-7 py-2"
+        variant="default"
+        size="lg"
+        rightIcon={
+          !hideRemoveButton && (
+            <RemoveFilterBadgeButton onClick={() => remove(value, value)} />
+          )
+        }
+        outline
+        className="filter-value fs-7"
         style={!ellipsis ? { maxWidth: 'unset' } : undefined}
       >
         {getValueLabel(value)}
-        {!hideRemoveButton && (
-          <RemoveFilterBadgeButton
-            size={12}
-            onClick={() => remove(value, value)}
-          />
-        )}
       </Badge>
     )
   ) : null;
 };
 
-const TableSidebarFilterItem: FC<PropsWithChildren<TableFilterItem>> = ({
+const TableSidebarFilterItem: FC<PropsWithChildren<TableFilterItemProps>> = ({
   getValueLabel = (value) => {
     if (value) {
       if (Array.isArray(value)) {
@@ -182,7 +179,29 @@ const TableSidebarFilterItem: FC<PropsWithChildren<TableFilterItem>> = ({
   },
   ...props
 }) => {
-  const { setFilter, form } = React.useContext(TableFilterContext);
+  const { table, setFilter, changeFilterValue } =
+    React.useContext(TableFilterContext);
+  const values = useSelector(selectFilterValues(table));
+
+  const _setFilterRef = useRef<any>();
+
+  const removeValue = useCallback(
+    (prevValue, value) => {
+      let newValue;
+      if (Array.isArray(prevValue) && prevValue.length > 1) {
+        newValue = prevValue.filter((v) => !isEqual(v, value));
+      } else {
+        newValue = null;
+      }
+      if (changeFilterValue) {
+        changeFilterValue(props.name, newValue);
+      }
+      if (_setFilterRef.current) {
+        _setFilterRef.current(newValue);
+      }
+    },
+    [changeFilterValue, props.name],
+  );
 
   const _setFilter = useCallback(
     (value) => {
@@ -202,32 +221,33 @@ const TableSidebarFilterItem: FC<PropsWithChildren<TableFilterItem>> = ({
         ),
       });
     },
-    [props, setFilter],
+    [
+      props.title,
+      props.name,
+      getValueLabel,
+      props.badgeValue,
+      props.ellipsis,
+      removeValue,
+      props.hideRemoveButton,
+      setFilter,
+    ],
   );
+  _setFilterRef.current = _setFilter;
 
-  const dispatch = useDispatch();
-  const removeValue = useCallback(
-    (prevValue, value) => {
-      let newValue;
-      if (Array.isArray(prevValue) && prevValue.length > 1) {
-        newValue = prevValue.filter((v) => !isEqual(v, value));
-      } else {
-        newValue = null;
-      }
-      dispatch(change(form, props.name, newValue, true));
-      _setFilter(newValue);
+  const itemValue = values?.[props.name];
+  useDebounce(
+    () => {
+      _setFilter(itemValue);
+      if (props.onApply)
+        props.onApply({
+          title: props.title,
+          name: props.name,
+          value: itemValue,
+        });
     },
-    [dispatch, form, props.name, _setFilter],
+    DELAY_WAITING_FOR_FILTER,
+    [itemValue],
   );
-
-  const itemValue = useSelector((state) =>
-    form ? formValueSelector(form)(state, props.name) : null,
-  );
-  useEffect(() => {
-    _setFilter(itemValue);
-    if (props.onApply)
-      props.onApply({ title: props.title, name: props.name, value: itemValue });
-  }, [itemValue, _setFilter]);
 
   return (
     <Accordion.Item eventKey={props.name}>
@@ -241,18 +261,13 @@ const TableSidebarFilterItem: FC<PropsWithChildren<TableFilterItem>> = ({
           {props.children}
         </div>
         {props.showValueBadge && (
-          <Field
-            name={props.name}
-            component={({ input: { value } }) => (
-              <TableSidebarFilterValues
-                value={value}
-                getValueLabel={getValueLabel}
-                badgeValue={props.badgeValue}
-                ellipsis={props.ellipsis}
-                remove={removeValue}
-                hideRemoveButton={props.hideRemoveButton}
-              />
-            )}
+          <TableSidebarFilterValues
+            value={itemValue}
+            getValueLabel={getValueLabel}
+            badgeValue={props.badgeValue}
+            ellipsis={props.ellipsis}
+            remove={removeValue}
+            hideRemoveButton={props.hideRemoveButton}
           />
         )}
       </Accordion.Body>
@@ -260,7 +275,7 @@ const TableSidebarFilterItem: FC<PropsWithChildren<TableFilterItem>> = ({
   );
 };
 
-const TableMenuFilterItem: FC<PropsWithChildren<TableFilterItem>> = ({
+const TableMenuFilterItem: FC<PropsWithChildren<TableFilterItemProps>> = ({
   getValueLabel = (value) => {
     if (value) {
       if (Array.isArray(value)) {
@@ -274,13 +289,37 @@ const TableMenuFilterItem: FC<PropsWithChildren<TableFilterItem>> = ({
   ...props
 }) => {
   const {
+    table,
     setFilter,
-    form,
+    changeFilterValue,
     apply,
     columnFilter,
     selectedSavedFilter,
     registerFilterComponent,
   } = React.useContext(TableFilterContext);
+  const values = useSelector(selectFilterValues(table));
+
+  const _setFilterRef = useRef<any>();
+
+  const removeValue = useCallback(
+    (prevValue, value) => {
+      let newValue;
+      if (Array.isArray(prevValue) && prevValue.length > 1) {
+        newValue = prevValue.filter((v) => !isEqual(v, value));
+      } else {
+        newValue = null;
+      }
+      apply(false);
+      if (changeFilterValue) {
+        changeFilterValue(props.name, newValue);
+      }
+      if (_setFilterRef.current) {
+        _setFilterRef.current(newValue);
+      }
+      apply(true);
+    },
+    [changeFilterValue, props.name, apply],
+  );
 
   const _setFilter = useCallback(
     (value) => {
@@ -300,8 +339,18 @@ const TableMenuFilterItem: FC<PropsWithChildren<TableFilterItem>> = ({
         ),
       });
     },
-    [props, setFilter],
+    [
+      props.title,
+      props.name,
+      getValueLabel,
+      props.badgeValue,
+      props.ellipsis,
+      removeValue,
+      props.hideRemoveButton,
+      setFilter,
+    ],
   );
+  _setFilterRef.current = _setFilter;
 
   // Register the filter renderer to access it from outside (from table cells)
   useEffect(() => {
@@ -311,38 +360,20 @@ const TableMenuFilterItem: FC<PropsWithChildren<TableFilterItem>> = ({
     });
   }, [props.name, _setFilter]);
 
-  const dispatch = useDispatch();
-  const removeValue = useCallback(
-    (prevValue, value) => {
-      let newValue;
-      if (Array.isArray(prevValue) && prevValue.length > 1) {
-        newValue = prevValue.filter((v) => !isEqual(v, value));
-      } else {
-        newValue = null;
-      }
-      apply(false);
-      dispatch(change(form, props.name, newValue, true));
-      _setFilter(newValue);
-      apply(true);
-    },
-    [dispatch, form, props.name, _setFilter],
-  );
-
-  const itemValue = useSelector((state) =>
-    form ? formValueSelector(form)(state, props.name) : null,
-  );
+  const itemValue = values?.[props.name];
 
   // The filter field must have an initial value (at least null) so that the filter menu popup does not close when setting this filter for the first time.
   // Wait a moment for the filters to set to the form. Then use them in the table state.
+  // Include itemValue in dependencies so filters loaded from URL are reflected in filtersStorage.
   useDebounce(
     () => {
       _setFilter(itemValue);
-      if (itemValue === null) {
-        dispatch(change(form, props.name, null));
+      if (itemValue === null && changeFilterValue) {
+        changeFilterValue(props.name, null);
       }
     },
     DELAY_WAITING_FOR_FILTER,
-    [],
+    [itemValue],
   );
 
   // Update filter when selecting a saved filter
@@ -356,27 +387,41 @@ const TableMenuFilterItem: FC<PropsWithChildren<TableFilterItem>> = ({
     }
   }, [selectedSavedFilter]);
 
-  const onApply = () => {
+  const onApply = (hideMenu = true) => {
     _setFilter(itemValue);
     if (props.onApply)
       props.onApply({ title: props.title, name: props.name, value: itemValue });
-    apply();
+    apply(hideMenu);
   };
 
   const [shown, setShown] = useState(false);
   const menuEl = useRef<HTMLDivElement>(null);
 
-  let isShown = false;
-  if (menuEl?.current) {
-    isShown = menuEl.current.classList.contains('show');
-  }
+  // Use MutationObserver to detect when menu-sub gets 'show' class added/removed
   useEffect(() => {
-    setShown(isShown);
-  }, [isShown]);
+    if (!menuEl.current) return;
+
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.attributeName === 'class') {
+          const hasShow = menuEl.current?.classList.contains('show') ?? false;
+          setShown(hasShow);
+        }
+      }
+    });
+
+    observer.observe(menuEl.current, { attributes: true });
+
+    // Check initial state
+    setShown(menuEl.current.classList.contains('show'));
+
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
-    if (isShown && instantApply) {
-      onApply();
+    if (shown && instantApply) {
+      // Don't hide menu when value changes (e.g., during typing)
+      onApply(false);
     }
   }, [itemValue]);
 
@@ -412,16 +457,21 @@ const TableMenuFilterItem: FC<PropsWithChildren<TableFilterItem>> = ({
               {shown && (
                 <div className="menu-content filter-footer pb-0">
                   <div className="d-flex gap-4">
-                    <Button
+                    <SubmitButton
+                      submitting={false}
                       variant="tertiary"
                       className="flex-grow-1 w-50"
                       onClick={() => MenuComponent.hideDropdowns(null)}
-                    >
-                      {translate('Cancel')}
-                    </Button>
-                    <Button className="flex-grow-1 w-50" onClick={onApply}>
-                      {translate('Apply')}
-                    </Button>
+                      type="button"
+                      label={translate('Cancel')}
+                    />
+                    <SubmitButton
+                      submitting={false}
+                      className="flex-grow-1 w-50"
+                      onClick={() => onApply()}
+                      type="button"
+                      label={translate('Apply')}
+                    />
                   </div>
                 </div>
               )}
@@ -434,7 +484,7 @@ const TableMenuFilterItem: FC<PropsWithChildren<TableFilterItem>> = ({
 };
 
 /** Please put only one child in each table filter item. */
-export const TableFilterItem: FC<PropsWithChildren<TableFilterItem>> = ({
+export const TableFilterItem: FC<PropsWithChildren<TableFilterItemProps>> = ({
   ellipsis = true,
   ...props
 }) => {

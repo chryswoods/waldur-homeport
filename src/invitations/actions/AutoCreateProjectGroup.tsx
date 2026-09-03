@@ -1,13 +1,8 @@
-import { useSelector } from 'react-redux';
-import { formValueSelector, Field } from 'redux-form';
+import { useFormState } from 'react-final-form';
 
-import { required } from '@waldur/core/validators';
-import { FormGroup, StringField } from '@waldur/form';
-import { AwesomeCheckboxField } from '@waldur/form/AwesomeCheckboxField';
-import { translate } from '@waldur/i18n';
-import { type RootState } from '@waldur/store/reducers';
-
-import { GROUP_INVITATION_CREATE_FORM_ID } from './constants';
+import { required } from '@/core/validators';
+import { BooleanGroup, StringGroup } from '@/form';
+import { translate } from '@/i18n';
 
 const NameTemplateTooltip = () => (
   <div className="text-start py-1">
@@ -27,52 +22,52 @@ const NameTemplateTooltip = () => (
 );
 
 export const AutoCreateProjectGroup = ({ disabled }) => {
-  const formValues = useSelector((state: RootState) =>
-    formValueSelector(GROUP_INVITATION_CREATE_FORM_ID)(
-      state,
-      'type',
-      'role',
-      'auto_create_project',
-    ),
-  );
-  const projectEnabled = formValues.role?.content_type === 'project';
+  const { values } = useFormState();
+  const projectEnabled = values?.role?.content_type === 'project';
+
   if (!projectEnabled) {
     return null;
   }
 
   return (
     <>
-      <Field
+      <BooleanGroup
         name="auto_create_project"
-        component={FormGroup}
-        hideLabel
-        space={5}
-        disabled={formValues.type === 'public' || disabled}
-      >
-        <AwesomeCheckboxField
-          label={translate('Auto-create project')}
-          alignMiddle
-        />
-      </Field>
-      {formValues.auto_create_project && (
-        <Field
-          name="project_name_template"
-          component={FormGroup}
-          label={translate('Project name template')}
-          required
-          validate={[required]}
-          placeholder={translate('e.g. {user.full_name} Research project')}
-          description={translate(
-            'Use variables like {user.full_name}, {user.email} to create dynamic project names',
-          )}
-          disabled={disabled}
-          tooltipEnd
-          tooltipProps={{ autoWidth: true }}
-          tooltip={<NameTemplateTooltip />}
-          space={5}
-        >
-          <StringField />
-        </Field>
+        label={translate('Auto-create project')}
+        alignMiddle
+        disabled={values?.type === 'public' || disabled}
+      />
+      {values?.auto_create_project && (
+        <>
+          <StringGroup
+            name="project_name_template"
+            placeholder={translate('e.g. {full_name} Research project')}
+            disabled={disabled}
+            validate={required}
+            label={translate('Project name template')}
+            required
+            description={translate(
+              'Use variables like {full_name}, {email} to create dynamic project names',
+            )}
+            help={<NameTemplateTooltip />}
+          />
+          <BooleanGroup
+            name="allow_custom_project_details"
+            label={translate(
+              'Allow users to provide custom project name and description',
+            )}
+            alignMiddle
+            disabled={disabled}
+          />
+          <BooleanGroup
+            name="allow_multiple_requests"
+            label={translate(
+              'Allow users to create multiple projects from this invitation',
+            )}
+            alignMiddle
+            disabled={disabled}
+          />
+        </>
       )}
     </>
   );

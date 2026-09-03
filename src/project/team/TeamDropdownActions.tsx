@@ -1,28 +1,16 @@
-import {
-  CaretDownIcon,
-  PlusCircleIcon,
-  SpinnerIcon,
-} from '@phosphor-icons/react';
-import { useQuery } from '@tanstack/react-query';
-import { Button, Dropdown } from 'react-bootstrap';
-import { useDispatch, useSelector } from 'react-redux';
+import { CaretDownIcon, PlusCircleIcon } from '@phosphor-icons/react';
+import { Dropdown } from 'react-bootstrap';
+import { useSelector } from 'react-redux';
 import { Project } from 'waldur-js-client';
 
-import { count } from '@waldur/core/api';
-import { ServiceAccountCreateButton } from '@waldur/customer/service-accounts/ServiceAccountCreateAction';
-import { translate } from '@waldur/i18n';
-import { InvitationCreateButton } from '@waldur/invitations/actions/create/InvitationCreateButton';
-import { openModalDialog } from '@waldur/modal/actions';
-import { canChangeMembership } from '@waldur/openportal/bindings/helpers';
-import { getTableState } from '@waldur/table/selectors';
-import { useUser } from '@waldur/workspace/hooks';
+import { ServiceAccountCreateButton } from '@/customer/service-accounts/ServiceAccountCreateAction';
+import { translate } from '@/i18n';
+import { InvitationCreateButton } from '@/invitations/actions/create/InvitationCreateButton';
+import { getTableState } from '@/table/selectors';
 
 import { CourseAccountCreateButton } from '../course-accounts/CourseAccountCreateAction';
-import { membershipLockedDialog } from '../MembershipLockedDialog';
-import { useProjectAwardDetails } from '../useProjectAwardDetails';
 
 import { AddUserButton } from './AddUserButton';
-import { hasCurrentCustomerPermission } from './utils';
 
 interface TeamDropdownActionsProps {
   project: Project;
@@ -40,52 +28,20 @@ export const TeamDropdownActions = ({
     project.max_service_accounts > 0 &&
     tableState?.pagination?.resultCount >= project.max_service_accounts;
 
-  const user = useUser();
-
-  const hasCustomerPermission = useSelector(hasCurrentCustomerPermission);
   const isCourseProject = project.kind === 'course';
-
-  const { isLoading, isError, data } = useQuery({
-    queryKey: ['TeamDropdownActions', project.uuid],
-
-    queryFn: async () => {
-      if (user.is_staff || hasCustomerPermission) {
-        return true;
-      }
-      const usersCount = await count(
-        `/api/projects/${project.uuid}/other_users/`,
-      );
-      return usersCount > 0;
-    },
-  });
-
-  const dispatch = useDispatch();
-  const { data: awardDetails } = useProjectAwardDetails(project?.uuid);
-  const membershipLocked = !canChangeMembership(awardDetails?.membership_control);
 
   // Don't render Add dropdown for removed projects
   if (project.is_removed) {
     return null;
   }
 
-  if (membershipLocked && awardDetails) {
-    return (
-      <Button
-        variant="primary"
-        className="btn-icon-right"
-        onClick={() => dispatch(membershipLockedDialog(awardDetails))}
-      >
-        <span className="svg-icon svg-icon-2">
-          <PlusCircleIcon weight="bold" />
-        </span>
-        {translate('Add')}
-      </Button>
-    );
-  }
-
   return (
     <Dropdown placement="bottom-end">
-      <Dropdown.Toggle variant="primary" className="no-arrow btn-icon-right">
+      <Dropdown.Toggle
+        variant="primary"
+        size="lg"
+        className="no-arrow btn-icon-right"
+      >
         <span className="svg-icon svg-icon-2">
           <PlusCircleIcon weight="bold" />
         </span>
@@ -95,47 +51,34 @@ export const TeamDropdownActions = ({
         </span>
       </Dropdown.Toggle>
       <Dropdown.Menu flip>
-        {isLoading ? (
-          <Dropdown.Item eventKey="1">
-            <SpinnerIcon size={20} className="animation-spin me-2" />
-            {translate('Loading actions')}
-          </Dropdown.Item>
-        ) : isError ? (
-          <Dropdown.Item eventKey="1">
-            {translate('Unable to load actions')}
-          </Dropdown.Item>
-        ) : (
-          <>
-            {!isCourseProject && (
-              <InvitationCreateButton
-                project={project}
-                roleTypes={['project']}
-                refetch={refetch}
-                enableBulkUpload={true}
-              />
-            )}
-
-            {data && !isCourseProject && (
-              <AddUserButton project={project} refetch={refetch} />
-            )}
-            {project.max_service_accounts !== 0 && (
-              <ServiceAccountCreateButton
-                context="project"
-                scope={project}
-                refetch={refetch}
-                disabled={isServiceAccountLimitReached}
-                tooltip={
-                  isServiceAccountLimitReached
-                    ? translate(
-                        'Maximum number of service accounts has been reached',
-                      )
-                    : undefined
-                }
-              />
-            )}
-            <CourseAccountCreateButton project={project} refetch={refetch} />
-          </>
+        {!isCourseProject && (
+          <InvitationCreateButton
+            project={project}
+            roleTypes={['project']}
+            refetch={refetch}
+            enableBulkUpload={true}
+          />
         )}
+
+        {!isCourseProject && (
+          <AddUserButton project={project} refetch={refetch} />
+        )}
+        {project.max_service_accounts !== 0 && (
+          <ServiceAccountCreateButton
+            context="project"
+            scope={project}
+            refetch={refetch}
+            disabled={isServiceAccountLimitReached}
+            tooltip={
+              isServiceAccountLimitReached
+                ? translate(
+                    'Maximum number of service accounts has been reached',
+                  )
+                : undefined
+            }
+          />
+        )}
+        <CourseAccountCreateButton project={project} refetch={refetch} />
       </Dropdown.Menu>
     </Dropdown>
   );

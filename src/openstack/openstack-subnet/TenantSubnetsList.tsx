@@ -5,13 +5,13 @@ import {
   OpenstackSubnetsListData,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { ActionButtonResource } from '@waldur/resource/actions/ActionButtonResource';
-import { ResourceState } from '@waldur/resource/state/ResourceState';
-import { ResourceSummary } from '@waldur/resource/summary/ResourceSummary';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { translate } from '@/i18n';
+import { ActionButtonResource } from '@/resource/actions/ActionButtonResource';
+import { ResourceState } from '@/resource/state/ResourceState';
+import { ResourceSummary } from '@/resource/summary/ResourceSummary';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
 
 import { CreateSubnetButton } from './actions/CreateSubnetButton';
 
@@ -44,6 +44,7 @@ export const TenantSubnetsList: FunctionComponent<{ resourceScope }> = ({
         'disable_gateway',
         'ip_version',
         'project_uuid',
+        'backend_id',
       ],
     }),
     [resourceScope],
@@ -83,7 +84,11 @@ export const TenantSubnetsList: FunctionComponent<{ resourceScope }> = ({
         <CreateSubnetButton resource={resourceScope} refetch={props.fetch} />
       }
       rowActions={({ row }) => (
-        <ActionButtonResource url={row.url} refetch={props.fetch} />
+        <ActionButtonResource
+          url={row.url}
+          refetch={props.fetch}
+          nestedResource
+        />
       )}
       expandableRow={({ row }) => <ResourceSummary resource={row} />}
     />

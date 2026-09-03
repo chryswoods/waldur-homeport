@@ -1,9 +1,9 @@
 import { CoreStates as ResourceState } from 'waldur-js-client';
 import { ResourceState as MarketplaceResourceState } from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
-import { LATIN_NAME_PATTERN } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
+import { ENV } from '@/core/config';
+import { LATIN_NAME_PATTERN } from '@/core/utils';
+import { translate } from '@/i18n';
 
 import { ActionField, ActionContext } from './types';
 
@@ -35,6 +35,10 @@ export function createDescriptionField(): ActionField {
     maxlength: 4096,
     required: false,
     type: 'text',
+    // Preserve "" so clearing the field sends an explicit empty string to the
+    // backend; react-final-form's default parse would otherwise drop the key
+    // from the PUT body and the backend would leave the old value in place.
+    parse: (value) => value ?? '',
   };
 }
 

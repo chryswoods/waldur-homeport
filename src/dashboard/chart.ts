@@ -1,8 +1,8 @@
 import { EChartsOption, MarkLineComponentOption, SeriesOption } from 'echarts';
 
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
 
-import { CHART_BAR_ROUNDING, LINE_CHART_COLOR } from './constants';
+import { CHART_BAR_ROUNDING, getChartBrandColor } from './constants';
 import { Chart, ChartData } from './types';
 
 type Value = string | number;
@@ -81,7 +81,7 @@ export const getLineChartOptions = (chart: Chart, hLines?: HLine[]) =>
     chart.data.map((item) => item.label),
     chart.data.map((item) => item.value),
     hLines,
-    LINE_CHART_COLOR,
+    getChartBrandColor(),
   );
 
 export const getCostWidgetChartOptions = (
@@ -152,8 +152,8 @@ export const getCostWidgetChartOptions = (
         color: '#555',
       },
       itemGap: 8,
-      left: '0%',
-      align: 'left',
+      top: 0,
+      right: 0,
     },
     series: series.map((serie) => ({
       barCategoryGap: 6,
@@ -298,8 +298,8 @@ export const getCreditWidgetChartOptions = (
         color: '#555',
       },
       itemGap: 8,
-      left: '0%',
-      align: 'left',
+      top: 0,
+      right: 0,
     },
     series: series.map((serie) => ({
       barCategoryGap: 6,

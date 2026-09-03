@@ -10,18 +10,19 @@ import {
 } from '@phosphor-icons/react';
 import { useCurrentStateAndParams } from '@uirouter/react';
 import { FC, useMemo, useState } from 'react';
-import { Button, DropdownItem } from 'react-bootstrap';
+import { DropdownItem } from 'react-bootstrap';
 import { useMediaQuery } from 'react-responsive';
+import { ProviderOfferingDetails as Offering } from 'waldur-js-client';
 
-import { GRID_BREAKPOINTS } from '@waldur/core/constants';
-import { CopyToClipboardButton } from '@waldur/core/CopyToClipboardButton';
-import { Link } from '@waldur/core/Link';
-import { LoadingSpinnerIcon } from '@waldur/core/LoadingSpinner';
-import { FilterBox } from '@waldur/form/FilterBox';
-import { Select } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { Offering } from '@waldur/marketplace/types';
-import { ActionsDropdownComponent } from '@waldur/table/ActionsDropdown';
+import { GRID_BREAKPOINTS } from '@/core/constants';
+import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
+import { Link } from '@/core/Link';
+import { FilterBox } from '@/form/FilterBox';
+import { Select } from '@/form/select';
+import { SubmitButton } from '@/form/SubmitButton';
+import { translate } from '@/i18n';
+import { ActionButton } from '@/table/ActionButton';
+import { ActionsDropdownComponent } from '@/table/ActionsDropdown';
 
 import { SCRIPT_ROWS } from './utils';
 
@@ -77,7 +78,7 @@ export const ScriptEditorHeader: FC<ScriptEditorHeaderProps> = ({
 
   const envItems = useMemo<EnvItem[]>(() => {
     const items = [];
-    ((offering.secret_options?.environ as any[]) || []).forEach((variable) => {
+    (offering.secret_options?.environ || []).forEach((variable) => {
       items.push({
         label: variable.name,
         type: 'environ',
@@ -131,37 +132,40 @@ export const ScriptEditorHeader: FC<ScriptEditorHeaderProps> = ({
           className={isSmallScr ? 'w-250px' : 'w-300px'}
         />
 
-        <Button onClick={onSave} disabled={submitting || executing || !dirty}>
-          <span className="svg-icon svg-icon-2">
-            <CheckIcon weight="bold" />
-          </span>
+        <SubmitButton
+          submitting={submitting || executing}
+          disabled={!dirty}
+          onClick={onSave}
+          type="button"
+          iconNode={<CheckIcon weight="bold" />}
+          iconOnLeft
+        >
           {isSmallScr ? translate('Save') : translate('Save script')}
-        </Button>
-        <Button
-          onClick={onReset}
+        </SubmitButton>
+        <ActionButton
+          action={onReset}
           variant="secondary"
           disabled={submitting || !dirty}
-        >
-          <span className="svg-icon svg-icon-2">
-            <ArrowClockwiseIcon weight="bold" />
-          </span>
-          {isSmallScr ? translate('Reset') : translate('Reset to saved')}
-        </Button>
-        <Button
+          disabledReason={
+            submitting
+              ? translate('Saving in progress')
+              : translate('No changes to reset')
+          }
+          iconNode={<ArrowClockwiseIcon weight="bold" />}
+          title={isSmallScr ? translate('Reset') : translate('Reset to saved')}
+        />
+        <ActionButton
           variant="secondary"
-          onClick={onDryRun}
-          disabled={submitting || executing}
+          action={onDryRun}
+          disabled={submitting}
+          disabledReason={translate('Saving in progress')}
+          pending={executing}
           className="text-nowrap"
-        >
-          <span className="svg-icon svg-icon-2">
-            {executing ? (
-              <LoadingSpinnerIcon className="me-1" />
-            ) : (
-              <PlayIcon weight="bold" />
-            )}
-          </span>
-          {isSmallScr ? translate('Dry run') : translate('Dry run script')}
-        </Button>
+          iconNode={<PlayIcon weight="bold" />}
+          title={
+            isSmallScr ? translate('Dry run') : translate('Dry run script')
+          }
+        />
       </div>
       <ActionsDropdownComponent
         label={
@@ -172,7 +176,6 @@ export const ScriptEditorHeader: FC<ScriptEditorHeaderProps> = ({
         labeled
         menuStyle={{ zIndex: 1056 }}
         drop="down"
-        size="md"
       >
         <FilterBox
           type="search"

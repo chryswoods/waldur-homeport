@@ -1,38 +1,30 @@
+import { FC } from 'react';
 import { FormControl } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
-import { reduxForm } from 'redux-form';
+import { Field, Form } from 'react-final-form';
 import { overrideSettings } from 'waldur-js-client';
 
-import { formDataOptions } from '@waldur/core/api';
-import { ENV } from '@waldur/core/config';
-import { SelectField, SubmitButton, TextField } from '@waldur/form';
-import { AwesomeCheckboxField } from '@waldur/form/AwesomeCheckboxField';
-import { FormContainer } from '@waldur/form/FormContainer';
-import { MonacoField } from '@waldur/form/MonacoField';
-import { StringField } from '@waldur/form/StringField';
-import { WideImageField } from '@waldur/form/WideImageField';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { VisualLayoutSelector } from '@/auth/VisualLayoutSelector';
+import { formDataOptions } from '@/core/api';
+import { ENV } from '@/core/config';
+import { WarnCard } from '@/core/WarnCard';
+import { SelectField, SubmitButton, TextField } from '@/form';
+import { FormGroup } from '@/form';
+import { AwesomeCheckboxField } from '@/form/AwesomeCheckboxField';
+import { CommaSeparatedListField } from '@/form/CommaSeparatedListField';
+import { MonacoField } from '@/form/MonacoField';
+import { StringField } from '@/form/StringField';
+import { WideImageField } from '@/form/WideImageField';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useNotify } from '@/store/notify';
 
-import { getKeyTitle, SIDEBAR_STYLES } from './utils';
-
-const SUPPORT_BACKENDS = [
-  {
-    label: 'Atlassian',
-    value: 'atlassian',
-  },
-  {
-    label: 'Zammad',
-    value: 'zammad',
-  },
-  {
-    label: 'SMAX',
-    value: 'smax',
-  },
-];
+import {
+  formatListFieldValue,
+  getKeyTitle,
+  SIDEBAR_STYLE_PRIMARY,
+} from './utils';
 
 const colorPalette = [
   '#307300',
@@ -66,119 +58,201 @@ const ColorField = (props) => (
   </div>
 );
 
-export const ConfigurationEditDialog = reduxForm<
-  any,
-  { resolve: { item: { key; description; type } } }
->({
-  form: 'ConfigurationEditDialog',
-})((props) => {
-  const item = props.resolve.item;
-  const dispatch = useDispatch();
-  const callback = async (formData) => {
-    try {
-      const isFileRemoving =
-        item.type === 'image_field' && formData.value === null;
+const VisualLayoutSelectorField = ({ input }) => (
+  <VisualLayoutSelector value={input.value} onChange={input.onChange} />
+);
 
-      if (isFileRemoving)
+interface ConfigurationEditDialogProps {
+  resolve: {
+    item: {
+      key;
+      description;
+      type;
+      options?: Array<{ value: string; label: string }>;
+    };
+    initialValues?: any;
+  };
+}
+
+export const ConfigurationEditDialog: FC<ConfigurationEditDialogProps> = ({
+  resolve,
+}) => {
+  const item = resolve.item;
+  const { closeDialog } = useModal();
+  const { showSuccess, showErrorResponse } = useNotify();
+
+  const initialValues = (() => {
+    const rawValue =
+      resolve.initialValues?.value ?? ENV.plugins.WALDUR_CORE[item.key];
+    // Format arrays as comma-separated strings for list_field type
+    if (item.type === 'list_field' && Array.isArray(rawValue)) {
+      return { value: formatListFieldValue(rawValue) };
+    }
+    return { value: rawValue };
+  })();
+
+  const onSubmit = async (formData) => {
+    try {
+      const isImageField = item.type === 'image_field';
+      const isFileRemoving = isImageField && formData.value === null;
+      const isFileUpload = isImageField && formData.value instanceof File;
+
+      if (isFileRemoving) {
         await overrideSettings({
           body: { [item.key]: null },
         });
-      else
-        await overrideSettings({
-          body: { [item.key]: formData.value },
-          ...formDataOptions,
-        });
+      } else {
+        // Only use formDataOptions (multipart/form-data) for actual file uploads
+        const requestOptions = isFileUpload ? formDataOptions : {};
 
-      ENV.plugins.WALDUR_CORE[item.key] = formData.value;
-      dispatch(showSuccess(translate('Configuration has been updated.')));
-      dispatch(closeModalDialog());
+        await overrideSettings({
+          body: { [item.key]: formData.value ?? '' },
+          ...requestOptions,
+        });
+      }
+
+      ENV.plugins.WALDUR_CORE[item.key] = formData.value ?? '';
+      showSuccess(translate('Configuration has been updated.'));
+      closeDialog();
       location.reload();
     } catch (e) {
-      dispatch(
-        showErrorResponse(e, translate('Unable to update configuration.')),
-      );
+      showErrorResponse(e, translate('Unable to update configuration.'));
     }
   };
 
   return (
-    <form onSubmit={props.handleSubmit(callback)}>
-      <ModalDialog
-        title={getKeyTitle(item.key)}
-        bodyClassName="pb-2"
-        footerClassName="border-0 pt-0 gap-2"
-        footer={
-          <>
-            <CloseDialogButton className="flex-grow-1" />
-            <SubmitButton
-              disabled={props.invalid || !props.dirty}
-              submitting={props.submitting}
-              label={translate('Confirm')}
-              className="btn btn-primary flex-grow-1"
-            />
-          </>
-        }
-      >
-        <FormContainer submitting={props.submitting}>
-          {item.type === 'html_field' ? (
-            <MonacoField
-              name="value"
-              language="html"
-              height={100}
-              label={item.description}
-            />
-          ) : item.type === 'dict_field' ? (
-            <MonacoField
-              name="value"
-              language="json"
-              format={(value) => {
-                if (!value) return '';
-                if (typeof value === 'object') {
-                  try {
-                    return JSON.stringify(value, null, 2);
-                  } catch {
-                    return '';
-                  }
-                }
-                return value;
-              }}
-              height={100}
-              label={item.description}
-            />
-          ) : item.type === 'text_field' ? (
-            <TextField name="value" label={item.description} />
-          ) : item.key === 'SIDEBAR_STYLE' ? (
-            <SelectField
-              name="value"
-              label={item.description}
-              options={SIDEBAR_STYLES}
-              simpleValue
-            />
-          ) : item.key === 'WALDUR_SUPPORT_ACTIVE_BACKEND_TYPE' ? (
-            <SelectField
-              name="value"
-              label={item.description}
-              options={SUPPORT_BACKENDS}
-              simpleValue
-            />
-          ) : item.type === 'color_field' ? (
-            <ColorField name="value" label={item.description} />
-          ) : item.type === 'boolean' ? (
-            <AwesomeCheckboxField
-              name="value"
-              label={item.description}
-              hideLabel
-            />
-          ) : item.type === 'image_field' ? (
-            <WideImageField
-              name="value"
-              label={item.description}
-              initialValue={props.initialValues.value}
-            />
-          ) : (
-            <StringField name="value" label={item.description} />
-          )}
-        </FormContainer>
-      </ModalDialog>
-    </form>
+    <Form
+      onSubmit={onSubmit}
+      initialValues={initialValues}
+      render={({ handleSubmit, submitting, invalid, dirty, values }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={getKeyTitle(item.key)}
+            footer={
+              <>
+                <CloseDialogButton className="flex-equal" />
+                <SubmitButton
+                  disabled={invalid || !dirty}
+                  submitting={submitting}
+                  label={translate('Confirm')}
+                  className="btn btn-primary flex-equal"
+                />
+              </>
+            }
+          >
+            <FormGroup
+              label={item.type !== 'boolean' && item.description}
+              spaceless
+            >
+              {item.key === 'LOGIN_PAGE_LAYOUT' ? (
+                <Field component={VisualLayoutSelectorField} name="value" />
+              ) : item.type === 'html_field' ? (
+                <Field name="value">
+                  {({ input }) => (
+                    <MonacoField input={input} language="html" height={100} />
+                  )}
+                </Field>
+              ) : item.type === 'dict_field' ? (
+                <Field
+                  name="value"
+                  format={(value) => {
+                    if (!value) return '';
+                    if (typeof value === 'object') {
+                      try {
+                        return JSON.stringify(value, null, 2);
+                      } catch {
+                        return '';
+                      }
+                    }
+                    return value;
+                  }}
+                >
+                  {({ input }) => (
+                    <MonacoField input={input} language="json" height={100} />
+                  )}
+                </Field>
+              ) : item.type === 'text_field' ? (
+                <Field name="value">
+                  {({ input, meta }) => <TextField input={input} meta={meta} />}
+                </Field>
+              ) : (item.type === 'choice_field' ||
+                  item.type === 'select' ||
+                  item.options) &&
+                item.type !== 'multiple_choice_field' ? (
+                <>
+                  <Field name="value">
+                    {({ input, meta }) => (
+                      <SelectField
+                        input={input}
+                        meta={meta}
+                        options={item.options}
+                        simpleValue
+                      />
+                    )}
+                  </Field>
+                  {item.key === 'SIDEBAR_STYLE' &&
+                    values.value === SIDEBAR_STYLE_PRIMARY && (
+                      <div className="mt-3">
+                        <WarnCard
+                          title={translate('Warning')}
+                          description={translate(
+                            'Using the primary color as a sidebar color might affect contrast and usability.',
+                          )}
+                        />
+                      </div>
+                    )}
+                </>
+              ) : item.type === 'multiple_choice_field' && item.options ? (
+                <Field name="value">
+                  {({ input, meta }) => (
+                    <SelectField
+                      input={input}
+                      meta={meta}
+                      options={item.options}
+                      isMulti
+                      simpleValue
+                    />
+                  )}
+                </Field>
+              ) : item.type === 'color_field' ? (
+                <Field component={ColorField} name="value" />
+              ) : item.type === 'boolean' ? (
+                <Field name="value" type="checkbox">
+                  {({ input }) => (
+                    <AwesomeCheckboxField
+                      input={input}
+                      label={item.description}
+                    />
+                  )}
+                </Field>
+              ) : item.type === 'image_field' ? (
+                <Field
+                  component={WideImageField}
+                  name="value"
+                  initialValue={initialValues.value}
+                />
+              ) : item.type === 'list_field' ? (
+                <Field name="value">
+                  {({ input, meta }) => (
+                    <CommaSeparatedListField
+                      input={input}
+                      meta={meta}
+                      placeholder={translate('Enter comma-separated values')}
+                      height={100}
+                    />
+                  )}
+                </Field>
+              ) : (
+                <Field name="value">
+                  {({ input, meta }) => (
+                    <StringField input={input} meta={meta} />
+                  )}
+                </Field>
+              )}
+            </FormGroup>
+          </ModalDialog>
+        </form>
+      )}
+    />
   );
-});
+};

@@ -2,12 +2,15 @@ import { padStart, clone } from 'lodash-es';
 import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { ListGroup } from 'react-bootstrap';
-import Flatpickr, { type DateTimePickerProps } from 'react-flatpickr';
+import Flatpickr, {
+  type DateTimePickerHandle,
+  type DateTimePickerProps,
+} from 'react-flatpickr';
 
-import { parseDate } from '@waldur/core/dateUtils';
-import { FormField } from '@waldur/form/types';
-import { useFlatpickrTheme } from '@waldur/form/useFlatpickrTheme';
-import { translate } from '@waldur/i18n';
+import { parseDate } from '@/core/dateUtils';
+import { FormField } from '@/form/types';
+import { useFlatpickrTheme } from '@/form/useFlatpickrTheme';
+import { translate } from '@/i18n';
 
 import { getTimeOptions } from '../utils';
 
@@ -74,8 +77,8 @@ export const CustomRangeDatePicker = (props: CustomRangeDatePickerProps) => {
     [input.value, input.onChange],
   );
 
-  const refDate1 = useRef<Flatpickr>();
-  const refDate2 = useRef<Flatpickr>();
+  const refDate1 = useRef<DateTimePickerHandle>();
+  const refDate2 = useRef<DateTimePickerHandle>();
 
   const startTime: Time = useMemo(() => {
     const v0 = input.value[0];
@@ -177,7 +180,7 @@ export const CustomRangeDatePicker = (props: CustomRangeDatePickerProps) => {
   );
 
   const onCalendar1Change = useCallback(
-    (c1: Flatpickr['flatpickr']) => {
+    (c1: DateTimePickerHandle['flatpickr']) => {
       const c2 = refDate2?.current?.flatpickr;
       if (!c2) return;
       if (c1.config.maxDate) {
@@ -213,7 +216,7 @@ export const CustomRangeDatePicker = (props: CustomRangeDatePickerProps) => {
   );
 
   const onCalendar2Change = useCallback(
-    (c2: Flatpickr['flatpickr']) => {
+    (c2: DateTimePickerHandle['flatpickr']) => {
       const c1 = refDate1?.current?.flatpickr;
       if (!c1) return;
       if (c2.config.minDate) {

@@ -1,33 +1,33 @@
 import { QuestionIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { Form } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
-import { Field, FieldArray, WrappedFieldArrayProps } from 'redux-form';
-import { marketplaceCategoriesList } from 'waldur-js-client';
+import { Field, useFormState } from 'react-final-form';
+import { FieldArray } from 'react-final-form-arrays';
+import {
+  marketplaceCategoriesList,
+  MarketplaceCategory,
+  ProviderOfferingDetails as Offering,
+} from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { Tip } from '@waldur/core/Tooltip';
-import { required, requiredArray } from '@waldur/core/validators';
-import { SelectField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { Category, Offering } from '@waldur/marketplace/types';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { UI_STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { Tip } from '@/core/Tooltip';
+import { required, requiredArray } from '@/core/validators';
+import { SelectField } from '@/form';
+import { translate } from '@/i18n';
 
-import { importOfferingSelector } from './selectors';
-
-interface FieldValue {
-  remote_category?;
-  local_category?;
-}
+import { OfferingImportFormData } from './types';
 
 const FieldsListMapping = ({
   fields,
   offerings,
   categories,
-}: WrappedFieldArrayProps<FieldValue> & {
+}: {
+  fields: any;
   offerings: Offering[];
-  categories: Category[];
+  categories: Pick<MarketplaceCategory, 'group' | 'title' | 'uuid'>[];
 }) => {
   return (
     <Form.Group>
@@ -43,7 +43,7 @@ const FieldsListMapping = ({
             component ? (
               <tr key={component}>
                 <td className="text-dark">
-                  {fields.get(i).remote_category}
+                  {fields.value[i].remote_category}
                   <Tip
                     id={`tip-offerings-${component}`}
                     label={
@@ -56,7 +56,7 @@ const FieldsListMapping = ({
                             .filter(
                               (item) =>
                                 item.category_title ===
-                                fields.get(i).remote_category,
+                                fields.value[i].remote_category,
                             )
                             .map((offering) => (
                               <li key={offering.uuid}>{offering.name}</li>
@@ -68,18 +68,25 @@ const FieldsListMapping = ({
                     <QuestionIcon
                       size={20}
                       className="text-gray-500 cursor-pointer text-hover-muted ms-2"
+                      weight="bold"
                     />
                   </Tip>
                 </td>
                 <td>
                   <Field
-                    component={SelectField}
                     name={`${component}.local_category`}
-                    options={categories || []}
-                    getOptionValue={(option) => option.uuid}
-                    getOptionLabel={(option) => option.title}
                     validate={required}
-                  />
+                  >
+                    {({ input, meta }) => (
+                      <SelectField
+                        input={input}
+                        meta={meta}
+                        options={categories || []}
+                        getOptionValue={(option) => option.uuid}
+                        getOptionLabel={(option) => option.title}
+                      />
+                    )}
+                  </Field>
                 </td>
               </tr>
             ) : null,
@@ -102,23 +109,29 @@ export const SelectCategoryTab = () => {
     queryFn: () =>
       getAllPages((page) =>
         marketplaceCategoriesList({
-          query: { page, field: ['uuid', 'title', 'group'], page_size: 100 },
+          query: {
+            page,
+            field: ['uuid', 'title', 'group'],
+            page_size: MAX_PAGE_SIZE,
+          },
         }),
       ),
 
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
-  const formData = useSelector(importOfferingSelector);
+  const { values: formData } = useFormState<OfferingImportFormData>();
 
   return (
     <>
-      <FieldArray
-        name="categories_set"
-        component={FieldsListMapping}
-        validate={requiredArray}
-        offerings={formData.offerings}
-        categories={categories}
-      />
+      <FieldArray name="categories_set" validate={requiredArray}>
+        {(props) => (
+          <FieldsListMapping
+            {...props}
+            offerings={formData.offerings}
+            categories={categories}
+          />
+        )}
+      </FieldArray>
 
       {isLoading ? (
         <LoadingSpinner />

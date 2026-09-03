@@ -3,37 +3,11 @@ import { FunctionComponent } from 'react';
 import { useEffectOnce } from 'react-use';
 import { usersRetrieve } from 'waldur-js-client';
 
-import { usePageHero } from '@waldur/navigation/context';
-import { router } from '@waldur/router';
-import store from '@waldur/store/store';
-import { setCurrentUser } from '@waldur/workspace/actions';
-import { useUser } from '@waldur/workspace/hooks';
-import { getUser } from '@waldur/workspace/selectors';
+import { goToNotFound } from '@/error/utils';
+import { usePageHero } from '@/navigation/context';
+import { useSetUser, useUser } from '@/workspace/hooks';
 
 import { UserProfileHero } from './dashboard/UserProfileHero';
-
-async function loadUser() {
-  const currentUser = getUser(store.getState());
-  if (
-    router.globals.params.uuid === undefined ||
-    router.globals.params.uuid === currentUser.uuid
-  ) {
-    store.dispatch(setCurrentUser(currentUser));
-  } else if (currentUser.is_staff || currentUser.is_support) {
-    try {
-      const user = await usersRetrieve({
-        path: { uuid: router.globals.params.uuid },
-      });
-      store.dispatch(setCurrentUser(user.data));
-    } catch (error) {
-      if (error.response?.status === 404) {
-        router.stateService.go('errorPage.notFound');
-      }
-    }
-  } else {
-    router.stateService.go('errorPage.notFound');
-  }
-}
 
 const WithHero = () => {
   const user = useUser();
@@ -45,9 +19,29 @@ const WithHero = () => {
 };
 
 export const UserDetailsPage: FunctionComponent = () => {
-  const { state } = useCurrentStateAndParams();
+  const { state, params } = useCurrentStateAndParams();
+  const currentUser = useUser();
+  const setCurrentUser = useSetUser();
 
   useEffectOnce(() => {
+    async function loadUser() {
+      if (params.uuid === undefined || params.uuid === currentUser.uuid) {
+        setCurrentUser(currentUser);
+      } else if (currentUser.is_staff || currentUser.is_support) {
+        try {
+          const user = await usersRetrieve({
+            path: { uuid: params.uuid as string },
+          });
+          setCurrentUser(user.data);
+        } catch (error) {
+          if (error.response?.status === 404) {
+            goToNotFound();
+          }
+        }
+      } else {
+        goToNotFound();
+      }
+    }
     loadUser();
   });
 

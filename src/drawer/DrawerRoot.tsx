@@ -1,27 +1,25 @@
 import { XIcon } from '@phosphor-icons/react';
 import { ErrorBoundary } from '@sentry/react';
-import React, { FunctionComponent, useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { isDirty } from 'redux-form';
+import React, { FunctionComponent, useEffect, useContext } from 'react';
 
-import { ErrorMessage } from '@waldur/ErrorMessage';
-import { translate } from '@waldur/i18n';
-import { DrawerComponent } from '@waldur/metronic/components';
-import { type RootState } from '@waldur/store/reducers';
+import { CompactIconButton } from '@/core/buttons/IconButton';
+import { DirtyFormContext } from '@/core/DirtyFormContext';
+import { ErrorMessage } from '@/ErrorMessage';
+import { translate } from '@/i18n';
+import { DrawerComponent } from '@/metronic/components';
 
-import { closeDrawerDialog } from './actions';
-import { DrawerStateProps } from './reducer';
+import { DrawerContext } from './DrawerContext';
 
 export const DrawerRoot: FunctionComponent = () => {
-  const { drawerComponent, drawerProps } = useSelector<
-    { drawer: DrawerStateProps },
-    DrawerStateProps
-  >((state: RootState) => state.drawer);
-  const componentProps = drawerProps?.props || {};
-  const dispatch = useDispatch();
-  const isDirtyForm = useSelector((state: RootState) =>
-    drawerProps?.formId ? isDirty(drawerProps.formId)(state) : false,
-  );
+  const context = useContext(DrawerContext);
+
+  if (!context) {
+    return null;
+  }
+
+  const { drawerComponent, drawerProps, closeDrawer } = context;
+  const [isDirtyContext, setIsDirtyContext] = React.useState(false);
+  const isDirtyForm = isDirtyContext;
   const onHide = () => {
     if (
       isDirtyForm &&
@@ -33,7 +31,7 @@ export const DrawerRoot: FunctionComponent = () => {
     ) {
       return;
     }
-    dispatch(closeDrawerDialog(drawerProps));
+    closeDrawer();
   };
 
   const drawer = DrawerComponent.getInstance('kt_drawer');
@@ -46,6 +44,7 @@ export const DrawerRoot: FunctionComponent = () => {
       id="kt_drawer"
       className="bg-body"
       data-kt-drawer="true"
+      data-kt-drawer-managed="react"
       data-kt-drawer-name="drawer"
       data-kt-drawer-activate="true"
       data-kt-drawer-overlay="true"
@@ -57,7 +56,7 @@ export const DrawerRoot: FunctionComponent = () => {
       <div className="card shadow-none rounded-0 w-100">
         <div className="card-header" id="kt_drawer_header">
           <div>
-            <h3 className="card-title fw-bolder text-dark">
+            <h3 className="card-title fw-bolder text-dark fs-3">
               {drawerProps.title}
             </h3>
             {drawerProps.subtitle && (
@@ -67,31 +66,36 @@ export const DrawerRoot: FunctionComponent = () => {
             )}
           </div>
 
-          <div className="card-toolbar">
-            <button
-              type="button"
-              className="btn btn-sm btn-icon btn-text-secondary"
-              onClick={onHide}
-            >
-              <XIcon size={18} weight="bold" />
-            </button>
+          <div className="card-toolbar gap-2">
+            {drawerProps.toolbar ? (
+              React.createElement(drawerProps.toolbar, { close: onHide })
+            ) : (
+              <CompactIconButton
+                iconNode={<XIcon weight="bold" />}
+                tooltip={translate('Close')}
+                onClick={onHide}
+                tooltipPlacement="bottom"
+              />
+            )}
           </div>
         </div>
         <div className="card-body scroll-y p-0" id="kt_drawer_body">
-          <div className="p-9 pe-4">
-            <ErrorBoundary fallback={ErrorMessage}>
-              {drawerComponent
-                ? React.createElement(drawerComponent, {
-                    ...componentProps,
-                    close: onHide,
-                  })
-                : null}
-            </ErrorBoundary>
-          </div>
+          <DirtyFormContext.Provider value={{ setIsDirty: setIsDirtyContext }}>
+            <div className={drawerProps.bodyClassName ?? 'p-8'}>
+              <ErrorBoundary fallback={ErrorMessage}>
+                {drawerComponent
+                  ? React.createElement(drawerComponent, {
+                      ...drawerProps,
+                      close: onHide,
+                    })
+                  : null}
+              </ErrorBoundary>
+            </div>
+          </DirtyFormContext.Provider>
         </div>
         {drawerProps.footer && (
           <div className="card-footer py-5 text-center" id="kt_drawer_footer">
-            <drawerProps.footer {...componentProps} close={onHide} />
+            <drawerProps.footer {...drawerProps} close={onHide} />
           </div>
         )}
       </div>

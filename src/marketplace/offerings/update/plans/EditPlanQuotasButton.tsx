@@ -1,13 +1,10 @@
 import { PencilSimpleIcon } from '@phosphor-icons/react';
 import { FunctionComponent } from 'react';
 import { Dropdown } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-
-import { EDIT_PLAN_FORM_ID } from './constants';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
 
 const EditPlanQuotasDialog = lazyComponent(() =>
   import('./EditPlanQuotasDialog').then((module) => ({
@@ -20,25 +17,33 @@ export const EditPlanQuotasButton: FunctionComponent<{
   plan;
   refetch;
 }> = ({ offering, plan, refetch }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
+  // Mirrors what update_quotas accepts: the billing types whose charge is the
+  // plan's amount times its price, and never a prepaid component. A prepaid
+  // component's quantity is the limit the customer requests times the length of
+  // the subscription, so a value entered here would be saved nowhere and
+  // ignored everywhere — and since the dialog posts every row it shows in one
+  // payload, offering one the backend refuses fails the whole save, taking the
+  // other components with it.
   const components = offering.components.filter(
-    (c) => c.billing_type === 'fixed',
+    (c) =>
+      !c.is_prepaid &&
+      (c.billing_type === 'fixed' ||
+        c.billing_type === 'one' ||
+        c.billing_type === 'few'),
   );
   if (components.length === 0) {
     return null;
   }
   const callback = () => {
-    dispatch(
-      openModalDialog(EditPlanQuotasDialog, {
-        resolve: { offering, plan, refetch, components },
-        formId: EDIT_PLAN_FORM_ID,
-        size: 'lg',
-      }),
-    );
+    openDialog(EditPlanQuotasDialog, {
+      resolve: { offering, plan, refetch, components },
+      size: 'lg',
+    });
   };
   return (
     <Dropdown.Item onClick={callback}>
-      <PencilSimpleIcon size={18} /> {translate('Edit quotas')}
+      <PencilSimpleIcon size={18} weight="bold" /> {translate('Edit quotas')}
     </Dropdown.Item>
   );
 };

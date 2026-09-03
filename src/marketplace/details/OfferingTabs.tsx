@@ -1,17 +1,23 @@
 import { NestedSection, PublicOfferingDetails } from 'waldur-js-client';
 
-import { SafeMarkdown } from '@waldur/core/SafeMarkdown';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { ImagesTab } from '@waldur/marketplace/offerings/images/ImagesTab';
+import { lazyComponent } from '@/core/lazyComponent';
+import { SafeMarkdown } from '@/core/SafeMarkdown';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { ImagesTab } from '@/marketplace/offerings/images/ImagesTab';
 
 import { PublicOfferingComponentsTable } from '../offerings/details/PublicOfferingComponentsTable';
 import { PublicOfferingPricing } from '../offerings/details/PublicOfferingPricing';
 
 import { AttributesTable } from './attributes/AttributesTable';
 import { OfferingTab } from './OfferingTabsComponent';
-import { ProviderLocationTab } from './ProviderLocationTab';
+
+const ProviderLocationTab = lazyComponent(() =>
+  import('./ProviderLocationTab').then((module) => ({
+    default: module.ProviderLocationTab,
+  })),
+);
 
 interface OfferingTabsProps {
   sections: NestedSection[];
@@ -45,7 +51,10 @@ export const getTabs = (props: OfferingTabsProps): OfferingTab[] => {
     {
       visible:
         !isFeatureVisible(MarketplaceFeatures.catalogue_only) &&
-        !props.offering.plugin_options['conceal_billing_data'] &&
+        !isFeatureVisible(
+          MarketplaceFeatures.conceal_offering_pricing_tab_in_public_view,
+        ) &&
+        !props.offering.plugin_options?.conceal_billing_data &&
         props.offering.plans?.length > 0 &&
         !props.concealBillingInfo,
       title: translate('Pricing'),
@@ -54,7 +63,10 @@ export const getTabs = (props: OfferingTabsProps): OfferingTab[] => {
     {
       visible:
         !isFeatureVisible(MarketplaceFeatures.catalogue_only) &&
-        !props.offering.plugin_options['conceal_billing_data'],
+        !isFeatureVisible(
+          MarketplaceFeatures.conceal_offering_pricing_tab_in_public_view,
+        ) &&
+        !props.offering.plugin_options?.conceal_billing_data,
       title: translate('Components'),
       component: () => (
         <PublicOfferingComponentsTable

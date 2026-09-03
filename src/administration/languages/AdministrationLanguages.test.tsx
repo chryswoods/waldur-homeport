@@ -3,47 +3,18 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { overrideSettings } from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
+import { ENV } from '@/core/config';
 
 import { AdministrationLanguages } from './AdministrationLanguages';
 
-// Mock dependencies
-vi.mock('@waldur/core/config', () => ({
-  ENV: {
-    plugins: {
-      WALDUR_CORE: {
-        LANGUAGE_CHOICES: ['en', 'et'],
-      },
-    },
-    defaultLanguage: 'en',
-    languageChoices: [
-      { code: 'en', label: 'English' },
-      { code: 'et', label: 'Estonian' },
-    ],
-  },
-}));
-
-vi.mock('waldur-js-client');
-
-vi.mock('@waldur/i18n', () => ({
-  translate: (key: string) => key,
-}));
-
-vi.mock('@waldur/i18n/useLanguageSelector', () => ({
-  useLanguageSelector: () => ({
-    currentLanguage: { code: 'en' },
-  }),
-}));
-
-vi.mock('@waldur/store/hooks', () => ({
-  useNotify: () => ({
-    showError: vi.fn(),
-    showSuccess: vi.fn(),
-  }),
-}));
-
 describe('AdministrationLanguages', () => {
   beforeEach(() => {
+    ENV.plugins.WALDUR_CORE.LANGUAGE_CHOICES = ['en', 'et'];
+    ENV.defaultLanguage = 'en';
+    ENV.languageChoices = [
+      { code: 'en', label: 'English' },
+      { code: 'et', label: 'Estonian' },
+    ];
     vi.clearAllMocks();
   });
 
@@ -65,9 +36,9 @@ describe('AdministrationLanguages', () => {
 
   it('successfully saves language choices', async () => {
     const saveConfigMock = vi.mocked(overrideSettings).mockResolvedValue(null);
-    const { getByText } = render(<AdministrationLanguages />);
+    render(<AdministrationLanguages />);
 
-    await userEvent.click(getByText('Save'));
+    await userEvent.click(screen.getByText('Save'));
 
     expect(saveConfigMock).toHaveBeenCalledWith({
       body: {

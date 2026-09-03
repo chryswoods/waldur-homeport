@@ -1,11 +1,11 @@
-import { TrashIcon } from '@phosphor-icons/react';
 import { FC, useState } from 'react';
-import { Button, Form } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
+import { Form } from 'react-bootstrap';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { Panel } from '@waldur/core/Panel';
-import { openModalDialog } from '@waldur/modal/actions';
+import { lazyComponent } from '@/core/lazyComponent';
+import { Panel } from '@/core/Panel';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { RemovalActionButton } from '@/table/RemovalActionButton';
 
 import { DangerActionPanelProps } from './DangerActionPanelProps';
 
@@ -16,7 +16,7 @@ const DangerActionDialog = lazyComponent(() =>
 );
 
 export const DangerActionPanel: FC<DangerActionPanelProps> = (props) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const [confirm, setConfirm] = useState(false);
 
   return (
@@ -24,16 +24,12 @@ export const DangerActionPanel: FC<DangerActionPanelProps> = (props) => {
       title={props.panelTitle}
       cardBordered
       actions={
-        <Button
-          variant="danger"
-          onClick={() => dispatch(openModalDialog(DangerActionDialog, props))}
+        <RemovalActionButton
+          action={() => openDialog(DangerActionDialog, props)}
           disabled={!confirm}
-        >
-          <span className="svg-icon svg-icon-2">
-            <TrashIcon weight="bold" />
-          </span>
-          {props.buttonTitle}
-        </Button>
+          disabledReason={translate('Please confirm before proceeding')}
+          title={props.buttonTitle}
+        />
       }
     >
       {props.panelDescription}

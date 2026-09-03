@@ -2,8 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useSelector } from 'react-redux';
 import { marketplaceCategoriesList } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { getCategoryGroups } from '@waldur/marketplace/common/api';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { SHORT_STALE_TIME } from '@/core/constants';
+import { getCategoryGroups } from '@/marketplace/common/api';
 
 import {
   getContextFiltersForOfferings,
@@ -26,6 +27,7 @@ export const useCategories = () => {
           marketplaceCategoriesList({
             query: {
               page,
+              page_size: MAX_PAGE_SIZE,
               field: ['uuid', 'icon', 'title', 'offering_count', 'group'],
               ...contextFilter,
             },
@@ -35,6 +37,6 @@ export const useCategories = () => {
         getGroupedCategories(categories, categoryGroups),
       ),
 
-    staleTime: 1 * 60 * 1000,
+    staleTime: SHORT_STALE_TIME,
   });
 };

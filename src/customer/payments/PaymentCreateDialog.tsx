@@ -1,98 +1,90 @@
 import { FunctionComponent } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { InjectedFormProps, reduxForm } from 'redux-form';
+import { Form } from 'react-final-form';
 import { paymentsCreate } from 'waldur-js-client';
 
-import { formDataOptions, fileSerializer } from '@waldur/core/api';
-import { formatISODate } from '@waldur/core/dateUtils';
-import { ADD_PAYMENT_FORM_ID } from '@waldur/customer/payments/constants';
-import {
-  FileUploadField,
-  FormContainer,
-  NumberField,
-  SubmitButton,
-} from '@waldur/form';
-import { DateField } from '@waldur/form/DateField';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { fileSerializer, formDataOptions } from '@/core/api';
+import { formatISODate } from '@/core/dateUtils';
+import { FileUploadGroup, SubmitButton, DateGroup, NumberGroup } from '@/form';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
-import { updatePaymentsList } from './utils';
-
-interface PaymentCreateDialogProps extends InjectedFormProps {
+interface PaymentCreateDialogProps {
   resolve: {
-    profileUrl: string;
+    profileUrl?: string;
+    refetch: () => void;
   };
 }
 
-const PaymentCreateDialog: FunctionComponent<PaymentCreateDialogProps> = (
-  props,
-) => {
-  const dispatch = useDispatch();
-  const customer = useSelector(getCustomer);
+interface FormValues {
+  date_of_payment: string;
+  sum: number | string;
+  proof: File;
+}
 
-  const submitRequest = async (formData) => {
-    try {
-      await paymentsCreate({
+export const PaymentCreateDialog: FunctionComponent<
+  PaymentCreateDialogProps
+> = (props) => {
+  const mutation = useManagedMutation<any, any, FormValues>({
+    mutationFn: (formData) =>
+      paymentsCreate({
         body: {
           date_of_payment: formatISODate(formData.date_of_payment),
-          sum: formData.sum,
+          sum: String(formData.sum),
           proof: fileSerializer(formData.proof),
           profile: props.resolve.profileUrl,
         },
         ...formDataOptions,
-      });
-      dispatch(showSuccess(translate('Payment has been created.')));
-      dispatch(closeModalDialog());
-      dispatch(updatePaymentsList(customer));
-    } catch (error) {
-      dispatch(
-        showErrorResponse(error, translate('Unable to create payment.')),
-      );
-    }
-  };
+      }),
+    successMessage: translate('Payment has been created.'),
+    errorMessage: translate('Unable to create payment.'),
+    refetch: props.resolve.refetch,
+  });
 
   return (
-    <form onSubmit={props.handleSubmit(submitRequest)}>
-      <ModalDialog
-        title={translate('Add payment')}
-        footer={
-          <>
-            <CloseDialogButton className="me-3" />
-            <SubmitButton
-              disabled={props.invalid}
-              submitting={props.submitting}
-              label={translate('Submit')}
-            />
-          </>
-        }
-      >
-        <div style={{ paddingBottom: '50px' }}>
-          <FormContainer submitting={false} clearOnUnmount={false}>
-            <DateField
-              name="date_of_payment"
-              label={translate('Date')}
-              required
-            />
+    <Form<FormValues>
+      onSubmit={mutation.mutateAsync}
+      render={({ handleSubmit, submitting, invalid }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate('Add payment')}
+            footer={
+              <>
+                <CloseDialogButton className="me-3" />
+                <SubmitButton
+                  disabled={invalid}
+                  submitting={submitting}
+                  label={translate('Submit')}
+                />
+              </>
+            }
+          >
+            <div style={{ paddingBottom: '50px' }} className="size-sm">
+              <DateGroup
+                name="date_of_payment"
+                label={translate('Date')}
+                required
+                disabled={submitting}
+              />
 
-            <NumberField name="sum" label={translate('Sum')} required />
+              <NumberGroup
+                name="sum"
+                label={translate('Sum')}
+                required
+                disabled={submitting}
+              />
 
-            <FileUploadField
-              name="proof"
-              label={translate('Proof')}
-              showFileName={true}
-              buttonLabel={translate('Browse')}
-            />
-          </FormContainer>
-        </div>
-      </ModalDialog>
-    </form>
+              <FileUploadGroup
+                name="proof"
+                label={translate('Proof')}
+                showFileName={true}
+                buttonLabel={translate('Browse')}
+              />
+            </div>
+          </ModalDialog>
+        </form>
+      )}
+    />
   );
 };
-
-export const PaymentCreateDialogContainer = reduxForm({
-  form: ADD_PAYMENT_FORM_ID,
-})(PaymentCreateDialog);

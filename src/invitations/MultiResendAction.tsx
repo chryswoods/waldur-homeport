@@ -1,16 +1,15 @@
 import { ShareIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { userInvitationsSend } from 'waldur-js-client';
+import { Invitation, userInvitationsSend } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { getCustomer, getProject, getUser } from '@waldur/workspace/selectors';
+import { translate } from '@/i18n';
+import { useBatchMutation } from '@/modal/useBatchMutation';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { useUser, useCustomer, useProject } from '@/workspace/hooks';
 
 import { InvitationPolicyService } from './actions/InvitationPolicyService';
 
-const statesForResend = ['pending', 'expired'];
+const statesForResend = ['pending', 'expired', 'canceled'];
 
 const isAnyDisabled = (user, customer, project, rows) => {
   return rows.some((invitation) => {
@@ -43,7 +42,7 @@ const showTooltip = (user, customer, project, rows) => {
     }
     if (!hasAvailableState) {
       return translate(
-        'Only pending and expired invitations can be sent again.',
+        'Only pending, expired and canceled invitations can be sent again.',
       );
     }
   }
@@ -51,10 +50,9 @@ const showTooltip = (user, customer, project, rows) => {
 };
 
 export const MultiResendAction = ({ rows, refetch }) => {
-  const user = useSelector(getUser);
-  const customer = useSelector(getCustomer);
-  const project = useSelector(getProject);
-  const dispatch = useDispatch();
+  const user = useUser();
+  const customer = useCustomer();
+  const project = useProject();
 
   const disabled = useMemo(() => {
     return isAnyDisabled(user, customer, project, rows);
@@ -64,27 +62,24 @@ export const MultiResendAction = ({ rows, refetch }) => {
     return showTooltip(user, customer, project, rows);
   }, [user, customer, project, rows]);
 
-  const callback = () => {
-    try {
-      Promise.all(
-        rows.map((row) => userInvitationsSend({ path: { uuid: row.uuid } })),
-      ).then(() => {
-        refetch();
-        dispatch(showSuccess(translate('Invitations have been sent again.')));
-      });
-    } catch (e) {
-      dispatch(
-        showErrorResponse(e, translate('Unable to resend invitations.')),
-      );
-    }
-  };
+  const { mutate, isPending } = useBatchMutation<Invitation, void>({
+    rows,
+    refetch,
+    mutationFn: (row) => userInvitationsSend({ path: { uuid: row.uuid } }),
+    successMessage: translate('Invitations have been sent again.'),
+    renderPartialSuccessMessage: (n) =>
+      translate('{n} invitations have been sent again.', { n }),
+    errorMessage: translate('Unable to resend invitations.'),
+    renderErrorMessage: (n) =>
+      translate('{n} invitations could not be resent.', { n }),
+  });
 
   return (
     <ActionItem
       title={translate('Resend')}
-      action={callback}
+      action={mutate}
       iconNode={<ShareIcon weight="bold" />}
-      disabled={disabled}
+      disabled={disabled || isPending}
       tooltip={tooltip}
     />
   );

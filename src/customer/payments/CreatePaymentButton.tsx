@@ -1,29 +1,31 @@
-import { useDispatch, useSelector } from 'react-redux';
+import { FunctionComponent } from 'react';
 
-import { AddButton } from '@waldur/core/AddButton';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { getUser } from '@waldur/workspace/selectors';
+import { AddButton } from '@/core/AddButton';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { useUser } from '@/workspace/hooks';
 
-const PaymentCreateDialogContainer = lazyComponent(() =>
-  import('@waldur/customer/payments/PaymentCreateDialog').then((module) => ({
-    default: module.PaymentCreateDialogContainer,
+const PaymentCreateDialog = lazyComponent(() =>
+  import('@/customer/payments/PaymentCreateDialog').then((module) => ({
+    default: module.PaymentCreateDialog,
   })),
 );
 
-export const CreatePaymentButton = ({ activePaymentProfile }) => {
-  const dispatch = useDispatch();
-  const user = useSelector(getUser);
+export const CreatePaymentButton: FunctionComponent<{
+  activePaymentProfile: { url?: string };
+  refetch: () => void;
+}> = ({ activePaymentProfile, refetch }) => {
+  const { openDialog } = useModal();
+  const user = useUser();
   const action = () =>
-    dispatch(
-      openModalDialog(PaymentCreateDialogContainer, {
-        resolve: {
-          profileUrl: activePaymentProfile.url,
-        },
-        size: 'lg',
-      }),
-    );
+    openDialog(PaymentCreateDialog, {
+      resolve: {
+        profileUrl: activePaymentProfile.url,
+        refetch,
+      },
+      size: 'lg',
+    });
   return (
     <AddButton
       action={action}

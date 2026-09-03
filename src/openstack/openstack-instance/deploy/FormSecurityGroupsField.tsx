@@ -1,44 +1,43 @@
 import { EyeIcon, WarningCircleIcon } from '@phosphor-icons/react';
-import { useCallback, useMemo } from 'react';
-import { Button } from 'react-bootstrap';
-import { useDispatch, useSelector } from 'react-redux';
+import { useCallback, useEffect, useMemo } from 'react';
+import { useForm } from 'react-final-form';
 import {
-  OpenStackSecurityGroup,
+  OpenStackNestedSecurityGroup,
   openstackSecurityGroupsList,
 } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { Tip } from '@waldur/core/Tooltip';
-import { translate } from '@waldur/i18n';
-import { orderFormSelector } from '@waldur/marketplace/deploy/selectors';
-import { FormStepProps } from '@waldur/marketplace/deploy/types';
-import { openModalDialog } from '@waldur/modal/actions';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { ActionsDropdownComponent } from '@waldur/table/ActionsDropdown';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { TableProps } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
+import { UI_STALE_TIME } from '@/core/constants';
+import { lazyComponent } from '@/core/lazyComponent';
+import { Tip } from '@/core/Tooltip';
+import { translate } from '@/i18n';
+import { useOrderFormData } from '@/marketplace/deploy/selectors';
+import { FormStepProps } from '@/marketplace/deploy/types';
+import { useModal } from '@/modal/actions';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { ActionButton } from '@/table/ActionButton';
+import { ActionsDropdownComponent } from '@/table/ActionsDropdown';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { TableProps } from '@/table/types';
+import { useTable } from '@/table/useTable';
 
 const OpenStackSecurityGroupsDialog = lazyComponent(() =>
-  import(
-    '@waldur/openstack/openstack-security-groups/OpenStackSecurityGroupsDialog'
-  ).then((module) => ({ default: module.OpenStackSecurityGroupsDialog })),
+  import('@/openstack/openstack-security-groups/OpenStackSecurityGroupsDialog').then(
+    (module) => ({ default: module.OpenStackSecurityGroupsDialog }),
+  ),
 );
 
 interface ShowSecurityGroupsButtonProps {
-  row: OpenStackSecurityGroup;
+  row: OpenStackNestedSecurityGroup;
 }
 
 const ShowSecurityGroupsButton = (props: ShowSecurityGroupsButtonProps) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const callback = () => {
-    dispatch(
-      openModalDialog(OpenStackSecurityGroupsDialog, {
-        resolve: { securityGroups: [props.row] },
-        size: 'xl',
-      }),
-    );
+    openDialog(OpenStackSecurityGroupsDialog, {
+      resolve: { securityGroups: [props.row] },
+      size: 'xl',
+    });
   };
   return (
     <ActionsDropdownComponent>
@@ -52,65 +51,85 @@ const ShowSecurityGroupsButton = (props: ShowSecurityGroupsButtonProps) => {
 };
 
 const ShowPreviewButton = () => {
-  const securityGroups = useSelector((state) =>
-    orderFormSelector(state, 'attributes.security_groups'),
-  );
-  const dispatch = useDispatch();
+  const { attributes = {} } = useOrderFormData();
+  const securityGroups = attributes.security_groups;
+  const { openDialog } = useModal();
   const callback = useCallback(() => {
-    dispatch(
-      openModalDialog(OpenStackSecurityGroupsDialog, {
-        resolve: { securityGroups: securityGroups },
-        size: 'xl',
-      }),
-    );
+    openDialog(OpenStackSecurityGroupsDialog, {
+      resolve: { securityGroups: securityGroups },
+      size: 'xl',
+    });
   }, [securityGroups]);
 
   return (
-    <Button
-      variant="tertiary"
-      className="text-nowrap"
-      onClick={callback}
+    <ActionButton
+      action={callback}
       disabled={!securityGroups?.length}
-    >
-      <span className="svg-icon svg-icon-2">
-        <EyeIcon />
-      </span>
-      {translate('Preview')}
-    </Button>
+      disabledReason={translate('No security groups selected')}
+      title={translate('Preview')}
+      iconNode={<EyeIcon weight="bold" />}
+      className="text-nowrap"
+    />
   );
 };
 
 interface OwnProps
-  extends Pick<FormStepProps, 'offering' | 'change'>,
-    Partial<TableProps> {}
+  extends Pick<FormStepProps, 'offering'>, Partial<TableProps> {}
 
-export const FormSecurityGroupsField = ({
-  offering,
-  change,
-  ...props
-}: OwnProps) => {
+export const FormSecurityGroupsField = ({ offering, ...props }: OwnProps) => {
+  const form = useForm();
   const filter = useMemo(
     () => ({ tenant_uuid: offering.scope_uuid }),
     [offering.scope_uuid],
   );
 
+  // Get the current value from the form state to check if default needs to be set.
+  const { attributes = {} } = useOrderFormData();
+  const securityGroups = attributes.security_groups;
+
+  useEffect(() => {
+    // Pre-fetch and set the default security group only if the field
+    // has not been initialized yet (i.e., its value is undefined).
+    // This prevents overwriting a user's selection (e.g., an empty array `[]`)
+    // on subsequent renders or navigations.
+    if (securityGroups !== undefined) {
+      return;
+    }
+
+    openstackSecurityGroupsList({
+      query: {
+        tenant_uuid: offering.scope_uuid,
+        name: 'default',
+        page_size: 1,
+      },
+    })
+      .then((response) => response.data)
+      .then((defaultGroupList) => {
+        // If a default group is found, set it as the form value.
+        // Otherwise, initialize with an empty array to mark the field as initialized.
+        const valueToSet =
+          defaultGroupList && defaultGroupList.length > 0
+            ? defaultGroupList
+            : [];
+        form.change('attributes.security_groups', valueToSet);
+      })
+      .catch(() => {
+        // In case of an error, initialize with an empty array
+        // to avoid repeated attempts on subsequent renders.
+        form.change('attributes.security_groups', []);
+      });
+  }, [offering.scope_uuid, form, securityGroups]);
+
   const tableProps = useTable({
     table: 'deploy-security-groups',
     fetchData: createFetcher(openstackSecurityGroupsList),
-    onFetch: (rows, _, firstFetch) => {
-      if (!firstFetch || !rows?.length) return;
-      const defaultItem = rows.find((row) => row?.name === 'default');
-      if (defaultItem) {
-        change('attributes.security_groups', [defaultItem]);
-      }
-    },
     queryField: 'name',
     filter,
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
 
   return (
-    <Table<OpenStackSecurityGroup>
+    <Table<OpenStackNestedSecurityGroup>
       {...tableProps}
       columns={[
         {

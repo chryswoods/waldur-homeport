@@ -1,10 +1,9 @@
 import { ShareIcon } from '@phosphor-icons/react';
-import { Button } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { ActionButton } from '@/table/ActionButton';
 
 const ExportAsEmailDialog = lazyComponent(() =>
   import('./ExportAsEmailDialog').then((module) => ({
@@ -13,17 +12,13 @@ const ExportAsEmailDialog = lazyComponent(() =>
 );
 
 export const FinancialReportSendButton = () => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
 
   return (
-    <Button
-      onClick={() => dispatch(openModalDialog(ExportAsEmailDialog))}
-      variant="tertiary"
-    >
-      <span className="svg-icon svg-icon-2">
-        <ShareIcon />
-      </span>{' '}
-      {translate('Send')}
-    </Button>
+    <ActionButton
+      action={() => openDialog(ExportAsEmailDialog)}
+      title={translate('Send')}
+      iconNode={<ShareIcon weight="bold" />}
+    />
   );
 };

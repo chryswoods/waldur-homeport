@@ -1,9 +1,9 @@
+import { useQuery } from '@tanstack/react-query';
 import { FunctionComponent } from 'react';
-import { useAsync } from 'react-use';
 
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
 
 import { getProviderUsageComponents } from './api';
 import { ResourceUsageFormContainer } from './ResourceUsageFormContainer';
@@ -18,10 +18,14 @@ export const ResourceCreateUsageDialog: FunctionComponent<
 > = (props) => {
   const isUserUsage = props.resolve.userUsage;
 
-  const { loading, error, value } = useAsync(
-    () => getProviderUsageComponents(props.resolve),
-    [props.resolve],
-  );
+  const {
+    isLoading: loading,
+    error,
+    data: value,
+  } = useQuery({
+    queryKey: ['ResourceCreateUsageDialog', props.resolve],
+    queryFn: () => getProviderUsageComponents(props.resolve),
+  });
 
   return (
     <ModalDialog
@@ -30,7 +34,6 @@ export const ResourceCreateUsageDialog: FunctionComponent<
           ? translate('User usage report')
           : translate('Resource usage')) + ` "${props.resolve.resource_name}"`
       }
-      bodyClassName="pt-2"
     >
       {loading ? (
         <LoadingSpinner />

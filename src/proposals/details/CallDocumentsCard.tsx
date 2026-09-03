@@ -1,20 +1,17 @@
 import { useEffect } from 'react';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { ExternalLink } from '@waldur/core/ExternalLink';
-import { translate } from '@waldur/i18n';
-import { DASH_ESCAPE_CODE } from '@waldur/table/constants';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { formatDateTime } from '@/core/dateUtils';
+import { ExternalLink } from '@/core/ExternalLink';
+import { translate } from '@/i18n';
+import { createClientPaginatedFetcher } from '@/table/api';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
 
 export const CallDocumentsCard = ({ call, rowActions, tableActions }) => {
   const tableProps = useTable({
     table: 'CallDocumentsCard',
-    fetchData: () =>
-      Promise.resolve({
-        rows: call.documents,
-        resultCount: call.documents.length,
-      }),
+    fetchData: createClientPaginatedFetcher(call.documents),
   });
 
   useEffect(() => {

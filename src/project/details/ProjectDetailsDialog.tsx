@@ -2,37 +2,38 @@ import { ClipboardTextIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
 import { Project } from 'waldur-js-client';
 
-import { formatDate } from '@waldur/core/dateUtils';
-import { FieldWithCopy } from '@waldur/core/FieldWithCopy';
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
+import { formatDate } from '@/core/dateUtils';
+import { FieldWithCopy } from '@/core/FieldWithCopy';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
 
 import { ProjectCostField } from '../ProjectCostField';
 
 export const ProjectDetailsDialog: FC<{
   project: Project;
 }> = ({ project }) => {
+  const shouldConcealPrices =
+    isFeatureVisible(MarketplaceFeatures.conceal_prices) ||
+    project.customer_display_billing_info_in_projects === false;
   return (
     <ModalDialog
       title={translate('Project details for {name}', { name: project.name })}
       subtitle={translate('Project owned by {name}', {
         name: project.customer_name,
       })}
-      closeButton
       iconNode={<ClipboardTextIcon weight="bold" />}
       iconColor="success"
     >
-      <FormTable hideActions alignTop detailsMode className="gy-5">
-        <FormTable.Item
-          label={translate('ID')}
-          value={
-            <span className="fw-semibold">
-              <FieldWithCopy value={project.slug} />
-            </span>
-          }
-        />
-
+      <FormTable
+        hideActions
+        alignTop
+        detailsMode
+        bordered={false}
+        className="gy-5"
+      >
         <FormTable.Item
           label={translate('Name')}
           value={<FieldWithCopy value={project.name} />}
@@ -66,10 +67,12 @@ export const ProjectDetailsDialog: FC<{
           value={<FieldWithCopy value={project.description} />}
         />
 
-        <FormTable.Item
-          label={translate('Estimated cost')}
-          value={<FieldWithCopy value={ProjectCostField({ row: project })} />}
-        />
+        {!shouldConcealPrices && (
+          <FormTable.Item
+            label={translate('Estimated cost')}
+            value={<FieldWithCopy value={ProjectCostField({ row: project })} />}
+          />
+        )}
       </FormTable>
     </ModalDialog>
   );

@@ -1,4 +1,4 @@
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
 
 export const getBillingPeriods = () => [
   {
@@ -20,5 +20,3 @@ export const getBillingPeriods = () => [
 ];
 
 export const ADD_PLAN_FORM_ID = 'AddPlanDialog';
-export const EDIT_PLAN_FORM_ID = 'EditPlanDialog';
-export const EDIT_PLAN_DISCOUNTS_FORM_ID = 'EditPlanDiscounts';

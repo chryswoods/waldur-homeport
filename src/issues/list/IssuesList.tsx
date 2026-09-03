@@ -1,65 +1,68 @@
 import { FC, useMemo } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
-import {
-  Issue,
-  supportIssuesList,
-  SupportIssuesListData,
-} from 'waldur-js-client';
+import { Issue, supportIssuesList } from 'waldur-js-client';
 
-import { formatDate, formatRelative } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { IssueLinkField } from '@waldur/issues/list/IssueLinkField';
-import { IssuesListExpandableRow } from '@waldur/issues/list/IssuesListExpandableRow';
-import { StatusColumn } from '@waldur/issues/list/StatusColumn';
-import { TitleColumn } from '@waldur/issues/list/TitleColumn';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { TableProps, Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { getUser } from '@waldur/workspace/selectors';
+import { Badge } from '@/core/Badge';
+import { formatDate, formatRelative } from '@/core/dateUtils';
+import { translate } from '@/i18n';
+import { hasProviderRouting } from '@/issues/hooks';
+import { getSlaLabel, IssueSlaBadge } from '@/issues/IssueSlaBadge';
+import { IssueLinkField } from '@/issues/list/IssueLinkField';
+import { IssuesListExpandableRow } from '@/issues/list/IssuesListExpandableRow';
+import { StatusColumn } from '@/issues/list/StatusColumn';
+import { TitleColumn } from '@/issues/list/TitleColumn';
+import { providerTicketInfo } from '@/issues/providerTicketInfo';
+import { createFetcher } from '@/table/api';
+import {
+  SupportIssuesFilter as IssuesFilter,
+  selectSupportIssuesFilter as selectIssuesFilter,
+  StatusOptions,
+  SupportIssuesFilterFormId,
+} from '@/table/generated/SupportIssuesFilter';
+import Table from '@/table/Table';
+import { Column, TableProps } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
+import { useUser } from '@/workspace/hooks';
 
 import { IssueCreateButton } from './IssueCreateButton';
-import { getIssueStatuses, IssuesFilter } from './IssuesFilter';
 
 interface OwnProps {
   hiddenColumns?: (
-    | 'customer'
-    | 'project'
-    | 'caller'
-    | 'time_in_progress'
-    | 'resource_type'
+    'customer' | 'project' | 'caller' | 'time_in_progress' | 'resource_type'
   )[];
 
   scope?: Record<string, any>;
   scopeType?: string;
   filter?: Record<string, any>;
+  standalone?: boolean;
+  /**
+   * When set, clicking a request's key selects it in place (calling this
+   * callback) instead of navigating to the detail route. Used by the expanded
+   * Helpdesk drawer's two-pane layout, where the detail renders in the right
+   * pane without a route change.
+   */
+  onIssueSelect?: (issue: Issue) => void;
+  /** UUID of the currently selected request, highlighted in the list. */
+  selectedIssueUuid?: string;
 }
 
-const mapStateToFilter = createSelector(
-  getFormValues('IssuesFilter'),
-  (filters: any) => {
-    const result: SupportIssuesListData['query'] = {};
-    if (filters?.status) {
-      result.status = filters.status.map((option) => option.value);
-    }
-    return result;
-  },
-);
-
-export const IssuesList: FC<OwnProps & Partial<TableProps>> = (props) => {
-  const { hiddenColumns = [] } = props;
-  const user = useSelector(getUser);
+export const IssuesList: FC<OwnProps & Partial<TableProps>> = ({
+  ...props
+}) => {
+  const { hiddenColumns = [], standalone = true, onIssueSelect } = props;
+  const user = useUser();
   const supportOrStaff = user?.is_staff || user?.is_support || false;
 
-  const filter = useSelector(mapStateToFilter);
+  const values = useFilterValues(`issuesList-${props.scope?.uuid}`);
+  const filterValues = useMemo(() => selectIssuesFilter(values), [values]);
 
   const tableProps = useTable({
     table: `issuesList-${props.scope?.uuid}`,
+    syncFiltersToURL: true,
     fetchData: createFetcher(supportIssuesList),
     queryField: 'query',
-    filter: props.filter || filter,
+    filter: props.filter || filterValues,
   });
 
   const columns = useMemo(() => {
@@ -67,11 +70,16 @@ export const IssuesList: FC<OwnProps & Partial<TableProps>> = (props) => {
       {
         title: translate('Key'),
         orderField: 'key',
-        render: ({ row }) => (
-          <IssueLinkField label={row.key || 'N/A'} row={row} />
-        ),
+        // In select (two-pane) mode the whole row selects, so the key is plain
+        // text — a routing link would navigate away instead of selecting.
+        render: ({ row }) =>
+          onIssueSelect ? (
+            renderFieldOrDash(row.key)
+          ) : (
+            <IssueLinkField label={renderFieldOrDash(row.key)} row={row} />
+          ),
 
-        export: (row) => row.key || 'N/A',
+        export: (row) => renderFieldOrDash(row.key),
         exportKeys: ['key'],
       },
       {
@@ -80,8 +88,8 @@ export const IssuesList: FC<OwnProps & Partial<TableProps>> = (props) => {
         orderField: 'status',
         filter: 'status',
         inlineFilter: (row) =>
-          getIssueStatuses().filter((op) => op.value === row.status),
-        export: (row) => row.status || 'N/A',
+          StatusOptions.filter((op) => op.value === row.status),
+        export: (row) => renderFieldOrDash(row.status),
         exportKeys: ['status'],
       },
       {
@@ -103,7 +111,7 @@ export const IssuesList: FC<OwnProps & Partial<TableProps>> = (props) => {
         visible: false,
         title: translate('Service type'),
         render: null,
-        export: (row) => row.resource_type || 'N/A',
+        export: (row) => renderFieldOrDash(row.resource_type),
         exportKeys: ['resource_type'],
       });
     }
@@ -111,8 +119,8 @@ export const IssuesList: FC<OwnProps & Partial<TableProps>> = (props) => {
       columns.push({
         title: translate('Organization'),
         orderField: 'customer_name',
-        render: ({ row }) => row.customer_name || 'N/A',
-        export: (row) => row.customer_name || 'N/A',
+        render: ({ row }) => renderFieldOrDash(row.customer_name),
+        export: (row) => renderFieldOrDash(row.customer_name),
         exportKeys: ['customer_name'],
       });
     }
@@ -120,8 +128,8 @@ export const IssuesList: FC<OwnProps & Partial<TableProps>> = (props) => {
       columns.push({
         title: translate('Project'),
         orderField: 'project_name',
-        render: ({ row }) => row.project_name || 'N/A',
-        export: (row) => row.project_name || 'N/A',
+        render: ({ row }) => renderFieldOrDash(row.project_name),
+        export: (row) => renderFieldOrDash(row.project_name),
         exportKeys: ['project_name'],
       });
     }
@@ -129,25 +137,57 @@ export const IssuesList: FC<OwnProps & Partial<TableProps>> = (props) => {
       columns.push({
         title: translate('Caller'),
         orderField: 'caller_full_name',
-        render: ({ row }) => row.caller_full_name || 'N/A',
-        export: (row) => row.caller_full_name || 'N/A',
+        render: ({ row }) => renderFieldOrDash(row.caller_full_name),
+        export: (row) => renderFieldOrDash(row.caller_full_name),
         exportKeys: ['caller_full_name'],
       });
     }
 
     if (supportOrStaff) {
+      if (hasProviderRouting()) {
+        const providerName = (row: Issue) =>
+          providerTicketInfo(row)('provider_name');
+        columns.push({
+          title: translate('Provider'),
+          render: ({ row }) =>
+            row.is_routed ? (
+              <div className="d-flex align-items-center gap-2">
+                <Badge variant="info" pill outline>
+                  {translate('Routed')}
+                </Badge>
+                {providerName(row) && <span>{providerName(row)}</span>}
+              </div>
+            ) : (
+              renderFieldOrDash(null)
+            ),
+          export: (row) =>
+            row.is_routed ? (providerName(row) ?? translate('Routed')) : '',
+          exportKeys: ['is_routed'],
+        });
+      }
+      columns.push({
+        title: translate('SLA'),
+        render: ({ row }) =>
+          getSlaLabel(row) ? (
+            <IssueSlaBadge issue={row} />
+          ) : (
+            renderFieldOrDash(null)
+          ),
+        export: (row) => getSlaLabel(row),
+        exportKeys: ['sla_status', 'sla_breached'],
+      });
       columns.push({
         visible: false,
         title: translate('Reporter'),
         render: null,
-        export: (row) => row.reporter_name || 'N/A',
+        export: (row) => renderFieldOrDash(row.reporter_name),
         exportKeys: ['reporter_name'],
       });
       columns.push({
         visible: false,
         title: translate('Assigned to'),
         render: null,
-        export: (row) => row.assignee_name || 'N/A',
+        export: (row) => renderFieldOrDash(row.assignee_name),
         exportKeys: ['assignee_name'],
       });
     }
@@ -168,18 +208,31 @@ export const IssuesList: FC<OwnProps & Partial<TableProps>> = (props) => {
       });
     }
     return columns;
-  }, [hiddenColumns, supportOrStaff]);
+  }, [hiddenColumns, supportOrStaff, onIssueSelect]);
+
+  // Don't leak the two-pane-only props onto the Table/DOM via the {...props}
+  // spread below; selection is expressed through columns and rowClass instead.
+  const {
+    onIssueSelect: _omitSelect,
+    selectedIssueUuid,
+    ...tablePassthrough
+  } = props;
 
   return (
     <Table
       {...tableProps}
-      filters={props.filter ? undefined : <IssuesFilter />}
+      formId={SupportIssuesFilterFormId}
+      // The expanded two-pane Helpdesk uses a minimal toolbar (search + Export
+      // + Create only), so the filter menu — which doesn't fit the narrow
+      // master pane — is dropped in select mode.
+      filters={props.filter || onIssueSelect ? undefined : <IssuesFilter />}
       columns={columns}
-      title={translate('Requests')}
+      title={translate('Support requests')}
       verboseName={translate('support requests')}
       hasQuery={true}
       showPageSizeSelector={true}
       enableExport={true}
+      standalone={standalone}
       tableActions={
         props.scope &&
         !props.scope.is_removed && (
@@ -190,10 +243,27 @@ export const IssuesList: FC<OwnProps & Partial<TableProps>> = (props) => {
           />
         )
       }
-      expandableRow={({ row }) => (
-        <IssuesListExpandableRow row={row} supportOrStaff={supportOrStaff} />
-      )}
-      {...props}
+      onRowClick={onIssueSelect}
+      hoverable={Boolean(onIssueSelect)}
+      // In select (two-pane) mode a row click selects the request into the
+      // right pane, so the inline expandable row is suppressed — otherwise
+      // TableBody's row-click both selects AND toggles the inline expand.
+      expandableRow={
+        onIssueSelect
+          ? undefined
+          : ({ row }) => (
+              <IssuesListExpandableRow
+                row={row}
+                supportOrStaff={supportOrStaff}
+              />
+            )
+      }
+      {...tablePassthrough}
+      rowClass={({ row }) =>
+        selectedIssueUuid && row.uuid === selectedIssueUuid
+          ? 'issues-list-row-selected'
+          : ''
+      }
     />
   );
 };

@@ -1,7 +1,8 @@
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
-import { Field, ResourceSummaryProps } from '@waldur/resource/summary';
-import { formatDefault } from '@waldur/resource/utils';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import { Field, ResourceSummaryProps } from '@/resource/summary';
+import { formatDefault } from '@/resource/utils';
+import { renderFieldOrDash } from '@/table/utils';
 
 import { Network } from './types';
 
@@ -29,6 +30,11 @@ export const OpenStackNetworkSummary = (
       />
 
       <Component label={translate('MTU')} value={formatDefault(resource.mtu)} />
+      <Component
+        label={translate('Backend ID')}
+        value={renderFieldOrDash(resource.backend_id)}
+        hasCopy={!!resource.backend_id}
+      />
     </>
   );
 };

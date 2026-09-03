@@ -1,8 +1,9 @@
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
-import { formatAllocationPool } from '@waldur/openstack/openstack-network/utils';
-import { Field, ResourceSummaryProps } from '@waldur/resource/summary';
-import { formatDefault } from '@waldur/resource/utils';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import { formatAllocationPool } from '@/openstack/openstack-network/utils';
+import { Field, ResourceSummaryProps } from '@/resource/summary';
+import { formatDefault } from '@/resource/utils';
+import { renderFieldOrDash } from '@/table/utils';
 
 export const OpenStackSubNetSummary = (props: ResourceSummaryProps) => {
   const { resource } = props;
@@ -14,6 +15,7 @@ export const OpenStackSubNetSummary = (props: ResourceSummaryProps) => {
         label={translate('CIDR')}
         value={formatDefault(resource.cidr)}
         valueClass="ellipsis"
+        hasCopy={!!formatDefault(resource.cidr)}
       />
 
       <Component
@@ -25,8 +27,13 @@ export const OpenStackSubNetSummary = (props: ResourceSummaryProps) => {
       <Component
         label={translate('Gateway IP')}
         value={formatDefault(resource.gateway_ip)}
+        hasCopy={!!resource.gateway_ip}
       />
-
+      <Component
+        label={translate('Backend ID')}
+        value={renderFieldOrDash(resource.backend_id)}
+        hasCopy={!!resource.backend_id}
+      />
       <Component
         label={translate('Enabled default gateway')}
         value={resource.is_connected ? translate('Yes') : translate('No')}

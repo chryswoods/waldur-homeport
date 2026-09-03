@@ -1,15 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { FC, useMemo } from 'react';
-import { useSelector } from 'react-redux';
 import { customerCreditsList } from 'waldur-js-client';
 
-import { AwesomeCheckbox } from '@waldur/core/AwesomeCheckbox';
-import { ENV } from '@waldur/core/config';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
-import { getUser } from '@waldur/workspace/selectors';
+import { AwesomeCheckbox } from '@/core/AwesomeCheckbox';
+import { ENV } from '@/core/config';
+import { SHORT_STALE_TIME } from '@/core/constants';
+import { lazyComponent } from '@/core/lazyComponent';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { CompactEditButton } from '@/form/CompactEditButton';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { renderFieldOrDash } from '@/table/utils';
+import { useUser } from '@/workspace/hooks';
 
 import { minimalConsumptionLogicOptions } from '../credits/constants';
 import { CreditFieldEditButton } from '../credits/CreditFieldEditButton';
@@ -17,8 +21,15 @@ import { CreditFieldEditButton } from '../credits/CreditFieldEditButton';
 import { StaffOnlyIndicator } from './StaffOnlyIndicator';
 import { CustomerEditPanelProps } from './types';
 
+const AdjustWithdrawableDialog = lazyComponent(() =>
+  import('../credits/AdjustWithdrawableDialog').then((module) => ({
+    default: module.AdjustWithdrawableDialog,
+  })),
+);
+
 export const CustomerCreditPanel: FC<CustomerEditPanelProps> = (props) => {
-  const user = useSelector(getUser);
+  const user = useUser();
+  const { openDialog } = useModal();
 
   const {
     data: creditData,
@@ -34,7 +45,7 @@ export const CustomerCreditPanel: FC<CustomerEditPanelProps> = (props) => {
       }).then((response) => response.data.length > 0 && response.data[0]),
 
     refetchOnWindowFocus: false,
-    staleTime: 60 * 1000,
+    staleTime: SHORT_STALE_TIME,
   });
 
   const rows = useMemo(
@@ -44,46 +55,56 @@ export const CustomerCreditPanel: FC<CustomerEditPanelProps> = (props) => {
           currency: ENV.plugins.WALDUR_CORE.CURRENCY_NAME,
         }),
         key: 'value',
-        value: creditData?.value || 'N/A',
+        value: renderFieldOrDash(creditData?.value),
+      },
+      {
+        label: translate('Withdrawable balance ({currency})', {
+          currency: ENV.plugins.WALDUR_CORE.CURRENCY_NAME,
+        }),
+        key: 'withdrawable_balance',
+        value: renderFieldOrDash(creditData?.withdrawable_balance),
+        readOnly: true,
       },
       {
         label: translate('Offering(s)'),
         key: 'offerings',
-        value:
-          creditData?.offerings.map((offer) => offer.name).join(', ') || 'N/A',
+        value: renderFieldOrDash(
+          creditData?.offerings.map((offer) => offer.name).join(', '),
+        ),
       },
       {
         label: translate('Credit allocated to projects ({currency})', {
           currency: ENV.plugins.WALDUR_CORE.CURRENCY_NAME,
         }),
         key: 'allocated_to_projects',
-        value: creditData?.allocated_to_projects || 'N/A',
+        value: renderFieldOrDash(creditData?.allocated_to_projects),
         disabled: true,
       },
       {
         label: translate('End date'),
         key: 'end_date',
-        value: creditData?.end_date || 'N/A',
+        value: renderFieldOrDash(creditData?.end_date),
       },
       {
         label: translate('Minimal consumption logic'),
         key: 'minimal_consumption_logic',
-        value:
+        value: renderFieldOrDash(
           minimalConsumptionLogicOptions.find(
             (opt) => opt.value === creditData?.minimal_consumption_logic,
-          )?.label || 'N/A',
+          )?.label,
+        ),
       },
       {
         label: translate('Expected consumption ({currency} per month)', {
           currency: ENV.plugins.WALDUR_CORE.CURRENCY_NAME,
         }),
         key: 'expected_consumption',
-        value: creditData?.expected_consumption || 'N/A',
+        value: renderFieldOrDash(creditData?.expected_consumption),
       },
       {
         label: translate('Grace coefficient (%)'),
         key: 'grace_coefficient',
-        value: creditData?.grace_coefficient || 'N/A',
+        value: renderFieldOrDash(creditData?.grace_coefficient),
       },
       {
         label: translate('Apply as minimal consumption'),
@@ -121,16 +142,30 @@ export const CustomerCreditPanel: FC<CustomerEditPanelProps> = (props) => {
                 )
               }
               actions={
-                user.is_staff && (
+                user.is_staff &&
+                (row.key === 'withdrawable_balance' ? (
                   <>
                     <StaffOnlyIndicator />
-                    <CreditFieldEditButton
-                      credit={creditData}
-                      name={row.key}
-                      disabled={row.disabled}
+                    <CompactEditButton
+                      onClick={() =>
+                        openDialog(AdjustWithdrawableDialog, {
+                          resolve: { credit: creditData, refetch },
+                        })
+                      }
                     />
                   </>
-                )
+                ) : (
+                  !row.readOnly && (
+                    <>
+                      <StaffOnlyIndicator />
+                      <CreditFieldEditButton
+                        credit={creditData}
+                        name={row.key}
+                        disabled={row.disabled}
+                      />
+                    </>
+                  )
+                ))
               }
             />
           ))}

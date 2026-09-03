@@ -8,11 +8,12 @@ import {
   useEffect,
   useRef,
 } from 'react';
-import { Button } from 'react-bootstrap';
 
-import { ImagePlaceholder } from '@waldur/core/ImagePlaceholder';
-import { formatFilesize } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
+import { ImagePlaceholder } from '@/core/ImagePlaceholder';
+import { Tip } from '@/core/Tooltip';
+import { formatFilesize } from '@/core/utils';
+import { CompactSubmitButton } from '@/form/CompactSubmitButton';
+import { translate } from '@/i18n';
 
 import { FormField } from './types';
 import './ImageField.scss';
@@ -26,6 +27,8 @@ interface WideImageFieldProps extends FormField {
   extraActions?: ComponentType<{ value; isChanged; isTooLarge }>;
   /** max size in byte */
   max?: number;
+  /** Explains why the image actions are unavailable when `disabled` is set. */
+  disabledReason?: string;
 }
 
 const previewImage = (imageFile: ImageType, element: HTMLDivElement) => {
@@ -70,7 +73,7 @@ export const WideImageField: FunctionComponent<WideImageFieldProps> = (
 
   const isChanged = Boolean(
     input.value instanceof File ||
-      Boolean(input.value) !== Boolean(initialValue),
+    Boolean(input.value) !== Boolean(initialValue),
   );
 
   const isTooLarge = isChanged && input.value?.size > props.max;
@@ -107,53 +110,59 @@ export const WideImageField: FunctionComponent<WideImageFieldProps> = (
             : translate('Upload an image JPG or PNG')}
         </p>
         <div className="d-flex gap-2 mb-4">
-          <label
-            className={classNames(
-              'btn btn-tertiary btn-sm btn-icon-right',
-              props.disabled && 'disabled',
-            )}
-            data-image-input-action="change"
+          {/* `.btn.disabled` drops pointer events, so the tooltip trigger has
+              to wrap the label rather than sit inside it. */}
+          <Tip
+            id="wide-image-field-change"
+            label={props.disabled ? props.disabledReason : null}
+            className="d-inline-block"
           >
-            {translate('Change')}
-            <span className="svg-icon svg-icon-5">
-              <PencilSimpleIcon weight="bold" />
-            </span>
-            <input
-              ref={inputRef}
-              type="file"
-              name={input.name}
-              accept=".png, .jpg, .jpeg"
-              onChange={(event) => changeImage(event.target.files[0])}
-              className="d-none"
-              disabled={props.disabled}
-            />
-          </label>
-          <Button
+            <label
+              className={classNames(
+                'btn btn-tertiary btn-sm btn-icon-right',
+                props.disabled && 'disabled',
+              )}
+              data-image-input-action="change"
+            >
+              {translate('Change')}
+              <span className="svg-icon svg-icon-5">
+                <PencilSimpleIcon weight="bold" />
+              </span>
+              <input
+                ref={inputRef}
+                type="file"
+                name={input.name}
+                accept=".png, .jpg, .jpeg"
+                onChange={(event) => changeImage(event.target.files[0])}
+                className="d-none"
+                disabled={props.disabled}
+              />
+            </label>
+          </Tip>
+          <CompactSubmitButton
+            submitting={false}
             variant="tertiary"
-            size="sm"
             className="btn-icon-right"
             onClick={() => changeImage(initialValue)}
             disabled={props.disabled}
+            disabledReason={props.disabledReason}
+            type="button"
+            label={translate('Cancel')}
+            iconNode={<XIcon weight="bold" />}
             data-image-input-action="cancel"
-          >
-            {translate('Cancel')}
-            <span className="svg-icon svg-icon-5">
-              <XIcon weight="bold" />
-            </span>
-          </Button>
-          <Button
+          />
+          <CompactSubmitButton
+            submitting={false}
             variant="tertiary"
-            size="sm"
             className="btn-icon-right"
             onClick={() => changeImage(null)}
             disabled={props.disabled}
+            disabledReason={props.disabledReason}
+            type="button"
+            label={translate('Remove')}
+            iconNode={<TrashIcon weight="bold" />}
             data-image-input-action="remove"
-          >
-            {translate('Remove')}
-            <span className="svg-icon svg-icon-5">
-              <TrashIcon />
-            </span>
-          </Button>
+          />
           {props.extraActions
             ? createElement(props.extraActions, {
                 value: input.value,

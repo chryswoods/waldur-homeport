@@ -1,6 +1,5 @@
+import { DateTime } from 'luxon';
 import { FC, useEffect, useMemo, useState } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
 import {
   InvoiceItem,
   invoiceItemsList,
@@ -8,16 +7,20 @@ import {
   invoiceItemsTotalPriceRetrieve,
 } from 'waldur-js-client';
 
-import { parseDate } from '@waldur/core/dateUtils';
-import { defaultCurrency } from '@waldur/core/formatCurrency';
-import { translate } from '@waldur/i18n';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { renderFieldOrDash } from '@waldur/table/utils';
-
-import { CreditUsageFilter } from './CreditUsageFilter';
+import { parseDate } from '@/core/dateUtils';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { createFetcher } from '@/table/api';
+import {
+  CreditUsageFilter,
+  CreditUsageFilterFormId,
+  selectCreditUsageFilter,
+} from '@/table/generated/CreditUsageFilter';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 interface CreditUsageDialogProps {
   creditUuid: string;
@@ -28,50 +31,44 @@ interface CreditUsageDialogProps {
   projectName?: string;
 }
 
-interface CreditUsageFilterValues {
-  offering?: { uuid: string };
-  resource?: { uuid: string };
-  year?: number;
-  month?: number;
-}
+const generateYearOptions = () => {
+  const currentYear = new Date().getFullYear();
+  const years = [];
+  for (let i = 0; i < 6; i++) {
+    const year = currentYear - i;
+    years.push({ label: year.toString(), value: year });
+  }
+  return years;
+};
+
+const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => ({
+  label: DateTime.local()
+    .set({ month: i + 1 })
+    .toFormat('LLLL'),
+  value: i + 1,
+}));
 
 export const CreditUsageDialog: FC<CreditUsageDialogProps> = (props) => {
   const [totalPrice, setTotalPrice] = useState<number>(0);
 
-  const formValues =
-    (useSelector((state) =>
-      getFormValues('CreditUsageFilter')(state),
-    ) as CreditUsageFilterValues) || {};
+  const values = useFilterValues('credit-usage-' + props.creditUuid);
+  const formValues = useMemo(() => selectCreditUsageFilter(values), [values]);
 
   const filter = useMemo(() => {
     const result: InvoiceItemsListData['query'] = {
-      credit_uuid: props.creditUuid,
-      customer_uuid: props.customerUuid,
-      project_uuid: props.projectUuid,
+      ...(props.scope === 'project'
+        ? { project_uuid: props.projectUuid }
+        : { credit_uuid: props.creditUuid, customer_uuid: props.customerUuid }),
+      ...formValues,
     };
-
-    if (formValues?.offering) {
-      result.offering_uuid = formValues.offering.uuid;
-    }
-    if (formValues?.resource) {
-      result.resource_uuid = formValues.resource.uuid;
-    }
-    if (formValues?.year) {
-      result.start_year = formValues.year;
-    }
-    if (formValues?.month) {
-      result.start_month = formValues.month;
-    }
 
     return result;
   }, [
+    props.scope,
     props.creditUuid,
     props.customerUuid,
     props.projectUuid,
-    formValues?.offering?.uuid,
-    formValues?.resource?.uuid,
-    formValues?.year,
-    formValues?.month,
+    formValues,
   ]);
 
   const tableProps = useTable({
@@ -115,6 +112,7 @@ export const CreditUsageDialog: FC<CreditUsageDialogProps> = (props) => {
     <ModalDialog headerLess bodyClassName="p-0">
       <Table<InvoiceItem>
         {...tableProps}
+        formId={CreditUsageFilterFormId}
         columns={[
           {
             title: translate('Name'),
@@ -160,10 +158,17 @@ export const CreditUsageDialog: FC<CreditUsageDialogProps> = (props) => {
             render: ({ row }) => <>{defaultCurrency(row.unit_price)}</>,
           },
         ]}
-        filters={<CreditUsageFilter customerUUID={props.customerUuid} />}
+        filters={
+          <CreditUsageFilter
+            customerUUID={props.customerUuid}
+            yearOptions={generateYearOptions()}
+            monthOptions={MONTH_OPTIONS}
+          />
+        }
         hasQuery={true}
         title={title}
         initialPageSize={5}
+        showPageSizeSelector
         footer={footer}
       />
     </ModalDialog>

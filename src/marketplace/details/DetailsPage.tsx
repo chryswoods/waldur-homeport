@@ -1,31 +1,31 @@
-import { useCurrentStateAndParams, useRouter } from '@uirouter/react';
-import { startCase } from 'lodash-es';
+import { useQuery } from '@tanstack/react-query';
+import { useCurrentStateAndParams } from '@uirouter/react';
 import React from 'react';
-import { useSelector } from 'react-redux';
-import { useAsync } from 'react-use';
 import {
   marketplacePluginsList,
   marketplacePublicOfferingsRetrieve,
+  Offering,
 } from 'waldur-js-client';
 
-import { usePermissionView } from '@waldur/auth/PermissionLayout';
-import { formatDate, parseDate } from '@waldur/core/dateUtils';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { useTitle } from '@waldur/navigation/title';
+import { usePermissionView } from '@/auth/PermissionLayout';
+import { formatDate, parseDate } from '@/core/dateUtils';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { goToNotFound } from '@/error/utils';
+import { translate } from '@/i18n';
+import { useTitle } from '@/navigation/title';
+import { useProject } from '@/workspace/hooks';
 
 import { DeployPage } from '../deploy/DeployPage';
-import { orderProjectSelector } from '../deploy/selectors';
-import { Offering } from '../types';
 
 async function loadData(offering_uuid: string) {
   const offering = (await marketplacePublicOfferingsRetrieve({
     path: { uuid: offering_uuid },
   }).then((response) => response.data)) as Offering;
   const plugins = await marketplacePluginsList();
-  const limits = plugins.data.find(
+  const pluginLimits = plugins.data.find(
     (plugin) => plugin.offering_type === offering.type,
-  )?.available_limits || [];
+  ).available_limits;
+  const limits = offering.effective_available_limits || pluginLimits;
   return { offering, limits };
 }
 
@@ -34,22 +34,29 @@ export const OfferingDetailsPage: React.FC = () => {
     params: { offering_uuid },
   } = useCurrentStateAndParams();
 
-  const router = useRouter();
+  const {
+    isLoading: loading,
+    data: value,
+    error,
+  } = useQuery({
+    queryKey: ['DetailsPage', offering_uuid],
+    queryFn: () => loadData(offering_uuid),
+    // Refetching here hands DeployPage a new `offering` object identity,
+    // which resets the in-progress order form back to its initial values
+    // (see the tab-switch data-loss bug reported for VM ordering).
+    refetchOnWindowFocus: false,
+  });
 
-  const { loading, value, error } = useAsync(
-    () => loadData(offering_uuid),
-    [offering_uuid],
-  );
-
+  // The page heading reads "Add <offering name>"; naming the category here
+  // instead made the browser tab and the heading disagree on what is being
+  // ordered ("Add Compute" vs "Add Basic VM").
   useTitle(
-    value?.offering?.category_title
-      ? translate('Add {category}', {
-          category: startCase(value.offering.category_title.toLowerCase()),
-        })
+    value?.offering?.name
+      ? translate('Add {offering}', { offering: value.offering.name })
       : translate('Add resource'),
   );
 
-  const project = useSelector(orderProjectSelector);
+  const project = useProject();
   usePermissionView(() => {
     if (project?.end_date) {
       const endDate = parseDate(project.end_date);
@@ -96,7 +103,7 @@ export const OfferingDetailsPage: React.FC = () => {
   }
 
   if (value.offering.state !== 'Active') {
-    router.stateService.go('errorPage.notFound');
+    goToNotFound();
     return null;
   }
 

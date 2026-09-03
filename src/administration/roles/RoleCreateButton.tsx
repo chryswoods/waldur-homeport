@@ -1,35 +1,25 @@
 import { useCallback } from 'react';
-import { useDispatch } from 'react-redux';
-import { rolesCreate } from 'waldur-js-client';
 
-import { AddButton } from '@waldur/core/AddButton';
-import { ENV } from '@waldur/core/config';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { closeModalDialog, openModalDialog } from '@waldur/modal/actions';
+import { AddButton } from '@/core/AddButton';
+import { lazyComponent } from '@/core/lazyComponent';
+import { useModal } from '@/modal/actions';
 
-import { getRoles } from './utils';
-
-const RoleCreateDialog = lazyComponent(() =>
-  import('./RoleCreateDialog').then((module) => ({
-    default: module.RoleCreateDialog,
+const RoleFormDialog = lazyComponent(() =>
+  import('./RoleFormDialog').then((module) => ({
+    default: module.RoleFormDialog,
   })),
 );
 
 export const RoleCreateButton = ({ refetch }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const openRoleCreateDialog = useCallback(
     () =>
-      dispatch(
-        openModalDialog(RoleCreateDialog, {
-          submitFn: async (formData) => {
-            await rolesCreate({ body: formData });
-            ENV.roles = await getRoles();
-            dispatch(closeModalDialog());
-            refetch();
-          },
-        }),
-      ),
-    [dispatch],
+      openDialog(RoleFormDialog, {
+        resolve: {
+          refetch,
+        },
+      }),
+    [openDialog, refetch],
   );
 
   return <AddButton action={openRoleCreateDialog} />;

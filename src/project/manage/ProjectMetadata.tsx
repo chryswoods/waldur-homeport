@@ -1,25 +1,46 @@
 import { useQuery } from '@tanstack/react-query';
-import React from 'react';
-import { Project, projectsChecklistRetrieve } from 'waldur-js-client';
+import React, { useCallback } from 'react';
+import {
+  Project,
+  projectsChecklistRetrieve,
+  projectsPartialUpdate,
+} from 'waldur-js-client';
 
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { ProjectFeatures } from '@waldur/FeaturesEnums';
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { usePermission } from '@waldur/permissions/hooks';
-import { useNotify } from '@waldur/store/hooks';
-import { useUser } from '@waldur/workspace/hooks';
+import { UI_STALE_TIME } from '@/core/constants';
+import { lazyComponent } from '@/core/lazyComponent';
+import { LoadingErred } from '@/core/LoadingErred';
+import { isFeatureVisible } from '@/features/connect';
+import { ProjectFeatures } from '@/FeaturesEnums';
+import { CompactEditButton } from '@/form/CompactEditButton';
+import {
+  EditFieldProvider,
+  SelectEditField,
+  StringEditField,
+} from '@/form/editFields';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import { CHECKLIST_NO_CONFIGURED_MSG } from '@/marketplace-checklist/constants';
+import { useModal } from '@/modal/actions';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { useNotify } from '@/store/notify';
+import { renderFieldOrDash } from '@/table/utils';
+import { useSetProject, useUser } from '@/workspace/hooks';
 
 import { ParsedAnswer } from '../metadata/ParsedAnswer';
+import { OECD_FOS_2007_CODES } from '../OECD_FOS_2007_CODES';
 
-import { FieldEditButton } from './FieldEditButton';
+import { EditScienceDomainDialog } from './EditScienceDomainDialog';
 import { MetadataEditButton } from './MetadataEditButton';
 
-// Server error message if no checklist configured for the project
-const NO_CHECKLIST_CONFIGURED_MSG = 'No checklist configured for this object';
-const METADATA_LOAD_ERROR_MSG = translate('Unable to load full metadata.');
+const UpdateAffiliationDialog = lazyComponent(() =>
+  import('./UpdateAffiliationDialog').then((module) => ({
+    default: module.UpdateAffiliationDialog,
+  })),
+);
+
+const getMetadataLoadErrorMsg = () =>
+  translate('Unable to load full metadata.');
 
 interface ProjectMetadataProps {
   project: Project;
@@ -28,7 +49,9 @@ interface ProjectMetadataProps {
 export const ProjectMetadata: React.FC<ProjectMetadataProps> = ({
   project,
 }) => {
+  const { openDialog } = useModal();
   const user = useUser();
+  const setProject = useSetProject();
   const { showErrorResponse } = useNotify();
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['projectChecklist', project.uuid],
@@ -36,95 +59,161 @@ export const ProjectMetadata: React.FC<ProjectMetadataProps> = ({
       projectsChecklistRetrieve({ path: { uuid: project.uuid } })
         .then((response) => response.data)
         .catch((err) => {
-          if (err.detail !== NO_CHECKLIST_CONFIGURED_MSG) {
-            showErrorResponse(err, METADATA_LOAD_ERROR_MSG);
+          if (err.detail !== CHECKLIST_NO_CONFIGURED_MSG) {
+            showErrorResponse(err, getMetadataLoadErrorMsg());
           }
           throw err;
         }),
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
     retry: false,
   });
 
-  const hasPermission = usePermission();
-  const canUpdateMetadata = hasPermission({
+  const canUpdateMetadata = hasPermission(user, {
     permission: PermissionEnum.UPDATE_PROJECT_METADATA,
     customerId: project.customer_uuid,
     projectId: project.uuid,
   });
 
+  const canUpdateProject =
+    user.is_staff ||
+    hasPermission(user, {
+      permission: PermissionEnum.UPDATE_PROJECT,
+      customerId: project.customer_uuid,
+      projectId: project.uuid,
+    });
+
+  const affiliation = project.affiliation;
+  const affiliationDisplay = affiliation
+    ? affiliation.abbreviation
+      ? `${affiliation.name} (${affiliation.abbreviation})`
+      : affiliation.name
+    : null;
+
+  const openAffiliationDialog = useCallback(() => {
+    openDialog(UpdateAffiliationDialog, {
+      resolve: { project },
+      size: 'lg',
+    });
+  }, [project]);
+
+  const updateProject = useCallback(
+    async (formData) => {
+      try {
+        const res = await projectsPartialUpdate({
+          path: { uuid: project.uuid },
+          body: formData,
+        });
+        setProject(res.data);
+        return res;
+      } catch (error) {
+        showErrorResponse(error, translate('Unable to update project.'));
+        throw error;
+      }
+    },
+    [project.uuid, setProject, showErrorResponse],
+  );
+
   return (
-    <FormTable.Card className="card-bordered">
-      <FormTable>
-        <FormTable.Item
-          label={translate('OECD FoS code')}
-          value={
-            (project.oecd_fos_2007_code && (
-              <span>{`${project.oecd_fos_2007_code}. ${project.oecd_fos_2007_label}`}</span>
-            )) ||
-            'N/A'
-          }
-          actions={
-            isFeatureVisible(ProjectFeatures.oecd_fos_2007_code) && (
-              <FieldEditButton project={project} name="oecd_fos_2007_code" />
-            )
-          }
-        />
+    <EditFieldProvider scope={project} callback={updateProject}>
+      <FormTable.Card className="card-bordered">
+        <FormTable hideActions={!canUpdateProject}>
+          {isFeatureVisible(ProjectFeatures.oecd_fos_2007_code) && (
+            <SelectEditField
+              name="oecd_fos_2007_code"
+              label={translate('OECD FoS code')}
+              options={OECD_FOS_2007_CODES}
+              getOptionValue={(option) => option.value}
+              getOptionLabel={(option) => `${option.value}. ${option.label}`}
+              simpleValue
+              isClearable
+              renderValue={() =>
+                project.oecd_fos_2007_code
+                  ? renderFieldOrDash(
+                      `${project.oecd_fos_2007_code}. ${project.oecd_fos_2007_label}`,
+                    )
+                  : renderFieldOrDash(null)
+              }
+            />
+          )}
 
-        <FormTable.Item
-          label={translate('Backend ID')}
-          value={project.backend_id || 'N/A'}
-          actions={<FieldEditButton project={project} name="backend_id" />}
-        />
+          {isFeatureVisible(ProjectFeatures.science_domain) && (
+            <FormTable.Item
+              label={translate('Science domain')}
+              value={renderFieldOrDash(
+                project.science_domain_name && project.science_sub_domain_name
+                  ? `${project.science_domain_name} > ${project.science_sub_domain_name}`
+                  : null,
+              )}
+              actions={
+                <CompactEditButton
+                  onClick={() =>
+                    openDialog(EditScienceDomainDialog, {
+                      resolve: { project },
+                    })
+                  }
+                  disabled={project.is_removed}
+                />
+              }
+            />
+          )}
 
-        <FormTable.Item
-          label={translate('Short name')}
-          value={project.short_name}
-        />
-        <FormTable.Item
-          label={translate('Slug')}
-          value={project.slug}
-          actions={
-            user.is_staff ? (
-              <FieldEditButton project={project} name="slug" />
-            ) : null
-          }
-        />
+          <StringEditField name="backend_id" label={translate('Backend ID')} />
 
-        {error &&
-        (error as any)?.detail !== NO_CHECKLIST_CONFIGURED_MSG &&
-        !isLoading ? (
+          <StringEditField name="slug" label={translate('Slug')} isStaffOnly />
+
           <FormTable.Item
-            value={
-              <LoadingErred
-                message={METADATA_LOAD_ERROR_MSG}
-                loadData={refetch}
+            label={translate('Affiliation')}
+            value={renderFieldOrDash(affiliationDisplay)}
+            actions={
+              <CompactEditButton
+                onClick={openAffiliationDialog}
+                disabled={project.is_removed}
+                tooltip={
+                  project.is_removed
+                    ? translate('Action is disabled for removed project')
+                    : undefined
+                }
+                variant="secondary"
               />
             }
           />
-        ) : data?.questions?.length ? (
-          data.questions.map((question) => (
+
+          {error &&
+          (error as any)?.detail !== CHECKLIST_NO_CONFIGURED_MSG &&
+          !isLoading ? (
             <FormTable.Item
-              key={question.uuid}
-              label={question.description}
               value={
-                <ParsedAnswer
-                  question={question as any}
-                  answer={question.existing_answer as any}
+                <LoadingErred
+                  message={getMetadataLoadErrorMsg()}
+                  loadData={refetch}
                 />
               }
-              actions={
-                canUpdateMetadata && (
-                  <MetadataEditButton
-                    project={project}
-                    question={question}
-                    refetch={refetch}
-                  />
-                )
-              }
             />
-          ))
-        ) : null}
-      </FormTable>
-    </FormTable.Card>
+          ) : data?.questions?.length ? (
+            data.questions.map((question) => (
+              <FormTable.Item
+                key={question.uuid}
+                label={question.description}
+                value={
+                  <ParsedAnswer
+                    question={question as any}
+                    answer={question.existing_answer as any}
+                  />
+                }
+                actions={
+                  canUpdateMetadata && (
+                    <MetadataEditButton
+                      project={project}
+                      question={question}
+                      refetch={refetch}
+                    />
+                  )
+                }
+              />
+            ))
+          ) : null}
+        </FormTable>
+      </FormTable.Card>
+    </EditFieldProvider>
   );
 };

@@ -1,19 +1,40 @@
-import { FunctionComponent } from 'react';
+import { ComponentType, FunctionComponent, ReactNode } from 'react';
 import { Nav, Tab } from 'react-bootstrap';
-import { connect, useSelector } from 'react-redux';
-import { BasePublicPlan, PublicOfferingDetails } from 'waldur-js-client';
+import { Form } from 'react-final-form';
+import {
+  BasePublicPlan,
+  Customer,
+  LimitPeriodEnum,
+  PublicOfferingDetails,
+  Offering,
+} from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { Limits } from '@waldur/marketplace/details/types';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { Limits } from '@/marketplace/details/types';
 
 import { OneTimeTab } from './OneTimeTab';
 import { PeriodicTab } from './PeriodicTab';
-import { PlanDetailsTableProps, PricesData } from './types';
-import { pricesSelector, useComponentsDetailPrices } from './utils';
+import { PlanDetailsTableProps } from './types';
+import {
+  LIMIT_PERIODS,
+  useComponentsDetailPrices,
+  useOrderPrices,
+} from './utils';
 import { WarningTooltip } from './WarningTooltip';
 
 import './TabbedPlanComponents.scss';
+
+// A stable no-op submit for the inert read-only Form (see TabbedPlanComponents).
+const NOOP_SUBMIT = () => undefined;
+
+const COST_TAB_LABEL: Partial<Record<LimitPeriodEnum, string>> = {
+  month: translate('Monthly cost'),
+  quarterly: translate('Quarterly cost'),
+  annual: translate('Annual cost'),
+  total: translate('One time cost'),
+};
 
 const PureDetailsTable: FunctionComponent<PlanDetailsTableProps> = (props) => {
   if (props.components.length === 0) {
@@ -22,70 +43,142 @@ const PureDetailsTable: FunctionComponent<PlanDetailsTableProps> = (props) => {
 
   const { periodic, oneTime } = useComponentsDetailPrices(props);
 
-  const currentCustomer = useSelector(getCustomer);
-  const customer = props.customer || currentCustomer;
+  const globalConceal = isFeatureVisible(MarketplaceFeatures.conceal_prices);
+  const shouldConcealPrices = globalConceal || props.concealBillingInfo;
 
   if (!periodic.hasPeriodicCost && !oneTime.hasOneTimeCost) {
     return null;
   }
 
+  const customer = props.customer;
+
+  const canShowTab = (period: LimitPeriodEnum) =>
+    periodic.limitedRowsByPeriod[period].rows.length > 0 ||
+    (period === 'month' && periodic.hasMonthlyCost);
+
+  if (shouldConcealPrices) {
+    return (
+      <div className="plan-details-container">
+        {oneTime.hasOneTimeCost && (
+          <OneTimeTab
+            oneTime={oneTime}
+            viewMode={props.viewMode}
+            concealBillingInfo
+            offering={props.offering}
+          />
+        )}
+        {periodic.hasPeriodicCost &&
+          LIMIT_PERIODS.map(
+            (period) =>
+              canShowTab(period) && (
+                <PeriodicTab
+                  key={period}
+                  periodic={periodic}
+                  limitPeriod={period}
+                  customer={customer}
+                  viewMode={props.viewMode}
+                  periodKeys={props.periodKeys}
+                  periods={props.periods}
+                  concealBillingInfo
+                  offering={props.offering}
+                />
+              ),
+          )}
+      </div>
+    );
+  }
+
+  const defaultActiveKey = oneTime.hasOneTimeCost
+    ? 'onetime'
+    : 'periodic-' + LIMIT_PERIODS.find((per) => canShowTab(per));
+
+  const tabs: Array<{
+    eventKey: string | number;
+    title: ReactNode;
+    content: ReactNode;
+  }> = [
+    ...(props.extraTabs || []).map((tab) => ({
+      eventKey: tab.eventKey,
+      title: tab.title,
+      content: <tab.component />,
+    })),
+    ...(oneTime.hasOneTimeCost
+      ? [
+          {
+            eventKey: 'onetime',
+            title: COST_TAB_LABEL['total'],
+            content: (
+              <OneTimeTab
+                oneTime={oneTime}
+                viewMode={props.viewMode}
+                concealBillingInfo={props.concealBillingInfo}
+                offering={props.offering}
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(periodic.hasPeriodicCost
+      ? LIMIT_PERIODS.filter(canShowTab).map((period) => ({
+          eventKey: `periodic-${period}`,
+          title: COST_TAB_LABEL[period],
+          content: (
+            <PeriodicTab
+              periodic={periodic}
+              limitPeriod={period}
+              customer={customer}
+              viewMode={props.viewMode}
+              periodKeys={props.periodKeys}
+              periods={props.periods}
+              concealBillingInfo={props.concealBillingInfo}
+              offering={props.offering}
+            />
+          ),
+        }))
+      : []),
+  ];
+
+  // A lone "Monthly cost" tab is chrome with no navigational function — the
+  // table below already reads "per month" and "/mo" — so its pane is shown
+  // directly. Every other label ("One time cost", "Quarterly cost", ...) is the
+  // only place its period is named, so those keep the bar even when alone.
+  if (tabs.length === 1 && tabs[0].eventKey === 'periodic-month') {
+    return (
+      <div className="plan-details-container">
+        {/* The bar is also where WarningTooltip lives — keep it in edit mode. */}
+        {!props.viewMode && (
+          <div className="d-flex mb-2">
+            <WarningTooltip />
+          </div>
+        )}
+        {tabs[0].content}
+      </div>
+    );
+  }
+
   return (
     <div className="plan-details-container">
-      <Tab.Container
-        defaultActiveKey={oneTime.hasOneTimeCost ? 'onetime' : 'periodic'}
-      >
+      <Tab.Container defaultActiveKey={defaultActiveKey}>
         {/* TABS */}
         <Nav variant="tabs" className="nav-line-tabs">
-          {props.extraTabs
-            ? props.extraTabs.map((tab) => (
-                <Nav.Item key={tab.eventKey}>
-                  <Nav.Link eventKey={tab.eventKey}>{tab.title}</Nav.Link>
-                </Nav.Item>
-              ))
-            : null}
-          {oneTime.hasOneTimeCost ? (
-            <Nav.Item>
-              <Nav.Link eventKey="onetime">
-                {translate('One time cost')}
-              </Nav.Link>
+          {tabs.map((tab) => (
+            <Nav.Item key={tab.eventKey}>
+              <Nav.Link eventKey={tab.eventKey}>{tab.title}</Nav.Link>
             </Nav.Item>
-          ) : null}
-          {periodic.hasPeriodicCost ? (
-            <Nav.Item>
-              <Nav.Link eventKey="periodic">
-                {translate('Monthly cost')}
-              </Nav.Link>
-            </Nav.Item>
-          ) : null}
-          <WarningTooltip />
+          ))}
+          {/* WarningTooltip reads submit errors via useFormState, so it must
+              not render outside a <Form> — e.g. the read-only proposal
+              resource-request view passes viewMode with no surrounding form. */}
+          {!props.viewMode && <WarningTooltip />}
         </Nav>
 
         {/* CONTENT */}
         <Tab.Content>
-          {props.extraTabs
-            ? props.extraTabs.map((tab) => (
-                <Tab.Pane key={tab.eventKey} eventKey={tab.eventKey}>
-                  <tab.component />
-                </Tab.Pane>
-              ))
-            : null}
-          {oneTime.hasOneTimeCost ? (
-            <Tab.Pane eventKey="onetime">
-              <OneTimeTab oneTime={oneTime} viewMode={props.viewMode} />
+          {tabs.map((tab) => (
+            <Tab.Pane key={tab.eventKey} eventKey={tab.eventKey}>
+              {tab.content}
             </Tab.Pane>
-          ) : null}
-
-          {periodic.hasPeriodicCost ? (
-            <Tab.Pane eventKey="periodic">
-              <PeriodicTab
-                periodic={periodic}
-                customer={customer}
-                viewMode={props.viewMode}
-                periodKeys={props.periodKeys}
-                periods={props.periods}
-              />
-            </Tab.Pane>
-          ) : null}
+          ))}
         </Tab.Content>
       </Tab.Container>
     </div>
@@ -93,14 +186,38 @@ const PureDetailsTable: FunctionComponent<PlanDetailsTableProps> = (props) => {
 };
 
 interface TabbedPlanComponents {
-  offering: PublicOfferingDetails;
+  offering: PublicOfferingDetails | Offering;
   plan?: BasePublicPlan;
   limits?: Limits;
   viewMode?: boolean;
+  concealBillingInfo?: boolean;
+  customer?: Pick<Customer, 'url'>;
+  /** Prepaid subscription length, where it is named in months (see PrepaidMonthsMode). */
+  prepaidDurationMonths?: number;
+  extraTabs?: Array<{
+    title: ReactNode;
+    eventKey: string | number;
+    component: ComponentType;
+  }>;
 }
 
-export const TabbedPlanComponents = connect<
-  PricesData,
-  {},
-  TabbedPlanComponents
->(pricesSelector)(PureDetailsTable);
+const PlanComponentsBody = (props: TabbedPlanComponents) => {
+  const prices = useOrderPrices(props);
+  return <PureDetailsTable {...props} {...prices} />;
+};
+
+// The plan-components subtree is order-form-oriented: several descendants
+// (useOrderPrices, OneTimeTab's useOrderFormData, WarningTooltip) read
+// react-final-form state via hooks that throw outside a <Form>. In edit mode an
+// order form is always in context. In read-only viewMode (proposal resource
+// requests, public offering pricing) there is none, so wrap the subtree in an
+// inert Form purely to satisfy those hooks — the displayed values come from
+// props, and nothing is editable while viewMode is set.
+export const TabbedPlanComponents = (props: TabbedPlanComponents) =>
+  props.viewMode ? (
+    <Form onSubmit={NOOP_SUBMIT}>
+      {() => <PlanComponentsBody {...props} />}
+    </Form>
+  ) : (
+    <PlanComponentsBody {...props} />
+  );

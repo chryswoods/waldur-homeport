@@ -1,11 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { BillingTypeEnum } from 'waldur-js-client';
 
 import { getUpdateSummary } from './OrderSummaryMessage';
-
-vi.mock('@waldur/core/formatCurrency', () => ({
-  defaultCurrency: (val) => val,
-}));
 
 const COMPONENTS = [
   {
@@ -78,7 +74,7 @@ const COMPONENTS = [
     factor: 1024,
     uuid: '36d50a8a3b6611eebe560242ac120002',
   },
-];
+] as any;
 
 describe('OrderSummary', () => {
   const order = {
@@ -95,7 +91,7 @@ describe('OrderSummary', () => {
     resource_name: 'Demo Cloud',
     old_plan_name: 'Basic',
     new_plan_name: 'Advanced',
-    old_cost_estimate: '100',
+    old_cost_estimate: 100,
     new_cost_estimate: '300',
   };
 
@@ -105,7 +101,7 @@ describe('OrderSummary', () => {
       user: 'Alice Lebowski',
       components: COMPONENTS,
     };
-    expect(getUpdateSummary(ctx as any)).toMatchSnapshot();
+    expect(getUpdateSummary(ctx)).toMatchSnapshot();
   });
 
   it('formats update summary without components', () => {
@@ -114,6 +110,6 @@ describe('OrderSummary', () => {
       user: 'Alice Lebowski',
       components: [],
     };
-    expect(getUpdateSummary(ctx)).toMatchSnapshot();
+    expect(getUpdateSummary(ctx as any)).toMatchSnapshot();
   });
 });

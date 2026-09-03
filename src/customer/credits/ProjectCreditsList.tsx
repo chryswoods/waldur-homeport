@@ -1,14 +1,13 @@
 import { FC, useMemo } from 'react';
-import { useSelector } from 'react-redux';
 import { ProjectCredit, projectCreditsList } from 'waldur-js-client';
 
-import { FilteredEventsButton } from '@waldur/events/FilteredEventsButton';
-import { translate } from '@waldur/i18n';
-import { ProjectLink } from '@waldur/project/ProjectLink';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { FilteredEventsButton } from '@/events/FilteredEventsButton';
+import { translate } from '@/i18n';
+import { ProjectLink } from '@/project/ProjectLink';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { useCustomer } from '@/workspace/hooks';
 
 import { COMMON_CREDIT_COLUMNS } from './constants';
 import { CreditExpandableRow } from './CreditExpandableRow';
@@ -16,7 +15,7 @@ import { ProjectCreateCreditButton } from './ProjectCreateCreditButton';
 import { ProjectCreditActions } from './ProjectCreditActions';
 
 export const ProjectCreditsList: FC = () => {
-  const customer = useSelector(getCustomer);
+  const customer = useCustomer();
   const filter = useMemo(
     () => ({ customer_uuid: customer.uuid }),
     [customer.uuid],
@@ -51,6 +50,7 @@ export const ProjectCreditsList: FC = () => {
       verboseName={translate('Credits')}
       hasQuery
       enableExport
+      showPageSizeSelector
       rowActions={ProjectCreditActions}
       expandableRow={CreditExpandableRow}
       tableActions={

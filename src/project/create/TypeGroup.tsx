@@ -1,23 +1,26 @@
-import { Field } from 'react-final-form';
-import { useAsync } from 'react-use';
+import { useQuery } from '@tanstack/react-query';
 import { projectTypesList } from 'waldur-js-client';
 
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { ProjectFeatures } from '@waldur/FeaturesEnums';
-import { SelectField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
+import { STALE_TIME } from '@/core/constants';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { isFeatureVisible } from '@/features/connect';
+import { ProjectFeatures } from '@/FeaturesEnums';
+import { SelectGroup } from '@/form';
+import { translate } from '@/i18n';
 
 export const TypeGroup = ({ create }: { create?: boolean }) => {
   if (create && !isFeatureVisible(ProjectFeatures.show_type_in_create_dialog)) {
     return null;
   }
   const {
-    loading,
+    isLoading: loading,
     error,
-    value: projectTypes,
-  } = useAsync(async () => (await projectTypesList()).data);
+    data: projectTypes,
+  } = useQuery({
+    queryKey: ['projectTypes'],
+    queryFn: async () => (await projectTypesList()).data,
+    staleTime: STALE_TIME,
+  });
   return loading ? (
     <LoadingSpinner />
   ) : error ? (
@@ -25,15 +28,13 @@ export const TypeGroup = ({ create }: { create?: boolean }) => {
       {translate('Unable to load project types.')}
     </h3>
   ) : projectTypes.length >= 1 ? (
-    <FormGroup label={translate('Project type')}>
-      <Field
-        component={SelectField}
-        name="type"
-        options={projectTypes}
-        getOptionValue={(option) => option.url}
-        getOptionLabel={(option) => option.name}
-        isClearable={true}
-      />
-    </FormGroup>
+    <SelectGroup
+      name="type"
+      options={projectTypes}
+      getOptionValue={(option) => option.url}
+      getOptionLabel={(option) => option.name}
+      isClearable={true}
+      label={translate('Project type')}
+    />
   ) : null;
 };

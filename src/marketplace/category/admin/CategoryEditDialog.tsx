@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FC } from 'react';
-import { Field, Form } from 'react-final-form';
-import { useDispatch } from 'react-redux';
+import { Form } from 'react-final-form';
 import {
   marketplaceCategoriesCreate,
   marketplaceCategoriesRetrieve,
@@ -9,24 +8,23 @@ import {
   MarketplaceCategoryRequest,
 } from 'waldur-js-client';
 
-import { formDataOptions, fileSerializer } from '@waldur/core/api';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { required } from '@waldur/core/validators';
+import { formDataOptions, fileSerializer } from '@/core/api';
+import { FAST_STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { required } from '@/core/validators';
 import {
-  SelectField,
-  StringField,
   SubmitButton,
-  TextField,
-} from '@waldur/form';
-import { AwesomeCheckboxField } from '@waldur/form/AwesomeCheckboxField';
-import { ImageField } from '@waldur/form/ImageField';
-import { translate } from '@waldur/i18n';
-import { getCategoryGroups } from '@waldur/marketplace/common/api';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+  StringGroup,
+  SelectGroup,
+  TextGroup,
+  ImageGroup,
+  BooleanGroup,
+} from '@/form';
+import { translate } from '@/i18n';
+import { getCategoryGroups } from '@/marketplace/common/api';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
 interface CategoryEditDialogProps {
   resolve: {
@@ -38,7 +36,6 @@ interface CategoryEditDialogProps {
 export const CategoryEditDialog: FC<CategoryEditDialogProps> = ({
   resolve: { category, refetch },
 }) => {
-  const dispatch = useDispatch();
   const queryClient = useQueryClient();
   const isEdit = Boolean(category?.uuid);
 
@@ -57,7 +54,7 @@ export const CategoryEditDialog: FC<CategoryEditDialogProps> = ({
           )
         : null,
 
-    staleTime: 30 * 1000,
+    staleTime: FAST_STALE_TIME,
   });
 
   const {
@@ -68,14 +65,17 @@ export const CategoryEditDialog: FC<CategoryEditDialogProps> = ({
   } = useQuery({
     queryKey: ['MarketplaceCategoryGroups'],
     queryFn: () => getCategoryGroups(),
-    staleTime: 30 * 1000,
+    staleTime: FAST_STALE_TIME,
   });
 
-  const onSubmit = async (formData: MarketplaceCategoryRequest) => {
-    try {
-      let result;
+  const saveCategoryMutation = useManagedMutation<
+    any,
+    any,
+    MarketplaceCategoryRequest
+  >({
+    mutationFn: (formData) => {
       if (isEdit) {
-        result = await marketplaceCategoriesUpdate({
+        return marketplaceCategoriesUpdate({
           path: { uuid: category.uuid },
           body: {
             ...formData,
@@ -84,7 +84,7 @@ export const CategoryEditDialog: FC<CategoryEditDialogProps> = ({
           ...formDataOptions,
         }).then((response) => response.data);
       } else {
-        result = await marketplaceCategoriesCreate({
+        return marketplaceCategoriesCreate({
           body: {
             ...formData,
             icon: fileSerializer(formData.icon),
@@ -92,30 +92,20 @@ export const CategoryEditDialog: FC<CategoryEditDialogProps> = ({
           ...formDataOptions,
         }).then((response) => response.data);
       }
-
-      // Update the cached data
-      queryClient.setQueryData(['CategoryData', category?.uuid], result);
-
-      refetch();
-      dispatch(
-        showSuccess(
-          isEdit
-            ? translate('The category has been updated.')
-            : translate('The category has been created.'),
-        ),
-      );
-      dispatch(closeModalDialog());
-    } catch (e) {
-      dispatch(
-        showErrorResponse(
-          e,
-          isEdit
-            ? translate('Unable to update category.')
-            : translate('Unable to create category.'),
-        ),
-      );
-    }
-  };
+    },
+    successMessage: isEdit
+      ? translate('The category has been updated.')
+      : translate('The category has been created.'),
+    errorMessage: isEdit
+      ? translate('Unable to update category.')
+      : translate('Unable to create category.'),
+    refetch,
+    onSuccess: (result) => {
+      if (category?.uuid) {
+        queryClient.setQueryData(['CategoryData', category.uuid], result);
+      }
+    },
+  });
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -125,7 +115,9 @@ export const CategoryEditDialog: FC<CategoryEditDialogProps> = ({
 
   return (
     <Form
-      onSubmit={onSubmit}
+      onSubmit={(values: MarketplaceCategoryRequest) =>
+        saveCategoryMutation.mutateAsync(values).catch(() => {})
+      }
       initialValues={categoryData}
       render={({ handleSubmit, submitting, pristine, invalid }) => (
         <form onSubmit={handleSubmit}>
@@ -135,7 +127,6 @@ export const CategoryEditDialog: FC<CategoryEditDialogProps> = ({
                 ? translate('Edit {title}', { title: categoryData.title })
                 : translate('Create category')
             }
-            closeButton
             footer={
               <SubmitButton
                 disabled={invalid || pristine}
@@ -144,19 +135,14 @@ export const CategoryEditDialog: FC<CategoryEditDialogProps> = ({
               />
             }
           >
-            <Field
-              name="icon"
-              component={ImageField as any}
-              initialValue={categoryData?.icon}
-            />
+            <ImageGroup name="icon" initialValue={categoryData?.icon} />
 
-            <FormGroup label={translate('Title')} required>
-              <Field
-                name="title"
-                validate={required}
-                component={StringField as any}
-              />
-            </FormGroup>
+            <StringGroup
+              name="title"
+              validate={required}
+              label={translate('Title')}
+              required
+            />
 
             {errorGroups ? (
               <LoadingErred
@@ -164,25 +150,20 @@ export const CategoryEditDialog: FC<CategoryEditDialogProps> = ({
                 loadData={refetchGroups}
               />
             ) : (
-              <FormGroup label={translate('Group')}>
-                <Field
-                  name="group"
-                  component={SelectField as any}
-                  getOptionLabel={(option) => option.title}
-                  getOptionValue={(option) => option.url}
-                  options={categoryGroups}
-                  isLoading={loadingGroups}
-                  isClearable
-                  simpleValue
-                />
-              </FormGroup>
+              <SelectGroup
+                name="group"
+                getOptionLabel={(option) => option.title}
+                getOptionValue={(option) => option.url}
+                options={categoryGroups}
+                isLoading={loadingGroups}
+                isClearable
+                simpleValue
+                label={translate('Group')}
+              />
             )}
-            <FormGroup label={translate('Description')}>
-              <Field name="description" component={TextField as any} />
-            </FormGroup>
+            <TextGroup name="description" label={translate('Description')} />
 
-            <Field
-              component={AwesomeCheckboxField as any}
+            <BooleanGroup
               name="default_volume_category"
               label={translate('Default volume category')}
               description={translate(
@@ -191,22 +172,11 @@ export const CategoryEditDialog: FC<CategoryEditDialogProps> = ({
               className="mb-5"
             />
 
-            <Field
-              component={AwesomeCheckboxField as any}
+            <BooleanGroup
               name="default_vm_category"
               label={translate('Default vm category')}
               description={translate(
                 'Set to true if this category is for OpenStack VM. Only one category can have "true" value.',
-              )}
-              className="mb-5"
-            />
-
-            <Field
-              component={AwesomeCheckboxField as any}
-              name="default_tenant_category"
-              label={translate('Default tenant category')}
-              description={translate(
-                'Set to true if this category is for OpenStack Tenant. Only one category can have "true" value.',
               )}
               className="mb-5"
             />

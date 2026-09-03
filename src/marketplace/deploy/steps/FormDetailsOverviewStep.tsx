@@ -1,24 +1,22 @@
 import { useQuery } from '@tanstack/react-query';
 import { Col, Row, Stack } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
 
-import { Image } from '@waldur/core/Image';
-import { VStepperFormStepCard } from '@waldur/form/VStepperFormStep';
-import { translate } from '@waldur/i18n';
-import { getServiceProviderByCustomer } from '@waldur/marketplace/common/api';
-import { CustomerField } from '@waldur/marketplace/details/CustomerField';
-import { ProjectField } from '@waldur/marketplace/details/ProjectField';
-import { Field } from '@waldur/resource/summary';
-import { renderFieldOrDash } from '@waldur/table/utils';
+import { STALE_TIME } from '@/core/constants';
+import { Image } from '@/core/Image';
+import { translate } from '@/i18n';
+import { getServiceProviderByCustomer } from '@/marketplace/common/api';
+import { CustomerField } from '@/marketplace/details/CustomerField';
+import { ProjectField } from '@/marketplace/details/ProjectField';
+import { Field } from '@/resource/summary';
+import { renderFieldOrDash } from '@/table/utils';
+import { VStepperFormStepCard } from '@/wizard';
 
 import { DetailsOverviewButton } from '../DetailsOverviewButton';
-import { orderCustomerSelector } from '../selectors';
-import { orderProjectSelector } from '../selectors';
+import { useOrderFormData } from '../selectors';
 import { FormStepProps } from '../types';
 
 export const FormDetailsOverviewStep = (props: FormStepProps) => {
-  const project = useSelector(orderProjectSelector);
-  const customer = useSelector(orderCustomerSelector);
+  const { customer, project } = useOrderFormData();
 
   const { data: provider } = useQuery({
     queryKey: ['DeployDetailsOverview', 'provider', props.offering?.uuid],
@@ -30,7 +28,7 @@ export const FormDetailsOverviewStep = (props: FormStepProps) => {
           })
         : null,
 
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_TIME,
   });
 
   if (props.offering.shared) {
@@ -79,10 +77,14 @@ export const FormDetailsOverviewStep = (props: FormStepProps) => {
           <Col sm={6}>
             <CustomerField
               organizationGroups={props.offering.organization_groups}
+              offering={props.offering}
             />
           </Col>
           <Col sm={6}>
-            <ProjectField previewMode={props.previewMode} />
+            <ProjectField
+              previewMode={props.previewMode}
+              offering={props.offering}
+            />
           </Col>
         </Row>
       </VStepperFormStepCard>

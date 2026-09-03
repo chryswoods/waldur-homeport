@@ -1,43 +1,28 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCurrentStateAndParams } from '@uirouter/react';
 import { createRef, useCallback, useEffect, useRef, useState } from 'react';
-import { useDispatch } from 'react-redux';
-import { getFormValues, submit as submitForm } from 'redux-form';
+import { Form } from 'react-final-form';
 import {
-  Proposal,
   proposalProposalsRetrieve,
   proposalPublicCallsRetrieve,
-  proposalReviewsAccept,
   proposalReviewsPartialUpdate,
   proposalReviewsRetrieve,
-  proposalReviewsSubmit,
-  PublicCall,
 } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { Form } from '@waldur/form/Form';
-import { SidebarLayout } from '@waldur/form/SidebarLayout';
-import { formatJsxTemplate, translate } from '@waldur/i18n';
-import { PageBarProvider } from '@waldur/marketplace/context';
-import {
-  closeModalDialog,
-  openModalDialog,
-  waitForConfirmation,
-} from '@waldur/modal/actions';
-import { useTitle } from '@waldur/navigation/title';
-import {
-  PROPOSAL_UPDATE_REVIEW_FORM_ID,
-  REVIEW_SUMMARY_FORM_ID,
-} from '@waldur/proposals/constants';
-import { ProposalReview } from '@waldur/proposals/types';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { RootState } from '@waldur/store/reducers';
-import store from '@waldur/store/store';
+import { lazyComponent } from '@/core/lazyComponent';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { SidebarLayout } from '@/form/SidebarLayout';
+import { translate } from '@/i18n';
+import { PageBarProvider } from '@/marketplace/context';
+import { useModal } from '@/modal/actions';
+import { useTitle } from '@/navigation/title';
+import { ProposalReview } from '@/proposals/types';
+import { useNotify } from '@/store/notify';
 
 import { ProposalRoleBasedTabs } from '../ProposalRoleBasedTabs';
 
+import { ConflictOfInterestNotice } from './ConflictOfInterestNotice';
 import { CreatePageSidebar } from './CreatePageSidebar';
 import { ReviewHeader } from './ReviewHeader';
 import { createReviewSteps } from './steps/steps';
@@ -52,20 +37,17 @@ const loadData = async (reviewUuid: string) => {
   const review = await proposalReviewsRetrieve({
     path: { uuid: reviewUuid },
   }).then((response) => response.data);
-  const promises: [Promise<Proposal>, Promise<PublicCall>] = [
-    proposalProposalsRetrieve({
-      path: { uuid: review.proposal_uuid },
-    }).then((response) => response.data),
-    proposalPublicCallsRetrieve({
-      path: { uuid: review.call_uuid },
-      query: { field: ['uuid', 'customer_uuid'] },
-    }).then((res) => res.data),
-  ];
-  const [proposal, call] = await Promise.all(promises);
+  const proposal = await proposalProposalsRetrieve({
+    path: { uuid: review.proposal_uuid },
+  }).then((response) => response.data);
+  const call = await proposalPublicCallsRetrieve({
+    path: { uuid: review.call_uuid },
+    query: { field: ['uuid', 'customer_uuid', 'manager_uuid'] },
+  }).then((res) => res.data);
   return { review, proposal, call };
 };
 
-export const ProposalReviewCreatePage = (props) => {
+export const ProposalReviewCreatePage = () => {
   useTitle(translate('Create review'));
 
   const {
@@ -94,100 +76,32 @@ export const ProposalReviewCreatePage = (props) => {
     (_, i) => stepRefs.current[i] ?? createRef(),
   );
 
-  const dispatch = useDispatch();
+  const { showErrorResponse } = useNotify();
 
-  const captureFormValues = useCallback(() => {
-    store.dispatch(submitForm(REVIEW_SUMMARY_FORM_ID));
-    const values = getFormValues(REVIEW_SUMMARY_FORM_ID)(
-      store.getState() as RootState,
-    );
-    return values;
-  }, []);
-
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleSaveSummary = useCallback(async () => {
-    const values = captureFormValues();
-
-    setIsSaving(true);
-    try {
-      // If the review is still in "created" state, automatically accept it
-      // since the user is saving a draft (implicitly starting the review)
-      if (data.review.state === 'created') {
-        await proposalReviewsAccept({
-          path: { uuid: data.review.uuid },
-        });
-      }
-
-      const response = await proposalReviewsPartialUpdate({
-        body: values,
-        path: { uuid: data.review.uuid },
-      });
-      setReviewObject(response.data);
-      dispatch(showSuccess(translate('Review has been updated.')));
-    } catch (e) {
-      dispatch(showErrorResponse(e, translate('Unable to update review.')));
-    } finally {
-      setIsSaving(false);
-    }
-  }, [dispatch, data?.review]);
-
-  const submit = useCallback(async () => {
-    await handleSaveSummary();
-    try {
-      await waitForConfirmation(
-        dispatch,
-        translate('Confirm your review'),
-        translate(
-          'Are you sure you want to submit this review for the {name} proposal?',
-          {
-            name: <b>{data.proposal.name}</b>,
-          },
-          formatJsxTemplate,
-        ),
-      );
-    } catch {
-      return;
-    }
-    try {
-      await proposalReviewsSubmit({
-        path: { uuid: data.review.uuid },
-      });
-      dispatch(
-        showSuccess(translate('Proposal review submitted successfully')),
-      );
-      refetch();
-    } catch (error) {
-      dispatch(showErrorResponse(error, translate('Something went wrong')));
-    }
-  }, [data, dispatch]);
+  const { openDialog, closeDialog } = useModal();
 
   const openCommentFormDialog = useCallback(
     ({ commentField, label }) =>
-      dispatch(
-        openModalDialog(CommentFormDialog, {
-          resolve: {
-            title: label,
-            value: reviewObject[commentField],
-            onSubmit: async (formData) => {
-              try {
-                const res = await proposalReviewsPartialUpdate({
-                  path: { uuid: data.review.uuid },
-                  body: { [commentField]: formData.comment },
-                });
-                setReviewObject(res.data);
-                dispatch(closeModalDialog());
-              } catch (error) {
-                dispatch(
-                  showErrorResponse(error, translate('Something went wrong')),
-                );
-              }
-            },
+      openDialog(CommentFormDialog, {
+        resolve: {
+          title: label,
+          value: reviewObject[commentField],
+          onSubmit: async (formData) => {
+            try {
+              const res = await proposalReviewsPartialUpdate({
+                path: { uuid: data.review.uuid },
+                body: { [commentField]: formData.comment },
+              });
+              setReviewObject(res.data);
+              closeDialog();
+            } catch (error) {
+              showErrorResponse(error, translate('Something went wrong'));
+            }
           },
-          size: 'sm',
-        }),
-      ),
-    [dispatch, data, setReviewObject, reviewObject],
+        },
+        size: 'sm',
+      }),
+    [data, setReviewObject, reviewObject],
   );
 
   if (isLoading) {
@@ -198,9 +112,12 @@ export const ProposalReviewCreatePage = (props) => {
 
   return (
     <PageBarProvider scrollOffset={100}>
-      <Form form={PROPOSAL_UPDATE_REVIEW_FORM_ID} onSubmit={submit}>
-        {({ submitting }) => (
-          <>
+      {/* The review's score/comments are written in the SubmitReviewDialog
+          (opened from the sidebar), not inline. This Form only provides
+          react-final-form context to the read-only step components below. */}
+      <Form onSubmit={() => {}}>
+        {({ handleSubmit }) => (
+          <form onSubmit={handleSubmit}>
             <SidebarLayout.Header className="pb-5">
               <div className="w-100">
                 <ProposalRoleBasedTabs
@@ -213,12 +130,13 @@ export const ProposalReviewCreatePage = (props) => {
             </SidebarLayout.Header>
             <SidebarLayout.Container>
               <SidebarLayout.Body>
+                {/* Before the proposal body, not after it. */}
+                <ConflictOfInterestNotice review={reviewObject} />
                 {formSteps.map((step, i) => (
                   <div ref={stepRefs.current[i]} key={step.id}>
                     <step.component
                       id={step.id}
                       title={step.label}
-                      change={props.change}
                       params={{
                         proposal: data.proposal,
                         reviews: reviewObject ? [reviewObject] : [],
@@ -232,14 +150,12 @@ export const ProposalReviewCreatePage = (props) => {
               <SidebarLayout.Sidebar transparent>
                 <CreatePageSidebar
                   review={reviewObject}
-                  submitting={submitting}
-                  saveAsDraft={handleSaveSummary}
-                  isSaving={isSaving}
+                  proposal={data.proposal}
                   refetch={refetch}
                 />
               </SidebarLayout.Sidebar>
             </SidebarLayout.Container>
-          </>
+          </form>
         )}
       </Form>
     </PageBarProvider>

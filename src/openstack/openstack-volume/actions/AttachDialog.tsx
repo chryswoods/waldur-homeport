@@ -1,80 +1,71 @@
 import { FC } from 'react';
-import { useDispatch } from 'react-redux';
-import { useAsync } from 'react-use';
+import { Form } from 'react-final-form';
 import {
   openstackInstancesList,
   openstackVolumesAttach,
 } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ResourceActionDialog } from '@waldur/resource/actions/ResourceActionDialog';
-import { ActionDialogProps } from '@waldur/resource/actions/types';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { required } from '@/core/validators';
+import { AsyncSelectGroup, FormFooter } from '@/form';
+import { createLoadOptions } from '@/form/select';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ActionDialogProps } from '@/resource/actions/types';
 
 export const AttachDialog: FC<ActionDialogProps> = ({
   resolve: { resource, refetch },
 }) => {
-  const dispatch = useDispatch();
-
-  const asyncState = useAsync(async () => {
-    const instances = await getAllPages((page) =>
-      openstackInstancesList({
-        query: {
-          page,
-          attach_volume_uuid: resource.uuid,
-          field: ['url', 'name'],
+  const mutation = useManagedMutation<any, any, { instance: any }>({
+    mutationFn: (formData) =>
+      openstackVolumesAttach({
+        path: { uuid: resource.uuid },
+        body: {
+          instance:
+            typeof formData.instance === 'object'
+              ? formData.instance.url
+              : formData.instance,
         },
       }),
-    );
-    return {
-      instances: instances.map((choice) => ({
-        value: choice.url,
-        label: choice.name,
-      })),
-    };
+
+    successMessage: translate('Volume has been attached to instance.'),
+    errorMessage: translate('Unable to attach volume to instance.'),
+    refetch: refetch,
   });
 
-  const fields = asyncState.value
-    ? [
-        {
-          name: 'instance',
-          label: translate('Instance'),
-          type: 'select',
-          required: true,
-          options: asyncState.value.instances,
-        },
-      ]
-    : [];
-
   return (
-    <ResourceActionDialog
-      dialogTitle={translate('Attach OpenStack Volume to Instance')}
-      formFields={fields}
-      submitForm={async (formData) => {
-        try {
-          await openstackVolumesAttach({
-            path: { uuid: resource.uuid },
-            body: { instance: formData.instance },
-          });
-
-          dispatch(
-            showSuccess(translate('Volume has been attached to instance.')),
-          );
-          dispatch(closeModalDialog());
-          if (refetch) {
-            await refetch();
-          }
-        } catch (e) {
-          dispatch(
-            showErrorResponse(
-              e,
-              translate('Unable to attach volume to instance.'),
-            ),
-          );
-        }
-      }}
+    <Form
+      onSubmit={mutation.mutateAsync}
+      render={({ handleSubmit }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate('Attach OpenStack Volume to Instance')}
+            subtitle={
+              <ScopeSubtitle
+                label={translate('Volume name')}
+                name={resource.name}
+              />
+            }
+            footer={<FormFooter />}
+          >
+            <AsyncSelectGroup
+              name="instance"
+              label={translate('Instance')}
+              required={true}
+              defaultOptions={true}
+              loadOptions={createLoadOptions(openstackInstancesList, 'name', {
+                attach_volume_uuid: resource.uuid,
+                field: ['url', 'name'],
+              })}
+              getOptionValue={(option) => option.url}
+              getOptionLabel={(option) => option.name}
+              isClearable={false}
+              validate={required}
+            />
+          </ModalDialog>
+        </form>
+      )}
     />
   );
 };

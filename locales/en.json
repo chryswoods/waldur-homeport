@@ -5,15 +5,5 @@
   "Resources": "Resources",
   "Save": "Save",
   "Services": "Services",
-  "Users": "Users",
-  "Is the project confidential?": "Does the project involve confidential, sensitive or GDPR-protected information?",
-  "Mark if the project has a civilian purpose.": "Select if the project is non-commercial or research only.",
-  "Project for civilian purpose?": "Is the project non-commercial or research only?",
-  "Project has civilian purpose": "Project is non-commercial or research only.",
-  "Project is confidential": "Project involves confidential, sensitive or GDPR-protected information.",
-  "{sender} has invited you to join {name} {type} in {role} role.": "{sender} has invited you to join the {type} called '{name}' in the role of '{role}'.",
-  "Select if the project proposal contains confidential information.": "Select if the project involves confidential, sensitive or GDPR-protected information.",
-  "Upload additional documents, which support the proposal and help to review it.": "You must complete any application forms described in the call details (available from the Documents tab of the Call Details page). Please upload the completed forms here.",
-  "Upload supporting documentation": "Upload any forms described in the call details (available from the Documents tab of the Call Details page).",
-  "Sign in with {label}": "Click here to login"
+  "Users": "Users"
 }

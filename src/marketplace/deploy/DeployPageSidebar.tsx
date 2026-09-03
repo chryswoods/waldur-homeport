@@ -1,32 +1,27 @@
 import { Card } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
-import {
-  OrderDetails as OrderResponse,
-  PublicOfferingDetails,
-} from 'waldur-js-client';
+import { useFormState } from 'react-final-form';
+import { OrderDetails, Offering } from 'waldur-js-client';
 
-import { FormSteps } from '@waldur/form/FormSteps';
-import { SidebarProps } from '@waldur/form/SidebarProps';
-import { translate } from '@waldur/i18n';
-import { OrderSummary } from '@waldur/marketplace/details/OrderSummary';
+import { SidebarProps } from '@/form/SidebarProps';
+import { translate } from '@/i18n';
+import { OrderSummary } from '@/marketplace/details/OrderSummary';
+import { FormSteps } from '@/wizard';
 
 import { getCheckoutSummaryComponent } from '../common/registry';
 
-import { formSubmitErrorsSelector } from './selectors';
-import { formErrorsSelector } from './selectors';
-
 interface DeployPageSidebarProps extends SidebarProps {
-  offering: PublicOfferingDetails;
+  offering: Offering;
   updateMode?: boolean;
-  order?: OrderResponse;
+  order?: OrderDetails;
 }
 
 export const DeployPageSidebar = (props: DeployPageSidebarProps) => {
   const CheckoutSummaryComponent =
     getCheckoutSummaryComponent(props.offering.type) || OrderSummary;
 
-  const errors = useSelector(formErrorsSelector);
-  const submitErrors = useSelector(formSubmitErrorsSelector);
+  const { errors, submitErrors } = useFormState({
+    subscription: { errors: true, submitErrors: true },
+  });
 
   return (
     <>
@@ -38,6 +33,7 @@ export const DeployPageSidebar = (props: DeployPageSidebarProps) => {
           <FormSteps
             steps={props.steps}
             completedSteps={props.completedSteps}
+            disabledSteps={props.disabledSteps}
             errors={{ ...errors, ...submitErrors }}
           />
         </Card.Body>

@@ -47,6 +47,16 @@
   border-right: get($aside-config, border-right);
 
   .hover-scroll-overlay-y {
+    // Reserve the scrollbar gutter permanently. core/components/_scroll.scss
+    // flips this container from `overflow-y: hidden` to `overlay` on hover;
+    // `overlay` is a dead alias for `auto` in current Chrome, so the scrollbar
+    // starts taking layout width on hover and shoves the Add resource / filter
+    // icons ~14px left. A stable gutter applies to `overflow: hidden` too, so
+    // the shift goes away while the scrollbar stays hidden until hover —
+    // don't "fix" this by forcing `overflow-y: auto`, which only makes the
+    // scrollbar permanently visible. (Headless Chrome uses overlay scrollbars
+    // and reproduces none of this; test headed.)
+    scrollbar-gutter: stable;
     --scrollbar-space: 0.4rem;
 
     @include scrollbar-color(
@@ -104,6 +114,22 @@ $asides: (
     accordion-active: if(isDarkMode(), $gray-800, $gray-100),
     sub-accordion-active: if(isDarkMode(), $gray-700, $gray-200),
     footer-separator: if(isDarkMode(), $gray-700, $gray-200),
+  ),
+  primary: (
+    title: rgba(255, 255, 255, 0.85),
+    icon: rgba(255, 255, 255, 0.7),
+    arrow: rgba(255, 255, 255, 0.5),
+    arrow-state: white,
+    bg-hover: rgba(255, 255, 255, 0.1),
+    bg-active: rgba(255, 255, 255, 0.15),
+    bg-subitem: rgba(255, 255, 255, 0.08),
+    bg-subitem-2: rgba(255, 255, 255, 0.12),
+    badge-color: white,
+    badge-bg: rgba(255, 255, 255, 0.1),
+    badge-border: rgba(255, 255, 255, 0.2),
+    accordion-active: rgba(255, 255, 255, 0.15),
+    sub-accordion-active: rgba(255, 255, 255, 0.1),
+    footer-separator: rgba(255, 255, 255, 0.15),
   ),
   accent: (
     title: var(--waldur-brand-100),

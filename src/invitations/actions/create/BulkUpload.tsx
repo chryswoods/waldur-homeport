@@ -6,13 +6,13 @@ import {
 } from '@phosphor-icons/react';
 import Papa from 'papaparse';
 import { FC, useCallback, useState } from 'react';
-import { Button, Col, Row, Stack } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
+import { Col, Row, Stack } from 'react-bootstrap';
 
-import { FileUploadField } from '@waldur/form';
-import { formatJsxTemplate, translate } from '@waldur/i18n';
-import { showError } from '@waldur/store/notify';
-import saveAsCsv from '@waldur/table/exporters/csv';
+import { FileUploadField } from '@/form';
+import { formatJsxTemplate, translate } from '@/i18n';
+import { useNotify } from '@/store/notify';
+import { ActionButton } from '@/table/ActionButton';
+import saveAsCsv from '@/table/exporters/csv';
 
 import example_file from './example_file.json';
 
@@ -27,7 +27,7 @@ interface OwnProps {
 }
 
 export const BulkUpload: FC<OwnProps> = (props) => {
-  const dispatch = useDispatch();
+  const { showError } = useNotify();
   const [file, setFile] = useState<File>(null);
   const [importedUsersCount, setImportedUsersCount] = useState(0);
 
@@ -36,7 +36,7 @@ export const BulkUpload: FC<OwnProps> = (props) => {
       const _file = acceptedFiles[0];
 
       if (!_file || _file.type !== 'text/csv') {
-        dispatch(showError('Invalid format, please import a .csv file'));
+        showError(translate('Invalid format, please import a .csv file'));
         return;
       }
       setFile(_file);
@@ -48,7 +48,7 @@ export const BulkUpload: FC<OwnProps> = (props) => {
             );
             if (emailIndex === -1) {
               // Can't find the emails in the data
-              dispatch(showError('Unable to locate email information'));
+              showError(translate('Unable to locate email information'));
               return;
             }
             const roleIndex = results.data[0].findIndex((str) =>
@@ -73,7 +73,7 @@ export const BulkUpload: FC<OwnProps> = (props) => {
         },
       });
     },
-    [dispatch, props.onImport, setFile, setImportedUsersCount],
+    [setFile, setImportedUsersCount],
   );
 
   const onDownloadClick = useCallback(() => {
@@ -108,15 +108,11 @@ export const BulkUpload: FC<OwnProps> = (props) => {
           </p>
         </Col>
         <Col xs="auto">
-          <Button
+          <ActionButton
             variant="text-danger"
-            className="btn-icon"
-            onClick={removeFile}
-          >
-            <span className="svg-icon svg-icon-1">
-              <TrashIcon weight="bold" />
-            </span>
-          </Button>
+            action={removeFile}
+            iconNode={<TrashIcon weight="bold" />}
+          />
         </Col>
       </Row>
     </div>

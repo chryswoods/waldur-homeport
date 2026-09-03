@@ -1,20 +1,24 @@
 import { FunctionComponent } from 'react';
 import { RancherWorkload, rancherWorkloadsList } from 'waldur-js-client';
 
-import { formatDate } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { TableWithPortal } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
+import { formatDate } from '@/core/dateUtils';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import {
+  RancherClusterFilter,
+  RancherClusterFilterFormId,
+} from '@/table/generated/RancherClusterFilter';
+import Table from '@/table/Table';
+import { TableWithPortal } from '@/table/types';
+import { useTable } from '@/table/useTable';
 
-import { ClusterFilter, useClusterFilter } from './ClusterFilter';
+import { useClusterFilter } from './ClusterFilterHooks';
 import { WorkloadActions } from './WorkloadActions';
 
 export const ClusterWorkloadsList: FunctionComponent<
   TableWithPortal<{ resourceScope }>
 > = ({ resourceScope, portal }) => {
-  const filter = useClusterFilter(resourceScope);
+  const { filter } = useClusterFilter(resourceScope, 'rancher-workloads');
   const props = useTable({
     table: 'rancher-workloads',
     fetchData: createFetcher(rancherWorkloadsList),
@@ -24,6 +28,7 @@ export const ClusterWorkloadsList: FunctionComponent<
   return (
     <Table<RancherWorkload>
       {...props}
+      formId={RancherClusterFilterFormId}
       columns={[
         {
           title: translate('Name'),
@@ -53,7 +58,7 @@ export const ClusterWorkloadsList: FunctionComponent<
           render: ({ row }) => <>{row.runtime_state}</>,
         },
       ]}
-      filters={<ClusterFilter cluster={resourceScope} />}
+      filters={<RancherClusterFilter cluster={resourceScope} />}
       verboseName={translate('workloads')}
       showPageSizeSelector
       rowActions={({ row }) => <WorkloadActions workload={row} />}

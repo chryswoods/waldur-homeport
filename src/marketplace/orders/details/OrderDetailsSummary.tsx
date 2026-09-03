@@ -1,29 +1,28 @@
-import { connect } from 'react-redux';
+import { FC } from 'react';
 import { PublicOfferingDetails } from 'waldur-js-client';
 
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { formIsValidSelector } from '@waldur/marketplace/deploy/selectors';
-import { orderFormDataSelector } from '@waldur/marketplace/deploy/selectors';
-import { SummaryTable } from '@waldur/marketplace/details/OrderSummary';
-import { pricesSelector } from '@waldur/marketplace/details/plan/utils';
-import { OrderSummaryProps } from '@waldur/marketplace/details/types';
-import { RootState } from '@waldur/store/reducers';
-import { getCustomer, getProject } from '@waldur/workspace/selectors';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { SummaryTable } from '@/marketplace/details/OrderSummary';
+import { useOrderPrices } from '@/marketplace/details/plan/utils';
+import { useCustomer } from '@/workspace/hooks';
 
-type StateProps = ReturnType<typeof mapStateToProps>;
+export const OrderDetailsSummary: FC<{
+  offering: PublicOfferingDetails;
+  [key: string]: any;
+}> = (props) => {
+  const customer = useCustomer();
+  const prices = useOrderPrices(props);
 
-const mapStateToProps = (state: RootState, ownProps: OrderSummaryProps) => ({
-  customer: getCustomer(state),
-  project: getProject(state),
-  total: pricesSelector(state, ownProps).total,
-  formData: orderFormDataSelector(state),
-  formValid: formIsValidSelector(state),
-  shouldConcealPrices: isFeatureVisible(MarketplaceFeatures.conceal_prices),
-});
+  const shouldConcealPrices =
+    isFeatureVisible(MarketplaceFeatures.conceal_prices) ||
+    customer?.display_billing_info_in_projects === false;
 
-export const OrderDetailsSummary = connect<
-  StateProps,
-  {},
-  { offering: PublicOfferingDetails }
->(mapStateToProps)(SummaryTable);
+  return (
+    <SummaryTable
+      prices={prices}
+      shouldConcealPrices={shouldConcealPrices}
+      {...props}
+    />
+  );
+};

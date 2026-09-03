@@ -1,13 +1,17 @@
-import { useDispatch } from 'react-redux';
 import { remoteEduteams } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ResourceActionDialog } from '@waldur/resource/actions/ResourceActionDialog';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ResourceActionDialog } from '@/resource/actions/ResourceActionDialog';
 
 export const AddRemoteUserDialog = ({ resolve: { refetch } }) => {
-  const dispatch = useDispatch();
+  const mutation = useManagedMutation<any, any, { cuid: string }>({
+    mutationFn: (formData) => remoteEduteams({ body: { cuid: formData.cuid } }),
+    successMessage: translate('User has been successfully added.'),
+    errorMessage: translate('Unable to add user.'),
+    refetch: refetch,
+  });
+
   return (
     <ResourceActionDialog
       dialogTitle={translate('Add user')}
@@ -19,18 +23,7 @@ export const AddRemoteUserDialog = ({ resolve: { refetch } }) => {
           type: 'string',
         },
       ]}
-      submitForm={async (formData) => {
-        try {
-          await remoteEduteams({ body: { cuid: formData.cuid } });
-          dispatch(showSuccess(translate('User has been successfully added.')));
-          if (refetch) {
-            await refetch();
-          }
-          dispatch(closeModalDialog());
-        } catch (e) {
-          dispatch(showErrorResponse(e, translate('Unable to add user.')));
-        }
-      }}
+      submitForm={mutation.mutateAsync}
     />
   );
 };

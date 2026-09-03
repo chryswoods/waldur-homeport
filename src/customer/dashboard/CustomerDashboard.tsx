@@ -1,18 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
 import { FunctionComponent, useMemo } from 'react';
 import { Col, Row } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
 import { customersStatsRetrieve } from 'waldur-js-client';
 
-import { COMMON_WIDGET_HEIGHT } from '@waldur/dashboard/constants';
-import { AggregateLimitWidget } from '@waldur/marketplace/aggregate-limits/AggregateLimitWidget';
-import { ProjectsList } from '@waldur/project/ProjectsList';
+import { SHORT_STALE_TIME } from '@/core/constants';
+import { COMMON_WIDGET_HEIGHT } from '@/dashboard/constants';
+import { AggregateLimitWidget } from '@/marketplace/aggregate-limits/AggregateLimitWidget';
+import { UsageViewsSection } from '@/marketplace/aggregate-limits/usage-views/UsageViewsSection';
+import { ProjectsList } from '@/project/ProjectsList';
+import { useUser, useCustomer } from '@/workspace/hooks';
 import {
   checkIsServiceManager,
-  getCustomer,
-  getUser,
-  isOwnerOrStaffOrReader,
-} from '@waldur/workspace/selectors';
+  checkIsOwnerOrStaff,
+} from '@/workspace/selectors';
 
 import { CustomerDashboardChart } from './CustomerDashboardChart';
 import { CustomerDashboardCredit } from './CustomerDashboardCredit';
@@ -20,13 +20,16 @@ import { CustomerProfile } from './CustomerProfile';
 import { filterComponentsWithUsage } from './utils';
 
 export const CustomerDashboard: FunctionComponent = () => {
-  const user = useSelector(getUser);
-  const customer = useSelector(getCustomer);
+  const user = useUser();
+  const customer = useCustomer();
   const isServiceManager = useMemo(
     () => checkIsServiceManager(customer, user),
     [customer, user],
   );
-  const canSeeCharts = useSelector(isOwnerOrStaffOrReader);
+  const canSeeCharts = useMemo(
+    () => checkIsOwnerOrStaff(customer, user),
+    [customer, user],
+  );
 
   const {
     data: aggregateLimitData,
@@ -42,7 +45,7 @@ export const CustomerDashboard: FunctionComponent = () => {
       ),
 
     refetchOnWindowFocus: false,
-    staleTime: 60 * 1000,
+    staleTime: SHORT_STALE_TIME,
   });
 
   const {
@@ -60,7 +63,7 @@ export const CustomerDashboard: FunctionComponent = () => {
       }).then((r) => r.data),
 
     refetchOnWindowFocus: false,
-    staleTime: 60 * 1000,
+    staleTime: SHORT_STALE_TIME,
   });
 
   const currentMonthFilteredData = filterComponentsWithUsage(
@@ -112,6 +115,9 @@ export const CustomerDashboard: FunctionComponent = () => {
               <CustomerDashboardCredit customer={customer} />
             </Col>
           )}
+          <Col xs={12}>
+            <UsageViewsSection customer={customer} />
+          </Col>
           <Col xs={12}>
             <ProjectsList customer={customer} />
           </Col>

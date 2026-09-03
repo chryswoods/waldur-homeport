@@ -5,25 +5,39 @@
  * using UsageReportVis / StorageReportVis.
  */
 
+import { ArrowsClockwiseIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
-import React, { FC, useState } from 'react';
-import { useSelector } from 'react-redux';
+import { FC, useState } from 'react';
+import { Card, Form } from 'react-bootstrap';
+import {
+  CachedProjectStorageReport as StorageReportApiItem,
+  CachedProjectUsageReport as UsageReportApiItem,
+} from 'waldur-js-client';
 
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { getProject } from '@waldur/workspace/selectors';
+import { IconButton } from '@/core/buttons/IconButton';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { NoResult } from '@/navigation/header/search/NoResult';
+import { useProject } from '@/workspace/hooks';
 
 import {
   fetchUsageReports,
   fetchStorageReports,
   fetchOfferingMapping,
   fetchUserMapping,
-  selectUserMappingIds,
 } from './api';
-import { clearMappingCache } from './localStorageCache';
-import { ProjectUsageReport } from './ProjectUsageReport';
+import {
+  getCached,
+  setCached,
+  clearCached,
+  clearMappingCache,
+  getCacheAge,
+  formatCacheAge,
+  TTL,
+} from './localStorageCache';
 import { ProjectStorageReport } from './ProjectStorageReport';
+import { ProjectUsageReport } from './ProjectUsageReport';
 import { StorageReportVis } from './StorageReportVis';
 import { NameMaps } from './usageChartOptions';
 import { UsageReportVis } from './UsageReportVis';
@@ -43,7 +57,7 @@ const groupByMonth = <T extends { year: number; month: number }>(
 };
 
 export const OpenPortalReportsTab: FC = () => {
-  const project = useSelector(getProject);
+  const project = useProject();
 
   const {
     data: usageReports,
@@ -52,7 +66,17 @@ export const OpenPortalReportsTab: FC = () => {
     refetch: refetchUsage,
   } = useQuery({
     queryKey: ['openportal-usage-reports', project?.uuid],
-    queryFn: () => fetchUsageReports({ project_uuid: project!.uuid }),
+    queryFn: async () => {
+      const cacheKey = `project-usage-${project!.uuid}`;
+      const cached = getCached<UsageReportApiItem[]>(cacheKey, TTL.REPORTS);
+      if (cached) return cached.map(ProjectUsageReport.fromApiResponse);
+      const reports = await fetchUsageReports({ project_uuid: project!.uuid });
+      setCached(
+        cacheKey,
+        reports.map((r) => r.apiItem),
+      );
+      return reports;
+    },
     enabled: !!project,
     refetchOnWindowFocus: false,
     staleTime: Infinity,
@@ -65,7 +89,19 @@ export const OpenPortalReportsTab: FC = () => {
     refetch: refetchStorage,
   } = useQuery({
     queryKey: ['openportal-storage-reports', project?.uuid],
-    queryFn: () => fetchStorageReports({ project_uuid: project!.uuid }),
+    queryFn: async () => {
+      const cacheKey = `project-storage-${project!.uuid}`;
+      const cached = getCached<StorageReportApiItem[]>(cacheKey, TTL.REPORTS);
+      if (cached) return cached.map(ProjectStorageReport.fromApiResponse);
+      const reports = await fetchStorageReports({
+        project_uuid: project!.uuid,
+      });
+      setCached(
+        cacheKey,
+        reports.map((r) => r.apiItem),
+      );
+      return reports;
+    },
     enabled: !!project,
     refetchOnWindowFocus: false,
     staleTime: Infinity,
@@ -74,18 +110,22 @@ export const OpenPortalReportsTab: FC = () => {
   const hasReports = !!(usageReports || storageReports);
 
   // ── Fetch name mappings once reports are available ───────────────────────
-  const { data: nameMaps = { offering: {}, user: {} } } = useQuery<NameMaps>({
+  const { data: nameMaps } = useQuery<NameMaps>({
     queryKey: ['openportal-project-mappings', project?.uuid],
     refetchOnWindowFocus: false,
     staleTime: Infinity,
     queryFn: async () => {
       const usage = usageReports ?? [];
       const storage = storageReports ?? [];
-      const offeringIds = [...new Set<string>([
-        ...usage.map((r) => r.resource),
-        ...storage.map((r) => r.resource),
-      ])];
-      const allUserIds = [...new Set<string>(usage.flatMap((r) => Object.keys(r.users)))];
+      const offeringIds = [
+        ...new Set<string>([
+          ...usage.map((r) => r.resource),
+          ...storage.map((r) => r.resource),
+        ]),
+      ];
+      const allUserIds = [
+        ...new Set<string>(usage.flatMap((r) => Object.keys(r.users))),
+      ];
       const usageByUid: Record<string, number> = {};
       for (const r of usage) {
         for (const [uid, localName] of Object.entries(r.users)) {
@@ -96,24 +136,20 @@ export const OpenPortalReportsTab: FC = () => {
           usageByUid[uid] = (usageByUid[uid] ?? 0) + sec;
         }
       }
-      const usersWithUsage = allUserIds
+      const userIds = allUserIds
         .filter((uid) => (usageByUid[uid] ?? 0) > 0)
-        .sort((a, b) => (usageByUid[b] ?? 0) - (usageByUid[a] ?? 0));
-      const { ids: userIds } = selectUserMappingIds(usersWithUsage, MAX_USER_MAPPINGS);
+        .sort((a, b) => (usageByUid[b] ?? 0) - (usageByUid[a] ?? 0))
+        .slice(0, MAX_USER_MAPPINGS);
       const offerings = await fetchOfferingMapping(offeringIds);
       const users = await fetchUserMapping(userIds);
-      const maps: NameMaps = {
+      const maps = {
         offering: Object.fromEntries(
-          Object.entries(offerings)
-            .filter(([, v]) => v != null)
-            .map(([k, v]) => [k, v!.name]),
+          Object.entries(offerings).map(([k, v]) => [k, v.name]),
         ),
         user: Object.fromEntries(
-          Object.entries(users)
-            .filter(([, v]) => v != null)
-            .map(([k, v]) => [k, v!.full_name]),
+          Object.entries(users).map(([k, v]) => [k, v.full_name]),
         ),
-      };
+      } as NameMaps;
       return maps;
     },
     enabled: hasReports,
@@ -128,10 +164,9 @@ export const OpenPortalReportsTab: FC = () => {
   ].sort();
 
   const [selectedResource, setSelectedResource] = useState<string>('');
-  const activeResource =
-    allResources.includes(selectedResource)
-      ? selectedResource
-      : (allResources[0] ?? '');
+  const activeResource = allResources.includes(selectedResource)
+    ? selectedResource
+    : (allResources[0] ?? '');
 
   const usageForResource = (usageReports ?? []).filter(
     (r) => r.resource === activeResource,
@@ -144,7 +179,9 @@ export const OpenPortalReportsTab: FC = () => {
   const storageByMonth = groupByMonth(storageForResource);
   const allMonths = [
     ...new Set([...Object.keys(usageByMonth), ...Object.keys(storageByMonth)]),
-  ].sort().reverse();
+  ]
+    .sort()
+    .reverse();
 
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const activeMonth = selectedMonth;
@@ -160,101 +197,132 @@ export const OpenPortalReportsTab: FC = () => {
 
   const isLoading = usageLoading || storageLoading;
 
+  const reportsCacheAge =
+    !isLoading && project ? getCacheAge(`project-usage-${project.uuid}`) : null;
+
   return (
-    <div className="container-fluid py-4">
-      <div className="d-flex align-items-center gap-3 mb-4">
-        <h4 className="mb-0">Usage Report</h4>
-        {/* Resource / destination picker */}
-        {allResources.length > 1 && (
-          <select
-            className="form-select form-select-sm"
-            style={{ width: 'auto' }}
-            value={activeResource}
-            onChange={(e) => {
-              setSelectedResource(e.target.value);
-              setSelectedMonth('all');
-            }}
-          >
-            {allResources.map((r) => (
-              <option key={r} value={r}>
-                {nameMaps?.offering?.[r] ?? r}
-              </option>
-            ))}
-          </select>
+    <Card className="card-bordered">
+      <Card.Header className="border-bottom">
+        <div className="d-flex align-items-center gap-3 flex-wrap w-100">
+          <div className="d-flex align-items-center me-2">
+            <span className="h3 mb-0">{translate('Usage Report')}</span>
+            <IconButton
+              iconNode={<ArrowsClockwiseIcon weight="bold" />}
+              tooltip={translate('Refresh')}
+              variant="text-secondary"
+              onClick={() => {
+                clearMappingCache();
+                if (project) {
+                  clearCached(
+                    `project-usage-${project.uuid}`,
+                    `project-storage-${project.uuid}`,
+                  );
+                }
+                refetchUsage();
+                refetchStorage();
+              }}
+            />
+          </div>
+
+          {/* Resource / destination picker */}
+          {allResources.length > 1 && (
+            <Form.Select
+              size="lg"
+              style={{ width: 'auto' }}
+              value={activeResource}
+              onChange={(e) => {
+                setSelectedResource(e.target.value);
+                setSelectedMonth('all');
+              }}
+            >
+              {allResources.map((r) => (
+                <option key={r} value={r}>
+                  {nameMaps?.offering?.[r] ?? r}
+                </option>
+              ))}
+            </Form.Select>
+          )}
+
+          {/* Month picker */}
+          {allMonths.length > 0 && (
+            <Form.Select
+              size="lg"
+              style={{ width: 'auto' }}
+              value={activeMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+            >
+              <option value="all">{translate('All time')}</option>
+              {allMonths.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </Form.Select>
+          )}
+
+          {reportsCacheAge && (
+            <span className="text-muted small ms-auto">
+              {translate('Cached {age}', {
+                age: formatCacheAge(reportsCacheAge),
+              })}
+            </span>
+          )}
+        </div>
+      </Card.Header>
+      <Card.Body>
+        {isLoading && <LoadingSpinner />}
+
+        {usageError && (
+          <LoadingErred
+            message={translate('Failed to load usage reports')}
+            loadData={refetchUsage}
+          />
         )}
 
-        {/* Month picker */}
-        {allMonths.length > 0 && (
-          <select
-            className="form-select form-select-sm"
-            style={{ width: 'auto' }}
-            value={activeMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-          >
-            <option value="all">All time</option>
-            {allMonths.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
+        {storageError && (
+          <LoadingErred
+            message={translate('Failed to load storage reports')}
+            loadData={refetchStorage}
+          />
         )}
-        <div className="ms-auto d-flex align-items-center gap-2">
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => {
-              clearMappingCache();
-              refetchUsage();
-              refetchStorage();
-            }}
-          >
-            Refresh
-          </button>
-        </div>
-      </div>
 
-      {isLoading && <LoadingSpinner />}
+        {!isLoading &&
+          !usageError &&
+          !storageError &&
+          allMonths.length === 0 && (
+            <NoResult
+              title={translate('No usage reports yet')}
+              message={translate(
+                'No OpenPortal reports have been generated for this project.',
+              )}
+              noAction
+            />
+          )}
 
-      {usageError && (
-        <LoadingErred
-          message="Failed to load usage reports"
-          loadData={refetchUsage}
-        />
-      )}
-
-      {storageError && (
-        <LoadingErred
-          message="Failed to load storage reports"
-          loadData={refetchStorage}
-        />
-      )}
-
-      {!isLoading && allMonths.length === 0 && (
-        <p className="text-muted">
-          {translate('No usage data available yet. This page will show usage once your project resources are in active use.')}
-        </p>
-      )}
-
-      {/* Usage chart */}
-      {activeUsage.length > 0 && nameMaps !== undefined && (
-        <div className="card mb-4">
-          <div className="card-header fw-semibold">Usage</div>
-          <div className="card-body">
-            <UsageReportVis reports={activeUsage} height="400px" nameMaps={nameMaps} />
+        {/* Usage chart */}
+        {activeUsage.length > 0 && nameMaps !== undefined && (
+          <div className="mb-6">
+            <h4 className="fw-semibold mb-3">{translate('Usage')}</h4>
+            <UsageReportVis
+              reports={activeUsage}
+              height="400px"
+              nameMaps={nameMaps}
+            />
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Storage chart */}
-      {activeStorage.length > 0 && nameMaps !== undefined && (
-        <div className="card mb-4">
-          <div className="card-header fw-semibold">Storage</div>
-          <div className="card-body">
-            <StorageReportVis reports={activeStorage} height="360px" nameMaps={nameMaps} />
+        {/* Storage chart */}
+        {activeStorage.length > 0 && nameMaps !== undefined && (
+          <div>
+            <h4 className="fw-semibold mb-3">{translate('Storage')}</h4>
+            <StorageReportVis
+              reports={activeStorage}
+              height="360px"
+              nameMaps={nameMaps}
+            />
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </Card.Body>
+    </Card>
   );
 };

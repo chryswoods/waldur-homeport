@@ -1,0 +1,251 @@
+import { AppendMessage } from '@assistant-ui/react';
+import { chatThreadsCancel } from 'waldur-js-client';
+
+import {
+  addPreviousBlocks,
+  extractTextFromMessageContent,
+  setBackendUuid,
+} from '@/ai-assistant/lib/messages/messageUtils';
+import { parseAssistantStream } from '@/ai-assistant/lib/streaming/parseAssistantStream';
+import { addThreadToListIfNotExists } from '@/ai-assistant/lib/thread/threadListAdapter';
+import {
+  MessageHandlerDependencies,
+  RunConfig,
+  UIBlock,
+} from '@/ai-assistant/lib/types';
+
+import {
+  createUserMessage,
+  createAssistantPlaceholder,
+  getMessageText,
+} from './messageFactories';
+
+type StartRunConfig = {
+  parentId: string | null;
+  sourceId: string | null;
+  runConfig: RunConfig;
+};
+
+export const createOnNew = (deps: MessageHandlerDependencies) => {
+  return async (message: AppendMessage) => {
+    deps.setIsRunning(deps.currentThreadId, true);
+
+    try {
+      const input = getMessageText(message);
+      const userMessage = createUserMessage(input);
+      deps.setMessages((prev) => [...prev, userMessage]);
+
+      // Add thread to thread list if it doesn't exist there yet
+      addThreadToListIfNotExists(deps.setThreadList, deps.currentThreadId);
+
+      const assistantPlaceholder = createAssistantPlaceholder();
+      deps.setMessages((prev) => [...prev, assistantPlaceholder]);
+
+      const abortController = deps.createController(deps.currentThreadId);
+
+      const result = await parseAssistantStream({
+        input,
+        assistantId: assistantPlaceholder.id!,
+        signal: abortController.signal,
+        setMessages: deps.setMessages,
+        onStreamComplete: deps.onStreamComplete,
+        threadUuid: deps.getBackendThreadId(deps.currentThreadId),
+      });
+      if (result?.threadUuid) {
+        deps.setBackendThreadId(deps.currentThreadId, result.threadUuid);
+      }
+      if (result?.userMessageUuid) {
+        setBackendUuid(
+          deps.setMessages,
+          userMessage.id,
+          result.userMessageUuid,
+        );
+      }
+      if (result?.assistantMessageUuid) {
+        setBackendUuid(
+          deps.setMessages,
+          assistantPlaceholder.id!,
+          result.assistantMessageUuid,
+        );
+      }
+    } finally {
+      deps.setIsRunning(deps.currentThreadId, false);
+      deps.cleanupController(deps.currentThreadId);
+    }
+  };
+};
+
+export const createOnEdit = (deps: MessageHandlerDependencies) => {
+  return async (message: AppendMessage) => {
+    deps.setIsRunning(deps.currentThreadId, true);
+    try {
+      const input = getMessageText(message);
+      const sourceId = message.sourceId;
+
+      const userIndex = deps.messages.findIndex((m) => m.id === sourceId);
+      if (userIndex === -1) return;
+
+      const oldUser = deps.messages[userIndex];
+      const oldAssistant = deps.messages[userIndex + 1];
+      if (!oldAssistant) return;
+
+      const assistantIdToStream = oldAssistant.id ?? '';
+      if (!assistantIdToStream) return;
+
+      // Get backend UUID from user message metadata
+      const backendUserUuid = (
+        oldUser.metadata?.custom as { backendUuid?: string }
+      )?.backendUuid;
+
+      // Extract current blocks before clearing
+      const currentBlocks =
+        (oldAssistant.metadata?.custom as { blocks?: UIBlock[] })?.blocks ?? [];
+
+      deps.setMessages((prev) => {
+        const updated = [...prev];
+        // Update user message (no history tracking needed)
+        updated[userIndex] = {
+          ...oldUser,
+          content: [{ type: 'text', text: input }],
+        };
+
+        const updatedMetadata = addPreviousBlocks(
+          oldAssistant.metadata,
+          currentBlocks,
+        );
+
+        updated[userIndex + 1] = {
+          ...oldAssistant,
+          content: [{ type: 'text', text: '' }],
+          status: { type: 'running' },
+          metadata: {
+            ...updatedMetadata,
+            custom: {
+              ...updatedMetadata?.custom,
+              blocks: [], // Clear blocks for new stream
+              warning: undefined, // Clear warning for new stream
+            },
+          },
+        };
+        return updated;
+      });
+
+      const abortController = deps.createController(deps.currentThreadId);
+
+      // Stream with mode="edit" to edit user message and regenerate assistant response
+      const result = await parseAssistantStream({
+        input,
+        assistantId: assistantIdToStream,
+        signal: abortController.signal,
+        setMessages: deps.setMessages,
+        onStreamComplete: deps.onStreamComplete,
+        threadUuid: deps.getBackendThreadId(deps.currentThreadId),
+        mode: 'edit',
+        edit_message_uuid: backendUserUuid,
+      });
+      if (result?.threadUuid) {
+        deps.setBackendThreadId(deps.currentThreadId, result.threadUuid);
+      }
+      if (result?.userMessageUuid) {
+        setBackendUuid(deps.setMessages, oldUser.id!, result.userMessageUuid);
+      }
+      if (result?.assistantMessageUuid) {
+        setBackendUuid(
+          deps.setMessages,
+          assistantIdToStream,
+          result.assistantMessageUuid,
+        );
+      }
+    } finally {
+      deps.setIsRunning(deps.currentThreadId, false);
+      deps.cleanupController(deps.currentThreadId);
+    }
+  };
+};
+
+export const createOnReload = (deps: MessageHandlerDependencies) => {
+  return async (_parentId: string | null, config: StartRunConfig) => {
+    deps.setIsRunning(deps.currentThreadId, true);
+    try {
+      const sourceId = config.sourceId;
+      if (!sourceId) return;
+
+      const assistantIndex = deps.messages.findIndex((m) => m.id === sourceId);
+      if (assistantIndex === -1) return;
+
+      const oldAssistant = deps.messages[assistantIndex];
+
+      const userIndex = assistantIndex - 1;
+      if (userIndex < 0) return;
+      const oldUser = deps.messages[userIndex];
+      const input = extractTextFromMessageContent(oldUser.content);
+
+      if (oldAssistant.role !== 'assistant' || oldUser.role !== 'user') return;
+
+      // Extract current blocks before clearing
+      const currentBlocks =
+        (oldAssistant.metadata?.custom as { blocks?: UIBlock[] })?.blocks ?? [];
+
+      deps.setMessages((prev) => {
+        const updated = [...prev];
+
+        const updatedMetadata = addPreviousBlocks(
+          oldAssistant.metadata,
+          currentBlocks,
+        );
+
+        updated[userIndex + 1] = {
+          ...oldAssistant,
+          content: [{ type: 'text', text: '' }],
+          status: { type: 'running' },
+          metadata: {
+            ...updatedMetadata,
+            custom: {
+              ...updatedMetadata?.custom,
+              blocks: [], // Clear blocks for new stream
+              warning: undefined, // Clear warning for new stream
+            },
+          },
+        };
+        return updated;
+      });
+
+      const abortController = deps.createController(deps.currentThreadId);
+
+      // Stream with mode="reload" to regenerate assistant response
+      const result = await parseAssistantStream({
+        input,
+        assistantId: sourceId,
+        signal: abortController.signal,
+        setMessages: deps.setMessages,
+        onStreamComplete: deps.onStreamComplete,
+        threadUuid: deps.getBackendThreadId(deps.currentThreadId),
+        mode: 'reload',
+      });
+      if (result?.threadUuid) {
+        deps.setBackendThreadId(deps.currentThreadId, result.threadUuid);
+      }
+      if (result?.assistantMessageUuid) {
+        setBackendUuid(deps.setMessages, sourceId, result.assistantMessageUuid);
+      }
+    } finally {
+      deps.setIsRunning(deps.currentThreadId, false);
+      deps.cleanupController(deps.currentThreadId);
+    }
+  };
+};
+
+export const createOnCancel = (deps: MessageHandlerDependencies) => {
+  return async () => {
+    const threadId = deps.currentThreadId;
+
+    deps.abortThread(threadId);
+    deps.setIsRunning(threadId, false);
+
+    // Notify the backend so the background worker stops processing.
+    const backendUuid = deps.getBackendThreadId(threadId);
+    if (backendUuid) {
+      await chatThreadsCancel({ path: { uuid: backendUuid } });
+    }
+  };
+};

@@ -1,28 +1,34 @@
 import { QuestionIcon } from '@phosphor-icons/react';
-import { FunctionComponent } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
+import { FunctionComponent, useCallback, useMemo } from 'react';
 import { User, usersList, UsersListData } from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { Link } from '@waldur/core/Link';
-import { Tip } from '@waldur/core/Tooltip';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { UserFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { RoleEnum } from '@waldur/permissions/enums';
-import { formatRole } from '@waldur/permissions/utils';
-import { ActionsDropdown } from '@waldur/table/ActionsDropdown';
-import { createFetcher } from '@waldur/table/api';
-import { BooleanField } from '@waldur/table/BooleanField';
-import { DASH_ESCAPE_CODE } from '@waldur/table/constants';
-import Table from '@waldur/table/Table';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
+import { AITokenExpandableRow } from '@/administration/ai-assistant/AITokenExpandableRow';
+import { ENV } from '@/core/config';
+import { formatDate, formatDateTime } from '@/core/dateUtils';
+import { Link } from '@/core/Link';
+import { Tip } from '@/core/Tooltip';
+import { formatPhoneNumber } from '@/core/utils';
+import { isFeatureVisible } from '@/features/connect';
+import { SupportFeatures, UserFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { RoleEnum } from '@/permissions/enums';
+import { formatRole } from '@/permissions/utils';
+import { ActionsDropdown } from '@/table/ActionsDropdown';
+import { createFetcher } from '@/table/api';
+import { BooleanField } from '@/table/BooleanField';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
+import Table from '@/table/Table';
+import { Column } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
 
+import { EXTRA_PROFILE_FIELDS } from './extraProfileFields';
+import { IsdBadges } from './IsdBadges';
+import { isProfileAttributeEnabled } from './profileAttributes';
+import { RecalculateUserActionsButton } from './RecalculateUserActionsButton';
+import { UserBulkActions } from './UserBulkActions';
 import { UserDetailsButton } from './UserDetailsButton';
+import { UserEditButton } from './UserEditButton';
 import { UserFilter } from './UserFilter';
 import { UserImpersonateButton } from './UserImpersonateButton';
 import { UserTableActions } from './UserTableActions';
@@ -32,16 +38,28 @@ const renderFieldOrDash = (field) => {
 };
 
 const PhoneNumberField = ({ row }: { row: User }) => (
-  <>{renderFieldOrDash(row.phone_number)}</>
+  <>{renderFieldOrDash(formatPhoneNumber(row.phone_number))}</>
 );
 
-const EmailField = ({ row }: { row: User }) => (
-  <>{renderFieldOrDash(row.email)}</>
-);
+const EMAIL_MAX_LENGTH = 25;
+
+const EmailField = ({ row }: { row: User }) => {
+  if (!row.email) {
+    return <>{DASH_ESCAPE_CODE}</>;
+  }
+  if (row.email.length <= EMAIL_MAX_LENGTH) {
+    return <>{row.email}</>;
+  }
+  return (
+    <Tip label={row.email} id={`user-email-${row.uuid}`} placement="top">
+      <span>{row.email.slice(0, EMAIL_MAX_LENGTH)}…</span>
+    </Tip>
+  );
+};
 
 const FullNameField = ({ row }: { row: User }) => (
   <Link
-    state="admin-user-user-manage"
+    state="support-user-manage"
     params={{ user_uuid: row.uuid }}
     label={renderFieldOrDash(row.full_name)}
   />
@@ -71,7 +89,7 @@ const OrganizationRolesField = ({ row }: { row: User }) => {
           label={formatRole(permission.role_name)}
           id="customer-role"
         >
-          {permission.scope_name} <QuestionIcon />
+          {permission.scope_name} <QuestionIcon weight="bold" />
         </Tip>
         <br />
       </span>
@@ -96,7 +114,7 @@ const ProjectRolesField = ({ row }: { row: User }) => {
           })}
           id="project-role"
         >
-          {permission.scope_name} <QuestionIcon />
+          {permission.scope_name} <QuestionIcon weight="bold" />
         </Tip>
         <br />
       </span>
@@ -119,37 +137,20 @@ const renderListOrDash = (list) => {
     </>
   );
 };
-const RowActions = ({ row }: { row: User }) => {
+const RowActions = ({ row, fetch }: { row: User; fetch? }) => {
   return (
     <ActionsDropdown
       row={row}
-      actions={[UserImpersonateButton, UserDetailsButton]}
+      refetch={fetch}
+      actions={[
+        UserEditButton,
+        RecalculateUserActionsButton,
+        UserImpersonateButton,
+        UserDetailsButton,
+      ]}
     />
   );
 };
-
-const mapStateToFilter = createSelector(
-  getFormValues('userFilter'),
-  (filters: any) => {
-    const roleFilter = formatRoleFilter(filters?.role) || {};
-    const filter: Record<string, string | boolean | string[]> = {};
-
-    if (filters?.organization?.uuid) {
-      filter.customer_uuid = filters.organization.uuid;
-    }
-    if (filters?.project_role) {
-      filter.project_roles = filters.project_role.map(({ name }) => name);
-    }
-    if (filters?.organization_role) {
-      filter.organization_roles = filters.organization_role.map(
-        ({ name }) => name,
-      );
-    }
-    filter.is_active = filters?.is_active;
-
-    return { ...filter, ...roleFilter };
-  },
-);
 
 const DEFAULT_ENABLED_COLUMNS = [
   'full_name',
@@ -165,6 +166,8 @@ const mandatoryFields: UsersListData['query']['field'] = [
   'uuid',
   // UserDetailsButton
   'full_name',
+  'first_name',
+  'last_name',
   'native_name',
   'civil_number',
   'phone_number',
@@ -183,12 +186,52 @@ const mandatoryFields: UsersListData['query']['field'] = [
   'url',
   'permissions',
   'has_active_session',
+  'active_isds',
+  'is_identity_manager',
+  'has_usable_password',
+  // UserEditButton (edit dialog needs these fields)
+  'can_use_personal_access_tokens',
+  'description',
+  'personal_title',
+  'gender',
+  'place_of_birth',
+  'country_of_residence',
+  'nationality',
+  'nationalities',
+  'organization_country',
+  'organization_type',
+  'organization_registry_code',
 ];
 
 export const UserList: FunctionComponent = () => {
-  const filter = useSelector(mapStateToFilter);
+  const values = useFilterValues(`userList`);
+  const filters = values;
+
+  const filter = useMemo(() => {
+    const roleFilter = formatRoleFilter(filters?.role) || {};
+    const filterObj: Record<string, string | boolean | string[]> = {};
+
+    if (filters?.customer_uuid?.uuid) {
+      filterObj.customer_uuid = filters.customer_uuid.uuid;
+    }
+    if (Array.isArray(filters?.project_role)) {
+      filterObj.project_roles = filters.project_role.map(({ name }) => name);
+    }
+    if (Array.isArray(filters?.organization_role)) {
+      filterObj.organization_roles = filters.organization_role.map(
+        ({ name }) => name,
+      );
+    }
+    if (filters?.is_active !== undefined && filters?.is_active !== '') {
+      filterObj.is_active = filters.is_active;
+    }
+
+    return { ...filterObj, ...roleFilter };
+  }, [filters]);
+
   const props = useTable({
     table: `userList`,
+    syncFiltersToURL: true,
     fetchData: createFetcher(usersList),
     queryField: 'query',
     filter,
@@ -231,7 +274,7 @@ export const UserList: FunctionComponent = () => {
       title: translate('Organization'),
       render: OrganizationField,
       orderField: 'organization',
-      filter: 'organization',
+      filter: 'customer_uuid',
       keys: ['organization'],
       id: 'organization',
       export: 'organization',
@@ -270,6 +313,15 @@ export const UserList: FunctionComponent = () => {
       export: (row) => (row.is_support ? translate('Yes') : translate('No')),
     },
     {
+      title: translate('Password'),
+      render: ({ row }) => <BooleanField value={row.has_usable_password} />,
+      className: 'text-center',
+      keys: ['has_usable_password'],
+      id: 'has_usable_password',
+      export: (row) =>
+        row.has_usable_password ? translate('Yes') : translate('No'),
+    },
+    {
       title: translate('Status'),
       render: UserStatusField,
       className: 'text-center',
@@ -303,6 +355,15 @@ export const UserList: FunctionComponent = () => {
       keys: ['date_joined'],
       id: 'date_joined',
       export: (row) => formatDateTime(row.date_joined),
+    },
+    {
+      title: translate('Birth date'),
+      render: ({ row }) =>
+        row.birth_date ? formatDate(row.birth_date) : DASH_ESCAPE_CODE,
+      keys: ['birth_date'],
+      id: 'birth_date',
+      export: (row) =>
+        row.birth_date ? formatDate(row.birth_date) : DASH_ESCAPE_CODE,
     },
     {
       title: translate('Agreement date'),
@@ -364,6 +425,51 @@ export const UserList: FunctionComponent = () => {
     });
   }
 
+  if (isFeatureVisible(UserFeatures.show_identity_bridge)) {
+    columns.push(
+      {
+        title: translate('Active ISDs'),
+        render: ({ row }) => (
+          <IsdBadges isds={(row.active_isds as string[]) || []} />
+        ),
+        keys: ['active_isds'],
+        id: 'active_isds',
+        optional: true,
+      },
+      {
+        title: translate('Identity manager'),
+        render: ({ row }) => <BooleanField value={row.is_identity_manager} />,
+        keys: ['is_identity_manager'],
+        id: 'is_identity_manager',
+        optional: true,
+      },
+      {
+        title: translate('Personal access tokens'),
+        render: ({ row }) => (
+          <BooleanField value={row.can_use_personal_access_tokens} />
+        ),
+        keys: ['can_use_personal_access_tokens'],
+        id: 'can_use_personal_access_tokens',
+        optional: true,
+      },
+    );
+  }
+
+  // Profile attributes enabled in the deployment
+  // (ENABLED_USER_PROFILE_ATTRIBUTES) become optional columns, hidden by
+  // default and toggleable. Shares EXTRA_PROFILE_FIELDS with UserDetailsTable.
+  EXTRA_PROFILE_FIELDS.forEach((field) => {
+    if (isProfileAttributeEnabled(field.attr)) {
+      columns.push({
+        title: field.label(),
+        render: ({ row }) => <>{renderFieldOrDash(field.getValue(row))}</>,
+        keys: [field.attr],
+        id: field.attr,
+        optional: true,
+      });
+    }
+  });
+
   const validColumns = columns.map((column) => column.id);
   const enabledColumns = ENV.plugins.WALDUR_CORE.USER_TABLE_COLUMNS
     ? ENV.plugins.WALDUR_CORE.USER_TABLE_COLUMNS.split(',')
@@ -378,9 +484,25 @@ export const UserList: FunctionComponent = () => {
     });
   }
 
+  const aiAssistantEnabled = isFeatureVisible(
+    SupportFeatures.enable_llm_assistant,
+  );
+
+  const expandableRow = useCallback(
+    ({ row }) => (
+      <AITokenExpandableRow
+        row={row}
+        refetch={props.fetch}
+        isTableRefreshing={props.loading}
+      />
+    ),
+    [props.fetch, props.loading],
+  );
+
   return (
     <Table
       {...props}
+      formId="userFilter"
       filters={<UserFilter />}
       columns={columns}
       rowActions={RowActions}
@@ -389,20 +511,29 @@ export const UserList: FunctionComponent = () => {
       verboseName={translate('users')}
       enableExport={true}
       tableActions={<UserTableActions refetch={props.fetch} />}
+      enableMultiSelect
+      multiSelectActions={UserBulkActions}
       hasQuery={true}
+      expandableRow={aiAssistantEnabled ? expandableRow : undefined}
+      isRowExpandable={
+        aiAssistantEnabled ? (row) => !!row.is_active : undefined
+      }
     />
   );
 };
 
 export const formatRoleFilter = (roles) => {
-  if (roles) {
-    const formattedRole = {};
-    roles.map((item) => {
-      formattedRole[item.value] = true;
-    });
-    return formattedRole;
+  // `roles` normally comes from the multi-select filter (an array of options),
+  // but a hand-edited / malformed URL can make it any string, so guard against
+  // non-array values instead of crashing on `.map`.
+  if (!Array.isArray(roles)) {
+    return {};
   }
-  return roles;
+  const formattedRole = {};
+  roles.forEach((item) => {
+    formattedRole[item.value] = true;
+  });
+  return formattedRole;
 };
 
 export const getOrganizationsWhereOwner = (user: Partial<User>) =>
@@ -413,7 +544,7 @@ export const getOrganizationsWhereOwner = (user: Partial<User>) =>
         .join(', ')
     : DASH_ESCAPE_CODE;
 
-const getProjectRole = (user: Partial<User>) => {
+export const getProjectRole = (user: Partial<User>) => {
   const permissions = user.permissions?.filter(
     ({ scope_type }) => scope_type === 'project',
   );

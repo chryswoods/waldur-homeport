@@ -1,18 +1,64 @@
-import { Resource } from 'waldur-js-client';
+import { MarketplaceResourcesListData, Resource } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { BooleanField } from '@waldur/table/BooleanField';
-import { SLUG_COLUMN } from '@waldur/table/slug';
-import { Column } from '@waldur/table/types';
-import { renderFieldOrDash } from '@waldur/table/utils';
+import { formatDateTime } from '@/core/dateUtils';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { BooleanField } from '@/table/BooleanField';
+import { SLUG_COLUMN } from '@/table/slug';
+import { Column } from '@/table/types';
+import { renderFieldOrDash } from '@/table/utils';
 
+import { NON_TERMINATED_STATES } from './constants';
 import { ResourceNameField } from './ResourceNameField';
 import { ResourceStateField } from './ResourceStateField';
 import { getStates } from './ResourceStateFilter';
 import { ResourceTerminationDateField } from './ResourceTerminationDateField';
+
+export const buildResourcesAllFilter = (
+  filters: any,
+  baseFilter?: any,
+): MarketplaceResourcesListData['query'] => {
+  const result: MarketplaceResourcesListData['query'] = { ...baseFilter };
+  if (filters?.offering) {
+    result.offering_uuid = filters.offering.uuid;
+  }
+  if (filters?.parent_offering) {
+    result.parent_offering_uuid = filters.parent_offering.uuid;
+  }
+  if (filters?.category) {
+    result.category_uuid = filters.category.uuid;
+  }
+  if (filters?.project) {
+    result.project_uuid = filters.project.uuid;
+  }
+  if (filters?.runtime_state) {
+    result.runtime_state = filters.runtime_state.value;
+  }
+  if (filters?.state && Array.isArray(filters.state)) {
+    result.state = filters.state.map((option) => option.value) as any;
+    if (filters?.include_terminated) {
+      result.state = [...result.state, 'Terminated'];
+    }
+  } else {
+    if (!filters?.include_terminated) {
+      result.state = NON_TERMINATED_STATES;
+    }
+  }
+  if (filters?.organization) {
+    result.customer_uuid = filters.organization.uuid;
+  }
+  if (filters?.paused) {
+    result.paused = true;
+  }
+  if (filters?.downscaled) {
+    result.downscaled = true;
+  }
+  if (filters?.restrict_member_access) {
+    result.restrict_member_access = true;
+  }
+  return result;
+};
 
 export const resourcesListRequiredFields = (hasExpandableView = true) =>
   [
@@ -22,6 +68,7 @@ export const resourcesListRequiredFields = (hasExpandableView = true) =>
     'available_actions', // CreateLexisLinkAction
     'end_date', // EditResourceEndDateAction
     'offering_type', // Expandable view, Actions
+    'offering_state', // Actions
     'provider_uuid', // SubmitReportAction, EditResourceEndDateAction
     'backend_metadata', // Mass-actions
     'backend_id', // SetBackendIdAction
@@ -41,14 +88,30 @@ export const resourcesListRequiredFields = (hasExpandableView = true) =>
     hasExpandableView ? 'parent_uuid' : null, // Expandable view
     hasExpandableView ? 'parent_name' : null, // Expandable view
     'customer_uuid', // SetBackendIdAction
+    'customer_name', // TerminateAction confirmation dialog
+    'project_name', // TerminateAction confirmation dialog
     'description', // EditAction
     'resource_type', // EditAction, TerminateAction, UnlinkActionItem, Mass-actions
     'resource_uuid', // Mass-actions
+    'paused', // ResourceFlags inline badge
+    'downscaled', // ResourceFlags inline badge
+    'restrict_member_access', // ResourceFlags inline badge
+    'project_is_in_grace_period', // ResourceFlags inline badge
+    'project_end_date', // Project end date column + resource details popup
+    'project_effective_end_date', // ResourceFlags inline badge (expired/conflict)
+    'resource_effective_end_date', // ResourceFlags in-grace/conflict + Termination date column
+
+    'project_uuid', // rowActions permissions check
+    'state', // ResourceFlags overdue badge skips terminating/terminated
   ].filter(Boolean);
 
 export const getResourceAllListColumns = (
   hasCustomer = false,
   hasProject = false,
+  // On a list already scoped to a single offering, category and offering hold
+  // the same value in every row. They stay available in the column picker, but
+  // showing them by default only costs horizontal space.
+  { isOfferingScoped = false }: { isOfferingScoped?: boolean } = {},
 ) =>
   (
     [
@@ -60,6 +123,24 @@ export const getResourceAllListColumns = (
         keys: ['name'],
         export: (row) => row.name || row.offering_name, // render as ResourceNameField label
       },
+      // State sits beside the name rather than at the end of the row. It is the
+      // field the row is scanned for, and as the last column it fell outside the
+      // viewport on narrow screens — reachable only by scrolling past the sticky
+      // actions column.
+      {
+        title: translate('State'),
+        render: ({ row }) => <ResourceStateField resource={row} pill outline />,
+        filter: 'state',
+        orderField: 'state',
+        inlineFilter: (row) =>
+          getStates().filter((op) => op.value === row.state),
+        id: 'state',
+        keys: ['state', 'backend_metadata'],
+        export: (row) =>
+          row.backend_metadata?.runtime_state ||
+          row.backend_metadata?.state ||
+          row.state,
+      },
       {
         title: translate('UUID'),
         render: ({ row }) => <>{row.uuid}</>,
@@ -70,6 +151,7 @@ export const getResourceAllListColumns = (
       {
         title: translate('Backend ID'),
         render: ({ row }) => renderFieldOrDash(row.backend_id),
+        orderField: 'backend_id',
         id: 'backend_id',
         keys: ['backend_id'],
         optional: true,
@@ -84,11 +166,13 @@ export const getResourceAllListColumns = (
         }),
         id: 'category',
         keys: ['category_title', 'category_uuid'],
+        optional: isOfferingScoped,
         export: (row) => row.category_title,
       },
       {
         title: translate('Offering'),
         render: ({ row }) => <>{row.offering_name}</>,
+        orderField: 'offering_name',
         filter: 'offering',
         inlineFilter: (row) => ({
           name: row.offering_name,
@@ -96,11 +180,12 @@ export const getResourceAllListColumns = (
         }),
         id: 'offering',
         keys: ['offering_name', 'offering_uuid'],
+        optional: isOfferingScoped,
         export: (row) => row.offering_name,
       },
       {
         title: translate('Parent offering'),
-        render: ({ row }) => <>{row.parent_offering_name || 'N/A'}</>,
+        render: ({ row }) => <>{renderFieldOrDash(row.parent_offering_name)}</>,
         id: 'parent_offering',
         keys: ['parent_offering_name'],
         optional: true,
@@ -108,9 +193,15 @@ export const getResourceAllListColumns = (
       },
       {
         title: translate('Plan'),
-        render: ({ row }) => <>{row.plan_name || 'N/A'}</>,
+        render: ({ row }) => <>{renderFieldOrDash(row.plan_name)}</>,
+        orderField: 'plan_name',
+        filter: 'plan',
+        inlineFilter: (row) => ({
+          name: row.plan_name,
+          uuid: row.plan_uuid,
+        }),
         id: 'plan',
-        keys: ['plan_name'],
+        keys: ['plan_name', 'plan_uuid'],
         optional: true,
       },
       ...(hasCustomer
@@ -118,6 +209,7 @@ export const getResourceAllListColumns = (
             {
               title: translate('Organization'),
               render: ({ row }) => <>{row.customer_name}</>,
+              orderField: 'customer_name',
               filter: 'organization',
               inlineFilter: (row) => ({
                 name: row.customer_name,
@@ -135,6 +227,7 @@ export const getResourceAllListColumns = (
               title: translate('Project'),
               render: ({ row }) => <>{row.project_name}</>,
               filter: 'project',
+              orderField: 'project_name',
               inlineFilter: (row) => ({
                 name: row.project_name,
                 uuid: row.project_uuid,
@@ -147,9 +240,26 @@ export const getResourceAllListColumns = (
         : []),
       {
         title: translate('Project end date'),
-        render: ({ row }) => <>{row.project_end_date || 'N/A'}</>,
+        render: ({ row }) => (
+          <>
+            {renderFieldOrDash(row.project_end_date)}
+            {row.project_effective_end_date &&
+              row.project_end_date &&
+              row.project_effective_end_date !== row.project_end_date && (
+                <span className="text-muted ms-1">
+                  (+
+                  {Math.round(
+                    (new Date(row.project_effective_end_date).getTime() -
+                      new Date(row.project_end_date).getTime()) /
+                      86400000,
+                  )}
+                  d)
+                </span>
+              )}
+          </>
+        ),
         id: 'project_end_date',
-        keys: ['project_end_date'],
+        keys: ['project_end_date', 'project_effective_end_date'],
         optional: true,
       },
       {
@@ -163,28 +273,17 @@ export const getResourceAllListColumns = (
       {
         title: translate('Termination date'),
         render: ResourceTerminationDateField,
+        orderField: 'end_date',
         id: 'end_date',
-        keys: ['end_date', 'project_end_date'],
+        keys: ['end_date', 'resource_effective_end_date'],
         optional: !isFeatureVisible(MarketplaceFeatures.show_resource_end_date),
-        export: (row) => row.end_date,
-      },
-      {
-        title: translate('State'),
-        render: ({ row }) => <ResourceStateField resource={row} outline pill />,
-        filter: 'state',
-        orderField: 'state',
-        inlineFilter: (row) =>
-          getStates().filter((op) => op.value === row.state),
-        id: 'state',
-        keys: ['state', 'backend_metadata'],
-        export: (row) =>
-          row.backend_metadata?.runtime_state ||
-          row.backend_metadata?.state ||
-          row.state,
+        export: (row) => row.resource_effective_end_date,
       },
       {
         title: translate('Paused'),
         render: ({ row }) => <BooleanField value={row.paused} />,
+        filter: 'paused',
+        inlineFilter: () => true,
         id: 'paused',
         keys: ['paused'],
         optional: true,
@@ -192,6 +291,8 @@ export const getResourceAllListColumns = (
       {
         title: translate('Downscaled'),
         render: ({ row }) => <BooleanField value={row.downscaled} />,
+        filter: 'downscaled',
+        inlineFilter: () => true,
         id: 'downscaled',
         keys: ['downscaled'],
         optional: true,
@@ -201,7 +302,8 @@ export const getResourceAllListColumns = (
         render: ({ row }) => (
           <BooleanField value={row.restrict_member_access} />
         ),
-
+        filter: 'restrict_member_access',
+        inlineFilter: () => true,
         id: 'restrict_member_access',
         keys: ['restrict_member_access'],
         optional: true,

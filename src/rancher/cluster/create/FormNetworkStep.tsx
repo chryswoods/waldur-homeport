@@ -1,35 +1,36 @@
 import { PlusIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { Button } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
-import { Field } from 'redux-form';
+import { useForm } from 'react-final-form';
 
-import { required } from '@waldur/core/validators';
-import { FormGroup, SelectField } from '@waldur/form';
-import { VStepperFormStepCard } from '@waldur/form/VStepperFormStep';
-import { translate } from '@waldur/i18n';
-import { StepCardPlaceholder } from '@waldur/marketplace/deploy/steps/StepCardPlaceholder';
-import { FormStepProps } from '@waldur/marketplace/deploy/types';
-import { isExperimentalUiComponentsVisible } from '@waldur/marketplace/utils';
+import { UI_STALE_TIME } from '@/core/constants';
+import { required } from '@/core/validators';
+import { SelectGroup } from '@/form';
+import { translate } from '@/i18n';
+import { StepCardPlaceholder } from '@/marketplace/deploy/steps/StepCardPlaceholder';
+import { FormStepProps } from '@/marketplace/deploy/types';
+import { isExperimentalUiComponentsVisible } from '@/marketplace/utils';
+import { CompactActionButton } from '@/table/CompactActionButton';
+import { VStepperFormStepCard } from '@/wizard';
 
-import { formTenantSelector, formatSubnets } from './utils';
+import { formatSubnets, useFormTenant } from './utils';
 
 export const FormNetworkStep = (props: FormStepProps) => {
-  const tenant = useSelector(formTenantSelector);
+  const tenant = useFormTenant();
   const showExperimentalUiComponents = isExperimentalUiComponentsVisible();
+  const form = useForm();
 
   const { data, isLoading } = useQuery({
     queryKey: ['network-step', tenant?.url],
     queryFn: () => (tenant ? formatSubnets(tenant.uuid) : []),
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
 
   useEffect(() => {
     if (data?.length === 1) {
-      props.change('attributes.subnet', data[0].value);
+      form.change('attributes.subnet', data[0].value);
     }
-  }, [data]);
+  }, [data, form]);
 
   return (
     <VStepperFormStepCard
@@ -41,30 +42,27 @@ export const FormNetworkStep = (props: FormStepProps) => {
       actions={
         showExperimentalUiComponents ? (
           <div className="d-flex justify-content-end flex-grow-1">
-            <Button variant="tertiary" className="text-nowrap" size="sm">
-              <span className="svg-icon svg-icon-2">
-                <PlusIcon weight="bold" />
-              </span>
-              {translate('New network')}
-            </Button>
+            <CompactActionButton
+              variant="tertiary"
+              className="text-nowrap"
+              action={() => {}}
+              iconNode={<PlusIcon weight="bold" />}
+              title={translate('New network')}
+            />
           </div>
         ) : null
       }
     >
       {tenant ? (
-        <Field
+        <SelectGroup
           name="attributes.subnet"
-          component={FormGroup}
           label={translate('Subnet')}
           validate={required}
-          parse={(subnet) => subnet.value}
+          parse={(subnet: any) => subnet?.value}
           required={true}
-        >
-          <SelectField
-            options={data}
-            placeholder={translate('Select subnet...')}
-          />
-        </Field>
+          options={data}
+          placeholder={translate('Select subnet...')}
+        />
       ) : (
         <StepCardPlaceholder>
           {translate('Please select a tenant first')}

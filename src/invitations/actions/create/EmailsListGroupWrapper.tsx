@@ -1,48 +1,51 @@
-import { useMemo } from 'react';
-import { FieldArray } from 'redux-form';
+import { FieldArray } from 'react-final-form-arrays';
 
-import { required } from '@waldur/core/validators';
-import { translate } from '@waldur/i18n';
-import { isEmailAllowed } from '@waldur/openportal/bindings/helpers';
-import { useProjectEmailPolicy } from '@waldur/project/useProjectEmailPolicy';
-import { DomainRestrictionNotice } from '@waldur/project/team/DomainRestrictionNotice';
+import { translate } from '@/i18n';
 
 import { EmailsListGroup } from './EmailsListGroup';
+
+const validateRows = (value) => {
+  if (!value || value.length === 0) {
+    return translate('At least one user is required');
+  }
+
+  const validRows = value.filter(
+    (row) => row && row.email && row.role_project && row.role_project.role,
+  );
+
+  if (validRows.length === 0) {
+    return translate('At least one complete user invitation is required');
+  }
+
+  return undefined;
+};
+
+interface EmailsListGroupWrapperProps {
+  roles;
+  customer;
+  project;
+  disabled;
+}
 
 export const EmailsListGroupWrapper = ({
   roles,
   customer,
   project,
   disabled,
-}) => {
-  const { data: emailPolicy } = useProjectEmailPolicy(project?.uuid);
-
-  const emailDomainValidator = useMemo(() => {
-    const domains = emailPolicy?.allowed_domains;
-    if (domains === undefined) return undefined;
-    return (value: string) =>
-      isEmailAllowed(domains, value)
-        ? undefined
-        : translate('This email address is not permitted for this project.');
-  }, [emailPolicy]);
-
+}: EmailsListGroupWrapperProps) => {
   return (
-    <>
-      <DomainRestrictionNotice
-        allowedDomains={emailPolicy?.allowed_domains}
-        contactEmail={customer?.email}
-        projectName={project?.name}
-      />
-      <FieldArray
-        name="rows"
-        roles={roles}
-        customer={customer}
-        project={project}
-        component={EmailsListGroup}
-        validate={[required]}
-        disabled={disabled}
-        emailDomainValidator={emailDomainValidator}
-      />
-    </>
+    <FieldArray
+      name="rows"
+      validate={validateRows}
+      render={(arrayProps) => (
+        <EmailsListGroup
+          {...arrayProps}
+          roles={roles}
+          customer={customer}
+          project={project}
+          disabled={disabled}
+        />
+      )}
+    />
   );
 };

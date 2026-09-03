@@ -1,76 +1,102 @@
 import { PlusIcon, TrashIcon } from '@phosphor-icons/react';
-import React from 'react';
-import { Button, Table } from 'react-bootstrap';
-import { connect, useDispatch } from 'react-redux';
-import { compose } from 'redux';
-import { Field, FieldArray, reduxForm } from 'redux-form';
+import arrayMutators from 'final-form-arrays';
+import React, { FC, useMemo } from 'react';
+import { Table } from 'react-bootstrap';
+import { Form, Field } from 'react-final-form';
+import { FieldArray, FieldArrayRenderProps } from 'react-final-form-arrays';
 import {
-  OpenStackAllowedAddressPairRequest,
+  AllowedAddressPairEntryRequest,
+  OpenStackAllowedAddressPair,
+  OpenStackFixedIp,
   OpenStackInstance,
-  openstackInstancesUpdateAllowedAddressPairs,
+  openstackPortsSetAllowedAddressPairs,
 } from 'waldur-js-client';
 
-import { SubmitButton } from '@waldur/form';
-import { renderValidationWrapper } from '@waldur/form/FieldValidationWrapper';
-import { InputField } from '@waldur/form/InputField';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { getUUID } from '@/core/utils';
+import { StringField, FieldError, SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ActionButton } from '@/table/ActionButton';
+import { CompactActionButton } from '@/table/CompactActionButton';
 
 import { validatePrivateCIDR } from '../utils';
 
 import { formatAddressList } from './utils';
 
+export interface AllowedAddressPairsPort {
+  url?: string;
+  fixed_ips?: OpenStackFixedIp[];
+  allowed_address_pairs?: OpenStackAllowedAddressPair[];
+}
+
 interface OwnProps {
   resolve: {
-    port: {
-      allowed_address_pairs: OpenStackAllowedAddressPairRequest[];
-    };
-    instance: OpenStackInstance;
+    port: AllowedAddressPairsPort;
+    instance?: OpenStackInstance;
+    refetch?: () => void;
   };
 }
 
 interface FormData {
-  pairs: OpenStackAllowedAddressPairRequest[];
+  pairs: AllowedAddressPairEntryRequest[];
 }
 
-const ValidatedInputField = renderValidationWrapper(InputField);
+type PairsFields = FieldArrayRenderProps<
+  AllowedAddressPairEntryRequest,
+  HTMLElement
+>['fields'];
 
-const PairRow = ({ pair, onRemove }) => (
+const PairRow = ({
+  pair,
+  onRemove,
+}: {
+  pair: string;
+  onRemove: () => void;
+}) => (
   <tr>
     <td>
-      <Field
-        name={`${pair}.ip_address`}
-        component={ValidatedInputField}
-        validate={validatePrivateCIDR}
+      <Field name={`${pair}.ip_address`} validate={validatePrivateCIDR}>
+        {({ input, meta }) => (
+          <>
+            <StringField input={input} meta={meta} />
+            <FieldError error={meta.touched && meta.error} />
+          </>
+        )}
+      </Field>
+    </td>
+    <td>
+      <Field name={`${pair}.mac_address`}>
+        {({ input, meta }) => (
+          <>
+            <StringField input={input} meta={meta} />
+            <FieldError error={meta.touched && meta.error} />
+          </>
+        )}
+      </Field>
+    </td>
+    <td>
+      <CompactActionButton
+        action={onRemove}
+        title={translate('Remove')}
+        iconNode={<TrashIcon weight="bold" />}
+        variant="text-secondary"
       />
-    </td>
-    <td>
-      <Field name={`${pair}.mac_address`} component={ValidatedInputField} />
-    </td>
-    <td>
-      <Button variant="text-secondary" onClick={onRemove}>
-        <span className="svg-icon svg-icon-2">
-          <TrashIcon />
-        </span>{' '}
-        {translate('Remove')}
-      </Button>
     </td>
   </tr>
 );
 
-const PairAddButton = ({ onClick }) => (
-  <Button variant="text-secondary" onClick={onClick}>
-    <span className="svg-icon svg-icon-2">
-      <PlusIcon weight="bold" />
-    </span>{' '}
-    {translate('Add pair')}
-  </Button>
+const PairAddButton = ({ onClick }: { onClick: () => void }) => (
+  <ActionButton
+    action={onClick}
+    title={translate('Add pair')}
+    iconNode={<PlusIcon weight="bold" />}
+    variant="text-secondary"
+  />
 );
 
-const PairsTable: React.FC<any> = ({ fields }) =>
+const PairsTable: React.FC<{ fields: PairsFields }> = ({ fields }) =>
   fields.length > 0 ? (
     <>
       <Table responsive={true} bordered={true} striped={true} className="mt-3">
@@ -92,71 +118,85 @@ const PairsTable: React.FC<any> = ({ fields }) =>
           ))}
         </tbody>
       </Table>
-      <PairAddButton onClick={() => fields.push({})} />
+      <PairAddButton onClick={() => fields.push({ ip_address: '' })} />
     </>
   ) : (
-    <PairAddButton onClick={() => fields.push({})} />
+    <PairAddButton onClick={() => fields.push({ ip_address: '' })} />
   );
 
-const enhance = compose(
-  connect<{}, {}, OwnProps>((_, ownProps) => ({
-    initialValues: { pairs: ownProps.resolve.port.allowed_address_pairs },
-  })),
-  reduxForm<FormData, OwnProps>({
-    form: 'SetAllowedAddressPairsDialog',
-  }),
-);
+export const SetAllowedAddressPairsDialog: FC<OwnProps> = ({ resolve }) => {
+  const mutation = useManagedMutation<
+    Awaited<ReturnType<typeof openstackPortsSetAllowedAddressPairs>>,
+    unknown,
+    FormData
+  >({
+    mutationFn: (formData) =>
+      openstackPortsSetAllowedAddressPairs({
+        path: { uuid: getUUID(resolve.port.url) },
+        body: {
+          allowed_address_pairs: formData.pairs || [],
+        },
+      }),
 
-export const SetAllowedAddressPairsDialog = enhance(
-  ({ resolve, invalid, submitting, handleSubmit }) => {
-    const dispatch = useDispatch();
-    const setAllowedAddressPairs = async (formData: FormData) => {
-      try {
-        await openstackInstancesUpdateAllowedAddressPairs({
-          path: { uuid: resolve.instance.uuid },
-          body: {
-            subnet: resolve.port.subnet,
-            allowed_address_pairs: formData.pairs || [],
-          },
-        });
-        dispatch(
-          showSuccess(translate('Allowed address pairs update was scheduled.')),
-        );
-        dispatch(closeModalDialog());
-      } catch (e) {
-        dispatch(
-          showErrorResponse(
-            e,
-            translate('Unable to update allowed address pairs.'),
-          ),
-        );
-      }
-    };
+    successMessage: translate('Allowed address pairs update was scheduled.'),
+    errorMessage: translate('Unable to update allowed address pairs.'),
+    refetch: resolve.refetch,
+  });
 
-    return (
-      <form onSubmit={handleSubmit(setAllowedAddressPairs)}>
-        <ModalDialog
-          title={translate(
-            'Set allowed address pairs ({instance} / {ipAddress})',
-            {
-              instance: resolve.instance.name,
-              ipAddress: formatAddressList(resolve.port),
-            },
-          )}
-          footer={
-            <>
-              <CloseDialogButton />
-              <SubmitButton
-                disabled={invalid}
-                submitting={submitting}
-                label={translate('Update')}
-              />
-            </>
-          }
-        >
-          <FieldArray name="pairs" component={PairsTable} />
-        </ModalDialog>
-      </form>
-    );
-  },
-);
+  const setAllowedAddressPairs = async (formData: FormData) => {
+    try {
+      await mutation.mutateAsync(formData);
+    } catch {
+      // Error is handled by useManagedMutation
+    }
+  };
+
+  const initialValues = useMemo(
+    () => ({
+      pairs: (resolve.port.allowed_address_pairs ?? []).map((pair) => ({
+        ip_address: pair.ip_address ?? '',
+        mac_address: pair.mac_address,
+      })),
+    }),
+    [resolve.port.allowed_address_pairs],
+  );
+
+  return (
+    <Form<FormData>
+      onSubmit={setAllowedAddressPairs}
+      initialValues={initialValues}
+      mutators={{ ...arrayMutators }}
+      render={({ handleSubmit, invalid, submitting }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={
+              resolve.instance
+                ? translate(
+                    'Set allowed address pairs ({instance} / {ipAddress})',
+                    {
+                      instance: resolve.instance.name,
+                      ipAddress: formatAddressList(resolve.port),
+                    },
+                  )
+                : translate('Set allowed address pairs ({ipAddress})', {
+                    ipAddress: formatAddressList(resolve.port),
+                  })
+            }
+            footer={
+              <>
+                <CloseDialogButton />
+                <SubmitButton
+                  disabled={invalid}
+                  submitting={submitting}
+                  label={translate('Update')}
+                />
+              </>
+            }
+          >
+            <FieldArray name="pairs" component={PairsTable} />
+          </ModalDialog>
+        </form>
+      )}
+    />
+  );
+};

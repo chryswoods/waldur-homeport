@@ -1,30 +1,11 @@
-import { useMemo } from 'react';
+import { formatDateTime } from '@/core/dateUtils';
+import { translate } from '@/i18n';
+import { Field } from '@/resource/summary';
+import { renderFieldOrDash } from '@/table/utils';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { Field } from '@waldur/resource/summary';
-import { renderFieldOrDash } from '@waldur/table/utils';
-
-import {
-  formatRoundAllocationStrategy,
-  formatRoundAllocationTime,
-  formatRoundReviewStrategy,
-  getRoundsWithStatus,
-} from '../utils';
+import { CallDurationPolicy } from '../CallDurationPolicy';
 
 export const CallDetailsFields = ({ call }) => {
-  const activeRound = useMemo(() => {
-    const items = getRoundsWithStatus(call.rounds);
-    const first = items[0];
-    if (
-      first &&
-      (first.status.value === 'open' || first.status.value === 'scheduled')
-    ) {
-      return first;
-    }
-    return null;
-  }, [call]);
-
   return (
     <>
       <Field
@@ -37,24 +18,10 @@ export const CallDetailsFields = ({ call }) => {
         value={renderFieldOrDash(formatDateTime(call.start_date))}
       />
 
-      {activeRound && (
-        <Field
-          label={translate('Review strategy in active round')}
-          value={formatRoundReviewStrategy(activeRound.review_strategy)}
-        />
-      )}
-      {activeRound && (
-        <Field
-          label={translate('Round strategy in active round')}
-          value={formatRoundAllocationStrategy(activeRound.deciding_entity)}
-        />
-      )}
-      {activeRound && (
-        <Field
-          label={translate('Allocation strategy in active round')}
-          value={formatRoundAllocationTime(activeRound.allocation_time)}
-        />
-      )}
+      <Field
+        label={translate('Project duration')}
+        value={<CallDurationPolicy call={call} />}
+      />
     </>
   );
 };

@@ -2,10 +2,10 @@ import { PencilSimpleIcon } from '@phosphor-icons/react';
 import { FunctionComponent } from 'react';
 import { Card, Tab, Tabs } from 'react-bootstrap';
 
-import { CopyToClipboard } from '@waldur/core/CopyToClipboard';
-import { Tip } from '@waldur/core/Tooltip';
-import { translate } from '@waldur/i18n';
-import { ExpandableContainer } from '@waldur/table/ExpandableContainer';
+import { CopyToClipboard } from '@/core/CopyToClipboard';
+import { Tip } from '@/core/Tooltip';
+import { translate } from '@/i18n';
+import { ExpandableContainer } from '@/table/ExpandableContainer';
 
 import { formatHeader } from './NotificationForm';
 
@@ -52,7 +52,7 @@ export const NotificationExpandableRow: FunctionComponent<{
                   </h6>
                   <CopyToClipboard
                     label={translate('Copy')}
-                    value={template.content ?? template.original_content}
+                    value={template.content}
                     textButton
                     rightIcon
                     className="my-2 text-hover-primary"
@@ -60,7 +60,7 @@ export const NotificationExpandableRow: FunctionComponent<{
                 </Card.Header>
                 <Card.Body className="p-8">
                   <pre className="text-gray-700 fs-6 mb-0">
-                    {template.content ?? template.original_content}
+                    {template.content}
                   </pre>
                 </Card.Body>
               </Card>

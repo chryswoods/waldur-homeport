@@ -1,11 +1,15 @@
-import { Role } from '@waldur/permissions/types';
-import { Customer, Project, User } from '@waldur/workspace/types';
+import { Role } from '@/permissions/types';
+import { Customer, Project, User } from '@/workspace/types';
 
 import { GenericInvitationContext } from '../types';
 
 export interface InvitationContext extends GenericInvitationContext {
   user: User;
-  customer: Customer;
+  /**
+   * Org/project context. Optional — scoped callers (resource invites) omit
+   * this and supply `scope` + `rolesOverride` instead.
+   */
+  customer?: Customer;
   project?: Project;
   refetch?(): void;
   enableBulkUpload?: boolean;

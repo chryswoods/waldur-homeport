@@ -6,13 +6,12 @@ import {
   StorageModeEnum,
 } from 'waldur-js-client';
 
-import { SubmitButton } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { Option } from '@waldur/marketplace/common/registry';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { useModal } from '@waldur/modal/hooks';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { useNotify } from '@waldur/store/hooks';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { Option } from '@/marketplace/common/registry';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
 interface ChangeStorageModeDialogProps {
   resolve: {
@@ -26,29 +25,29 @@ interface ChangeStorageModeDialogProps {
 export const ChangeStorageModeDialog: FC<ChangeStorageModeDialogProps> = (
   props,
 ) => {
-  const { showSuccess, showErrorResponse } = useNotify();
-  const { closeDialog } = useModal();
+  const changeStorageModeMutation = useManagedMutation<
+    any,
+    any,
+    { storage_mode: StorageModeEnum }
+  >({
+    mutationFn: (formData) =>
+      marketplaceProviderOfferingsUpdateIntegration({
+        path: { uuid: props.resolve.offering.uuid },
+        body: {
+          plugin_options: {
+            ...props.resolve.offering.plugin_options,
+            storage_mode: formData.storage_mode,
+          },
+        },
+      }),
+    successMessage: translate('Storage mode has been updated.'),
+    errorMessage: translate('Unable to update storage mode.'),
+    refetch: props.resolve.refetch,
+  });
 
   return (
     <Form<{ storage_mode: StorageModeEnum }>
-      onSubmit={async (formData) => {
-        try {
-          await marketplaceProviderOfferingsUpdateIntegration({
-            path: { uuid: props.resolve.offering.uuid },
-            body: {
-              plugin_options: {
-                ...props.resolve.offering.plugin_options,
-                storage_mode: formData.storage_mode,
-              },
-            },
-          });
-          showSuccess(translate('Storage mode has been updated.'));
-          closeDialog();
-          props.resolve.refetch();
-        } catch (error) {
-          showErrorResponse(error, translate('Unable to update storage mode.'));
-        }
-      }}
+      onSubmit={(values) => changeStorageModeMutation.mutateAsync(values)}
       initialValues={{ storage_mode: props.resolve.currentMode }}
       render={({ handleSubmit, submitting }) => (
         <form onSubmit={handleSubmit}>

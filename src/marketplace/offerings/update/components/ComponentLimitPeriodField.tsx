@@ -1,9 +1,9 @@
 import { FunctionComponent } from 'react';
-import { Field } from 'redux-form';
+import { Field } from 'react-final-form';
 
-import { Select } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
+import { SelectGroup, FormGroup } from '@/form';
+import { translate } from '@/i18n';
+import { renderFieldOrDash } from '@/table/utils';
 
 export interface LimitPeriodOption {
   value: string;
@@ -47,30 +47,38 @@ export function getLimitPeriods(): LimitPeriodOption[] {
 interface ComponentLimitPeriodFieldProps {
   limitPeriod: LimitPeriodOption;
   readOnly?: boolean;
+  spaceless?: boolean;
 }
 
 export const ComponentLimitPeriodField: FunctionComponent<
   ComponentLimitPeriodFieldProps
-> = (props) => (
-  <FormGroup label={translate('Limit period')}>
-    <Field
-      name="limit_period"
-      component={(fieldProps) =>
-        props.readOnly ? (
-          fieldProps.input.value.label
-        ) : (
-          <Select
-            value={fieldProps.input.value}
-            onChange={(value) => fieldProps.input.onChange(value)}
-            options={getLimitPeriods()}
-            isClearable={false}
-          />
-        )
-      }
-    />
+> = (props) => {
+  if (props.readOnly) {
+    return (
+      <FormGroup
+        label={translate('Limit period')}
+        spaceless={props.spaceless}
+        help={props.limitPeriod?.description}
+        helpEnd
+      >
+        <Field
+          name="limit_period"
+          subscription={{ value: true }}
+          render={({ input }) => renderFieldOrDash(input.value?.label)}
+        />
+      </FormGroup>
+    );
+  }
 
-    {props.limitPeriod && (
-      <div className="help-text mt-2">{props.limitPeriod.description}</div>
-    )}
-  </FormGroup>
-);
+  return (
+    <SelectGroup
+      name="limit_period"
+      label={translate('Limit period')}
+      spaceless={props.spaceless}
+      tooltip={props.limitPeriod?.description}
+      tooltipEnd
+      options={getLimitPeriods()}
+      isClearable={false}
+    />
+  );
+};

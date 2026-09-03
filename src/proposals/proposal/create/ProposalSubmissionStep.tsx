@@ -1,30 +1,94 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from '@uirouter/react';
 import { get } from 'lodash-es';
-import { createRef, FC, useCallback, useMemo, useRef } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { change } from 'redux-form';
+import { createRef, FC, useCallback, useEffect, useMemo, useRef } from 'react';
+import { Form } from 'react-final-form';
 import {
   proposalProposalsAttachDocument,
+  proposalProposalsChecklistRetrieve,
   proposalProposalsSubmit,
+  proposalProposalsSubmitAnswers,
   proposalProposalsUpdateProjectDetails,
   ProposalReview,
 } from 'waldur-js-client';
 
-import { formDataOptions } from '@waldur/core/api';
-import { isEmpty } from '@waldur/core/utils';
-import { Form } from '@waldur/form/Form';
-import { SidebarLayout } from '@waldur/form/SidebarLayout';
-import { translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { PROPOSAL_UPDATE_SUBMISSION_FORM_ID } from '@waldur/proposals/constants';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { formDataOptions } from '@/core/api';
+import { SHORT_STALE_TIME } from '@/core/constants';
+import { useAccordionUrlState } from '@/core/useAccordionUrlState';
+import { isEmpty } from '@/core/utils';
+import { SidebarLayout } from '@/form/SidebarLayout';
+import { translate } from '@/i18n';
+import { evaluateCondition } from '@/marketplace-checklist/questionDependencies';
+import { useModal } from '@/modal/actions';
+import { useCallFixedDuration } from '@/proposals/callQueries';
+import { usesCallVocabulary, requestListState } from '@/proposals/presentation';
+import { hasRequestedAmount } from '@/proposals/requestedResourceCost';
+import { useProposalResourceRows } from '@/proposals/useProposalResourceRows';
+import { useNotify } from '@/store/notify';
 
+import {
+  extractComplianceAnswers,
+  isComplianceAnswerFilled,
+} from './complianceUtils';
 import { ProposalSidebar } from './ProposalSidebar';
 import { createProposalSteps } from './steps';
-import {
-  proposalFormDataSelector,
-  useSubmitProposalResourcesFromTemplates,
-} from './utils';
+
+// Check if compliance checklist is complete based on current form values
+const isComplianceComplete = (
+  checklistData: any,
+  formValues: Record<string, any>,
+): boolean => {
+  if (!checklistData?.questions?.length) {
+    return true; // No questions = complete
+  }
+
+  // Build map of question description to field name for dependency lookup
+  const questionDescToFieldName: Record<string, string> = {};
+  checklistData.questions.forEach((q: any) => {
+    questionDescToFieldName[q.description] = `compliance_${q.uuid}`;
+  });
+
+  // Check if a question is visible based on its dependencies
+  const isQuestionVisible = (question: any): boolean => {
+    const depInfo = question.dependencies_info;
+    if (!depInfo || !depInfo.conditions?.length) {
+      return true; // No dependencies = always visible
+    }
+
+    const results = depInfo.conditions.map((condition: any) => {
+      const fieldName = questionDescToFieldName[condition.question_description];
+      const answerValue = fieldName ? formValues[fieldName] : undefined;
+      return evaluateCondition(condition, answerValue);
+    });
+
+    return depInfo.logic === 'or'
+      ? results.some(Boolean)
+      : results.every(Boolean);
+  };
+
+  // Get visible required questions
+  const visibleRequiredQuestions = checklistData.questions.filter(
+    (q: any) => q.required && isQuestionVisible(q),
+  );
+
+  // Check if all visible required questions have answers
+  return visibleRequiredQuestions.every((question: any) => {
+    const fieldName = `compliance_${question.uuid}`;
+    return isComplianceAnswerFilled(formValues[fieldName]);
+  });
+};
+
+// The picker holds the sub-domain as an option object while the API takes a
+// bare uuid. A plain string is passed through: clearing a value the form never
+// wrapped would silently drop the applicant's science domain.
+const toProjectDetailsBody = (formValues: any) => {
+  const subDomain = formValues.science_sub_domain;
+  return {
+    ...formValues,
+    science_sub_domain:
+      typeof subDomain === 'string' ? subDomain : (subDomain?.uuid ?? null),
+  };
+};
 
 const attachDocuments = async (proposal_uuid, supporting_documentation) => {
   if (supporting_documentation) {
@@ -43,184 +107,333 @@ const attachDocuments = async (proposal_uuid, supporting_documentation) => {
   }
 };
 
-const validate = (values) => {
-  const errors: Record<string, any> = {};
-  if (!values.users || values.users?.length === 0) {
-    errors.users = 'At least one user is required';
+const submitComplianceAnswers = async (
+  proposal_uuid: string,
+  formData: Record<string, unknown>,
+  checklistData?: {
+    questions?: Array<{ uuid: string; question_type: string }>;
+  },
+) => {
+  const complianceAnswers = extractComplianceAnswers(formData, checklistData);
+
+  if (complianceAnswers.length > 0) {
+    try {
+      await proposalProposalsSubmitAnswers({
+        path: { uuid: proposal_uuid },
+        body: complianceAnswers,
+      });
+    } catch {
+      // Don't throw - compliance errors shouldn't block main proposal saving
+    }
   }
-  if (!values.resources || values.resources?.length === 0) {
-    errors.resources = 'At least one resource is required';
-  }
-  return errors;
 };
 
 export const ProposalSubmissionStep: FC<{
   proposal;
+  call?;
   reviews?: ProposalReview[];
   refetch;
-}> = ({ proposal, reviews, refetch }) => {
-  const dispatch = useDispatch();
-  const initialValues = useMemo(
-    () => ({
+}> = ({ proposal, call, reviews, refetch }) => {
+  const { confirm } = useModal();
+  const router = useRouter();
+
+  const { showErrorResponse, showSuccess } = useNotify();
+
+  const queryClient = useQueryClient();
+  const proposal_uuid = proposal.uuid;
+
+  // Query the proposal checklist with all questions (including hidden ones for real-time validation)
+  const { data: checklistData } = useQuery({
+    queryKey: ['ProposalChecklist', proposal_uuid, 'include_all'],
+    queryFn: () =>
+      proposalProposalsChecklistRetrieve({
+        path: { uuid: proposal_uuid },
+        query: { include_all: true },
+      })
+        .then((response) => response.data)
+        .catch((err) => {
+          // If 400 with "No checklist configured", return null
+          if (
+            err.response?.status === 400 &&
+            err.response?.data?.detail?.includes('No checklist configured')
+          ) {
+            return null;
+          }
+          throw err;
+        }),
+    refetchOnWindowFocus: false,
+    staleTime: SHORT_STALE_TIME,
+  });
+
+  const initialValues = useMemo(() => {
+    const baseValues = {
       name: proposal.name,
       description: proposal.description,
       project_summary: proposal.project_summary,
-      project_has_civilian_purpose: proposal.project_has_civilian_purpose,
-      oecd_fos_2007_code: proposal.oecd_fos_2007_code,
-      project_is_confidential: proposal.project_is_confidential,
-      duration_in_days: proposal.duration_in_days,
+      // The picker works with option objects; the API takes a bare uuid, so the
+      // value is unwrapped again in toProjectDetailsBody before it is sent.
+      science_sub_domain: proposal.science_sub_domain
+        ? {
+            uuid: proposal.science_sub_domain,
+            name: proposal.science_sub_domain_name,
+          }
+        : null,
       resources: [],
       resources_init: [], // Temporary field to hold current resource requests
       users: [],
-    }),
-    [proposal],
-  );
-  const proposal_uuid = proposal.uuid;
+    };
 
-  const formSteps = createProposalSteps;
+    // Add compliance answers to initial values if available
+    if (checklistData?.questions) {
+      checklistData.questions.forEach((question) => {
+        const fieldName = `compliance_${question.uuid}`;
+        let answerData = question.existing_answer?.answer_data ?? null;
+
+        // Transform single_select arrays to single values for UI display
+        if (
+          question.question_type === 'single_select' &&
+          Array.isArray(answerData) &&
+          answerData.length > 0
+        ) {
+          answerData = answerData[0]; // Convert ["uuid"] to "uuid" for SelectField
+        }
+
+        baseValues[fieldName] = answerData;
+      });
+    }
+
+    return baseValues;
+  }, [proposal, checklistData]);
+
+  // Only add compliance step if checklist has questions
+  const shouldAddComplianceStep =
+    checklistData &&
+    checklistData.questions &&
+    checklistData.questions.length > 0;
+
+  // Calculate steps based on whether proposal has meaningful compliance checklist
+  const formSteps = useMemo(() => {
+    // The compliance step is driven by the checklist query rather than the
+    // call's own flag, so a synthetic value stands in for it; the field config
+    // comes from the real call.
+    return createProposalSteps({
+      compliance_checklist: shouldAddComplianceStep ? 'exists' : undefined,
+      proposal_field_config: call?.proposal_field_config,
+    });
+  }, [shouldAddComplianceStep, call]);
+
+  // Get panel IDs for accordion URL state management
+  const panelIds = useMemo(() => formSteps.map((step) => step.id), [formSteps]);
+
+  // Manage accordion open/closed state via URL query params.
+  // Project details is open on arrival: it holds the first fields the
+  // applicant has to fill in, so an all-collapsed page gives no hint of where
+  // to start. An explicit `panels` param in the URL still wins.
+  const { isPanelOpen, togglePanel } = useAccordionUrlState(panelIds, [
+    'step-project',
+  ]);
 
   const stepRefs = useRef([]);
-  stepRefs.current = formSteps.map(
-    (_, i) => stepRefs.current[i] ?? createRef(),
-  );
+  // Recalculate step refs when steps change (e.g., when compliance step is added)
+  stepRefs.current = useMemo(() => {
+    return formSteps.map((_, i) => stepRefs.current[i] ?? createRef());
+  }, [formSteps]);
 
-  const formData = useSelector(proposalFormDataSelector);
+  // Store form reference for updating fields after save
+  const formRef = useRef<any>(null);
 
-  const { save: saveResources } =
-    useSubmitProposalResourcesFromTemplates(proposal);
+  // Track previous checklistData to detect changes after save
+  const prevChecklistDataRef = useRef(checklistData);
+
+  // Sync compliance form fields when checklistData is refetched (e.g., after saving)
+  // This ensures file uploads show as "Uploaded" instead of "Pending" after save
+  useEffect(() => {
+    if (!formRef.current || !checklistData?.questions) return;
+
+    // Only sync if checklistData has actually changed
+    if (prevChecklistDataRef.current === checklistData) return;
+    prevChecklistDataRef.current = checklistData;
+
+    checklistData.questions.forEach((question) => {
+      const fieldName = `compliance_${question.uuid}`;
+      let answerData = question.existing_answer?.answer_data || null;
+
+      // Transform single_select arrays to single values for UI display
+      if (
+        question.question_type === 'single_select' &&
+        Array.isArray(answerData) &&
+        answerData.length > 0
+      ) {
+        answerData = answerData[0];
+      }
+
+      // Update the form field with the new value from backend
+      const currentValue = formRef.current.getState().values[fieldName];
+      // Only update if the current value has 'content' (pending upload) and
+      // the new value has 'stored_file_id' (processed upload)
+      if (
+        currentValue &&
+        typeof currentValue === 'object' &&
+        'content' in currentValue &&
+        answerData &&
+        typeof answerData === 'object' &&
+        'stored_file_id' in answerData
+      ) {
+        formRef.current.change(fieldName, answerData);
+      }
+    });
+  }, [checklistData]);
+
+  // Every request, not the page the table shows: the duration is the longest
+  // of all of them.
+  const { data: resourceRows } = useProposalResourceRows(proposal_uuid);
+  const fixedDurationDays = useCallFixedDuration(proposal.call_uuid);
 
   const { mutate: saveAsDraft, isPending: isSaving } = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (formValues: any) => {
       try {
-        await saveResources();
         await proposalProposalsUpdateProjectDetails({
           path: { uuid: proposal_uuid },
-          body: formData,
+          body: toProjectDetailsBody(formValues),
         });
-        // Files are now uploaded automatically when selected, so we only upload if there are pending files
-        await attachDocuments(proposal_uuid, formData.supporting_documentation);
-        dispatch(showSuccess(translate('Proposal updated successfully')));
-        // clear formData.supporting_documentation from redux-form store to prevent file upload on next submit/switchToTeam
-        dispatch(
-          change(
-            PROPOSAL_UPDATE_SUBMISSION_FORM_ID,
-            'supporting_documentation',
-            {},
-          ),
+        await submitComplianceAnswers(proposal_uuid, formValues, checklistData);
+        await attachDocuments(
+          proposal_uuid,
+          formValues.supporting_documentation,
         );
+        showSuccess(
+          usesCallVocabulary()
+            ? translate('Proposal updated successfully')
+            : translate('Access request updated successfully'),
+        );
+        // Invalidate checklist query to refresh compliance answers with stored file info
+        await queryClient.invalidateQueries({
+          queryKey: ['ProposalChecklist', proposal_uuid],
+        });
         if (refetch) refetch();
       } catch (error) {
-        dispatch(showErrorResponse(error, translate('Something went wrong')));
+        showErrorResponse(error, translate('Something went wrong'));
       }
     },
   });
 
   const submitForm = useCallback(
-    async (formValues, dispatch) => {
+    async (formValues: any) => {
       try {
-        await waitForConfirmation(
-          dispatch,
+        await confirm(
           translate('Confirmation'),
-          translate('Are you sure you want to submit the proposal?'),
+          usesCallVocabulary()
+            ? translate('Are you sure you want to submit the proposal?')
+            : translate('Are you sure you want to submit the access request?'),
         );
       } catch {
         return;
       }
       try {
-        await saveResources();
         await proposalProposalsUpdateProjectDetails({
           path: { uuid: proposal_uuid },
-          body: formValues,
+          body: toProjectDetailsBody(formValues),
         });
+        await submitComplianceAnswers(proposal_uuid, formValues, checklistData);
         await attachDocuments(
           proposal_uuid,
           formValues.supporting_documentation,
         );
-
-        // get the number of attached documents
-        const num_attached_documents = (proposal.supporting_documentation?.length || 0) +
-          (formValues.supporting_documentation
-            ? Object.keys(formValues.supporting_documentation).length
-            : 0);
-
-        // Check minimum required uploads from round configuration
-        const minimum_required_uploads = proposal.round?.minimum_required_uploads ?? 0;
-        if (minimum_required_uploads > 0 && num_attached_documents < minimum_required_uploads) {
-          throw new Error(
-            translate(
-              'Please upload at least {count} supporting document(s) before submitting.',
-              { count: minimum_required_uploads },
-            ),
-          );
-        }
-
         await proposalProposalsSubmit({ path: { uuid: proposal_uuid } });
-        if (refetch) refetch();
-        dispatch(showSuccess(translate('Proposal submitted successfully')));
+        showSuccess(
+          usesCallVocabulary()
+            ? translate('Proposal submitted successfully')
+            : translate('Access request submitted successfully'),
+        );
+        // Leave the edit page rather than mutating it in place: on submit the
+        // proposal flips out of 'draft', which would swap the form for the
+        // read-only view and pop the stepper in above — a jarring live update.
+        // Send the applicant to their proposals list instead.
+        router.stateService.go(requestListState());
       } catch (error) {
-        dispatch(showErrorResponse(error, translate('Something went wrong')));
+        showErrorResponse(error, translate('Something went wrong'));
       }
     },
-    [proposal, proposal_uuid],
+    [proposal, proposal_uuid, checklistData, router],
   );
-
-  const completedSteps = useMemo(() => {
-    const result = stepRefs.current.map(() => false);
-    stepRefs.current.forEach((_, i) => {
-      let completed = false;
-      if (formSteps[i].required && formSteps[i].requiredFields?.length) {
-        completed = formSteps[i].requiredFields.every((fieldName) => {
-          const field = get(formData, fieldName);
-          return typeof field === 'object' ? !isEmpty(field) : Boolean(field);
-        });
-      } else {
-        completed = true;
-      }
-      result[i] = completed;
-    });
-    return result;
-  }, [formData, stepRefs.current, formSteps]);
 
   return (
     <Form
-      form={PROPOSAL_UPDATE_SUBMISSION_FORM_ID}
       onSubmit={submitForm}
       initialValues={initialValues}
-      validate={validate}
-      shouldValidate={() => true}
-    >
-      {(formProps) => (
-        <SidebarLayout.Container>
-          <SidebarLayout.Body>
-            {formSteps.map((step, i) => (
-              <div ref={stepRefs.current[i]} key={step.id}>
-                <step.component
-                  id={step.id}
-                  title={step.label}
-                  params={{
-                    proposal,
-                    refetch,
-                    change: formProps.change,
-                    reviews,
-                  }}
-                />
-              </div>
-            ))}
-          </SidebarLayout.Body>
+      render={({ handleSubmit, submitting, form, values }) => {
+        // Store form reference for use in effects
+        formRef.current = form;
 
-          <SidebarLayout.Sidebar transparent>
-            <ProposalSidebar
-              steps={formSteps}
-              saveAsDraft={saveAsDraft}
-              isSaving={isSaving}
-              editable={proposal.state === 'draft'}
-              submitting={formProps.submitting}
-              completedSteps={completedSteps}
-              proposal={{ uuid: proposal.uuid, name: proposal.name }}
-            />
-          </SidebarLayout.Sidebar>
-        </SidebarLayout.Container>
-      )}
-    </Form>
+        const completedSteps = formSteps.map((step) => {
+          // Special handling for compliance step - real-time client-side validation
+          if (step.id === 'step-compliance') {
+            return isComplianceComplete(checklistData, values);
+          }
+          // A row on its own is not a request. Attaching an offering creates
+          // one asking for nothing, which would otherwise tick this step green
+          // and let the applicant submit a proposal awarded zero of everything
+          // — validate_requested_amounts_present refuses exactly that.
+          if (step.id === 'step-resource-requests') {
+            const rows = values?.resources_init || [];
+            return rows.length > 0 && rows.every(hasRequestedAmount);
+          }
+          if (step.required && step.requiredFields?.length) {
+            return step.requiredFields.every((fieldName) => {
+              const field = get(values, fieldName);
+              return typeof field === 'object'
+                ? !isEmpty(field)
+                : Boolean(field);
+            });
+          }
+          return true;
+        });
+
+        return (
+          <form onSubmit={handleSubmit}>
+            <SidebarLayout.Container>
+              <SidebarLayout.Body>
+                {formSteps.map((step, i) => (
+                  <div ref={stepRefs.current[i]} key={step.id}>
+                    <step.component
+                      id={step.id}
+                      title={step.label}
+                      params={{
+                        proposal,
+                        call,
+                        refetch,
+                        reviews,
+                        form,
+                        change: form.change,
+                        values,
+                        isCompleted: completedSteps[i],
+                        isRequired: step.required,
+                        isOpen: isPanelOpen(step.id),
+                        onToggle: (isOpen: boolean) =>
+                          togglePanel(step.id, isOpen),
+                      }}
+                    />
+                  </div>
+                ))}
+              </SidebarLayout.Body>
+
+              <SidebarLayout.Sidebar transparent>
+                <ProposalSidebar
+                  steps={formSteps}
+                  resourceRows={resourceRows as any}
+                  fixedDurationDays={fixedDurationDays}
+                  saveAsDraft={() => saveAsDraft(values)}
+                  isSaving={isSaving}
+                  editable={proposal.state === 'draft'}
+                  submitting={submitting}
+                  completedSteps={completedSteps}
+                  canSubmit={proposal.can_submit}
+                />
+              </SidebarLayout.Sidebar>
+            </SidebarLayout.Container>
+          </form>
+        );
+      }}
+    />
   );
 };

@@ -1,25 +1,43 @@
 import { CaretLeftIcon } from '@phosphor-icons/react';
 import { useRouter } from '@uirouter/react';
 import classNames from 'classnames';
-import { FunctionComponent, useCallback, useMemo, useState } from 'react';
+import {
+  CSSProperties,
+  FunctionComponent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { ListGroupItem, Stack } from 'react-bootstrap';
 import { FixedSizeList as List } from 'react-window';
-import paginate from 'react-window-paginated';
+import InfiniteLoader from 'react-window-infinite-loader';
+import { ProviderOfferingDetails as Offering } from 'waldur-js-client';
 
-import { ImagePlaceholder } from '@waldur/core/ImagePlaceholder';
-import { TextWithoutFormatting } from '@waldur/core/TextWithoutFormatting';
-import { Tip } from '@waldur/core/Tooltip';
-import { truncate } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
-import { Offering } from '@waldur/marketplace/types';
-import { getItemAbbreviation } from '@waldur/navigation/workspace/context-selector/utils';
+import { ImagePlaceholder } from '@/core/ImagePlaceholder';
+import { TextWithoutFormatting } from '@/core/TextWithoutFormatting';
+import { Tip } from '@/core/Tooltip';
+import { truncate } from '@/core/utils';
+import { translate } from '@/i18n';
+import { getItemAbbreviation } from '@/navigation/workspace/context-selector/utils';
 
 import { RECENTLY_ADDED_OFFERINGS_UUID } from './constants';
 import { fetchOfferingsByPage } from './utils';
 
-const PaginatedList = paginate(List);
-
 const VIRTUALIZED_SELECTOR_PAGE_SIZE = 20;
+// Fallback height (px) used until the viewport is measured. Matches the
+// `max-height` of `.offering-listing-viewport` so the first paint never
+// over-renders. The real height is measured at runtime (see below) because
+// the pane height is responsive (`calc(100vh - 270px)`, clamped) and
+// react-window needs the actual pixel height to virtualize and scroll
+// correctly — a hardcoded value disagreed with the CSS-clamped box.
+const FALLBACK_LIST_HEIGHT = 320;
+const ITEM_SIZE = 68;
+
+type ProviderOfferingResponse = Awaited<
+  ReturnType<typeof fetchOfferingsByPage>
+>['pageElements'];
 
 const EmptyOfferingListPlaceholder: FunctionComponent = () => (
   <div className="message-wrapper ellipsis">
@@ -27,30 +45,19 @@ const EmptyOfferingListPlaceholder: FunctionComponent = () => (
   </div>
 );
 
+const LoadingRow: FunctionComponent<{ style: CSSProperties }> = ({ style }) => (
+  <ListGroupItem className="text-center" style={style}>
+    <span className="text-muted">{translate('Fetching')}</span>
+  </ListGroupItem>
+);
+
 const OfferingListItem: FunctionComponent<{
-  data;
-  style;
-  item: Offering & { isFetching; isFailed };
-  onClick;
-  selectedItem: Offering;
+  style: CSSProperties;
+  item: ProviderOfferingResponse[0];
+  onClick: (item: ProviderOfferingResponse[0]) => void;
+  selectedItem?: ProviderOfferingResponse[0];
 }> = ({ item, onClick, selectedItem, style }) => {
   const abbreviation = useMemo(() => getItemAbbreviation(item), [item]);
-
-  if (item.isFetching) {
-    return (
-      <ListGroupItem className="text-center" style={style}>
-        <span className="text-muted">{translate('Fetching')}</span>
-      </ListGroupItem>
-    );
-  }
-
-  if (item.isFailed) {
-    return (
-      <ListGroupItem className="text-center" style={style}>
-        <span className="text-muted">{translate('Failed')}</span>
-      </ListGroupItem>
-    );
-  }
 
   return (
     <Tip
@@ -97,8 +104,8 @@ const OfferingListItem: FunctionComponent<{
   );
 };
 
-export const OfferingsPanel: FunctionComponent<{
-  lastOfferings: Offering[];
+interface OfferingsPanelProps {
+  lastOfferings: ProviderOfferingResponse;
   customer;
   project;
   category;
@@ -107,7 +114,9 @@ export const OfferingsPanel: FunctionComponent<{
   importable?: boolean;
   selectable?: boolean;
   onSelect?(offering: Offering): void;
-}> = ({
+}
+
+export const OfferingsPanel: FunctionComponent<OfferingsPanelProps> = ({
   lastOfferings,
   customer,
   project,
@@ -119,8 +128,24 @@ export const OfferingsPanel: FunctionComponent<{
   onSelect,
 }) => {
   const [selectedOffering, selectOffering] = useState<Offering>();
-
   const router = useRouter();
+
+  // Measure the scroll viewport so react-window's `height` matches the actual
+  // CSS-clamped box (`.offering-listing-viewport`). A callback ref keeps the
+  // ResizeObserver in sync as the node mounts/unmounts and the viewport
+  // resizes (responsive height + window resize).
+  const [listHeight, setListHeight] = useState(FALLBACK_LIST_HEIGHT);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const viewportRef = useCallback((node: HTMLDivElement | null) => {
+    resizeObserverRef.current?.disconnect();
+    if (node && typeof ResizeObserver !== 'undefined') {
+      const measure = () =>
+        setListHeight(node.clientHeight || FALLBACK_LIST_HEIGHT);
+      measure();
+      resizeObserverRef.current = new ResizeObserver(measure);
+      resizeObserverRef.current.observe(node);
+    }
+  }, []);
 
   const handleOfferingClick = useCallback(
     (offering: Offering) => {
@@ -132,31 +157,122 @@ export const OfferingsPanel: FunctionComponent<{
         });
       }
     },
-    [router, selectOffering, onSelect, selectable],
+    [router, onSelect, selectable],
   );
 
-  const getPage = (page) => {
-    if (category && category.uuid === RECENTLY_ADDED_OFFERINGS_UUID) {
-      return Promise.resolve({
-        pageElements: lastOfferings,
-        itemCount: lastOfferings.length,
+  // Pagination state. `items` is sparse — entries land as their parent page
+  // resolves. `itemCount === null` until the first page request returns
+  // (lets us delay the "no offerings" empty-state decision until we know).
+  const [items, setItems] = useState<Array<ProviderOfferingResponse[number]>>(
+    [],
+  );
+  const [itemCount, setItemCount] = useState<number | null>(null);
+  // Pages that are currently fetching OR already settled. Tracked outside
+  // React state because we read it inside `loadMoreItems` synchronously to
+  // dedupe overlapping calls — InfiniteLoader can call us multiple times
+  // for the same range before the first promise resolves.
+  const inFlightPages = useRef<Set<number>>(new Set());
+
+  const fetchPage = useCallback(
+    async (pageIndex: number) => {
+      if (category && category.uuid === RECENTLY_ADDED_OFFERINGS_UUID) {
+        return {
+          pageElements: lastOfferings,
+          itemCount: lastOfferings.length,
+        };
+      }
+      if (!category) {
+        return { pageElements: [], itemCount: 0 };
+      }
+      const page = await fetchOfferingsByPage(
+        customer,
+        project,
+        category,
+        filter,
+        pageIndex + 1,
+        VIRTUALIZED_SELECTOR_PAGE_SIZE,
+        importable,
+      );
+      return {
+        pageElements: page.pageElements,
+        itemCount: page.itemCount,
+      };
+    },
+    [category, customer, project, filter, importable, lastOfferings],
+  );
+
+  const loadPage = useCallback(
+    async (pageIndex: number) => {
+      if (inFlightPages.current.has(pageIndex)) return;
+      inFlightPages.current.add(pageIndex);
+      const { pageElements, itemCount: total } = await fetchPage(pageIndex);
+      setItemCount(total);
+      setItems((prev) => {
+        // The first page tells us how many total items exist; grow `items`
+        // to that length so InfiniteLoader can compute holes against the
+        // real size, not just what we've loaded so far.
+        const next =
+          prev.length < total
+            ? prev.concat(new Array(total - prev.length))
+            : prev.slice();
+        const base = pageIndex * VIRTUALIZED_SELECTOR_PAGE_SIZE;
+        for (let i = 0; i < pageElements.length; i++) {
+          next[base + i] = pageElements[i];
+        }
+        return next;
       });
-    } else if (!category) {
-      return Promise.resolve({
-        pageElements: [],
-        itemCount: 0,
-      });
-    }
-    return fetchOfferingsByPage(
-      customer,
-      project,
-      category,
-      filter,
-      page + 1,
-      VIRTUALIZED_SELECTOR_PAGE_SIZE,
-      importable,
-    );
-  };
+    },
+    [fetchPage],
+  );
+
+  // Reset pagination state when the dataset identity changes. This replaces
+  // the old `key=...` remount trick — using state reset keeps the wrapper
+  // mounted (so scroll position resets cleanly via FixedSizeList's own
+  // mechanics rather than via remount).
+  const datasetKey = `${filter}-${customer?.uuid}-${project?.uuid}-${category?.uuid}`;
+  useEffect(() => {
+    inFlightPages.current = new Set();
+    setItems([]);
+    setItemCount(null);
+    // Kick off the first page eagerly — InfiniteLoader only fires
+    // loadMoreItems on scroll, which would otherwise leave the list empty
+    // on initial render.
+    void loadPage(0);
+  }, [datasetKey, loadPage]);
+
+  const isItemLoaded = useCallback(
+    (index: number) => items[index] !== undefined,
+    [items],
+  );
+
+  const loadMoreItems = useCallback(
+    (startIndex: number, stopIndex: number) => {
+      const pages = new Set<number>();
+      for (let i = startIndex; i <= stopIndex; i++) {
+        pages.add(Math.floor(i / VIRTUALIZED_SELECTOR_PAGE_SIZE));
+      }
+      return Promise.all([...pages].map((p) => loadPage(p))).then(
+        () => undefined,
+      );
+    },
+    [loadPage],
+  );
+
+  const rowRenderer = useCallback(
+    ({ index, style }: { index: number; style: CSSProperties }) => {
+      const item = items[index];
+      if (!item) return <LoadingRow style={style} />;
+      return (
+        <OfferingListItem
+          style={style}
+          item={item}
+          selectedItem={selectedOffering}
+          onClick={handleOfferingClick}
+        />
+      );
+    },
+    [items, selectedOffering, handleOfferingClick],
+  );
 
   return (
     <div className="offering-listing">
@@ -172,27 +288,34 @@ export const OfferingsPanel: FunctionComponent<{
       <h6 className="text-gray-700 fw-bold mt-4 mb-2 ms-7">
         {translate('Offerings')}
       </h6>
-      <PaginatedList
-        height={500}
-        itemSize={68}
-        getPage={getPage}
-        key={`${filter}-${customer?.uuid}-${project?.uuid}-${category?.uuid}`}
-        elementsPerPage={VIRTUALIZED_SELECTOR_PAGE_SIZE}
-        noResultsRenderer={EmptyOfferingListPlaceholder}
-        className="scrollbar-view"
-      >
-        {(listItemProps) => {
-          const item = listItemProps.data[listItemProps.index];
-          return (
-            <OfferingListItem
-              {...listItemProps}
-              item={item}
-              selectedItem={selectedOffering}
-              onClick={handleOfferingClick}
-            />
-          );
-        }}
-      </PaginatedList>
+      {itemCount === 0 ? (
+        <EmptyOfferingListPlaceholder />
+      ) : (
+        <div className="offering-listing-viewport" ref={viewportRef}>
+          {/* @ts-ignore */}
+          <InfiniteLoader
+            isItemLoaded={isItemLoaded}
+            itemCount={itemCount ?? VIRTUALIZED_SELECTOR_PAGE_SIZE}
+            loadMoreItems={loadMoreItems}
+            minimumBatchSize={VIRTUALIZED_SELECTOR_PAGE_SIZE}
+          >
+            {({ onItemsRendered, ref }) => (
+              // @ts-ignore
+              <List
+                ref={ref}
+                onItemsRendered={onItemsRendered}
+                height={listHeight}
+                itemSize={ITEM_SIZE}
+                itemCount={itemCount ?? VIRTUALIZED_SELECTOR_PAGE_SIZE}
+                width="100%"
+                className="scrollbar-view"
+              >
+                {rowRenderer}
+              </List>
+            )}
+          </InfiniteLoader>
+        </div>
+      )}
     </div>
   );
 };

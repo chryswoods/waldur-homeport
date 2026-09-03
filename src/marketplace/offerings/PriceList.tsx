@@ -1,25 +1,47 @@
-import { FunctionComponent } from 'react';
+import { useMemo } from 'react';
 import { marketplacePlanComponentsList, PlanComponent } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import {
+  MarketplacePlanComponentsFilter,
+  MarketplacePlanComponentsFilterFormId,
+  selectMarketplacePlanComponentsFilter,
+} from '@/table/generated/MarketplacePlanComponentsFilter';
+import Table from '@/table/Table';
+import { Column } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 import { BillingPeriod } from '../common/BillingPeriod';
 import { getBillingTypeLabel } from '../resources/usage/utils';
 
-export const PriceList: FunctionComponent = () => {
+export const PriceList = () => {
+  const values = useFilterValues('MarketplacePriceList');
+
+  const formFilter = useMemo(
+    () => selectMarketplacePlanComponentsFilter(values),
+    [values],
+  );
+
+  const filter = useMemo(() => formFilter, [formFilter?.offering_uuid]);
   const props = useTable({
     table: 'MarketplacePriceList',
+    syncFiltersToURL: true,
     fetchData: createFetcher(marketplacePlanComponentsList),
+    filter,
   });
 
   const columns: Column<PlanComponent>[] = [
     {
       title: translate('Offering'),
       render: ({ row }) => row.offering_name,
+      filter: 'offering',
+      inlineFilter: (row) => ({
+        name: row.offering_name,
+        uuid: row.offering_uuid,
+      }),
       export: 'offering_name',
     },
     {
@@ -34,8 +56,8 @@ export const PriceList: FunctionComponent = () => {
     },
     {
       title: translate('Measured unit'),
-      render: ({ row }) => row.measured_unit || 'N/A',
-      export: (row) => row.measured_unit || 'N/A',
+      render: ({ row }) => renderFieldOrDash(row.measured_unit),
+      export: (row) => renderFieldOrDash(row.measured_unit),
       exportKeys: ['measured_unit'],
     },
     {
@@ -67,6 +89,8 @@ export const PriceList: FunctionComponent = () => {
       verboseName={translate('components')}
       showPageSizeSelector={true}
       enableExport={true}
+      filters={<MarketplacePlanComponentsFilter />}
+      formId={MarketplacePlanComponentsFilterFormId}
     />
   );
 };

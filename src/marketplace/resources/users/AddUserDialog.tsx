@@ -1,76 +1,91 @@
-import { FC, useCallback } from 'react';
-import { Field, Form } from 'react-final-form';
-import { marketplaceResourceUsersCreate, usersList } from 'waldur-js-client';
+import { useQuery } from '@tanstack/react-query';
+import { FC, useMemo } from 'react';
+import { Form } from 'react-final-form';
+import {
+  marketplaceOfferingRolesList,
+  marketplaceResourceProjectsAddUser,
+  marketplaceResourcesAddUser,
+  OfferingRole,
+  usersList,
+} from 'waldur-js-client';
 
-import { parseSelectData } from '@waldur/core/api';
-import { ENV } from '@waldur/core/config';
-import { returnReactSelectAsyncPaginateObject } from '@waldur/core/utils';
-import { required } from '@waldur/core/validators';
-import { SelectField, SubmitButton } from '@waldur/form';
-import { AsyncSelectFieldFinal } from '@waldur/form/AsyncSelectField';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { useModal } from '@waldur/modal/hooks';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { useNotify } from '@waldur/store/hooks';
+import { required } from '@/core/validators';
+import { SubmitButton, SelectGroup, AsyncSelectGroup } from '@/form';
+import { FormGroup } from '@/form';
+import { createLoadOptions } from '@/form/select';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
-export const AddUserDialog: FC<{
-  resolve: { resource; offering; refetch };
-}> = ({ resolve }) => {
-  const { showSuccess, showErrorResponse } = useNotify();
-  const { closeDialog } = useModal();
+type Scope = 'resource' | 'resource_project';
 
-  const update = useCallback(
-    async (formData) => {
-      try {
-        await marketplaceResourceUsersCreate({
-          body: {
-            resource: resolve.resource.url,
-            user: formData.user.url,
-            role: formData.role.url,
-          },
-        });
+interface AddUserResolve {
+  scope: Scope;
+  scopeUuid: string;
+  projectUuid: string;
+  offering: { uuid?: string };
+  refetch(): void;
+}
 
-        showSuccess(translate('User has been assigned successfully.'));
-        if (resolve.refetch) await resolve.refetch();
-        closeDialog();
-      } catch (error) {
-        showErrorResponse(error, translate('Unable to assign user.'));
-      }
-    },
-    [
-      resolve.resource,
-      resolve.refetch,
-      showSuccess,
-      closeDialog,
-      showErrorResponse,
-    ],
-  );
+export const AddUserDialog: FC<{ resolve: AddUserResolve }> = ({ resolve }) => {
+  const targetContentType =
+    resolve.scope === 'resource_project' ? 'resource_project' : 'resource';
 
-  const loadUsers = useCallback(
-    (query, prevOptions, page) =>
-      usersList({
+  const { data: filteredRoles = [], isLoading: rolesLoading } = useQuery({
+    queryKey: ['offeringRoles', resolve.offering?.uuid, targetContentType],
+    queryFn: async () => {
+      if (!resolve.offering?.uuid) return [];
+      const response = await marketplaceOfferingRolesList({
         query: {
-          full_name: query,
-          project_uuid: resolve.resource.project_uuid,
-          field: ['full_name', 'email', 'url', 'uuid'],
-          o: ['full_name'],
-          page,
-          page_size: ENV.pageSize,
+          offering_uuid: resolve.offering.uuid,
+          page_size: 100,
         },
-      }).then((response) =>
-        returnReactSelectAsyncPaginateObject(
-          parseSelectData(response),
-          prevOptions,
-          page,
-        ),
-      ),
-    [resolve.resource],
+      });
+      const all = response.data || [];
+      return all.filter(
+        (r: any) => !r.content_type || r.content_type === targetContentType,
+      );
+    },
+  });
+
+  const assignMutation = useManagedMutation<any, any, any>({
+    mutationFn: (formData) => {
+      const apiFn =
+        resolve.scope === 'resource_project'
+          ? marketplaceResourceProjectsAddUser
+          : marketplaceResourcesAddUser;
+      return apiFn({
+        path: { uuid: resolve.scopeUuid },
+        body: {
+          user: formData.user.uuid,
+          role: formData.role.uuid,
+        },
+      });
+    },
+    successMessage: translate('User has been assigned successfully.'),
+    errorMessage: translate('Unable to assign user.'),
+    refetch: resolve.refetch,
+  });
+
+  const loadUsers = useMemo(
+    () =>
+      createLoadOptions(usersList, 'full_name', {
+        project_uuid: resolve.projectUuid,
+        field: ['full_name', 'email', 'url', 'uuid'],
+        o: ['full_name'],
+      }),
+    [resolve.projectUuid],
   );
 
   return (
-    <Form onSubmit={update}>
+    <Form
+      onSubmit={(values) =>
+        assignMutation.mutateAsync(values).catch(() => {
+          /* handled */
+        })
+      }
+    >
       {({ handleSubmit, submitting, invalid }) => (
         <form onSubmit={handleSubmit}>
           <ModalDialog
@@ -79,36 +94,70 @@ export const AddUserDialog: FC<{
               <>
                 <CloseDialogButton className="min-w-125px" />
                 <SubmitButton
-                  label={translate('Create')}
+                  label={translate('Assign')}
                   submitting={submitting}
-                  disabled={invalid}
+                  disabled={
+                    invalid || rolesLoading || filteredRoles.length === 0
+                  }
                   className="btn btn-primary min-w-125px"
                 />
               </>
             }
           >
-            <FormGroup label={translate('User')} required>
-              <AsyncSelectFieldFinal
-                name="user"
-                placeholder={translate('Select user...')}
-                loadOptions={loadUsers}
-                getOptionLabel={({ full_name, email }) =>
-                  `${full_name} (${email})`
-                }
-                getOptionValue={({ uuid }) => uuid}
-                validate={required}
-              />
-            </FormGroup>
-            <FormGroup label={translate('Role')} required>
-              <Field
+            <AsyncSelectGroup
+              label={translate('User')}
+              required
+              name="user"
+              placeholder={translate('Select user...')}
+              loadOptions={loadUsers}
+              getOptionLabel={({ full_name, email }) =>
+                `${full_name} (${email})`
+              }
+              getOptionValue={({ uuid }) => uuid}
+              validate={required}
+            />
+            {filteredRoles.length > 0 ? (
+              <SelectGroup
                 name="role"
                 validate={required}
-                component={SelectField}
-                options={resolve.offering.roles}
+                options={filteredRoles}
                 getOptionValue={(option) => option.uuid}
                 getOptionLabel={(option) => option.name}
+                // Roles are provider-defined labels whose effect lives in
+                // the provider's backend (e.g. a mapped Rancher role);
+                // surface the provider's description so the assigner
+                // knows what they are granting. Menu only — the closed
+                // control shows just the name.
+                formatOptionLabel={(option: OfferingRole, { context }) =>
+                  context === 'menu' ? (
+                    <div>
+                      <div>{option.name}</div>
+                      {option.description ? (
+                        <small className="text-muted">
+                          {option.description}
+                        </small>
+                      ) : null}
+                    </div>
+                  ) : (
+                    option.name
+                  )
+                }
+                label={translate('Role')}
+                required
               />
-            </FormGroup>
+            ) : (
+              <FormGroup label={translate('Role')} required>
+                <p className="text-muted mb-0">
+                  {resolve.scope === 'resource_project'
+                    ? translate(
+                        'No roles have been set up for project members yet. The service provider needs to add at least one role before users can be invited.',
+                      )
+                    : translate(
+                        'No roles have been set up for this resource yet. Ask the service provider to add a role, or grant access at the project level on the Resource projects tab.',
+                      )}
+                </p>
+              </FormGroup>
+            )}
           </ModalDialog>
         </form>
       )}

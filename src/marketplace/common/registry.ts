@@ -1,21 +1,19 @@
-import { PublicOfferingDetails } from 'waldur-js-client';
+import { PublicOfferingDetails, OfferingComponent } from 'waldur-js-client';
 
-import { AzureSQLServerOffering } from '@waldur/azure/sql/marketplace';
-import { AzureVirtualMachineOffering } from '@waldur/azure/vm/marketplace';
-import { BookingOffering } from '@waldur/booking/marketplace';
-import { OfferingComponent } from '@waldur/marketplace/types';
-import { RemoteOffering } from '@waldur/marketplace-remote/marketplace';
-import { ScriptOffering } from '@waldur/marketplace-script/marketplace';
-import { OpenPortalOffering } from '@waldur/openportal/marketplace';
-import { OpenPortalRemoteOffering } from '@waldur/openportal-remote/marketplace';
-import { OpenStackTenantOffering } from '@waldur/openstack/marketplace';
-import { OpenStackInstanceOffering } from '@waldur/openstack/openstack-instance/marketplace';
-import { OpenStackVolumeOffering } from '@waldur/openstack/openstack-volume/marketplace';
-import { RancherOffering } from '@waldur/rancher/cluster/create/marketplace';
-import { SiteAgentOffering } from '@waldur/site-agent/marketplace';
-import { SlurmOffering } from '@waldur/slurm/marketplace';
-import { BasicOffering, SupportOffering } from '@waldur/support/marketplace';
-import { vmWareOffering } from '@waldur/vmware/marketplace';
+import { AzureSQLServerOffering } from '@/azure/sql/marketplace';
+import { AzureVirtualMachineOffering } from '@/azure/vm/marketplace';
+import { BookingOffering } from '@/booking/marketplace';
+import { RemoteOffering } from '@/marketplace-remote/marketplace';
+import { ScriptOffering } from '@/marketplace-script/marketplace';
+import { OpenPortalOffering } from '@/openportal/marketplace';
+import { OpenPortalRemoteOffering } from '@/openportal-remote/marketplace';
+import { OpenStackTenantOffering } from '@/openstack/marketplace';
+import { OpenStackInstanceOffering } from '@/openstack/openstack-instance/marketplace';
+import { OpenStackVolumeOffering } from '@/openstack/openstack-volume/marketplace';
+import { RancherOffering } from '@/rancher/cluster/create/marketplace';
+import { SiteAgentOffering } from '@/site-agent/marketplace';
+import { BasicOffering, SupportOffering } from '@/support/marketplace';
+import { vmWareOffering } from '@/vmware/marketplace';
 
 import { OfferingConfiguration } from './types';
 
@@ -97,13 +95,6 @@ export function getCreatableOfferings(): Option[] {
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
-export function showBackendId(offeringType: string) {
-  return (
-    Object.prototype.hasOwnProperty.call(REGISTRY, offeringType) &&
-    REGISTRY[offeringType].showBackendId
-  );
-}
-
 export function hidePlanAddButton(offeringType: string, fields: Array<any>) {
   return (
     Object.prototype.hasOwnProperty.call(REGISTRY, offeringType) &&
@@ -119,10 +110,10 @@ export function isOfferingTypeSchedulable(offeringType: string) {
   );
 }
 
-export function getPluginOptionsForm(offeringType: string) {
+export function getUserManagementSection(offeringType: string) {
   return (
     Object.prototype.hasOwnProperty.call(REGISTRY, offeringType) &&
-    REGISTRY[offeringType].pluginOptionsForm
+    REGISTRY[offeringType].userManagementSection
   );
 }
 
@@ -140,24 +131,17 @@ export function getSecretOptionsSerializer(offeringType: string) {
   );
 }
 
-export function getSecretOptionsForm(offeringType: string) {
+export function getProvisioningConfigSection(offeringType: string) {
   return (
     Object.prototype.hasOwnProperty.call(REGISTRY, offeringType) &&
-    REGISTRY[offeringType].secretOptionsForm
+    REGISTRY[offeringType].provisioningConfigSection
   );
 }
 
-export function getProvisioningConfigForm(offeringType: string) {
+export function getCredentialsSection(offeringType: string) {
   return (
     Object.prototype.hasOwnProperty.call(REGISTRY, offeringType) &&
-    REGISTRY[offeringType].provisioningConfigForm
-  );
-}
-
-export function getCredentialsForm(offeringType: string) {
-  return (
-    Object.prototype.hasOwnProperty.call(REGISTRY, offeringType) &&
-    REGISTRY[offeringType].credentialsForm
+    REGISTRY[offeringType].credentialsSection
   );
 }
 
@@ -184,7 +168,7 @@ function getOfferingComponentsFilter(offeringType: string) {
 }
 
 export const filterOfferingComponents = (
-  offering: PublicOfferingDetails,
+  offering: Pick<PublicOfferingDetails, 'type' | 'components'>,
 ): OfferingComponent[] => {
   let offeringComponents: OfferingComponent[] = offering.components;
   const offeringComponentsFilter = getOfferingComponentsFilter(offering.type);
@@ -205,7 +189,6 @@ registerOfferingType(OpenStackTenantOffering);
 registerOfferingType(OpenStackInstanceOffering);
 registerOfferingType(OpenStackVolumeOffering);
 registerOfferingType(RancherOffering);
-registerOfferingType(SlurmOffering);
 registerOfferingType(SiteAgentOffering);
 registerOfferingType(SupportOffering);
 registerOfferingType(BasicOffering);

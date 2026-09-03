@@ -1,13 +1,15 @@
 import { WarningCircleIcon } from '@phosphor-icons/react';
+import classNames from 'classnames';
 import React, { ReactNode, useState } from 'react';
-import { Button, Form } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
+import { Form } from 'react-bootstrap';
 
-import { StringField, TextField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
 
 import { ModalDialog } from './ModalDialog';
+import { RouterSelector } from './RouterSelector';
 import { ConfirmationDialogType } from './types';
 
 interface ConfirmationDialogProps {
@@ -25,13 +27,14 @@ interface ConfirmationDialogProps {
     positiveButtonVariant?: string;
     onlyPositiveButton?: boolean;
     iconNode?: ReactNode;
+    hideIcon?: boolean;
+    bodyClassName?: string;
     showInput?: boolean;
     inputRequired?: boolean;
     inputLabel?: string;
     inputPlaceholder?: string;
-    inputMaxLength?: number;
-    inputRows?: number;
-    inputCheckboxes?: Array<{ label: string; value: string }>;
+    showRouterSelect?: boolean;
+    tenantUuid?: string;
   };
 }
 
@@ -46,52 +49,35 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
     positiveButtonVariant,
     onlyPositiveButton,
     iconNode,
+    hideIcon = false,
+    bodyClassName,
     showInput = false,
     inputRequired = false,
     inputLabel,
     inputPlaceholder,
-    inputMaxLength,
-    inputRows,
-    inputCheckboxes,
+    showRouterSelect = false,
+    tenantUuid,
   },
 }) => {
-  const dispatch = useDispatch();
-  const closeDialog = () => dispatch(closeModalDialog('HIDE_CONFIRM'));
+  const { closeDialog: closeModal } = useModal();
+  const closeDialog = () => closeModal('HIDE_CONFIRM');
   const [inputValue, setInputValue] = useState('');
-  const [selectedCheckboxes, setSelectedCheckboxes] = useState<Set<string>>(
-    new Set(),
-  );
-
-  const handleCheckboxChange = (value: string) => {
-    setSelectedCheckboxes((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(value)) {
-        newSet.delete(value);
-      } else {
-        newSet.add(value);
-      }
-      return newSet;
-    });
-  };
+  const [routerValue, setRouterValue] = useState(null);
 
   const handleSubmit = () => {
-    if (showInput && inputRequired && !inputValue.trim() && selectedCheckboxes.size === 0) {
+    if (showInput && inputRequired && !inputValue.trim()) {
       return;
     }
-
-    let result: string;
+    const result: any = {};
     if (showInput) {
-      const checkboxValues = Array.from(selectedCheckboxes).join(' | ');
-      if (checkboxValues && inputValue.trim()) {
-        result = `${checkboxValues} | ${inputValue.trim()}`;
-      } else if (checkboxValues) {
-        result = checkboxValues;
-      } else {
-        result = inputValue.trim();
-      }
+      result.input = inputValue;
     }
-
-    deferred.resolve(showInput ? result : undefined);
+    if (showRouterSelect && routerValue) {
+      result.router = routerValue.url;
+    }
+    deferred.resolve(
+      showInput || (showRouterSelect && routerValue) ? result : undefined,
+    );
     closeDialog();
   };
 
@@ -103,28 +89,31 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   return (
     <ModalDialog
       title={title}
-      iconNode={iconNode || <WarningCircleIcon weight="bold" />}
+      iconNode={
+        hideIcon ? null : iconNode || <WarningCircleIcon weight="bold" />
+      }
       iconColor={type}
-      bodyClassName="text-gray-500 pt-2"
+      bodyClassName={classNames('text-quaternary', bodyClassName)}
+      closeButton={!onlyPositiveButton}
+      onHide={handleCancel}
       footer={
         <>
           {!onlyPositiveButton && (
-            <Button
-              variant="tertiary"
+            <CloseDialogButton
+              label={negativeButton}
               className="flex-equal px-3"
               onClick={handleCancel}
-            >
-              {negativeButton}
-            </Button>
+            />
           )}
-          <Button
+          <SubmitButton
             variant={positiveButtonVariant}
             className={onlyPositiveButton ? undefined : 'flex-equal px-3'}
             onClick={handleSubmit}
             disabled={showInput && inputRequired && !inputValue.trim()}
-          >
-            {positiveButton}
-          </Button>
+            type="button"
+            submitting={false}
+            label={positiveButton}
+          />
         </>
       }
     >
@@ -132,49 +121,25 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
         {body}
         {showInput && (
           <div className="mt-3">
-            {inputCheckboxes && inputCheckboxes.length > 0 && (
-              <div className="mb-3">
-                {inputCheckboxes.map((checkbox) => (
-                  <Form.Check
-                    key={checkbox.value}
-                    type="checkbox"
-                    id={`checkbox-${checkbox.value}`}
-                    label={checkbox.label}
-                    checked={selectedCheckboxes.has(checkbox.value)}
-                    onChange={() => handleCheckboxChange(checkbox.value)}
-                    className="mb-2"
-                  />
-                ))}
-              </div>
-            )}
-            {inputRows ? (
-              <TextField
-                label={inputLabel}
-                placeholder={inputPlaceholder}
-                input={{
-                  value: inputValue,
-                  onChange: (e) => setInputValue(e.target.value),
-                }}
-                required={inputRequired}
-                maxLength={inputMaxLength}
-                rows={inputRows}
-              />
-            ) : (
-              <StringField
-                label={inputLabel}
-                placeholder={inputPlaceholder}
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                required={inputRequired}
-                maxLength={inputMaxLength}
-              />
-            )}
-            {inputMaxLength && (
-              <div className="text-muted small mt-1">
-                {inputValue.length}/{inputMaxLength} {translate('characters')}
-              </div>
-            )}
+            <Form.Label>
+              {inputLabel}
+              {inputRequired && <span className="text-danger"> *</span>}
+            </Form.Label>
+            <Form.Control
+              type="text"
+              placeholder={inputPlaceholder}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              required={inputRequired}
+            />
           </div>
+        )}
+        {showRouterSelect && (
+          <RouterSelector
+            routerValue={routerValue}
+            setRouterValue={setRouterValue}
+            tenantUuid={tenantUuid}
+          />
         )}
       </div>
     </ModalDialog>

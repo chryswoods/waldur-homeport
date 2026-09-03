@@ -1,13 +1,10 @@
 import { CoinsIcon } from '@phosphor-icons/react';
 import { FunctionComponent } from 'react';
 import { Dropdown } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-
-import { EDIT_PLAN_FORM_ID } from './constants';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
 
 const EditPlanPricesDialog = lazyComponent(() =>
   import('./EditPlanPricesDialog').then((module) => ({
@@ -20,19 +17,16 @@ export const EditPlanPricesButton: FunctionComponent<{
   plan;
   refetch;
 }> = ({ offering, plan, refetch }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const callback = () => {
-    dispatch(
-      openModalDialog(EditPlanPricesDialog, {
-        resolve: { offering, plan, refetch },
-        formId: EDIT_PLAN_FORM_ID,
-        size: 'lg',
-      }),
-    );
+    openDialog(EditPlanPricesDialog, {
+      resolve: { offering, plan, refetch },
+      size: 'lg',
+    });
   };
   return (
     <Dropdown.Item onClick={callback}>
-      <CoinsIcon size={18} /> {translate('Edit prices')}
+      <CoinsIcon size={18} weight="bold" /> {translate('Edit prices')}
     </Dropdown.Item>
   );
 };

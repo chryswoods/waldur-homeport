@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { FunctionComponent } from 'react';
 import { userAgreementsList } from 'waldur-js-client';
 
-import { SafeMarkdown } from '@waldur/core/SafeMarkdown';
+import { SafeMarkdown } from '@/core/SafeMarkdown';
+import { LanguageUtilsService } from '@/i18n/LanguageUtilsService';
 
 import { LoadingSpinner } from '../core/LoadingSpinner';
 import { translate } from '../i18n';
@@ -15,16 +16,21 @@ interface TemplateComponentProps {
 export const UserAgreementComponent: FunctionComponent<
   TemplateComponentProps
 > = (props) => {
+  const currentLanguage = LanguageUtilsService.getCurrentLanguage()?.code || '';
+
   const {
     isLoading: loading,
     error,
     data: option,
   } = useQuery({
-    queryKey: ['userAgreementData'],
+    queryKey: ['userAgreementData', props.agreement_type, currentLanguage],
 
     queryFn: async () => {
       const response = await userAgreementsList({
-        query: { agreement_type: props.agreement_type },
+        query: {
+          agreement_type: props.agreement_type,
+          language: currentLanguage,
+        },
       });
       return response.data[0];
     },

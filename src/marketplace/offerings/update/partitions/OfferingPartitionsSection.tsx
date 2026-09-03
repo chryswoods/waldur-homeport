@@ -1,17 +1,19 @@
 import { FC, useState } from 'react';
 import { NestedPartition, Offering } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { ActionsDropdown } from '@waldur/table/ActionsDropdown';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { renderFieldOrDash } from '@waldur/table/utils';
+import { translate } from '@/i18n';
+import { ActionsDropdown } from '@/table/ActionsDropdown';
+import { createClientPaginatedFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 import { OfferingSectionProps } from '../types';
 
 import { AddOfferingPartitionButton } from './AddOfferingPartitionButton';
 import { DeleteOfferingPartition } from './DeleteOfferingPartition';
 import { EditOfferingPartitionButton } from './EditOfferingPartitionButton';
+import { ManagePartitionQoSButton } from './ManagePartitionQoSButton';
 import { OfferingPartitionExpandableRow } from './OfferingPartitionExpandableRow';
 
 const RowActions = ({ row, refetch, offering }) => {
@@ -20,7 +22,11 @@ const RowActions = ({ row, refetch, offering }) => {
       row={row}
       refetch={refetch}
       data={{ offering }}
-      actions={[EditOfferingPartitionButton, DeleteOfferingPartition]}
+      actions={[
+        EditOfferingPartitionButton,
+        ManagePartitionQoSButton,
+        DeleteOfferingPartition,
+      ]}
     />
   );
 };
@@ -30,7 +36,7 @@ export const OfferingPartitionsSection: FC<OfferingSectionProps> = (props) => {
 
   const tableProps = useTable({
     table: 'OfferingPartitions',
-    fetchData: async () => {
+    fetchData: async (request) => {
       let freshData;
       if (!firstFetch) {
         const res = await props.refetch();
@@ -39,9 +45,9 @@ export const OfferingPartitionsSection: FC<OfferingSectionProps> = (props) => {
         setFirstFetch(false);
       }
 
-      return Promise.resolve({
-        rows: freshData || props.offering.partitions || [],
-      });
+      return createClientPaginatedFetcher(
+        freshData || props.offering.partitions || [],
+      )(request);
     },
   });
 
@@ -52,6 +58,16 @@ export const OfferingPartitionsSection: FC<OfferingSectionProps> = (props) => {
         {
           title: translate('Name'),
           render: ({ row }) => renderFieldOrDash(row.partition_name),
+        },
+        {
+          title: translate('CPU architecture'),
+          render: ({ row }) => renderFieldOrDash(row.cpu_arch),
+          optional: true,
+        },
+        {
+          title: translate('GPU architecture'),
+          render: ({ row }) => renderFieldOrDash(row.gpu_arch),
+          optional: true,
         },
         {
           title: translate('Default time limit'),

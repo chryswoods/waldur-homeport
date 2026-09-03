@@ -1,9 +1,11 @@
 import { Dropdown } from 'react-bootstrap';
 
-import { hidePlanAddButton } from '@waldur/marketplace/common/registry';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { TableDropdownToggle } from '@waldur/table/ActionsDropdown';
+import { hidePlanAddButton } from '@/marketplace/common/registry';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { TableDropdownToggle } from '@/table/ActionsDropdown';
+
+import { offeringOwnsPricing } from '../../utils';
 
 import { ArchivePlanButton } from './ArchivePlanButton';
 import { ClonePlanButton } from './ClonePlanButton';
@@ -30,28 +32,33 @@ export const PlanActions = ({ offering, plan, refetch, user }) => {
               plan={plan}
             />
 
-            <EditPlanPricesButton
-              offering={offering}
-              refetch={refetch}
-              plan={plan}
-            />
+            {offeringOwnsPricing(offering) && (
+              <>
+                <EditPlanPricesButton
+                  offering={offering}
+                  refetch={refetch}
+                  plan={plan}
+                />
 
-            <EditPlanDiscountsButton
-              offering={offering}
-              plan={plan}
-              refetch={refetch}
-            />
+                <EditPlanDiscountsButton
+                  offering={offering}
+                  plan={plan}
+                  refetch={refetch}
+                />
 
-            <EditPlanQuotasButton
-              offering={offering}
-              refetch={refetch}
-              plan={plan}
-            />
+                <EditPlanQuotasButton
+                  offering={offering}
+                  refetch={refetch}
+                  plan={plan}
+                />
+              </>
+            )}
 
             <UpdateAccessPoliciesAction plan={plan} refetch={refetch} />
           </>
         )}
-        {!hidePlanAddButton(offering.type, offering.plans) &&
+        {offeringOwnsPricing(offering) &&
+          !hidePlanAddButton(offering.type, offering.plans) &&
           hasPermission(user, {
             permission: PermissionEnum.CREATE_OFFERING_PLAN,
             customerId: offering.customer_uuid,

@@ -1,214 +1,171 @@
-import { ArrowLeftIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
-import { Button, OverlayTrigger, Popover } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
-import { useCurrentStateAndParams, useRouter } from '@uirouter/react';
-import { getFormValues } from 'redux-form';
-import { openportalManagedProjectAuditList } from 'waldur-js-client';
-
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { useTitle } from '@waldur/navigation/title';
-import Table from '@waldur/table/Table';
-import { createFetcher } from '@waldur/table/api';
-import { useTable } from '@waldur/table/useTable';
-
-import { DetailsDiff } from '../DetailsDiff';
 import {
-  ManagedProjectAuditFilter,
-  MANAGED_AUDIT_EVENT_OPTIONS,
-} from './ManagedProjectAuditFilter';
+  ManagedProjectAuditEntry,
+  openportalManagedProjectAuditList,
+} from 'waldur-js-client';
 
-const FORM_ID = 'ManagedProjectAuditLogFilter';
+import { Badge } from '@/core/Badge';
+import { formatDateTime } from '@/core/dateUtils';
+import { translate } from '@/i18n';
+import { DetailsDiff } from '@/openportal/DetailsDiff';
+import { Field } from '@/resource/summary/Field';
+import { createFetcher } from '@/table/api';
+import { ExpandableContainer } from '@/table/ExpandableContainer';
+import {
+  OpenportalManagedProjectAuditFilter,
+  OpenportalManagedProjectAuditFilterFormId,
+  selectOpenportalManagedProjectAuditFilter,
+} from '@/table/generated/OpenportalManagedProjectAuditFilter';
+import Table from '@/table/Table';
+import { Column } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
-const EVENT_BADGE: Record<string, string> = Object.fromEntries(
-  MANAGED_AUDIT_EVENT_OPTIONS.map((e) => [
-    e.value,
-    {
-      created: 'bg-success',
-      approved: 'bg-success',
-      rejected: 'bg-danger',
-      deleted: 'bg-danger',
-      note_added: 'bg-info text-dark',
-      details_updated: 'bg-warning text-dark',
-      project_attached: 'bg-primary',
-      project_detached: 'bg-warning text-dark',
-    }[e.value] ?? 'bg-secondary',
-  ]),
-);
+const eventTypeLabels: Record<ManagedProjectAuditEntry['event_type'], string> =
+  {
+    created: translate('Created'),
+    approved: translate('Approved'),
+    rejected: translate('Rejected'),
+    deleted: translate('Deleted'),
+    note_added: translate('Note added'),
+    details_updated: translate('Details updated'),
+    project_attached: translate('Project attached'),
+    project_detached: translate('Project detached'),
+  };
 
-const EventBadge = ({ type }: { type: string }) => {
-  const cls = EVENT_BADGE[type] ?? 'bg-secondary';
-  const label =
-    MANAGED_AUDIT_EVENT_OPTIONS.find((e) => e.value === type)?.label ?? type;
-  return <span className={`badge ${cls} fw-normal`}>{label}</span>;
+const eventTypeVariants: Record<
+  ManagedProjectAuditEntry['event_type'],
+  'success' | 'danger' | 'warning' | 'info' | 'default'
+> = {
+  created: 'info',
+  approved: 'success',
+  rejected: 'danger',
+  deleted: 'danger',
+  note_added: 'default',
+  details_updated: 'info',
+  project_attached: 'success',
+  project_detached: 'warning',
 };
 
-const ExpandedRow = ({ row }: { row: any }) => {
-  const hasNote = !!row.note;
-  const hasDiff = row.previous_details != null || row.new_details != null;
-  if (!hasNote && !hasDiff) {
-    return (
-      <p className="text-muted mb-0">
-        {translate('No detail changes recorded for this event.')}
-      </p>
-    );
-  }
+const AuditEntryExpandableRow = ({
+  row,
+}: {
+  row: ManagedProjectAuditEntry;
+}) => {
+  const hasDetails = row.previous_details || row.new_details;
+
   return (
-    <div>
-      {hasNote && (
-        <div className={hasDiff ? 'mb-3' : undefined}>
-          <div className="fw-semibold text-muted fs-8 text-uppercase mb-1">
-            {translate('Note')}
-          </div>
-          <p
-            className="mb-0"
-            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-          >
-            {row.note}
-          </p>
-        </div>
-      )}
-      {hasDiff && (
-        <DetailsDiff
-          before={row.previous_details}
-          after={row.new_details}
-          beforeLabel={translate('Previous')}
-          afterLabel={translate('New')}
+    <ExpandableContainer asTable>
+      <Field label={translate('Note')} value={row.note} />
+      {hasDetails && (
+        <Field
+          label={translate('Changes')}
+          value={
+            <DetailsDiff
+              before={row.previous_details}
+              after={row.new_details}
+            />
+          }
         />
       )}
-    </div>
+    </ExpandableContainer>
   );
 };
 
-const columns = [
-  {
-    title: translate('Timestamp'),
-    render: ({ row }) => formatDateTime(row.timestamp),
-    orderField: 'timestamp',
-    id: 'timestamp',
-    keys: ['timestamp'],
-  },
-  {
-    title: translate('Event'),
-    render: ({ row }) => <EventBadge type={row.event_type} />,
-    orderField: 'event_type',
-    filter: 'event_type',
-    id: 'event_type',
-    keys: ['event_type'],
-  },
-  {
-    title: translate('Performed by'),
-    render: ({ row }) => row.performed_by_full_name || '—',
-    id: 'performed_by',
-    keys: ['performed_by_full_name'],
-    optional: true,
-  },
-  {
-    title: translate('Note'),
-    render: ({ row }) => {
-      if (!row.note) return <span className="text-muted">—</span>;
-      if (row.note.length <= 80) return row.note;
-      return (
-        <OverlayTrigger
-          trigger={['hover', 'focus']}
-          placement="auto"
-          overlay={
-            <Popover>
-              <Popover.Body
-                className="fs-8"
-                style={{
-                  maxWidth: 360,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                }}
-              >
-                {row.note}
-              </Popover.Body>
-            </Popover>
-          }
-        >
-          <span
-            className="d-inline-block text-truncate"
-            style={{ maxWidth: 240, cursor: 'help', verticalAlign: 'bottom' }}
-          >
-            {row.note}
-          </span>
-        </OverlayTrigger>
-      );
-    },
-    id: 'note',
-    keys: ['note'],
-    optional: true,
-  },
-];
+interface ManagedProjectAuditLogProps {
+  identifier?: string;
+  destination?: string;
+  hideTitle?: boolean;
+}
 
-export const ManagedProjectAuditLog = () => {
-  const { params } = useCurrentStateAndParams();
-  const identifier = params.identifier as string;
-  const destination = params.destination as string;
-  const router = useRouter();
+export const ManagedProjectAuditLog = ({
+  identifier,
+  destination,
+  hideTitle,
+}: ManagedProjectAuditLogProps) => {
+  const scoped = Boolean(identifier && destination);
+  const tableId = scoped
+    ? `ManagedProjectAuditLog-${identifier}-${destination}`
+    : 'AllManagedProjectsAuditLog';
 
-  useTitle(translate('Audit Log'), '', 'browser');
+  const values = useFilterValues(tableId);
 
-  const filterValues: any = useSelector(getFormValues(FORM_ID));
-  const filter = useMemo(
-    () => ({
+  const filter = useMemo(() => {
+    const selected = selectOpenportalManagedProjectAuditFilter(values);
+    return {
+      ...selected,
       managed_project_identifier: identifier,
       managed_project_destination: destination,
-      ...(filterValues?.event_type?.value
-        ? { event_type: filterValues.event_type.value }
-        : {}),
-      ...(filterValues?.date_range?.after
-        ? { timestamp_after: filterValues.date_range.after }
-        : {}),
-      ...(filterValues?.date_range?.before
-        ? { timestamp_before: filterValues.date_range.before }
-        : {}),
-    }),
-    [identifier, destination, filterValues],
-  );
+    };
+  }, [values, identifier, destination]);
 
   const tableProps = useTable({
-    table: 'ManagedProjectAuditLog',
+    table: tableId,
+    syncFiltersToURL: !scoped,
     fetchData: createFetcher(openportalManagedProjectAuditList),
-    filter,
     queryField: 'q',
+    filter,
   });
 
-  return (
-    <div>
-      <div className="d-flex align-items-center gap-2 mb-3">
-        <Button
-          variant="outline-primary"
-          size="sm"
-          onClick={() =>
-            router.stateService.go('marketplace-provider-managed-project-detail', {
-              identifier,
-              destination,
-            })
-          }
-          title={translate('Back to Managed Project')}
-        >
-          <ArrowLeftIcon size={16} />
-        </Button>
-        <h4 className="mb-0">{translate('Audit Log')}</h4>
-        <span className="text-muted fs-6">
-          · {identifier} / {destination}
-        </span>
-      </div>
+  const columns: Array<Column> = [
+    {
+      title: translate('Timestamp'),
+      orderField: 'timestamp',
+      render: ({ row }) => formatDateTime(row.timestamp),
+      keys: ['timestamp'],
+      id: 'timestamp',
+    },
+    {
+      title: translate('Event'),
+      orderField: 'event_type',
+      render: ({ row }) => (
+        <Badge variant={eventTypeVariants[row.event_type] || 'default'} pill>
+          {eventTypeLabels[row.event_type] || row.event_type}
+        </Badge>
+      ),
+      keys: ['event_type'],
+      id: 'event_type',
+    },
+    {
+      title: translate('Performed by'),
+      render: ({ row }) => renderFieldOrDash(row.performed_by_full_name),
+      keys: ['performed_by_full_name'],
+      id: 'performed_by',
+    },
+    {
+      title: translate('Note'),
+      render: ({ row }) => renderFieldOrDash(row.note),
+      keys: ['note'],
+      optional: true,
+      id: 'note',
+    },
+  ];
 
-      <Table
-        {...tableProps}
-        columns={columns}
-        verboseName={translate('audit entries')}
-        showPageSizeSelector
-        expandableRow={ExpandedRow}
-        filters={<ManagedProjectAuditFilter form={FORM_ID} />}
-        hasQuery
-        initialSorting={{ field: 'timestamp', mode: 'desc' }}
-        hasOptionalColumns
-      />
-    </div>
+  if (!scoped) {
+    columns.splice(1, 0, {
+      title: translate('Project'),
+      render: ({ row }) => renderFieldOrDash(row.identifier),
+      keys: ['identifier'],
+      id: 'identifier',
+    });
+  }
+
+  return (
+    <Table
+      {...tableProps}
+      columns={columns}
+      verboseName={translate('Audit log')}
+      title={hideTitle ? undefined : translate('Audit log')}
+      hideTitle={hideTitle}
+      showPageSizeSelector={true}
+      standalone={!scoped}
+      hasActionBar={!scoped}
+      hasQuery={!scoped}
+      hasOptionalColumns
+      expandableRow={AuditEntryExpandableRow}
+      filters={<OpenportalManagedProjectAuditFilter />}
+      formId={OpenportalManagedProjectAuditFilterFormId}
+    />
   );
 };

@@ -1,9 +1,8 @@
 import { DeviceMobileIcon } from '@phosphor-icons/react';
-import { useDispatch } from 'react-redux';
 
-import { ENV } from '@waldur/core/config';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { openModalDialog } from '@waldur/modal/actions';
+import { ENV } from '@/core/config';
+import { lazyComponent } from '@/core/lazyComponent';
+import { useModal } from '@/modal/actions';
 
 import { LoginButton } from './LoginButton';
 
@@ -14,12 +13,12 @@ const AuthValimoDialog = lazyComponent(() =>
 );
 
 export const ValimoButton = () => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   return (
     <LoginButton
-      icon={<DeviceMobileIcon />}
+      icon={<DeviceMobileIcon weight="bold" />}
       label={ENV.plugins.WALDUR_AUTH_VALIMO.LABEL}
-      onClick={() => dispatch(openModalDialog(AuthValimoDialog))}
+      onClick={() => openDialog(AuthValimoDialog)}
     />
   );
 };

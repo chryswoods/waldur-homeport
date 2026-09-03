@@ -1,0 +1,1199 @@
+overrides:
+  access_subnets:
+    filters:
+      - applies_to_portal
+      - is_staff_managed
+      - offering_uuid
+    applies_to_portal:
+      label: Applies to sign-in
+    is_staff_managed:
+      label: Managed by staff
+    offering_uuid:
+      label: Applies to offering
+      operationId: marketplace_provider_offerings_list
+
+  marketplace_posix_identities:
+    filters:
+      - consumer_type
+      - is_released
+      - recyclable
+    consumer_type:
+      label: Principal kind
+      placeholder: 'Any principal'
+      enumOverrides:
+        'user': User
+        'robotaccount': Robot account
+        'offeringusergroup': Project group
+        'offeringrolegroup': Role group
+    is_released:
+      label: Status
+      enumOverrides:
+        'undefined': Any status
+        'true': Released
+        'false': Active
+    recyclable:
+      label: Recyclable
+      enumOverrides:
+        'undefined': All
+        'true': Returned to the pool
+        'false': Withheld from the pool
+
+  customers:
+    filters:
+      - accounting_is_running
+      - is_service_provider
+      - is_call_managing_organization
+      - organization_group_uuid
+    is_service_provider:
+      label: Service provider
+    is_call_managing_organization:
+      label: Call managing organization
+      feature: show_call_management_functionality
+    accounting_is_running:
+      label: Accounting is running
+      placeholder: 'Show with running accounting'
+      enumOverrides:
+        'undefined': All
+        'true': Running accounting
+        'false': Not running accounting
+
+  financial_reports:
+    filters:
+      - customer_uuid
+      - accounting_period
+      - accounting_is_running
+    customer_uuid:
+      label: Service provider
+      operationId: marketplace_service_providers_list
+      valueField: customer_uuid
+      labelField: customer_name
+    accounting_period:
+      label: Accounting period
+      options: props.accountingPeriods
+      mapTo: true
+    accounting_is_running:
+      label: Accounting is running
+      placeholder: 'Show with running accounting'
+      enumOverrides:
+        true: Running accounting
+        false: Not running accounting
+        undefined: All
+
+  marketplace_resources:
+    filters:
+      - customer_uuid
+      - project_uuid
+    customer_uuid:
+      label: Organization
+      name: customer_uuid
+    project_uuid:
+      name: project_uuid
+      extraQuery:
+        customer: 'props.organizationUuid'
+
+  admin_arrow_consumption_records:
+    filters:
+      - customer_uuid
+      - is_finalized
+    customer_uuid:
+      label: Organization
+      name: customer_uuid
+    is_finalized:
+      label: Status
+      enumOverrides:
+        true: Finalized
+        false: Pending
+
+  openstack_images:
+    filters:
+      - show_duplicate_names
+    show_duplicate_names:
+      label: Show duplicate names
+      component: AwesomeCheckboxField
+      badgeLabels:
+        true: Yes
+        false: No
+
+  invoices_items:
+    operationId: invoices_items_retrieve
+    filters:
+      - provider_uuid
+      - project_uuid
+      - offering_uuid
+      - conceal_compensation_items
+    provider_uuid:
+      label: Service provider
+      name: provider
+      operationId: marketplace_service_providers_list
+    project_uuid:
+      name: project_uuid
+      operationId: projects_list
+      extraQuery:
+        customer: 'props.customerUuid'
+    offering_uuid:
+      name: offering
+      operationId: marketplace_public_offerings_list
+      extraQuery:
+        state: ['Active']
+    conceal_compensation_items:
+      component: AwesomeCheckboxField
+
+  email_logs:
+    filters:
+      - emails
+      - subject
+      - sent_at
+    emails:
+      placeholder: 'Emails contains'
+    subject:
+      placeholder: 'Subject contains'
+    sent_at:
+      placeholder: 'YYYY-MM-DD'
+
+  user_invitations:
+    filters:
+      - state
+      - role_uuid
+      - customer_uuid
+      - scope_type
+    state:
+      label: State
+      enumOverrides:
+        requested: Requested
+        rejected: Rejected
+        pending: Pending
+        project: Pending project start
+        canceled: Canceled
+        expired: Expired
+        accepted: Accepted
+    customer_uuid:
+      label: Organization
+    role_uuid:
+      labelField: description
+    scope_type:
+      label: Scope type
+      enumOverrides:
+        customer: Organization
+        project: Project
+        offering: Offering
+        call: Call
+        proposal: Proposal
+        service_provider: Service provider organization
+        call_organizer: Call managing organization
+
+  projects_list_users:
+    filters:
+      - project_role
+    project_role:
+      label: Role
+      mapTo: role
+      options: props.projectRoles
+      valueField: name
+      labelField: description
+
+  customers_users:
+    filters:
+      - project_role
+      - organization_role
+    project_role:
+      isMulti: true
+      options: props.projectRoles
+      valueField: name
+      labelField: description
+    organization_role:
+      isMulti: true
+      options: props.organizationRoles
+      valueField: name
+      labelField: description
+
+  marketplace_project_update_requests:
+    filters:
+      - state
+      - customer_uuid
+    initialValues:
+      state:
+        - value: pending
+          label: Pending
+    state:
+      isMulti: true
+    customer_uuid:
+      label: Organization
+      name: customer_uuid
+      operationId: customers_list
+
+  roles:
+    filters:
+      - content_type
+      - is_system_role
+      - include_concealed
+    content_type:
+      label: Scope
+      options: props.scopeOptions
+      valueField: value
+      labelField: label
+    is_system_role:
+      label: Type
+      enumOverrides:
+        'true': System role
+        'false': Organization role
+    include_concealed:
+      label: Show concealed roles
+
+  admin_roles:
+    componentName: AdminRolesFilter
+    operationId: roles_list
+    filters:
+      - content_type
+      - is_system_role
+      - is_active
+    content_type:
+      label: Scope
+      enumOverrides:
+        customer: Organization
+        project: Project
+        offering: Offering
+        call: Call
+        proposal: Proposal
+        service_provider: Service provider organization
+        call_organizer: Call managing organization
+    is_system_role:
+      label: Type
+      enumOverrides:
+        'true': System
+        'false': Custom
+    is_active:
+      label: Status
+      enumOverrides:
+        'true': Active
+        'false': Inactive
+
+  admin_support_users:
+    componentName: AdminSupportUsersFilter
+    operationId: support_users_list
+    filters:
+      - backend_name
+      - is_active
+    backend_name:
+      label: Helpdesk
+    is_active:
+      label: Status
+      enumOverrides:
+        'true': Active
+        'false': Inactive
+
+  notification_messages:
+    filters:
+      - is_overridden
+    is_overridden:
+      label: Status
+      enumOverrides:
+        'false': Not overridden
+        'true': Overridden
+
+  broadcast_messages:
+    filters:
+      - state
+
+  admin_announcements:
+    filters:
+      - type
+      - is_active
+    is_active:
+      label: Status
+      enumOverrides:
+        'true': Active
+        'false': Inactive
+
+  support_feedbacks:
+    filters:
+      - evaluation
+      - user_uuid
+      - period
+    evaluation:
+      label: Evaluation
+      options: props.evaluationOptions
+    period:
+      label: Period
+      options: props.periodOptions
+      mapTo: true
+
+  data_access_logs:
+    filters:
+      - start_date
+      - end_date
+      - accessor_type
+      - user_uuid
+    user_uuid:
+      searchParam: full_name
+      extraQuery:
+        o: ['full_name']
+
+  customer_quotas:
+    initialValues:
+      quota_name: { label: Resources, value: estimated_price }
+    filters:
+      - quota_name
+    quota_name:
+      label: Quota
+
+  openportal_managed_projects:
+    filters:
+      - state
+
+  openportal_remote_projects:
+    filters:
+      - state
+
+  openportal_managed_project_audit:
+    filters:
+      - event_type
+      - timestamp_after
+      - timestamp_before
+    event_type:
+      label: Event type
+      enumOverrides:
+        created: Created
+        approved: Approved
+        rejected: Rejected
+        deleted: Deleted
+        note_added: Note added
+        details_updated: Details updated
+        project_attached: Project attached
+        project_detached: Project detached
+    timestamp_after:
+      label: From
+    timestamp_before:
+      label: To
+
+  openportal_remote_project_audit:
+    filters:
+      - event_type
+      - timestamp_after
+      - timestamp_before
+    event_type:
+      label: Event type
+      enumOverrides:
+        award_attempted: Award attempted
+        award_rejected: Award rejected
+        award_created: Award created
+        award_updated: Award updated
+        award_update_confirmed: Award update confirmed
+        award_update_rejected: Award update rejected
+        state_changed: State changed
+        resource_deleted: Resource deleted
+    timestamp_after:
+      label: From
+    timestamp_before:
+      label: To
+
+  marketplace_plan_components:
+    filters:
+      - offering_uuid
+    offering_uuid:
+      searchParam: name
+
+  marketplace_plans_usage_stats:
+    filters:
+      - customer_provider_uuid
+      - offering_uuid
+    customer_provider_uuid:
+      label: Service provider
+      name: provider
+      operationId: marketplace_service_providers_list
+      labelField: customer_name
+      valueField: customer_uuid
+    offering_uuid:
+      searchParam: name
+
+  admin_arrow_billing_syncs:
+    filters:
+      - state
+      - report_period_from
+      - report_period_to
+    state:
+      label: State
+      options:
+        - label: Pending
+          value: 1
+        - label: Syncing
+          value: 2
+        - label: Synced
+          value: 3
+        - label: Failed
+          value: 4
+    report_period_from:
+      label: Period from
+      options: 'props.billingPeriods'
+    report_period_to:
+      label: Period to
+      options: 'props.billingPeriods'
+
+  admin_arrow_customer_mappings:
+    filters:
+      - waldur_customer_uuid
+      - arrow_reference
+      - is_active
+    waldur_customer_uuid:
+      label: Waldur Organization
+      name: waldur_customer_uuid
+    arrow_reference:
+      label: Arrow Reference
+    is_active:
+      label: Active
+
+  marketplace_customer_estimated_cost_policies:
+    filters:
+      - customer_uuid
+    customer_uuid:
+      label: Organization
+      name: customer_uuid
+
+  chat_threads:
+    filters:
+      # Collapsed into single range pickers by the _after/_before rule.
+      - created_after
+      - created_before
+      - modified_after
+      - modified_before
+      - user
+      - is_flagged
+      - max_severity
+      - is_archived
+      - has_feedback
+      - input_tokens_min
+      - input_tokens_max
+      - output_tokens_min
+      - output_tokens_max
+      - total_tokens_min
+      - total_tokens_max
+    user:
+      searchParam: full_name
+
+  anonymous_chat_interactions_conversations:
+    filters:
+      - created_after
+      - created_before
+      # Named after the aggregate it bounds, labelled after the column it
+      # matches — the anonymous row is last active, never modified.
+      - last_active_after
+      - last_active_before
+      - user_slug
+      - is_flagged
+      - severity
+      - has_feedback
+      - is_reviewed
+      - input_tokens_min
+      - input_tokens_max
+      - output_tokens_min
+      - output_tokens_max
+      - total_tokens_min
+      - total_tokens_max
+    user_slug:
+      label: Visitor
+      placeholder: 'Visitor hash contains'
+    last_active_after:
+      # Matches the column, which mirrors the authenticated table's "Modified".
+      rangeLabel: Modified
+
+  events:
+    filters:
+      - customer_uuid
+      - project_uuid
+      - user_uuid
+      - feature
+    customer_uuid:
+      label: Organization
+      name: customer_uuid
+    project_uuid:
+      name: project_uuid
+    user_uuid:
+      label: User
+      name: user
+      searchParam: full_name
+      extraQuery:
+        o: ['full_name']
+    feature:
+      label: Type
+      isMulti: true
+      enumOverrides:
+        projects: Project events
+        resources: Resource events
+        openstack_resources: OpenStack resource events
+
+  system_logs:
+    filters:
+      - source
+      - level
+      - instance
+      - logger_name
+      - start_date
+      - end_date
+    start_date:
+      component: DateField
+      mapTo: false
+    end_date:
+      component: DateField
+      mapTo: false
+
+  marketplace_robot_accounts:
+    filters:
+      - customer_uuid
+      - project_uuid
+    customer_uuid:
+      label: Organization
+      name: customer
+      operationId: marketplace_service_providers_robot_account_customers_list
+      searchParam: customer_name
+      extraPath:
+        uuid: props.provider.uuid
+    project_uuid:
+      name: project_uuid
+      operationId: marketplace_service_providers_robot_account_projects_list
+      searchParam: project_name
+      extraPath:
+        uuid: props.provider.uuid
+
+  reviewer_suggestions:
+    filters:
+      - status
+    status:
+      enumOverrides:
+        pending: Pending
+        confirmed: Confirmed
+        rejected: Rejected
+        invited: Invited
+
+  conflicts_of_interest:
+    filters:
+      - round_uuid
+      - status
+      - severity
+      - coi_type
+      - detection_method
+    round_uuid:
+      label: Round
+      name: round
+      operationId: proposal_protected_calls_rounds_list
+      searchParam: false
+      extraPath:
+        uuid: props.call.uuid
+    status:
+      label: Status
+      isMulti: true
+    severity:
+      label: Severity
+    coi_type:
+      label: Type
+      isMulti: true
+      enumOverrides:
+        INST_SAME: Institutional (Same)
+        FIN_DIRECT: Financial (Direct)
+        REL_FAMILY: Relative (Family)
+        ROLE_NAMED: Role (Named)
+        COLLAB_ACTIVE: Collaborative (Active)
+        REL_MENTOR: Relationship (Mentor)
+        REL_SUPERVISOR: Relationship (Supervisor)
+        COAUTH_RECENT: Co-authorship (Recent)
+        INST_DEPT: Institutional (Department)
+        INST_FORMER: Institutional (Former)
+        ROLE_CONF: Role (Confidential)
+        COLLAB_GRANT: Collaborative (Grant)
+        REL_EDITORIAL: Relationship (Editorial)
+        COMPET: Competition
+        COAUTH_OLD: Co-authorship (Old)
+        INST_CONSORT: Institutional (Consortium)
+        CONF_ATTEND: Conference Attendance
+        SOC_MEMBER: Society Member
+    detection_method:
+      label: Detection
+
+  customer_events:
+    operationId: events_list
+    initialValues:
+      feature:
+        - label: Organization events
+          value: customers
+    filters:
+      - feature
+    feature:
+      label: Type
+      isMulti: true
+      enumOverrides:
+        customers: Organization events
+        projects: Project events
+        resources: Resource events
+        openstack_resources: OpenStack resource events
+
+  user_group_invitations:
+    filters:
+      - is_active
+    is_active:
+      label: Group invitations
+      component: AwesomeCheckboxField
+      badgeLabels:
+        true: Only active
+        false: All
+
+  invoices:
+    filters:
+      - state
+    state:
+      isMulti: true
+      enumOverrides:
+        pending: Pending
+        pending_finalization: Pending finalization
+        canceled: Canceled
+        created: Created
+        paid: Paid
+
+  marketplace_provider_offerings:
+    initialValues:
+      state:
+        - label: Draft
+          value: Draft
+        - label: Active
+          value: Active
+    filters:
+      - state
+    state:
+      isMulti: true
+      enumOverrides:
+        Draft: Draft
+        Active: Active
+        Paused: Paused
+        Archived: Archived
+        Unavailable: Unavailable
+
+  project_resources:
+    operationId: marketplace_resources_list
+    filters:
+      - offering_uuid
+    offering_uuid:
+      operationId: marketplace_public_offerings_list
+      extraQuery:
+        project_uuid: 'props.project.uuid'
+
+  # Resources of a single offering, shown on the provider offering details page.
+  # The offering itself is fixed by the page, so it is not a filter here; state
+  # and runtime state stay manual because they carry extra behaviour (the
+  # include-terminated default and the dynamic option list respectively).
+  provider_offering_resources:
+    operationId: marketplace_provider_resources_list
+    filters:
+      - customer_uuid
+      - project_uuid
+      - plan_uuid
+      - paused
+      - downscaled
+      - restrict_member_access
+      - created
+      - created_before
+    # The filter names must match the `filter` ids declared on the resource
+    # columns (see getResourceAllListColumns), otherwise the per-cell "Add
+    # filter" button cannot find the filter and is not rendered at all.
+    customer_uuid:
+      label: Client organization
+      name: organization
+    project_uuid:
+      name: project
+      extraQuery:
+        customer: 'props.organizationUuid'
+    plan_uuid:
+      label: Plan
+      name: plan
+      searchParam: false
+      extraQuery:
+        offering_uuid: 'props.offeringUuid'
+    created:
+      label: Created after
+      component: DateField
+    created_before:
+      label: Created before
+      component: DateField
+
+  proposal_my_requested_resources:
+    filters:
+      - proposal_state
+      - offering_uuid
+    proposal_state:
+      label: Proposal state
+      isMulti: true
+      enumOverrides:
+        draft: Draft
+        submitted: Submitted
+        in_review: In review
+        accepted: Accepted
+        rejected: Rejected
+        canceled: Canceled
+    offering_uuid:
+      label: Offering
+      name: offering
+      operationId: marketplace_public_offerings_list
+
+  proposal_proposals:
+    filters:
+      - state
+      - call_uuid
+      - round_uuid
+      - organization_uuid
+      - created_by_uuid
+    state:
+      isMulti: true
+      enumOverrides:
+        draft: Draft
+        submitted: Submitted
+        accepted: Accepted
+        rejected: Rejected
+        canceled: Canceled
+        in_review: In review
+    call_uuid:
+      label: Call
+      name: call
+      operationId: proposal_public_calls_list
+    round_uuid:
+      label: Round
+      name: round
+      operationId: proposal_protected_calls_rounds_list
+      extraPath:
+        uuid: props.callUuid
+      searchParam: false
+    organization_uuid:
+      label: Organization
+      name: organization_uuid
+      operationId: customers_list
+    created_by_uuid:
+      label: Applicant
+      name: applicant
+      operationId: users_list
+
+  proposal_public_calls:
+    initialValues:
+      state:
+        - label: Active
+          value: active
+      has_active_round: false
+    filters:
+      - state
+      - has_active_round
+    state:
+      isMulti: true
+      enumOverrides:
+        draft: Draft
+        active: Active
+        archived: Archived
+    has_active_round:
+      label: Active round
+      component: AwesomeCheckboxField
+      badgeLabels:
+        true: Yes
+        false: All
+
+  rancher_cluster:
+    operationId: rancher_ingresses_list
+    filters:
+      - namespace_uuid
+      - rancher_project_uuid
+    namespace_uuid:
+      extraQuery:
+        cluster_uuid: 'props.cluster.uuid'
+    rancher_project_uuid:
+      extraQuery:
+        cluster_uuid: 'props.cluster.uuid'
+
+  invoice_items:
+    filters:
+      - customer_uuid
+      - accounting_period
+      - project_uuid
+      - offering_uuid
+    customer_uuid:
+      label: Organization
+      name: customer_uuid
+    accounting_period:
+      label: Period
+      options: props.accountingPeriods
+      mapTo: true
+    project_uuid:
+      name: project_uuid
+    offering_uuid:
+      name: offering
+      operationId: marketplace_provider_offerings_list
+
+    status:
+      enumOverrides:
+        Closed: Closed
+        Open: Open
+        Resolved: Resolved
+        'Waiting for support': 'Waiting for support'
+
+  support_issues:
+    filters:
+      - status
+      - is_open
+      - is_routed
+    status:
+      enumOverrides:
+        Closed: Closed
+        Open: Open
+        Resolved: Resolved
+        'Waiting for support': Waiting for support
+    is_open:
+      # A Select rather than a boolean checkbox: the dashboard's "Closed issues"
+      # card links to is_open=false, and the generated boolean filter drops a
+      # falsy value.
+      label: Open or closed
+      component: Select
+      options:
+        - value: true
+          label: Open
+        - value: false
+          label: Closed
+    is_routed:
+      label: Routed to provider
+
+  provider_tickets:
+    filters:
+      - status
+      - is_escalated
+      - sla_breached
+    status:
+      enumOverrides:
+        Closed: Closed
+        Open: Open
+        Resolved: Resolved
+        'Waiting for support': Waiting for support
+    is_escalated:
+      label: Escalated
+    sla_breached:
+      label: SLA breached
+
+  user_tos_filters:
+    operationId: marketplace_public_offerings_list
+    filters:
+      - user_has_consent
+    user_has_consent:
+      label: Consent status
+      component: Select
+      options:
+        - value: true
+          label: Accepted
+        - value: false
+          label: Not accepted
+
+  user_pending_actions:
+    operationId: user_actions_list
+    filters:
+      - action_type
+      - urgency
+      - overdue
+      - include_silenced
+    action_type:
+      label: Action type
+      component: Select
+      options:
+        - value: expiring_resource
+          label: Expiring resource
+        - value: pending_order
+          label: Pending order approval
+
+  marketplace_software_packages:
+    filters:
+      - catalog_name
+      - catalog_version
+      - catalog_type
+      - category
+      - license
+      - toolchain_name
+      - has_gpu
+      - gpu_arch
+    catalog_name:
+      label: Catalog
+    catalog_version:
+      label: Version
+    catalog_type:
+      label: Type
+    category:
+      label: Category
+    license:
+      label: License
+    toolchain_name:
+      label: Toolchain
+    has_gpu:
+      label: Has GPU
+    gpu_arch:
+      label: GPU architecture
+
+  user_data_access_history:
+    operationId: users_data_access_history_list
+    filters:
+      - start_date
+      - end_date
+      - accessor_type
+    start_date:
+      label: Start date
+      props:
+        inline: true
+    end_date:
+      label: End date
+      props:
+        inline: true
+    accessor_type:
+      label: Accessor type
+      component: Select
+      options:
+        - value: staff
+          label: Staff
+        - value: support
+          label: Support
+        - value: organization_member
+          label: Organization member
+        - value: service_provider
+          label: Service provider
+        - value: self
+          label: Self-access
+
+  promotions_campaigns:
+    filters:
+      - state
+      - discount_type
+    state:
+      isMulti: true
+      enumOverrides:
+        Draft: Draft
+        Active: Active
+        Terminated: Terminated
+    discount_type:
+      label: Discount type
+      options:
+        - value: discount
+          label: Discount
+        - value: special_price
+          label: Special price
+
+  user_permission_requests:
+    filters:
+      - state
+    initialValues:
+      state:
+        - value: pending
+          label: Pending
+    state:
+      isMulti: true
+      enumOverrides:
+        pending: Pending
+        approved: Approved
+        rejected: Rejected
+
+  call_reviewer_pools:
+    filters:
+      - invitation_status
+    invitation_status:
+      label: Status
+      isMulti: true
+      enumOverrides:
+        pending: Pending
+        accepted: Accepted
+        declined: Declined
+        expired: Expired
+
+  proposal_reviews:
+    filters:
+      - state
+      - call_uuid
+      - round_uuid
+      - organization_uuid
+      - reviewer_uuid
+      - proposal_uuid
+    state:
+      isMulti: true
+      enumOverrides:
+        in_review: In review
+        submitted: Submitted
+        rejected: Rejected
+    call_uuid:
+      label: Call
+      name: call
+      operationId: proposal_public_calls_list
+    round_uuid:
+      label: Round
+      name: round
+      operationId: proposal_protected_calls_rounds_list
+      extraPath:
+        uuid: props.callUuid
+      searchParam: false
+    organization_uuid:
+      label: Organization
+      name: organization_uuid
+      operationId: customers_list
+    reviewer_uuid:
+      label: Reviewer
+      name: reviewer
+      operationId: users_list
+      valueField: uuid
+      labelField: full_name
+    proposal_uuid:
+      label: Proposal
+      name: proposal
+      operationId: proposal_proposals_list
+      extraQuery:
+        call_uuid: props.callUuid
+
+  proposals:
+    operationId: proposal_proposals_list
+    filters:
+      - state
+      - call_uuid
+    state:
+      isMulti: true
+      enumOverrides:
+        draft: Draft
+        submitted: Submitted
+        accepted: Accepted
+        rejected: Rejected
+        canceled: Canceled
+        in_review: In review
+    call_uuid:
+      label: Call
+      name: call
+      operationId: proposal_public_calls_list
+      # The applicant list drops this where the deployment hides calls; the
+      # call-manager list keeps it in every mode, so it is a prop rather than
+      # a second generated component.
+      isHidden: props.hideCall
+
+  proposal_requested_offerings:
+    filters:
+      - organization_uuid
+      - call
+      - state
+      - offering
+    organization_uuid:
+      label: Organization
+      name: organization_uuid
+      operationId: customers_list
+    call:
+      label: Call
+      name: call
+      operationId: proposal_public_calls_list
+      valueField: url
+    state:
+      label: Status
+      isMulti: true
+      enumOverrides:
+        requested: Requested
+        accepted: Accepted
+        canceled: Canceled
+    offering:
+      label: Offering
+      name: offering
+      operationId: marketplace_public_offerings_list
+      valueField: url
+      extraQuery:
+        shared: true
+
+  credit_usage:
+    operationId: invoice_items_list
+    filters:
+      - offering_uuid
+      - resource_uuid
+      - start_year
+      - start_month
+    offering_uuid:
+      label: Offering
+      name: offering
+      operationId: marketplace_public_offerings_list
+    resource_uuid:
+      label: Resource
+      name: resource
+      operationId: marketplace_resources_list
+      # invoice-items filters on resource__uuid (the marketplace Resource's own
+      # uuid); without this the generator defaults to the option's resource_uuid
+      # (the backend/scope uuid, null when unprovisioned) and the filter matches
+      # nothing.
+      valueField: uuid
+      extraQuery:
+        customer_uuid: props.customerUUID
+    start_year:
+      label: Year
+      name: year
+      component: Select
+      options: props.yearOptions
+    start_month:
+      label: Month
+      name: month
+      component: Select
+      options: props.monthOptions
+
+  marketplace_stats_openstack_instances:
+    filters:
+      - customer_uuid
+      - project_uuid
+      - runtime_state
+      - hypervisor_hostname
+      - flavor_name
+      - image_name
+    customer_uuid:
+      label: Organization
+      name: customer_uuid
+    project_uuid:
+      name: project_uuid
+      extraQuery:
+        customer: 'props.organizationUuid'
+    runtime_state:
+      label: Runtime state
+      component: Select
+      options:
+        - value: ACTIVE
+          label: Active
+        - value: SHUTOFF
+          label: Shutoff
+        - value: PAUSED
+          label: Paused
+        - value: SUSPENDED
+          label: Suspended
+        - value: ERROR
+          label: Error
+    hypervisor_hostname:
+      label: Hypervisor
+      placeholder: Hypervisor hostname...
+    flavor_name:
+      label: Flavor
+      placeholder: Flavor name...
+    image_name:
+      label: Image
+      placeholder: Image name...
+
+  projects:
+    filters:
+      - conceal_finished_projects
+      - include_terminated
+      - is_removed
+    conceal_finished_projects:
+      label: Conceal finished projects
+      badgeLabels:
+        true: Yes
+        false: No
+    include_terminated:
+      label: Include removed
+      badgeLabels:
+        true: Yes
+        false: No
+    is_removed:
+      label: Removal status
+      placeholder: Select removal status
+      enumOverrides:
+        'undefined': All projects
+        'false': Not removed
+        'true': Removed
+
+  marketplace_service_providers_projects:
+    # is_removed is deliberately omitted: the backend viewset queries
+    # Project.available_objects (non-removed only), so the advertised
+    # is_removed param can never match removed projects.
+    filters:
+      - conceal_finished_projects
+    conceal_finished_projects:
+      label: Conceal finished projects
+      badgeLabels:
+        true: Yes
+        false: No

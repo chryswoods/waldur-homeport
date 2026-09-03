@@ -1,6 +1,6 @@
-import { PermissionMap, RoleEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { Role } from '@waldur/permissions/types';
+import { PermissionMap } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { Role } from '@/permissions/types';
 
 import { Invitation } from '../types';
 
@@ -12,14 +12,6 @@ export const InvitationPolicyService = {
     if (!context.roleTypes.includes(role.content_type)) {
       return false;
     }
-
-    // Prevent inviting users with PROPOSAL.MANAGER role
-    // Only the proposal owner can be the manager, and ownership can only be transferred
-    // through the add_user endpoint directly, not via invitation
-    if (role.name === RoleEnum.PROPOSAL_MANAGER && role.content_type === 'proposal') {
-      return false;
-    }
-
     const permission = PermissionMap[role.content_type];
     return hasPermission(context.user, {
       permission: permission,

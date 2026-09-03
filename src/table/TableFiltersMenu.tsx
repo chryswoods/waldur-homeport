@@ -5,7 +5,8 @@ import {
   PlusIcon,
   StarIcon,
 } from '@phosphor-icons/react';
-import { debounce, isEqual, throttle } from 'lodash-es';
+import classNames from 'classnames';
+import { throttle } from 'lodash-es';
 import {
   FC,
   useCallback,
@@ -17,20 +18,20 @@ import {
 } from 'react';
 import { Button } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { Tip } from '@waldur/core/Tooltip';
-import { translate } from '@waldur/i18n';
-import { MenuComponent } from '@waldur/metronic/components';
-import { openModalDialog } from '@waldur/modal/actions';
+import { formatDateTime } from '@/core/dateUtils';
+import { lazyComponent } from '@/core/lazyComponent';
+import { Tip } from '@/core/Tooltip';
+import { translate } from '@/i18n';
+import { MenuComponent } from '@/metronic/components';
+import { useModal } from '@/modal/actions';
 
 import { selectSavedFilter, setSavedFilters } from './actions';
 import { COLUMN_FILTER_TOGGLE_CLASS } from './constants';
 import { TableFilterContext } from './FilterContextProvider';
 import { SavedFilterSelect } from './SavedFilterSelect';
 import {
+  selectFilterValues,
   selectSelectedSavedFilter,
   selectTableSavedFilters,
 } from './selectors';
@@ -46,8 +47,9 @@ const SaveFilterDialog = lazyComponent(() =>
 
 const SaveFilterItems = ({ table, formId, apply }) => {
   const dispatch = useDispatch();
+  const { openDialog } = useModal();
+  const formValues = useSelector(selectFilterValues(table)) || {};
 
-  const formValues = useSelector(getFormValues(formId));
   const selectedSavedFilter = useSelector((state: any) =>
     selectSelectedSavedFilter(state, table),
   );
@@ -60,9 +62,10 @@ const SaveFilterItems = ({ table, formId, apply }) => {
   const saveFilter = useCallback(
     (name, update: boolean) => {
       let newItem;
-      Object.entries(formValues).forEach(([key, value]) => {
+      const valuesCopy = { ...formValues };
+      Object.entries(valuesCopy).forEach(([key, value]) => {
         if (Array.isArray(value) && value.length === 0) {
-          delete formValues[key];
+          delete valuesCopy[key];
         }
       });
       if (update && selectedSavedFilter) {
@@ -71,7 +74,7 @@ const SaveFilterItems = ({ table, formId, apply }) => {
           ...selectedSavedFilter,
           title: name,
           date: new Date().toISOString(),
-          values: formValues,
+          values: valuesCopy,
         };
       } else {
         // New
@@ -80,7 +83,7 @@ const SaveFilterItems = ({ table, formId, apply }) => {
           id: `${table}-${formId}-${isoDate}`,
           title: name || formatDateTime(null),
           date: isoDate,
-          values: formValues,
+          values: valuesCopy,
         };
       }
 
@@ -88,22 +91,20 @@ const SaveFilterItems = ({ table, formId, apply }) => {
       dispatch(setSavedFilters(table, TableFilterService.list(key).reverse()));
       dispatch(selectSavedFilter(table, newItem));
     },
-    [key, formValues, selectedSavedFilter, setSavedFilters, selectSavedFilter],
+    [key, formValues, selectedSavedFilter, table, formId, dispatch],
   );
 
   const onSaveFilter = (e, update = false) => {
-    dispatch(
-      openModalDialog(SaveFilterDialog, {
-        resolve: {
-          saveFilter,
-        },
-        size: 'sm',
-        initialValues:
-          update && selectedSavedFilter
-            ? { name: selectedSavedFilter.title }
-            : undefined,
-      }),
-    );
+    openDialog(SaveFilterDialog, {
+      resolve: {
+        saveFilter,
+      },
+      size: 'sm',
+      initialValues:
+        update && selectedSavedFilter
+          ? { name: selectedSavedFilter.title }
+          : undefined,
+    });
     e.stopPropagation();
   };
 
@@ -189,15 +190,15 @@ const openSubmenu = throttle(
   { leading: false },
 );
 
-interface TableFiltersMenuProps
-  extends Pick<
-    TableProps,
-    | 'filters'
-    | 'filterPosition'
-    | 'filtersStorage'
-    | 'setFilter'
-    | 'applyFiltersFn'
-  > {
+interface TableFiltersMenuProps extends Pick<
+  TableProps,
+  | 'filters'
+  | 'formId'
+  | 'filterPosition'
+  | 'filtersStorage'
+  | 'setFilter'
+  | 'applyFiltersFn'
+> {
   table?: TableProps['table'];
   selectedSavedFilter?: TableProps['selectedSavedFilter'];
   openName?: string;
@@ -232,33 +233,6 @@ export const TableFiltersMenu: FC<TableFiltersMenuProps> = (props) => {
     }
   }, [menuEl?.current]);
 
-  const formValues = useSelector(getFormValues(context.form));
-  // Add hide event listener on menu (cancel/reset the filter changes if they are not applied yet)
-  useEffect(() => {
-    if (menuEl?.current) {
-      menuInstance.current = MenuComponent.getInstance(menuEl.current);
-      if (menuInstance.current) {
-        const resetFilters = debounce(() => {
-          const keys = props.filtersStorage.map((f) => f.name);
-          if (formValues) {
-            keys.push(...Object.keys(formValues));
-          }
-          keys.forEach((name) => {
-            const filter = props.filtersStorage.find((fs) => fs.name === name);
-            if (!isEqual(formValues?.[name], filter?.value)) {
-              context.changeFormField(name, filter?.value || null);
-            }
-          });
-        }, 100);
-        menuInstance.current.on('kt.menu.dropdown.hidden', () => {
-          // Reset all filters
-          // We are using `debounce`, because there may be multiple menu instances, no need to fire the listener for each one.
-          resetFilters();
-        });
-      }
-    }
-  }, [menuEl?.current, props.filtersStorage, formValues]);
-
   const apply = useCallback(
     (hideMenu = true) => {
       props.applyFiltersFn(true);
@@ -270,7 +244,7 @@ export const TableFiltersMenu: FC<TableFiltersMenuProps> = (props) => {
       }
       if (props.toggleFilterMenu) props.toggleFilterMenu(true);
     },
-    [props.applyFiltersFn, props.toggleFilterMenu, menuInstance?.current],
+    [props.applyFiltersFn, props.toggleFilterMenu],
   );
 
   const [existed, setExisted] = useState(true);
@@ -291,12 +265,11 @@ export const TableFiltersMenu: FC<TableFiltersMenuProps> = (props) => {
         <>
           <button
             type="button"
-            className={COLUMN_FILTER_TOGGLE_CLASS + ' text-btn'}
+            className={classNames(COLUMN_FILTER_TOGGLE_CLASS, 'text-btn')}
             data-kt-menu-trigger="click"
             data-kt-menu-attach="parent"
             data-kt-menu-placement="bottom"
             data-kt-menu-flip="bottom"
-            data-cy={`${props.openName}-add-filter-button`}
           >
             <FunnelSimpleIcon size={16} weight="bold" />
           </button>
@@ -304,7 +277,6 @@ export const TableFiltersMenu: FC<TableFiltersMenuProps> = (props) => {
             ref={menuEl}
             className="table-filters-menu column-filter menu menu-sub menu-sub-dropdown menu-column menu-gray-600 menu-state-bg-gray fw-bold fs-6"
             data-kt-menu="true"
-            data-cy={`${props.openName}-add-filter-menu`}
           >
             {props.filters}
           </div>
@@ -312,20 +284,21 @@ export const TableFiltersMenu: FC<TableFiltersMenuProps> = (props) => {
       ) : (
         <Tip id="table-add-filter-tip" label={translate('Add filter')}>
           <Button
-            variant="tertiary"
-            className="btn-icon btn-add-filter w-40px h-40px"
+            variant="secondary"
+            size="sm"
+            className="btn-icon btn-add-filter"
             data-kt-menu-trigger="click"
             data-kt-menu-attach="parent"
             data-kt-menu-placement="bottom-start"
-            data-cy="table-add-filter-button"
           >
-            <PlusIcon weight="bold" size={28} />
+            <span className="svg-icon svg-icon-4">
+              <PlusIcon weight="bold" />
+            </span>
           </Button>
           <div
             ref={menuEl}
             className="table-filters-menu menu menu-sub menu-sub-dropdown menu-column menu-gray-700 menu-state-bg-gray fw-bold py-1 fs-6 w-250px"
             data-kt-menu="true"
-            data-cy="table-add-filter-menu"
           >
             <SaveFilterItems
               table={props.table}

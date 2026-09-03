@@ -1,9 +1,9 @@
 import classNames from 'classnames';
 import { FunctionComponent } from 'react';
 
-import { CountryFlagIcon } from '@waldur/core/CountryFlagIcon';
-import { translate } from '@waldur/i18n';
-import { useLanguageSelector } from '@waldur/i18n/useLanguageSelector';
+import { CountryFlagIcon } from '@/core/CountryFlagIcon';
+import { translate } from '@/i18n';
+import { useLanguageSelector } from '@/i18n/useLanguageSelector';
 
 export const LanguageCountry = {
   ar: 'sa',
@@ -16,12 +16,16 @@ export const LanguageCountry = {
   es: 'es',
   et: 'ee',
   fr: 'fr',
+  hr: 'hr',
   it: 'it',
+  km: 'kh',
   lt: 'lt',
   lv: 'lv',
+  mk: 'mk',
   nb: 'no',
   ru: 'ru',
   sl: 'si',
+  sq: 'al',
   sv: 'se',
   uk: 'ua',
 };
@@ -29,6 +33,10 @@ export const LanguageCountry = {
 export const LanguageSelectorDropdown: FunctionComponent = () => {
   const { currentLanguage, languageChoices, setLanguage } =
     useLanguageSelector();
+
+  if (!currentLanguage) {
+    return null;
+  }
 
   return (
     <div

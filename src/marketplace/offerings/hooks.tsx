@@ -1,58 +1,9 @@
-import { PlusIcon } from '@phosphor-icons/react';
-import { useDispatch, useSelector } from 'react-redux';
+import { Offering, ServiceProvider } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { IBreadcrumbItem } from '@waldur/navigation/types';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { useUser } from '@waldur/workspace/hooks';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { translate } from '@/i18n';
+import { IBreadcrumbItem } from '@/navigation/types';
 
-import { Offering, ServiceProvider } from '../types';
-
-import { OFFERING_IMPORT_FORM_ID } from './import/constants';
 import { OfferingBreadcrumbPopover } from './OfferingBreadcrumbPopover';
-
-const OfferingImportDialog = lazyComponent(() =>
-  import('./import/OfferingImportDialog').then((module) => ({
-    default: module.OfferingImportDialog,
-  })),
-);
-
-export const useOfferingDropdownActions = (refetch?) => {
-  const dispatch = useDispatch();
-  const customer = useSelector(getCustomer);
-  const user = useUser();
-  const canCreateOffering = hasPermission(user, {
-    permission: PermissionEnum.CREATE_OFFERING,
-    customerId: customer?.uuid,
-  });
-  const showOfferingListActions =
-    customer && customer.is_service_provider && canCreateOffering;
-
-  if (!showOfferingListActions) {
-    return null;
-  }
-
-  return (
-    <ActionItem
-      title={translate('Import offerings')}
-      action={() => {
-        dispatch(
-          openModalDialog(OfferingImportDialog, {
-            refetch,
-            size: 'lg',
-            formId: OFFERING_IMPORT_FORM_ID,
-          }),
-        );
-      }}
-      iconNode={<PlusIcon weight="bold" />}
-    />
-  );
-};
 
 export const getOfferingBreadcrumbItems = (
   offering: Offering,
@@ -83,9 +34,17 @@ export const getOfferingBreadcrumbItems = (
     {
       key: 'offering',
       text: offering?.name || '...',
-      dropdown: provider
-        ? () => <OfferingBreadcrumbPopover provider={provider} page={page} />
-        : undefined,
+      dropdown:
+        provider && offering
+          ? (close) => (
+              <OfferingBreadcrumbPopover
+                provider={provider}
+                offering={offering}
+                page={page}
+                close={close}
+              />
+            )
+          : undefined,
       truncate: true,
       active: true,
     },

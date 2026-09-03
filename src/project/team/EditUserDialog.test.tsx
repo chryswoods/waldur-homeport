@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import {
   projectsAddUser,
@@ -6,129 +7,16 @@ import {
   projectsUpdateUser,
 } from 'waldur-js-client';
 
+import { renderWithProviders } from '@/test/harness';
+import { openAndSelectOption } from '@/test/select';
+import { useProject } from '@/workspace/hooks';
+
 import { EditUserDialog } from './EditUserDialog';
 
-// Mock API calls
-vi.mock('waldur-js-client', () => ({
-  projectsAddUser: vi.fn(),
-  projectsDeleteUser: vi.fn(),
-  projectsUpdateUser: vi.fn(),
-}));
-
-// Mock store hooks
-vi.mock('@waldur/store/hooks', () => ({
-  useModal: () => ({
-    closeDialog: vi.fn(),
-  }),
-  useNotify: () => ({
-    showSuccess: vi.fn(),
-    showErrorResponse: vi.fn(),
-  }),
-}));
-
-// Mock translation
-vi.mock('@waldur/i18n', () => ({
-  translate: (str: string) => str,
-}));
-
 // Mock table constants
-vi.mock('@waldur/table/constants', () => ({
+vi.mock('@/table/constants', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/table/constants')>()),
   DASH_ESCAPE_CODE: '—',
-}));
-
-// Mock workspace selectors
-vi.mock('@waldur/workspace/selectors', () => ({
-  getProject: () => ({
-    uuid: 'project-uuid',
-    name: 'Test Project',
-  }),
-}));
-
-// Mock React Redux
-vi.mock('react-redux', () => ({
-  useDispatch: () => vi.fn(),
-  useSelector: (selector) => selector(),
-}));
-
-// Mock permissions utils
-vi.mock('@waldur/permissions/utils', () => ({
-  getProjectRoles: () => [
-    {
-      name: 'admin',
-      description: 'Administrator',
-      content_type: 'project',
-    },
-    {
-      name: 'manager',
-      description: 'Manager',
-      content_type: 'project',
-    },
-  ],
-  getRoles: (types) =>
-    types.map((type) => ({
-      name: `${type}_role`,
-      description: `${type} role`,
-      content_type: type,
-    })),
-}));
-
-// Mock form components - simplified inline to avoid duplication detection
-vi.mock('@waldur/form/SelectField', () => ({
-  SelectField: ({ options, getOptionLabel }) => (
-    <select data-testid="select">
-      {options?.map((opt, i) => (
-        <option key={i} value={opt.name}>
-          {getOptionLabel?.(opt) ?? opt.name}
-        </option>
-      ))}
-    </select>
-  ),
-}));
-
-vi.mock('@waldur/form/DateField', () => ({
-  DateField: ({ placeholder }) => (
-    <input type="date" placeholder={placeholder} data-testid="date" />
-  ),
-}));
-
-vi.mock('@waldur/form', () => ({
-  FormGroup: ({ children, label, required }) => (
-    <div data-testid="group">
-      {label && (
-        <label>
-          {label}
-          {required && ' *'}
-        </label>
-      )}
-      {children}
-    </div>
-  ),
-  SubmitButton: ({ children, disabled, submitting }) => (
-    <button
-      type="submit"
-      disabled={disabled || submitting}
-      data-testid="submit"
-    >
-      {submitting ? 'Loading...' : children}
-    </button>
-  ),
-  FormContainer: ({ children }) => (
-    <div data-testid="container">{children}</div>
-  ),
-}));
-
-vi.mock('@waldur/modal/CloseDialogButton', () => ({
-  CloseDialogButton: () => <button data-testid="close">Close</button>,
-}));
-
-vi.mock('@waldur/modal/ModalDialog', () => ({
-  ModalDialog: ({ title, children, footer }) => (
-    <div data-testid="modal">
-      <h2>{title}</h2>
-      <div>{children}</div>
-      <div data-testid="footer">{footer}</div>
-    </div>
-  ),
 }));
 
 const mockPermission = {
@@ -159,19 +47,27 @@ const mockResolve = {
   refetch: vi.fn(),
 };
 
+const renderDialog = (resolve = mockResolve) => {
+  return renderWithProviders(<EditUserDialog resolve={resolve} />);
+};
+
 describe('EditUserDialog (Project)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(useProject).mockReturnValue({
+      uuid: 'project-uuid',
+      name: 'Test Project',
+    } as any);
   });
 
   it('renders dialog with correct title and user information', () => {
-    render(<EditUserDialog resolve={mockResolve} />);
+    renderDialog();
 
     expect(screen.getByText('Edit project member')).toBeInTheDocument();
     expect(screen.getByText('User')).toBeInTheDocument();
     expect(
-      screen.getByText((content) => content.includes('John Doe')),
-    ).toBeInTheDocument();
+      screen.getAllByText((content) => content.includes('John Doe')).length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByText((content) => content.includes('john@example.com')),
     ).toBeInTheDocument();
@@ -181,57 +77,82 @@ describe('EditUserDialog (Project)', () => {
   });
 
   it('renders role selection with project roles', () => {
-    render(<EditUserDialog resolve={mockResolve} />);
+    renderDialog();
 
     expect(screen.getByText('Role')).toBeInTheDocument();
-    expect(screen.getByTestId('select')).toBeInTheDocument();
+    expect(screen.getByText('Administrator')).toBeInTheDocument();
   });
 
   it('renders expiration time field', () => {
-    render(<EditUserDialog resolve={mockResolve} />);
+    renderDialog();
 
     expect(screen.getByText('Role expires on')).toBeInTheDocument();
-    expect(screen.getByTestId('date')).toBeInTheDocument();
   });
 
-  it('renders submit and close buttons', () => {
-    render(<EditUserDialog resolve={mockResolve} />);
-
-    expect(screen.getByText('Save')).toBeInTheDocument();
-    expect(screen.getByText('Close')).toBeInTheDocument();
-  });
-
-  it('pre-populates form with existing permission data', () => {
-    render(<EditUserDialog resolve={mockResolve} />);
-
-    // The form should be initialized with current permission values
-    // This would require more detailed form testing to verify field values
-    expect(screen.getByTestId('modal')).toBeInTheDocument();
-  });
-
-  it('handles API calls for permission updates', () => {
-    const mockProjectsUpdateUser = vi.mocked(projectsUpdateUser);
-    mockProjectsUpdateUser.mockResolvedValue({} as any);
-
-    render(<EditUserDialog resolve={mockResolve} />);
-
-    // This would require form interaction to actually submit
-    // For now, we just verify the mock is available
-    expect(mockProjectsUpdateUser).toHaveBeenCalledTimes(0);
-  });
-
-  it('handles role changes that require delete and add operations', () => {
+  it('handles submission with role change', async () => {
+    const user = userEvent.setup();
     const mockProjectsDeleteUser = vi.mocked(projectsDeleteUser);
     const mockProjectsAddUser = vi.mocked(projectsAddUser);
-
     mockProjectsDeleteUser.mockResolvedValue({} as any);
     mockProjectsAddUser.mockResolvedValue({} as any);
 
-    render(<EditUserDialog resolve={mockResolve} />);
+    renderDialog();
 
-    // This would require form interaction to test role change logic
-    expect(mockProjectsDeleteUser).toHaveBeenCalledTimes(0);
-    expect(mockProjectsAddUser).toHaveBeenCalledTimes(0);
+    // Change role from Administrator to Manager
+    await openAndSelectOption(user, 'Role', 'Manager');
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(mockProjectsDeleteUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: { uuid: 'project-uuid' },
+          body: {
+            user: 'user-uuid',
+            role: 'admin',
+          },
+        }),
+      );
+      expect(mockProjectsAddUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: { uuid: 'project-uuid' },
+          body: expect.objectContaining({
+            user: 'user-uuid',
+            role: 'manager',
+          }),
+        }),
+      );
+      expect(mockResolve.refetch).toHaveBeenCalled();
+    });
+  });
+
+  it('handles submission with only expiration time change', async () => {
+    const user = userEvent.setup();
+    const mockProjectsUpdateUser = vi.mocked(projectsUpdateUser);
+    mockProjectsUpdateUser.mockResolvedValue({} as any);
+
+    renderDialog();
+
+    // Change expiration date
+    const dateInput = screen.getByDisplayValue('2024-12-31');
+    await user.clear(dateInput);
+    await user.type(dateInput, '2025-12-31');
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(mockProjectsUpdateUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: { uuid: 'project-uuid' },
+          body: expect.objectContaining({
+            user: 'user-uuid',
+            role: 'admin',
+            expiration_time: '2025-12-31',
+          }),
+        }),
+      );
+      expect(mockResolve.refetch).toHaveBeenCalled();
+    });
   });
 
   it('handles API errors gracefully', () => {
@@ -239,7 +160,7 @@ describe('EditUserDialog (Project)', () => {
     const mockError = new Error('API Error');
     mockProjectsUpdateUser.mockRejectedValue(mockError);
 
-    render(<EditUserDialog resolve={mockResolve} />);
+    renderDialog();
 
     // Error handling would be tested through form submission
     expect(screen.getByText('Edit project member')).toBeInTheDocument();
@@ -249,17 +170,13 @@ describe('EditUserDialog (Project)', () => {
     const permissionWithoutEmail = {
       ...mockPermission,
       user_email: null,
-    } as const;
+    };
 
-    render(
-      <EditUserDialog
-        resolve={{ ...mockResolve, permission: permissionWithoutEmail }}
-      />,
-    );
+    renderDialog({ ...mockResolve, permission: permissionWithoutEmail });
 
     expect(
-      screen.getByText((content) => content.includes('John Doe')),
-    ).toBeInTheDocument();
+      screen.getAllByText((content) => content.includes('John Doe')).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText('Username')).toBeInTheDocument();
     expect(screen.queryByText('Email')).not.toBeInTheDocument();
   });
@@ -268,13 +185,9 @@ describe('EditUserDialog (Project)', () => {
     const permissionWithoutName = {
       ...mockPermission,
       user_full_name: null,
-    } as const;
+    };
 
-    render(
-      <EditUserDialog
-        resolve={{ ...mockResolve, permission: permissionWithoutName }}
-      />,
-    );
+    renderDialog({ ...mockResolve, permission: permissionWithoutName });
 
     expect(
       screen.getByText((content) => content.includes('—')),

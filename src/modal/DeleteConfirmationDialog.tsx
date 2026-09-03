@@ -1,10 +1,10 @@
 import { TrashIcon } from '@phosphor-icons/react';
 import React, { ReactNode } from 'react';
-import { Button } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
 
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
 
 import { ModalDialog } from './ModalDialog';
 
@@ -23,8 +23,8 @@ interface DeleteConfirmationDialogProps {
 export const DeleteConfirmationDialog: React.FC<
   DeleteConfirmationDialogProps
 > = ({ resolve: { title, body, deferred, iconNode } }) => {
-  const dispatch = useDispatch();
-  const closeDialog = () => dispatch(closeModalDialog('HIDE_CONFIRM'));
+  const { closeDialog: closeModal } = useModal();
+  const closeDialog = () => closeModal('HIDE_CONFIRM');
 
   const handleSubmit = () => {
     deferred.resolve();
@@ -41,23 +41,18 @@ export const DeleteConfirmationDialog: React.FC<
       title={title}
       iconNode={iconNode || <TrashIcon weight="bold" />}
       iconColor="danger"
-      bodyClassName="text-gray-500 pt-2"
+      bodyClassName="text-quaternary pt-8px"
       footer={
         <>
-          <Button
-            variant="tertiary"
-            className="flex-equal"
-            onClick={handleCancel}
-          >
-            {translate('Cancel')}
-          </Button>
-          <Button
+          <CloseDialogButton className="min-w-150px" onClick={handleCancel} />
+          <SubmitButton
+            submitting={false}
             variant="danger"
-            className="flex-equal"
+            className="min-w-150px"
             onClick={handleSubmit}
-          >
-            {translate('Delete')}
-          </Button>
+            type="button"
+            label={translate('Delete')}
+          />
         </>
       }
     >

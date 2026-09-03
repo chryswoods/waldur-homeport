@@ -2,7 +2,7 @@ import { ArrowDownIcon, ArrowUpIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
 import { Card } from 'react-bootstrap';
 
-import { Badge } from '@waldur/core/Badge';
+import { Badge } from '@/core/Badge';
 
 interface NetworkStatisticsCardProps {
   title: string;
@@ -13,13 +13,21 @@ interface NetworkStatisticsCardProps {
 
 const ChangeIndicator = ({ isIncrease, change }) => {
   return isIncrease ? (
-    <Badge variant="success" outline pill>
-      <ArrowUpIcon />
+    <Badge
+      variant="success"
+      leftIcon={<ArrowUpIcon weight="bold" />}
+      pill
+      outline
+    >
       {change}%
     </Badge>
   ) : (
-    <Badge variant="danger" outline pill>
-      <ArrowDownIcon />
+    <Badge
+      variant="danger"
+      leftIcon={<ArrowDownIcon weight="bold" />}
+      pill
+      outline
+    >
       {change}%
     </Badge>
   );

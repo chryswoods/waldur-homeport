@@ -9,6 +9,8 @@
 
 import type { EChartsOption } from 'echarts';
 
+import { translate } from '@/i18n';
+
 import { ProjectStorageReport, Quota } from './ProjectStorageReport';
 import {
   GroupBy,
@@ -20,7 +22,6 @@ import {
   truncateLabel,
   truncateMiddle,
 } from './usageChartOptions';
-import { formatStorageBytes } from './storage';
 
 const PALETTE = [
   '#003366',
@@ -49,6 +50,21 @@ const withAlpha = (hex: string, alpha: number): string => {
   return `rgba(${r},${g},${b},${alpha})`;
 };
 
+function getStorageUnit(maxBytes: number) {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'] as const;
+  const unitIndex =
+    maxBytes > 0
+      ? Math.min(
+          Math.floor(Math.log(maxBytes) / Math.log(1024)),
+          units.length - 1,
+        )
+      : 3;
+  const unitDivisor = 1024 ** unitIndex;
+  const unitLabel = units[unitIndex];
+  const toUnit = (bytes: number) => +(bytes / unitDivisor).toFixed(3);
+  return { unitLabel, toUnit };
+}
+
 /**
  * Horizontal bar chart showing storage usage vs quota limit.
  *
@@ -73,13 +89,18 @@ export function buildStorageBarOptions(
   const allUids = report.userIdentifiers();
   const allLocalNames = allUids.map((uid) => {
     if (nameMaps?.user?.[uid]) return truncateLabel(nameMaps.user[uid]);
-    const raw = fullNames ? (report.users[uid] ?? uid) : shortName(report.users[uid] ?? uid);
+    const raw = fullNames
+      ? (report.users[uid] ?? uid)
+      : shortName(report.users[uid] ?? uid);
     return truncateLabel(raw);
   });
 
   // Rank uids by total usage, keep top N
   const userTotals = allUids.map((uid) =>
-    Object.values(report.quotaForUser(uid)).reduce((s, q) => s + q.usageBytes, 0),
+    Object.values(report.quotaForUser(uid)).reduce(
+      (s, q) => s + q.usageBytes,
+      0,
+    ),
   );
   const uidRanked = allUids
     .map((uid, i) => ({ uid, name: allLocalNames[i], total: userTotals[i] }))
@@ -107,8 +128,13 @@ export function buildStorageBarOptions(
       : userVolNames.filter((v) => v === volumeFilter);
 
   // Y-axis: project rows first, then top user rows, then optional "Others" row
-  const projectRowLabels = visibleProjectVols.map((v) => `Project · ${v}`);
-  const othersLabel = hiddenUids.length > 0 ? `Others (${hiddenUids.length})` : null;
+  const projectRowLabels = visibleProjectVols.map((v) =>
+    translate('Project · {volume}', { volume: v }),
+  );
+  const othersLabel =
+    hiddenUids.length > 0
+      ? translate('Others ({count})', { count: hiddenUids.length })
+      : null;
   const yAxisData = [
     ...projectRowLabels,
     ...localNames,
@@ -127,14 +153,8 @@ export function buildStorageBarOptions(
       if (isFinite(q.limitBytes)) maxBytes = Math.max(maxBytes, q.limitBytes);
     }
   }
-  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'] as const;
-  const unitIndex = maxBytes > 0
-    ? Math.min(Math.floor(Math.log(maxBytes) / Math.log(1024)), units.length - 1)
-    : 3;
-  const unitDivisor = 1024 ** unitIndex;
-  const unitLabel = units[unitIndex];
+  const { unitLabel, toUnit } = getStorageUnit(maxBytes);
 
-  const toUnit = (bytes: number) => +(bytes / unitDivisor).toFixed(3);
   // Sparse data array: value at specific index, 0 elsewhere
   const sparse = (index: number, value: number) =>
     Array.from({ length: totalRows }, (_, i) => (i === index ? value : 0));
@@ -159,9 +179,12 @@ export function buildStorageBarOptions(
         z: 10,
       },
       {
-        name: `${vol} (limit)`,
+        name: translate('{volume} (limit)', { volume: vol }),
         type: 'bar' as const,
-        data: sparse(rowIndex, q && isFinite(q.limitBytes) ? toUnit(q.limitBytes) : 0),
+        data: sparse(
+          rowIndex,
+          q && isFinite(q.limitBytes) ? toUnit(q.limitBytes) : 0,
+        ),
         barGap: '-100%',
         itemStyle: { color: withAlpha(color, 0.15) },
         silent: true,
@@ -211,7 +234,7 @@ export function buildStorageBarOptions(
         z: 10,
       },
       {
-        name: `${vol} (limit)`,
+        name: translate('{volume} (limit)', { volume: vol }),
         type: 'bar' as const,
         data: limitData,
         barGap: '-100%',
@@ -230,14 +253,22 @@ export function buildStorageBarOptions(
       formatter: (params: any) => {
         if (!Array.isArray(params) || params.length === 0) return '';
         const rowLabel: string = params[0].axisValueLabel ?? params[0].name;
-        const isProjectRow = rowLabel.startsWith('Project · ');
+        const projectPrefix = translate('Project · {volume}', { volume: '' });
+        const isProjectRow = rowLabel.startsWith(projectPrefix);
 
         if (isProjectRow) {
-          const vol = rowLabel.replace('Project · ', '');
+          const vol = rowLabel.replace(projectPrefix, '');
           const q = projectQuotas[vol];
           if (!q) return rowLabel;
           const pct = (q.usedFraction * 100).toFixed(1);
-          return `<b>${rowLabel}</b><br/>${q.usageFormatted} / ${q.limitFormatted} (${pct}%)`;
+          return `<b>${rowLabel}</b><br/>${translate(
+            '{usage} / {limit} ({percent}%)',
+            {
+              usage: q.usageFormatted,
+              limit: q.limitFormatted,
+              percent: pct,
+            },
+          )}`;
         }
 
         const uid = uids[localNames.indexOf(rowLabel)] ?? rowLabel;
@@ -246,19 +277,39 @@ export function buildStorageBarOptions(
           const q = report.quotaForUser(uid)?.[vol];
           if (q) {
             const pct = (q.usedFraction * 100).toFixed(1);
-            lines.push(`${vol}: ${q.usageFormatted} / ${q.limitFormatted} (${pct}%)`);
+            lines.push(
+              translate('{volume}: {usage} / {limit} ({percent}%)', {
+                volume: vol,
+                usage: q.usageFormatted,
+                limit: q.limitFormatted,
+                percent: pct,
+              }),
+            );
           }
         }
         return lines.join('<br/>');
       },
     },
-    legend: legendItems.length > 15 ? { show: false } : { data: legendItems, bottom: 0 },
-    toolbox: { right: 10, feature: { saveAsImage: { title: 'Save image' } } },
-    grid: { left: '18%', right: '5%', bottom: legendItems.length > 15 ? 10 : 40 },
+    legend:
+      legendItems.length > 15
+        ? { show: false }
+        : { data: legendItems, bottom: 0 },
+    toolbox: {
+      right: 10,
+      feature: { saveAsImage: { title: translate('Save image') } },
+    },
+    grid: {
+      left: '18%',
+      right: '5%',
+      bottom: legendItems.length > 15 ? 10 : 40,
+    },
     xAxis: {
       type: 'value',
       name: unitLabel,
-      axisLabel: { formatter: `{value} ${unitLabel}` },
+      axisLabel: {
+        formatter: (value: number) =>
+          translate('{value} {unit}', { value, unit: unitLabel }),
+      },
     },
     yAxis: {
       type: 'category',
@@ -292,23 +343,20 @@ export function buildStorageTimeseriesOptions(
   // For 'month' mode: use the last snapshot date within each month as the representative value
   const dates: string[] =
     groupBy === 'month'
-      ? [
-          ...new Set(allDates.map((d) => d.slice(0, 7))),
-        ]
-          .sort()
-          .map((month) => {
-            const monthDates = allDates.filter((d) => d.startsWith(month));
-            return monthDates[monthDates.length - 1]; // last reading of each month
-          })
+      ? [...new Set(allDates.map((d) => d.slice(0, 7)))].sort().map((month) => {
+          const monthDates = allDates.filter((d) => d.startsWith(month));
+          return monthDates[monthDates.length - 1]; // last reading of each month
+        })
       : allDates;
 
   // Labels shown on x-axis
-  const labels =
-    groupBy === 'month' ? dates.map((d) => d.slice(0, 7)) : dates;
+  const labels = groupBy === 'month' ? dates.map((d) => d.slice(0, 7)) : dates;
   const allUids = report.userIdentifiers();
   const allLocalNames = allUids.map((uid) => {
     if (nameMaps?.user?.[uid]) return truncateLabel(nameMaps.user[uid]);
-    const raw = fullNames ? (report.users[uid] ?? uid) : shortName(report.users[uid] ?? uid);
+    const raw = fullNames
+      ? (report.users[uid] ?? uid)
+      : shortName(report.users[uid] ?? uid);
     return truncateLabel(raw);
   });
 
@@ -316,7 +364,13 @@ export function buildStorageTimeseriesOptions(
   const userTotals = allUids.map((uid) =>
     dates.reduce((s, date) => {
       const daily = report.getReport(date);
-      return s + Object.values(daily?.userQuotas[uid] ?? {}).reduce((ss, q) => ss + q.usageBytes, 0);
+      return (
+        s +
+        Object.values(daily?.userQuotas[uid] ?? {}).reduce(
+          (ss, q) => ss + q.usageBytes,
+          0,
+        )
+      );
     }, 0),
   );
   const ranked = allUids
@@ -353,18 +407,11 @@ export function buildStorageTimeseriesOptions(
       maxBytes = Math.max(maxBytes, total);
     }
   }
-  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'] as const;
-  const unitIndex =
-    maxBytes > 0
-      ? Math.min(Math.floor(Math.log(maxBytes) / Math.log(1024)), units.length - 1)
-      : 3;
-  const unitDivisor = 1024 ** unitIndex;
-  const unitLabel = units[unitIndex];
-  const toUnit = (bytes: number) => +(bytes / unitDivisor).toFixed(3);
+  const { unitLabel, toUnit } = getStorageUnit(maxBytes);
 
   // Project-volume series (one per volume, not stacked with users)
   const projectSeries = projectVols.map((vol, vi) => ({
-    name: `Project · ${vol}`,
+    name: translate('Project · {volume}', { volume: vol }),
     type: 'line' as const,
     emphasis: { focus: 'series' as const },
     itemStyle: { color: PALETTE[vi % PALETTE.length] },
@@ -397,7 +444,7 @@ export function buildStorageTimeseriesOptions(
     hidden.length > 0
       ? [
           {
-            name: `Others (${hidden.length})`,
+            name: translate('Others ({count})', { count: hidden.length }),
             type: 'bar' as const,
             stack: 'users',
             emphasis: { focus: 'series' as const },
@@ -422,14 +469,16 @@ export function buildStorageTimeseriesOptions(
       : [];
 
   const allNames = [
-    ...projectVols.map((v) => `Project · ${v}`),
+    ...projectVols.map((v) => translate('Project · {volume}', { volume: v })),
     ...localNames,
-    ...(hidden.length > 0 ? [`Others (${hidden.length})`] : []),
+    ...(hidden.length > 0
+      ? [translate('Others ({count})', { count: hidden.length })]
+      : []),
   ];
 
   const allSeriesData = [
-    ...projectSeries.map((s) => s.data as number[]),
-    ...userSeries.map((s) => s.data as number[]),
+    ...projectSeries.map((s) => s.data),
+    ...userSeries.map((s) => s.data),
   ];
   const zoom = computeDataZoomRange(labels, allSeriesData);
 
@@ -441,9 +490,8 @@ export function buildStorageTimeseriesOptions(
       formatter: (params: any) => {
         if (!Array.isArray(params) || params.length === 0) return '';
         const date = params[0].axisValueLabel ?? params[0].name;
-        const { rows } = buildTooltipRows(
-          params,
-          (v) => `${v.toFixed(2)} ${unitLabel}`,
+        const { rows } = buildTooltipRows(params, (v) =>
+          translate('{value} {unit}', { value: v.toFixed(2), unit: unitLabel }),
         );
         return `<b>${date}</b><br/>${rows}`;
       },
@@ -452,11 +500,18 @@ export function buildStorageTimeseriesOptions(
     toolbox: {
       right: 10,
       feature: {
-        saveAsImage: { title: 'Save image' },
+        saveAsImage: { title: translate('Save image') },
       },
     },
     dataZoom: [
-      { type: 'slider', xAxisIndex: 0, bottom: 10, height: 40, start: zoom.start, end: zoom.end },
+      {
+        type: 'slider',
+        xAxisIndex: 0,
+        bottom: 10,
+        height: 40,
+        start: zoom.start,
+        end: zoom.end,
+      },
     ],
     grid: { bottom: 130 },
     ...gridOverride(allNames.length, 70),
@@ -471,7 +526,10 @@ export function buildStorageTimeseriesOptions(
     yAxis: {
       type: 'value',
       name: unitLabel,
-      axisLabel: { formatter: `{value} ${unitLabel}` },
+      axisLabel: {
+        formatter: (value: number) =>
+          translate('{value} {unit}', { value, unit: unitLabel }),
+      },
     },
     series: [...projectSeries, ...userSeries, ...othersSeries],
   };
@@ -505,19 +563,25 @@ export function buildStorageProjectBarOptions(
     truncateMiddle(nameMaps?.project?.[projId] ?? projId);
 
   // Rank by total bytes, keep top N
-  const withTotals = projectReports.map((r) => {
-    const uids = r.userIdentifiers();
-    const userBytes = uids.reduce(
-      (s, uid) =>
-        s + Object.values(r.quotaForUser(uid)).reduce((ss, q) => ss + q.usageBytes, 0),
-      0,
-    );
-    const projectBytes = Object.values(r.projectQuotas).reduce(
-      (s, q) => s + q.usageBytes,
-      0,
-    );
-    return { r, bytes: userBytes + projectBytes };
-  }).sort((a, b) => b.bytes - a.bytes);
+  const withTotals = projectReports
+    .map((r) => {
+      const uids = r.userIdentifiers();
+      const userBytes = uids.reduce(
+        (s, uid) =>
+          s +
+          Object.values(r.quotaForUser(uid)).reduce(
+            (ss, q) => ss + q.usageBytes,
+            0,
+          ),
+        0,
+      );
+      const projectBytes = Object.values(r.projectQuotas).reduce(
+        (s, q) => s + q.usageBytes,
+        0,
+      );
+      return { r, bytes: userBytes + projectBytes };
+    })
+    .sort((a, b) => b.bytes - a.bytes);
 
   const topN = withTotals.slice(0, TOP_N_PROJECTS);
   const hidden = withTotals.slice(TOP_N_PROJECTS).filter((p) => p.bytes > 0);
@@ -525,7 +589,9 @@ export function buildStorageProjectBarOptions(
 
   const yAxisData = [
     ...topN.map((p) => resolveProject(p.r.project)),
-    ...(hidden.length > 0 ? [`Others (${hidden.length})`] : []),
+    ...(hidden.length > 0
+      ? [translate('Others ({count})', { count: hidden.length })]
+      : []),
   ];
   const barValues = [
     ...topN.map((p, i) => ({ value: p.bytes, idx: i })),
@@ -533,14 +599,7 @@ export function buildStorageProjectBarOptions(
   ];
 
   const maxBytes = Math.max(...barValues.map((b) => b.value), 0);
-  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'] as const;
-  const unitIndex =
-    maxBytes > 0
-      ? Math.min(Math.floor(Math.log(maxBytes) / Math.log(1024)), units.length - 1)
-      : 3;
-  const unitDivisor = 1024 ** unitIndex;
-  const unitLabel = units[unitIndex];
-  const toUnit = (bytes: number) => +(bytes / unitDivisor).toFixed(3);
+  const { unitLabel, toUnit } = getStorageUnit(maxBytes);
 
   return {
     color: PALETTE,
@@ -551,24 +610,35 @@ export function buildStorageProjectBarOptions(
       formatter: (params: any) => {
         if (!Array.isArray(params) || params.length === 0) return '';
         const label = params[0].axisValueLabel ?? params[0].name;
-        return `<b>${label}</b><br/>${(params[0].value as number).toFixed(2)} ${unitLabel}`;
+        return `<b>${label}</b><br/>${translate('{value} {unit}', {
+          value: (params[0].value as number).toFixed(2),
+          unit: unitLabel,
+        })}`;
       },
     },
-    toolbox: { right: 10, feature: { saveAsImage: { title: 'Save image' } } },
+    toolbox: {
+      right: 10,
+      feature: { saveAsImage: { title: translate('Save image') } },
+    },
     grid: { left: '20%', right: '5%', bottom: 40 },
     xAxis: {
       type: 'value',
       name: unitLabel,
-      axisLabel: { formatter: `{value} ${unitLabel}` },
+      axisLabel: {
+        formatter: (value: number) =>
+          translate('{value} {unit}', { value, unit: unitLabel }),
+      },
     },
     yAxis: { type: 'category', data: yAxisData },
     series: [
       {
-        name: 'Storage',
+        name: translate('Storage'),
         type: 'bar',
         data: barValues.map(({ value, idx }) => ({
           value: toUnit(value),
-          itemStyle: { color: idx < topN.length ? PALETTE[idx % PALETTE.length] : '#bbb' },
+          itemStyle: {
+            color: idx < topN.length ? PALETTE[idx % PALETTE.length] : '#bbb',
+          },
         })),
         emphasis: { focus: 'series' as const },
       },
@@ -587,22 +657,17 @@ export function buildStorageProjectTimeseriesOptions(
   const projectReports = groupStorageByProject(reports);
   const resolveProject = (projId: string) =>
     truncateMiddle(nameMaps?.project?.[projId] ?? projId);
-  const allDates = [
-    ...new Set(projectReports.flatMap((r) => r.dates)),
-  ].sort();
+  const allDates = [...new Set(projectReports.flatMap((r) => r.dates))].sort();
 
   const dates: string[] =
     groupBy === 'month'
-      ? [...new Set(allDates.map((d) => d.slice(0, 7)))]
-          .sort()
-          .map((month) => {
-            const monthDates = allDates.filter((d) => d.startsWith(month));
-            return monthDates[monthDates.length - 1];
-          })
+      ? [...new Set(allDates.map((d) => d.slice(0, 7)))].sort().map((month) => {
+          const monthDates = allDates.filter((d) => d.startsWith(month));
+          return monthDates[monthDates.length - 1];
+        })
       : allDates;
 
-  const labels =
-    groupBy === 'month' ? dates.map((d) => d.slice(0, 7)) : dates;
+  const labels = groupBy === 'month' ? dates.map((d) => d.slice(0, 7)) : dates;
 
   // Determine unit
   let maxBytes = 0;
@@ -624,26 +689,25 @@ export function buildStorageProjectTimeseriesOptions(
     }
   }
 
-  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'] as const;
-  const unitIndex =
-    maxBytes > 0
-      ? Math.min(Math.floor(Math.log(maxBytes) / Math.log(1024)), units.length - 1)
-      : 3;
-  const unitDivisor = 1024 ** unitIndex;
-  const unitLabel = units[unitIndex];
-  const toUnit = (bytes: number) => +(bytes / unitDivisor).toFixed(3);
+  const { unitLabel, toUnit } = getStorageUnit(maxBytes);
 
   // Rank projects by total bytes, keep top N
   const getProjectTotal = (r: ProjectStorageReport) =>
     dates.reduce((s, date) => {
       const daily = r.getReport(date);
       if (!daily) return s;
-      return s +
+      return (
+        s +
         Object.values(daily.userQuotas).reduce(
-          (ss, vols) => ss + Object.values(vols).reduce((sss, q) => sss + q.usageBytes, 0),
+          (ss, vols) =>
+            ss + Object.values(vols).reduce((sss, q) => sss + q.usageBytes, 0),
           0,
         ) +
-        Object.values(daily.projectQuotas).reduce((ss, q) => ss + q.usageBytes, 0);
+        Object.values(daily.projectQuotas).reduce(
+          (ss, q) => ss + q.usageBytes,
+          0,
+        )
+      );
     }, 0);
 
   const ranked = projectReports
@@ -656,7 +720,8 @@ export function buildStorageProjectTimeseriesOptions(
     const daily = r.getReport(date);
     if (!daily) return 0;
     const userBytes = Object.values(daily.userQuotas).reduce(
-      (s, vols) => s + Object.values(vols).reduce((ss, q) => ss + q.usageBytes, 0),
+      (s, vols) =>
+        s + Object.values(vols).reduce((ss, q) => ss + q.usageBytes, 0),
       0,
     );
     const projectBytes = Object.values(daily.projectQuotas).reduce(
@@ -675,25 +740,33 @@ export function buildStorageProjectTimeseriesOptions(
     data: dates.map((date) => getDateTotal(r, date)),
   }));
 
-  const othersSeries = hidden.length > 0
-    ? [{
-        name: `Others (${hidden.length})`,
-        type: 'bar' as const,
-        stack: 'projects',
-        emphasis: { focus: 'series' as const },
-        itemStyle: { color: '#bbb' },
-        data: dates.map((date) =>
-          hidden.reduce((s, { r }) => s + getDateTotal(r, date), 0),
-        ),
-      }]
-    : [];
+  const othersSeries =
+    hidden.length > 0
+      ? [
+          {
+            name: translate('Others ({count})', { count: hidden.length }),
+            type: 'bar' as const,
+            stack: 'projects',
+            emphasis: { focus: 'series' as const },
+            itemStyle: { color: '#bbb' },
+            data: dates.map((date) =>
+              hidden.reduce((s, { r }) => s + getDateTotal(r, date), 0),
+            ),
+          },
+        ]
+      : [];
 
   const allSeries = [...topSeries, ...othersSeries];
   const allNames = [
     ...topN.map(({ r }) => resolveProject(r.project)),
-    ...(hidden.length > 0 ? [`Others (${hidden.length})`] : []),
+    ...(hidden.length > 0
+      ? [translate('Others ({count})', { count: hidden.length })]
+      : []),
   ];
-  const zoom = computeDataZoomRange(labels, allSeries.map((s) => s.data as number[]));
+  const zoom = computeDataZoomRange(
+    labels,
+    allSeries.map((s) => s.data),
+  );
 
   return {
     color: PALETTE,
@@ -704,14 +777,26 @@ export function buildStorageProjectTimeseriesOptions(
       formatter: (params: any) => {
         if (!Array.isArray(params) || params.length === 0) return '';
         const date = params[0].axisValueLabel ?? params[0].name;
-        const { rows } = buildTooltipRows(params, (v) => `${v.toFixed(2)} ${unitLabel}`);
+        const { rows } = buildTooltipRows(params, (v) =>
+          translate('{value} {unit}', { value: v.toFixed(2), unit: unitLabel }),
+        );
         return `<b>${date}</b><br/>${rows}`;
       },
     },
     legend: timeseriesLegend(allNames),
-    toolbox: { right: 10, feature: { saveAsImage: { title: 'Save image' } } },
+    toolbox: {
+      right: 10,
+      feature: { saveAsImage: { title: translate('Save image') } },
+    },
     dataZoom: [
-      { type: 'slider', xAxisIndex: 0, bottom: 10, height: 40, start: zoom.start, end: zoom.end },
+      {
+        type: 'slider',
+        xAxisIndex: 0,
+        bottom: 10,
+        height: 40,
+        start: zoom.start,
+        end: zoom.end,
+      },
     ],
     grid: { bottom: 120 },
     ...gridOverride(allNames.length, 70),
@@ -729,74 +814,5 @@ export function buildStorageProjectTimeseriesOptions(
       axisLabel: { formatter: `{value} ${unitLabel}` },
     },
     series: allSeries,
-  };
-}
-
-/**
- * Treemap showing hierarchical storage usage breakdown.
- * Hierarchy: user → volume → usage bytes.
- *
- * Note: requires 'echarts/lib/chart/treemap' to be imported in
- * src/echarts/index.ts.
- */
-export function buildStorageTreemapOptions(
-  report: ProjectStorageReport,
-): EChartsOption {
-  const treeData = report.userIdentifiers().map((uid, i) => {
-    const localName = report.users[uid] ?? uid;
-    const quotas = report.quotaForUser(uid);
-    const children = Object.entries(quotas)
-      .filter(([, q]) => q.usageBytes > 0)
-      .map(([vol, q]) => ({
-        name: vol,
-        value: q.usageBytes,
-        tooltip: `${q.usageFormatted} of ${q.limitFormatted}`,
-      }));
-
-    const totalUsage = children.reduce((s, c) => s + c.value, 0);
-    return {
-      name: localName,
-      value: totalUsage,
-      itemStyle: { color: PALETTE[i % PALETTE.length] },
-      children: children.length > 0 ? children : undefined,
-    };
-  });
-
-  return {
-    tooltip: {
-      formatter: (info: any) => {
-        const value = info.value as number;
-        const treePathInfo = info.treePathInfo as Array<{ name: string }>;
-        const treePath = treePathInfo.map((p) => p.name).join(' › ');
-        return `${treePath}<br/>${formatStorageBytes(value)}`;
-      },
-    },
-    series: [
-      {
-        type: 'treemap',
-        visibleMin: 100,
-        label: { show: true, formatter: '{b}' },
-        upperLabel: {
-          show: true,
-          height: 30,
-          color: '#fff',
-        },
-        itemStyle: { borderColor: '#fff', borderWidth: 2, gapWidth: 2 },
-        levels: [
-          {
-            // user level
-            itemStyle: { borderWidth: 3, gapWidth: 3 },
-            upperLabel: { show: true },
-          },
-          {
-            // volume level
-            colorSaturation: [0.4, 0.8],
-            itemStyle: { borderWidth: 1, gapWidth: 1 },
-            label: { show: true },
-          },
-        ],
-        data: treeData,
-      },
-    ],
   };
 }

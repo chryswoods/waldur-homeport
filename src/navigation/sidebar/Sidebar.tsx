@@ -1,14 +1,15 @@
 import classNames from 'classnames';
 import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
 
-import { ENV } from '@waldur/core/config';
+import { ENV } from '@/core/config';
 import {
   DrawerComponent,
   MenuComponent,
   ScrollComponent,
   ToggleComponent,
-} from '@waldur/metronic/components';
-import { useLayout } from '@waldur/metronic/layout/core';
+} from '@/metronic/components';
+import { useLayout } from '@/metronic/layout/core';
+import { useTheme } from '@/theme/useTheme';
 
 import { BrandName } from './BrandName';
 import { SidebarFooter } from './SidebarFooter';
@@ -27,10 +28,18 @@ export const Sidebar: React.FC<PropsWithChildren> = (props) => {
     }
   }, [sidebarRef, layout]);
 
-  const sidebarStyle = ENV.plugins.WALDUR_CORE.SIDEBAR_STYLE || 'dark';
+  const { theme } = useTheme();
+  const configuredStyle = ENV.plugins.WALDUR_CORE.SIDEBAR_STYLE || 'dark';
+  const sidebarStyle =
+    configuredStyle === 'auto'
+      ? theme === 'dark'
+        ? 'dark'
+        : 'light'
+      : configuredStyle;
   const asideClassNames = {
     'aside-dark': sidebarStyle === 'dark',
     'aside-light': sidebarStyle === 'light',
+    'aside-primary': sidebarStyle === 'primary',
     'aside-accent': sidebarStyle === 'accent',
     'aside-accent-light': sidebarStyle === 'accent-light',
   };
@@ -38,7 +47,7 @@ export const Sidebar: React.FC<PropsWithChildren> = (props) => {
     'menu-title-gray-800': sidebarStyle === 'dark',
     'menu-title-dark-always':
       sidebarStyle === 'light' || sidebarStyle === 'accent-light',
-    'menu-title-white': sidebarStyle === 'accent',
+    'menu-title-white': sidebarStyle === 'accent' || sidebarStyle === 'primary',
   };
 
   return (

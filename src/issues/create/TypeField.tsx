@@ -1,9 +1,9 @@
 import { FunctionComponent } from 'react';
 import { components } from 'react-select';
-import { Field } from 'redux-form';
 
-import { SelectField } from '@waldur/form/SelectField';
-import { translate } from '@waldur/i18n';
+import { required } from '@/core/validators';
+import { SelectGroup } from '@/form';
+import { translate } from '@/i18n';
 
 import { IssueTypeRenderer } from './IssueTypeRenderer';
 
@@ -23,16 +23,17 @@ export const TypeField: FunctionComponent<{ issueTypes; isDisabled }> = ({
   issueTypes,
   isDisabled,
 }) => (
-  <Field
+  <SelectGroup
     name="type"
-    component={SelectField}
+    label={translate('Request type')}
+    required={true}
+    validate={required}
     placeholder={translate('Select request type...')}
     options={issueTypes}
     isDisabled={isDisabled}
     getOptionValue={(option) => option.id}
     components={{ Option, SingleValue }}
     isClearable={false}
-    required={true}
-    noOptionsMessage={translate('No request types')}
+    noOptionsMessage={() => translate('No request types available')}
   />
 );

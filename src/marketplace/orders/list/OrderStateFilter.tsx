@@ -1,30 +1,29 @@
-import { FunctionComponent } from 'react';
-import { Field } from 'redux-form';
+import { FC } from 'react';
 
-import { REACT_SELECT_TABLE_FILTER, Select } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { Option } from '@waldur/marketplace/common/registry';
+import { translate } from '@/i18n';
+import { Option } from '@/marketplace/common/registry';
+import { SelectFilter } from '@/table';
 
 import { createOrderStateOptions } from '../OrderStates';
 
 interface OrderStateFilterProps {
   options?: () => Option[];
+  [key: string]: any;
 }
 
-export const OrderStateFilter: FunctionComponent<OrderStateFilterProps> = ({
+export const OrderStateFilter: FC<OrderStateFilterProps> = ({
   options,
-}) => (
-  <Field
-    name="state"
-    component={(fieldProps) => (
-      <Select
-        placeholder={translate('Select state...')}
-        options={options ? options() : createOrderStateOptions()}
-        value={fieldProps.input.value}
-        onChange={(value) => fieldProps.input.onChange(value)}
-        isClearable={true}
-        {...REACT_SELECT_TABLE_FILTER}
-      />
-    )}
-  />
-);
+  ...props
+}) => {
+  return (
+    <SelectFilter
+      title={translate('State')}
+      name="state"
+      badgeValue={(value) => value?.label}
+      placeholder={translate('Select state...')}
+      options={options ? options() : createOrderStateOptions()}
+      isClearable={true}
+      {...props}
+    />
+  );
+};

@@ -1,142 +1,183 @@
+import { WarningCircleIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useCurrentStateAndParams } from '@uirouter/react';
 import { FunctionComponent, useMemo } from 'react';
-import { useSelector } from 'react-redux';
 import { proposalProtectedCallsRetrieve } from 'waldur-js-client';
 
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { InvalidRoutePage } from '@waldur/error/InvalidRoutePage';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { ValidationIcon } from '@waldur/marketplace/common/ValidationIcon';
-import { useBreadcrumbs, usePageHero } from '@waldur/navigation/context';
-import { useTitle } from '@waldur/navigation/title';
-import { PageBarTab } from '@waldur/navigation/types';
-import { usePageTabsTransmitter } from '@waldur/navigation/usePageTabsTransmitter';
-import { RoleEnum } from '@waldur/permissions/enums';
-import { type RootState } from '@waldur/store/reducers';
-import { getUser } from '@waldur/workspace/selectors';
+import { Badge } from '@/core/Badge';
+import { FeaturedIcon } from '@/core/FeaturedIcon';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { InvalidRoutePage } from '@/error/InvalidRoutePage';
+import { translate } from '@/i18n';
+import { ValidationIcon } from '@/marketplace/common/ValidationIcon';
+import { useBreadcrumbs, usePageHero } from '@/navigation/context';
+import { useTitle } from '@/navigation/title';
+import { PageBarTab } from '@/navigation/types';
+import { usePageTabsTransmitter } from '@/navigation/usePageTabsTransmitter';
+import { RoleEnum } from '@/permissions/enums';
 
 import { CallTabs } from '../details/CallTabs';
+import { SetPanelChairButton } from '../team/SetPanelChairButton';
 import { TeamSection } from '../team/TeamSection';
-import { Call } from '../types';
-import { checkIsCallManager, useCallBreadcrumbItems } from '../utils';
+import { useCallBreadcrumbItems } from '../utils';
 
+import { ApplicantVisibilitySection } from './applicant-visibility/ApplicantVisibilitySection';
+import { CallActions } from './CallActions';
 import { CallUpdateHero } from './CallUpdateHero';
-import { CallConfiguration } from './configuration/CallConfiguration';
+import { COISettingsSection } from './coi-settings/COISettingsSection';
+import { CallResourceTemplates } from './configuration/CallResourceTemplates';
+import { GeneralConfigurationSection } from './configuration/GeneralConfigurationSection';
+import { ProposalFieldsSection } from './configuration/ProposalFieldsSection';
 import { CallDocumentsSection } from './documents/CallDocumentsSection';
 import { CallGeneralSection } from './general/CallGeneralSection';
+import { MatchingSection } from './matching/MatchingSection';
 import { CallOfferingsSection } from './offerings/CallOfferingsSection';
 import { CallRoleMappingsList } from './role-mapping/CallRoleMappingsList';
 import { CallRoundsList } from './rounds/CallRoundsList';
+import { WorkflowStepsSection } from './workflow-steps/WorkflowStepsSection';
 
 const PageHero = ({ call, refetch }) => (
-  <div className="container-fluid my-5">
-    <CallTabs call={call} />
-    <CallUpdateHero call={call} refetch={refetch} />
-  </div>
+  <>
+    {/* FeaturedIcon is used inline in the warning banner, not as an icon component.
+       The WarningCircleIcon weight is set on the component import, not the JSX prop. */}
+    {/* eslint-disable waldur-custom/enforce-featured-icon, waldur-custom/enforce-phosphor-icon-weight */}
+    {call.state === 'archived' && (
+      <div className="d-flex align-items-center gap-3 bg-light-warning text-warning border-bottom py-3 px-8">
+        <FeaturedIcon
+          IconComponent={WarningCircleIcon}
+          size="sm"
+          variant="warning"
+        />
+        <div className="flex-grow-1">
+          <span className="fw-semibold">
+            {translate('This call is archived and read-only.')}
+          </span>{' '}
+          <span>
+            {translate(
+              'All items can be browsed, but not edited. To make changes, activate the call first.',
+            )}
+          </span>
+        </div>
+        <CallActions call={call} refetch={refetch} />
+      </div>
+    )}
+    {/* Re-enable lint rules after the archived banner section */}
+    {/* eslint-enable waldur-custom/enforce-featured-icon, waldur-custom/enforce-phosphor-icon-weight */}
+    <div className="container-fluid my-5">
+      <CallTabs call={call} />
+      <CallUpdateHero call={call} refetch={refetch} />
+    </div>
+  </>
 );
 
 const Body = ({ call, refetch, loading }) => {
-  // Check if user can manage the call (staff or call manager only)
-  const canManageCall = useSelector((state: RootState) => {
-    const user = getUser(state);
-    if (!user) return false;
-    // Staff users have full access
-    if (user.is_staff) return true;
-    // Call managers have full access
-    if (checkIsCallManager(call, user)) return true;
-    return false;
-  });
-
   const tabs = useMemo<PageBarTab[]>(
     () =>
       [
-        // Only show management tabs to Call Managers and staff
-        canManageCall && {
+        {
+          key: 'general',
+          title: translate('General'),
+          component: CallGeneralSection,
+        },
+        {
+          // Parent has no `component`, so it renders as a dropdown whose
+          // children each map to ?tab=<child key> (see usePageTabsTransmitter).
+          key: 'configuration',
+          title: translate('Configuration'),
+          defaultKey: 'general-config',
+          children: [
+            {
+              key: 'general-config',
+              title: translate('General configuration'),
+              component: GeneralConfigurationSection,
+            },
+            {
+              key: 'proposal-fields',
+              title: translate('Project details fields'),
+              component: ProposalFieldsSection,
+            },
+            {
+              key: 'applicant-visibility',
+              title: translate('Applicant data visibility'),
+              component: ApplicantVisibilitySection,
+            },
+            {
+              key: 'resource-templates',
+              title: translate('Resource templates'),
+              component: CallResourceTemplates,
+            },
+            {
+              key: 'steps-settings',
+              title: translate('Steps & settings'),
+              component: WorkflowStepsSection,
+            },
+          ],
+        },
+        {
           key: 'rounds',
           title: (
             <>
-              <ValidationIcon value={call.rounds.length > 0} />
+              {/* eslint-disable-next-line waldur-custom/enforce-phosphor-icon-weight */}
+              {!call.rounds.length && <ValidationIcon value={false} />}
               {translate('Rounds')}
             </>
           ),
-
           component: CallRoundsList,
         },
-        canManageCall && {
-          key: 'general',
-          title: (
-            <>
-              <ValidationIcon value={call.description} />
-              <span>{translate('General')}</span>
-            </>
-          ),
-
-          component: CallGeneralSection,
-        },
-        canManageCall && {
-          key: 'configuration',
-          title: translate('Configuration'),
-          component: CallConfiguration,
-        },
-        canManageCall && {
+        {
           key: 'documents',
           title: translate('Documents'),
           component: CallDocumentsSection,
         },
-        canManageCall && {
-          key: 'team',
-          title: translate('Team'),
-          defaultKey: !isFeatureVisible(MarketplaceFeatures.call_only)
-            ? 'reviewers'
-            : 'managers',
-          children: [
-            !isFeatureVisible(MarketplaceFeatures.call_only) && {
-              key: 'reviewers',
-              title: translate('Reviewers'),
-              component: ({ call }) => (
-                <TeamSection
-                  scope={call}
-                  roles={[RoleEnum.CALL_REVIEWER]}
-                  roleTypes={['call', 'call_organizer']}
-                  title={translate('Reviewers')}
-                  hasTeamTabs
-                />
-              ),
-
-              visible: false,
-            },
-            {
-              key: 'managers',
-              title: translate('Managers'),
-              component: ({ call }) => (
-                <TeamSection
-                  scope={call}
-                  roles={[RoleEnum.CALL_MANAGER]}
-                  roleTypes={['call', 'call_organizer']}
-                  title={translate('Managers')}
-                  hasTeamTabs
-                />
-              ),
-
-              visible: false,
-            },
-          ].filter(Boolean),
-        },
-        canManageCall && {
+        {
           key: 'offerings',
           title: translate('Offerings'),
           component: CallOfferingsSection,
         },
-        canManageCall && {
+        {
           key: 'role_mapping',
           title: translate('Role mapping'),
           component: CallRoleMappingsList,
         },
+        {
+          key: 'coi-settings',
+          title: translate('COI settings'),
+          component: COISettingsSection,
+        },
+        {
+          key: 'matching',
+          title: translate('Matching settings'),
+          component: MatchingSection,
+        },
+        {
+          key: 'team',
+          title: translate('Team'),
+          component: ({ call, refetch }) => (
+            <TeamSection
+              scope={call}
+              roles={[RoleEnum.CALL_MANAGER, RoleEnum.CALL_PANEL_MEMBER]}
+              roleTypes={['call', 'call_organizer']}
+              title={translate('Call team')}
+              extraRowActions={({ row }) => (
+                <SetPanelChairButton
+                  permission={row}
+                  call={call}
+                  refetch={refetch}
+                />
+              )}
+              roleSuffix={(row) =>
+                call.panel_chair_uuid &&
+                row.user_uuid === call.panel_chair_uuid ? (
+                  <Badge variant="primary" size="sm" pill outline>
+                    {translate('Chair')}
+                  </Badge>
+                ) : null
+              }
+            />
+          ),
+        },
       ].filter(Boolean) as PageBarTab[],
-    [call, canManageCall],
+    [call],
   );
 
   usePageHero(<PageHero call={call} refetch={refetch} />);
@@ -144,24 +185,27 @@ const Body = ({ call, refetch, loading }) => {
   const breadcrumbItems = useCallBreadcrumbItems(call);
   useBreadcrumbs(breadcrumbItems);
 
-  // If no tabs are available (e.g., user is only a reviewer), show access denied message
-  if (tabs.length === 0) {
-    return (
-      <div className="container-fluid">
-        <div className="alert alert-warning">
-          {translate(
-            'You do not have permission to manage this call. Only call managers can access call management features.',
-          )}
-        </div>
-      </div>
-    );
-  }
-
   const {
     tabSpec: { component: Component },
   } = usePageTabsTransmitter(tabs);
 
-  return <Component call={call} refetch={refetch} loading={loading} />;
+  // Read-only mirrors what the backend actually enforces: only an archived
+  // call is frozen server-side (StateValidator(draft, active) on the call
+  // update + per-nested-surface archived guards). Draft and active calls are
+  // fully editable. The one field-level exception the backend still enforces
+  // is applied inside the General/Configuration sections: the slug-template
+  // and compliance-checklist fields are locked once proposals exist
+  // (call.has_proposals).
+  const isReadOnly = call.state === 'archived';
+
+  return (
+    <Component
+      call={call}
+      refetch={refetch}
+      loading={loading}
+      isReadOnly={isReadOnly}
+    />
+  );
 };
 
 export const CallUpdateContainer: FunctionComponent = () => {
@@ -180,7 +224,7 @@ export const CallUpdateContainer: FunctionComponent = () => {
 
     queryFn: () =>
       proposalProtectedCallsRetrieve({ path: { uuid: call_uuid } }).then(
-        (r) => r.data as any as Call,
+        (r) => r.data,
       ),
 
     refetchOnWindowFocus: false,

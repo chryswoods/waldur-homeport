@@ -1,66 +1,70 @@
-import { useCallback } from 'react';
-import { useDispatch } from 'react-redux';
-import { Field, reduxForm } from 'redux-form';
-import { marketplaceProviderOfferingsAddEndpoint } from 'waldur-js-client';
+import { FC } from 'react';
+import { Form } from 'react-final-form';
+import {
+  marketplaceProviderOfferingsAddEndpoint,
+  NestedEndpointRequest,
+} from 'waldur-js-client';
 
-import { required } from '@waldur/core/validators';
-import { StringField, SubmitButton } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import {
+  composeValidators,
+  required,
+  url,
+  validateMaxLength,
+} from '@/core/validators';
+import { StringGroup, SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
-import { FormGroup } from '../../FormGroup';
+interface AddEndpointDialogProps {
+  resolve: {
+    offering: any;
+    refetch: () => void;
+  };
+}
 
-import { ENDPOINT_FORM_ID } from './constants';
-
-export const AddEndpointDialog = reduxForm<
-  {},
-  { resolve: { offering; refetch } }
->({
-  form: ENDPOINT_FORM_ID,
-})((props) => {
-  const dispatch = useDispatch();
-  const update = useCallback(
-    async (formData) => {
-      try {
-        await marketplaceProviderOfferingsAddEndpoint({
-          path: { uuid: props.resolve.offering.uuid },
-          body: formData,
-        });
-        dispatch(
-          showSuccess(translate('Endpoint has been added successfully.')),
-        );
-        if (props.resolve.refetch) await props.resolve.refetch();
-        dispatch(closeModalDialog());
-      } catch (error) {
-        dispatch(
-          showErrorResponse(error, translate('Unable to add endpoint.')),
-        );
-      }
-    },
-    [dispatch],
-  );
+export const AddEndpointDialog: FC<AddEndpointDialogProps> = (props) => {
+  const addMutation = useManagedMutation<any, any, NestedEndpointRequest>({
+    mutationFn: (formData) =>
+      marketplaceProviderOfferingsAddEndpoint({
+        path: { uuid: props.resolve.offering.uuid },
+        body: formData,
+      }),
+    successMessage: translate('Endpoint has been added successfully.'),
+    errorMessage: translate('Unable to add endpoint.'),
+    refetch: props.resolve.refetch,
+  });
 
   return (
-    <form onSubmit={props.handleSubmit(update)}>
-      <ModalDialog
-        title={translate('Add endpoint')}
-        footer={
-          <SubmitButton
-            disabled={props.invalid}
-            submitting={props.submitting}
-            label={translate('Create')}
-          />
-        }
-      >
-        <FormGroup label={translate('Name')} required={true}>
-          <Field name="name" validate={required} component={StringField} />
-        </FormGroup>
-        <FormGroup label={translate('URL')} required={true}>
-          <Field name="url" validate={required} component={StringField} />
-        </FormGroup>
-      </ModalDialog>
-    </form>
+    <Form<NestedEndpointRequest>
+      onSubmit={(values) => addMutation.mutateAsync(values)}
+      render={({ handleSubmit, submitting, invalid }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate('Add endpoint')}
+            footer={
+              <SubmitButton
+                disabled={invalid}
+                submitting={submitting}
+                label={translate('Create')}
+              />
+            }
+          >
+            <StringGroup
+              name="name"
+              validate={composeValidators(required, validateMaxLength(150))}
+              label={translate('Name')}
+              required={true}
+            />
+            <StringGroup
+              name="url"
+              validate={composeValidators(required, url)}
+              label={translate('URL')}
+              required={true}
+            />
+          </ModalDialog>
+        </form>
+      )}
+    />
   );
-});
+};

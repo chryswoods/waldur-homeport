@@ -1,19 +1,8 @@
 import { FC, ReactNode } from 'react';
+import { Table } from 'react-bootstrap';
 
-import { translate } from '@waldur/i18n';
-
-export const parseDetails = (value: any): Record<string, unknown> => {
-  if (!value) return {};
-  if (typeof value === 'string') {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return {};
-    }
-  }
-  if (typeof value === 'object') return value;
-  return {};
-};
+import { translate } from '@/i18n';
+import { renderFieldOrDash } from '@/table/utils';
 
 const sortedStringify = (value: unknown): string => {
   if (value === null || value === undefined) return JSON.stringify(value);
@@ -27,20 +16,26 @@ const sortedStringify = (value: unknown): string => {
   return JSON.stringify(value);
 };
 
-export const renderValue = (v: unknown): ReactNode => {
-  if (v === null || v === undefined) return <span className="text-muted">—</span>;
-  if (typeof v === 'boolean') return v ? 'true' : 'false';
-  if (typeof v !== 'object') return String(v);
+const renderValue = (value: unknown): ReactNode => {
+  if (value === null || value === undefined) {
+    return renderFieldOrDash(value);
+  }
+  if (typeof value === 'boolean') {
+    return value ? translate('True') : translate('False');
+  }
+  if (typeof value !== 'object') {
+    return String(value);
+  }
   return (
-    <pre className="mb-0 fs-8" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-      {JSON.stringify(v, null, 2)}
+    <pre className="mb-0 fs-8" style={{ whiteSpace: 'pre-wrap' }}>
+      {JSON.stringify(value, null, 2)}
     </pre>
   );
 };
 
 interface DetailsDiffProps {
-  before: any;
-  after: any;
+  before: Record<string, unknown> | null | undefined;
+  after: Record<string, unknown> | null | undefined;
   beforeLabel?: string;
   afterLabel?: string;
   afterNote?: ReactNode;
@@ -53,22 +48,32 @@ export const DetailsDiff: FC<DetailsDiffProps> = ({
   afterLabel,
   afterNote,
 }) => {
-  const beforeObj = parseDetails(before);
-  const afterObj = parseDetails(after);
-  const hasBoth = Object.keys(beforeObj).length > 0 && Object.keys(afterObj).length > 0;
+  const beforeObj = before ?? {};
+  const afterObj = after ?? {};
+  const hasBoth =
+    Object.keys(beforeObj).length > 0 && Object.keys(afterObj).length > 0;
   const keys = Array.from(
     new Set([...Object.keys(beforeObj), ...Object.keys(afterObj)]),
   ).sort();
 
-  if (keys.length === 0) return <span className="text-muted">—</span>;
+  if (keys.length === 0) {
+    return <span className="text-muted">{renderFieldOrDash(null)}</span>;
+  }
 
   return (
     <div className="table-responsive">
-      <table className="table table-bordered table-sm mb-0 fs-8">
-        <thead className="table-light">
+      <Table
+        bordered
+        size="sm"
+        className="mb-0 fs-8 align-middle"
+        data-testid="details-diff-table"
+      >
+        <thead>
           <tr>
             <th style={{ width: '20%' }}>{translate('Field')}</th>
-            <th style={{ width: '40%' }}>{beforeLabel ?? translate('Before')}</th>
+            <th style={{ width: '40%' }}>
+              {beforeLabel ?? translate('Before')}
+            </th>
             <th style={{ width: '40%' }}>
               {afterLabel ?? translate('After')}
               {afterNote && <span className="ms-1">{afterNote}</span>}
@@ -80,7 +85,8 @@ export const DetailsDiff: FC<DetailsDiffProps> = ({
             const beforeVal = beforeObj[key];
             const afterVal = afterObj[key];
             const differs =
-              hasBoth && sortedStringify(beforeVal) !== sortedStringify(afterVal);
+              hasBoth &&
+              sortedStringify(beforeVal) !== sortedStringify(afterVal);
             return (
               <tr key={key} className={differs ? 'table-warning' : undefined}>
                 <td className="fw-semibold align-top">{key}</td>
@@ -90,7 +96,7 @@ export const DetailsDiff: FC<DetailsDiffProps> = ({
             );
           })}
         </tbody>
-      </table>
+      </Table>
     </div>
   );
 };

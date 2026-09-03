@@ -1,22 +1,21 @@
 import { EyeIcon } from '@phosphor-icons/react';
-import { useDispatch } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { ActionsDropdown } from '@waldur/table/ActionsDropdown';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { ActionsDropdown } from '@/table/ActionsDropdown';
 
 const ResourceDetailsDialog = lazyComponent(() =>
-  import(
-    '@waldur/marketplace/resources/details/popup/ResourceDetailsDialog'
-  ).then((module) => ({
-    default: module.ResourceDetailsDialog,
-  })),
+  import('@/marketplace/resources/details/popup/ResourceDetailsDialog').then(
+    (module) => ({
+      default: module.ResourceDetailsDialog,
+    }),
+  ),
 );
 
 export const ResourcesListActions = ({ row, fetch }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   return (
     <ActionsDropdown
       row={row}
@@ -27,12 +26,10 @@ export const ResourcesListActions = ({ row, fetch }) => {
             title={translate('View details')}
             iconNode={<EyeIcon weight="bold" />}
             action={() =>
-              dispatch(
-                openModalDialog(ResourceDetailsDialog, {
-                  resolve: { resource: row },
-                  size: 'lg',
-                }),
-              )
+              openDialog(ResourceDetailsDialog, {
+                resolve: { resource: row },
+                size: 'lg',
+              })
             }
           />
         ),

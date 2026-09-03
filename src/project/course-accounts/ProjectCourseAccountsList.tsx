@@ -1,17 +1,15 @@
 import { useMemo } from 'react';
-import { useSelector } from 'react-redux';
 import { CourseAccount, marketplaceCourseAccountsList } from 'waldur-js-client';
 
-import { Badge } from '@waldur/core/Badge';
-import { CopyToClipboardButton } from '@waldur/core/CopyToClipboardButton';
-import { formatDate } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { TeamDropdownActions } from '@waldur/project/team/TeamDropdownActions';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { getProject } from '@waldur/workspace/selectors';
+import { Badge } from '@/core/Badge';
+import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
+import { formatDate } from '@/core/dateUtils';
+import { translate } from '@/i18n';
+import { TeamDropdownActions } from '@/project/team/TeamDropdownActions';
+import { createFetcher } from '@/table/api';
+import Table, { TableColumns } from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { useProject } from '@/workspace/hooks';
 
 import { ProjectLink } from '../ProjectLink';
 import { ProjectPermissionsLogButton } from '../team/ProjectPermissionsLogButton';
@@ -21,13 +19,14 @@ import { CourseAccountActions } from './CourseAccountActions';
 import { CourseAccountExpandableRow } from './CourseAccountExpandableRow';
 
 const courseAccountState = {
+  Pending: { label: translate('Pending'), color: 'warning' },
   Closed: { label: translate('Closed'), color: 'default' },
   Erred: { label: translate('Erred'), color: 'danger' },
   OK: { label: translate('OK'), color: 'success' },
 };
 
 export const ProjectCourseAccountsList = ({ admin = false }) => {
-  const project = useSelector(getProject);
+  const project = useProject();
 
   const filter = useMemo(
     () => (admin ? undefined : { project_uuid: project.uuid }),
@@ -40,48 +39,47 @@ export const ProjectCourseAccountsList = ({ admin = false }) => {
     queryField: 'email',
   });
 
-  const columns = useMemo<Column<CourseAccount>[]>(
-    () =>
-      [
-        admin && {
-          title: translate('Project'),
-          render: ({ row }) => (
-            <ProjectLink
-              row={{ uuid: row.project_uuid, name: row.project_name }}
-            />
-          ),
-          export: 'project_name',
-        },
-        {
-          title: translate('Username'),
-          render: ({ row }) => row.username,
-          export: 'username',
-        },
-        {
-          title: translate('Email'),
-          render: ({ row }) => (
-            <div className="d-flex align-items-center gap-1">
-              {row.email}
-              <CopyToClipboardButton value={row.email} />
-            </div>
-          ),
-          export: 'email',
-        },
-        {
-          title: translate('Creation date'),
-          orderField: 'created',
-          render: ({ row }) => formatDate(row.created),
-          export: (row) => formatDate(row.created),
-        },
-        {
-          title: translate('State'),
-          render: ({ row }) => (
-            <Badge outline pill variant={courseAccountState[row.state].color}>
-              {courseAccountState[row.state].label}
-            </Badge>
-          ),
-        },
-      ].filter(Boolean) as Column<CourseAccount>[],
+  const columns = useMemo<TableColumns<CourseAccount>>(
+    () => [
+      admin && {
+        title: translate('Project'),
+        render: ({ row }) => (
+          <ProjectLink
+            row={{ uuid: row.project_uuid, name: row.project_name }}
+          />
+        ),
+        export: 'project_name',
+      },
+      {
+        title: translate('Username'),
+        render: ({ row }) => row.username,
+        export: 'username',
+      },
+      {
+        title: translate('Email'),
+        render: ({ row }) => (
+          <div className="d-flex align-items-center gap-1">
+            {row.email}
+            <CopyToClipboardButton value={row.email} />
+          </div>
+        ),
+        export: 'email',
+      },
+      {
+        title: translate('Creation date'),
+        orderField: 'created',
+        render: ({ row }) => formatDate(row.created),
+        export: (row) => formatDate(row.created),
+      },
+      {
+        title: translate('State'),
+        render: ({ row }) => (
+          <Badge variant={courseAccountState[row.state].color} pill outline>
+            {courseAccountState[row.state].label}
+          </Badge>
+        ),
+      },
+    ],
     [],
   );
 

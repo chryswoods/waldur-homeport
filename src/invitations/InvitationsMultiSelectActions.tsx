@@ -1,8 +1,8 @@
-import { DropdownButton } from 'react-bootstrap';
 import { Invitation } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { useUser } from '@waldur/workspace/hooks';
+import { translate } from '@/i18n';
+import { ActionDropdownButton } from '@/table/ActionDropdownButton';
+import { useUser } from '@/workspace/hooks';
 
 import { MultiCancelAction } from './MultiCancelAction';
 import { MultiDeleteAction } from './MultiDeleteAction';
@@ -17,10 +17,10 @@ export const InvitationsMultiSelectActions = ({
 }) => {
   const user = useUser();
   return (
-    <DropdownButton variant="primary" title={translate('All actions')}>
+    <ActionDropdownButton variant="primary" title={translate('All actions')}>
       <MultiResendAction rows={rows} refetch={refetch} />
       <MultiCancelAction rows={rows} refetch={refetch} />
       {user.is_staff && <MultiDeleteAction rows={rows} refetch={refetch} />}
-    </DropdownButton>
+    </ActionDropdownButton>
   );
 };

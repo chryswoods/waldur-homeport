@@ -1,36 +1,62 @@
-import { FC } from 'react';
+import { FC, useMemo } from 'react';
 
-import { required } from '@waldur/core/validators';
-import { FormContainer, SelectField } from '@waldur/form';
-import { AsyncSelectField } from '@waldur/form/AsyncSelectField';
-import { CommaSeparatedListField } from '@waldur/form/CommaSeparatedListField';
-import { StringField } from '@waldur/form/StringField';
-import { translate } from '@waldur/i18n';
-import { organizationAutocomplete } from '@waldur/marketplace/common/autocompletes';
-import { Role } from '@waldur/permissions/types';
-import { getProjectRoles } from '@waldur/permissions/utils';
+import { ENV } from '@/core/config';
+import { required } from '@/core/validators';
+import {
+  StringGroup,
+  BooleanGroup,
+  SelectGroup,
+  AsyncSelectGroup,
+  CommaSeparatedListGroup,
+} from '@/form';
+import { translate } from '@/i18n';
+import { organizationAutocomplete } from '@/marketplace/common/autocompletes';
+import { Role } from '@/permissions/types';
+import {
+  formatRoleLabel,
+  getAmbiguousRoleDescriptions,
+  getProjectRoles,
+} from '@/permissions/utils';
 
 import { validateEmailPatterns } from './utils';
 
-export const RuleForm: FC<{ submitting? }> = (props) => {
+export const RuleForm: FC<{ values; change }> = ({ values, change }) => {
+  const protectedMethods =
+    ENV.plugins.WALDUR_CORE.PROTECT_USER_DETAILS_FOR_REGISTRATION_METHODS || [];
+  const loadOrganizations = useMemo(
+    () =>
+      organizationAutocomplete({
+        field: ['name', 'url'],
+        o: 'name',
+      }),
+    [],
+  );
+  const projectRoles = useMemo(
+    () => getProjectRoles().filter((role) => role.is_system_role),
+    [],
+  );
+  const ambiguousRoles = useMemo(
+    () => getAmbiguousRoleDescriptions(projectRoles),
+    [projectRoles],
+  );
   return (
-    <FormContainer submitting={props.submitting}>
-      <StringField
+    <>
+      <StringGroup
         name="name"
-        label={translate('Rule name')}
         placeholder={translate('e.g. Default users')}
         validate={required}
+        label={translate('Rule name')}
         required
       />
-      <CommaSeparatedListField
-        name="user_affiliations"
+      <CommaSeparatedListGroup
         label={translate('Affiliations')}
+        name="user_affiliations"
         placeholder="student, faculty, researcher (comma-separated)"
         description={translate('Enter comma-separated affiliation identifiers')}
       />
-      <CommaSeparatedListField
-        name="user_email_patterns"
+      <CommaSeparatedListGroup
         label={translate('Email patterns')}
+        name="user_email_patterns"
         placeholder={translate('e.g. .*@example.com')}
         description={translate(
           'Enter space separated regex pattern to match user email',
@@ -38,30 +64,62 @@ export const RuleForm: FC<{ submitting? }> = (props) => {
         separator="space"
         validate={validateEmailPatterns}
       />
-
-      <AsyncSelectField
+      <BooleanGroup
+        name="use_user_organization_as_customer_name"
+        label={translate('Use user organization as customer name')}
+        tooltip={translate(
+          'If enabled, the customer name will be taken from the user’s organization provided by IdP.',
+        )}
+        tooltipEnd
+        alignMiddle
+        className="w-100"
+        onChange={() => change('customer', null)}
+      />
+      {values.use_user_organization_as_customer_name && (
+        <div className="alert alert-info py-2 px-3 mb-5">
+          <div>
+            {translate(
+              'The organization is matched by exact name against the user.organization claim from the identity provider. The user must also be registered through a method listed in PROTECT_USER_DETAILS_FOR_REGISTRATION_METHODS.',
+            )}
+          </div>
+          {protectedMethods.length === 0 ? (
+            <div className="fw-semibold mt-2">
+              {translate(
+                'Warning: PROTECT_USER_DETAILS_FOR_REGISTRATION_METHODS is empty — no user will currently match.',
+              )}
+            </div>
+          ) : (
+            <div className="text-muted small mt-1">
+              {translate('Protected registration methods: {methods}', {
+                methods: protectedMethods.join(', '),
+              })}
+            </div>
+          )}
+        </div>
+      )}
+      <AsyncSelectGroup
         name="customer"
         label={translate('Organization')}
-        loadOptions={(query, prevOptions, page) =>
-          organizationAutocomplete(query, prevOptions, page, {
-            field: ['name', 'url'],
-            o: 'name',
-          })
-        }
+        required={!values.use_user_organization_as_customer_name}
+        loadOptions={loadOrganizations}
         getOptionValue={({ url }) => url}
-        required
-        validate={required}
+        getOptionLabel={(option) => option.name}
+        isDisabled={values.use_user_organization_as_customer_name}
+        isClearable
       />
-      <SelectField
-        label={translate('Project role')}
+      {/* Only deployment-wide (system) roles are offered: an auto-provisioning
+          rule applies across users/organizations, and an organization-specific
+          clone would fail to grant outside its owning organization. */}
+      <SelectGroup
         name="project_role"
-        options={getProjectRoles()}
-        getOptionLabel={(role: Role) => role.description || role.name}
+        options={projectRoles}
+        getOptionLabel={(role: Role) => formatRoleLabel(role, ambiguousRoles)}
         getOptionValue={({ name }) => name}
-        required
         validate={required}
         simpleValue
+        label={translate('Project role')}
+        required
       />
-    </FormContainer>
+    </>
   );
 };

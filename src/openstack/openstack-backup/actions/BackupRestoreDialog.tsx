@@ -1,17 +1,16 @@
+import { useQuery } from '@tanstack/react-query';
 import arrayMutators from 'final-form-arrays';
 import { FC } from 'react';
 import { FormGroup, FormLabel } from 'react-bootstrap';
-import { Field, Form } from 'react-final-form';
+import { Form } from 'react-final-form';
 import { FieldArray } from 'react-final-form-arrays';
-import { useAsync } from 'react-use';
 import { OpenStackBackup, openstackBackupsRestore } from 'waldur-js-client';
 
-import { required } from '@waldur/core/validators';
-import { Select } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { useModal } from '@waldur/modal/hooks';
-import { AsyncActionDialog } from '@waldur/resource/actions/AsyncActionDialog';
-import { useNotify } from '@waldur/store/hooks';
+import { required } from '@/core/validators';
+import { SelectGroup } from '@/form';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { AsyncActionDialog } from '@/resource/actions/AsyncActionDialog';
 
 import { NetworksList } from './NetworksList';
 import {
@@ -24,23 +23,27 @@ import {
 export const BackupRestoreDialog: FC<{
   resolve: { resource: OpenStackBackup; refetch?(): void };
 }> = ({ resolve: { resource, refetch } }) => {
-  const asyncState = useAsync(() => loadData(resource), [resource]);
-  const { showSuccess, showErrorResponse } = useNotify();
-  const { closeDialog } = useModal();
+  const asyncState = useQuery({
+    queryKey: ['BackupRestoreDialog', resource],
+    queryFn: () => loadData(resource),
+  });
+
+  const mutation = useManagedMutation<any, any, BackupRestoreFormData>({
+    mutationFn: (formData) =>
+      openstackBackupsRestore({
+        path: { uuid: resource.uuid },
+        body: serializeBackupRestoreFormData(formData),
+      }),
+    successMessage: translate('VM snapshot restoration has been scheduled.'),
+    errorMessage: translate('Unable to restore VM snapshot.'),
+    refetch,
+  });
 
   const submitRequest = async (formData: BackupRestoreFormData) => {
     try {
-      await openstackBackupsRestore({
-        path: { uuid: resource.uuid },
-        body: serializeBackupRestoreFormData(formData),
-      });
-      showSuccess(translate('VM snapshot restoration has been scheduled.'));
-      closeDialog();
-      if (refetch) {
-        await refetch();
-      }
-    } catch (e) {
-      showErrorResponse(e, translate('Unable to restore VM snapshot.'));
+      await mutation.mutateAsync(formData);
+    } catch {
+      // Error is handled by useManagedMutation
     }
   };
 
@@ -51,59 +54,43 @@ export const BackupRestoreDialog: FC<{
       }}
       onSubmit={submitRequest}
       initialValues={getInitialValues(resource)}
-      render={({ handleSubmit, submitting, invalid, values }) => (
+      render={({ handleSubmit, values }) => (
         <form onSubmit={handleSubmit}>
           <AsyncActionDialog
             title={translate('Restore virtual machine from backup {name}', {
               name: resource.name,
             })}
-            loading={asyncState.loading}
+            loading={asyncState.isLoading}
             error={asyncState.error}
-            submitting={submitting}
-            invalid={invalid}
           >
-            {asyncState.value ? (
+            {asyncState.data ? (
               <>
-                <FormGroup className="mb-5">
-                  <FormLabel id="flavor">{translate('Flavor')}</FormLabel>
-                  <Field
-                    name="flavor"
-                    validate={required}
-                    render={({ input }) => (
-                      <Select
-                        {...input}
-                        options={asyncState.value.flavors}
-                        aria-labelledby="flavor"
-                      />
-                    )}
-                  />
-                </FormGroup>
-                <FormGroup className="mb-5">
-                  <FormLabel id="security-groups">
-                    {translate('Security groups')}
-                  </FormLabel>
-                  <Field
-                    name="security_groups"
-                    render={({ input }) => (
-                      <Select
-                        {...input}
-                        placeholder={translate('Select security groups...')}
-                        isMulti={true}
-                        options={asyncState.value.securityGroups}
-                        aria-labelledby="security-groups"
-                      />
-                    )}
-                  />
-                </FormGroup>
+                <SelectGroup
+                  label={translate('Flavor')}
+                  name="flavor"
+                  validate={required}
+                  options={asyncState.data.flavors}
+                  placeholder={translate('Select flavor...')}
+                />
+                <SelectGroup
+                  label={translate('Security groups')}
+                  name="security_groups"
+                  placeholder={translate('Select security groups...')}
+                  isMulti={true}
+                  options={asyncState.data.securityGroups}
+                />
                 <FormGroup className="mb-5">
                   <FormLabel>{translate('Networks')}</FormLabel>
-                  <FieldArray
-                    name="networks"
-                    component={NetworksList as any}
-                    subnets={asyncState.value.subnets}
-                    floatingIps={asyncState.value.floatingIps}
-                    values={values}
-                  />
+                  <FieldArray name="networks">
+                    {({ fields }) => (
+                      <NetworksList
+                        fields={fields}
+                        subnets={asyncState.data.subnets}
+                        floatingIps={asyncState.data.floatingIps}
+                        values={values}
+                      />
+                    )}
+                  </FieldArray>
                 </FormGroup>
               </>
             ) : null}

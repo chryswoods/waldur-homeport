@@ -1,0 +1,80 @@
+import { InfoIcon } from '@phosphor-icons/react';
+import { FC } from 'react';
+import { supportIssueStatusesList } from 'waldur-js-client';
+
+import { Badge } from '@/core/Badge';
+import { Tip } from '@/core/Tooltip';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { Column } from '@/table/types';
+import { useTable } from '@/table/useTable';
+
+import { IssueStatusAdmin, IssueStatusTypes } from './api';
+import { IssueStatusCreateButton } from './IssueStatusCreateButton';
+import { IssueStatusRowActions } from './IssueStatusRowActions';
+
+const issueStatusesFetcher = createFetcher(supportIssueStatusesList);
+
+const renderType = ({ row }: { row: IssueStatusAdmin }) => (
+  <Badge
+    variant={row.type === IssueStatusTypes.RESOLVED ? 'success' : 'danger'}
+    size="sm"
+    pill
+    outline
+  >
+    {row.type_display}
+  </Badge>
+);
+
+export const IssueStatusList: FC = () => {
+  const tableProps = useTable({
+    table: 'IssueStatusAdmin',
+    fetchData: issueStatusesFetcher,
+  });
+
+  const columns: Column<IssueStatusAdmin>[] = [
+    {
+      title: translate('Status name'),
+      render: ({ row }) => row.name,
+      copyField: (row) => row.name,
+      keys: ['name'],
+      id: 'name',
+    },
+    {
+      title: translate('Outcome type'),
+      render: renderType,
+      keys: ['type', 'type_display'],
+      id: 'type',
+    },
+  ];
+
+  return (
+    <Table
+      {...tableProps}
+      columns={columns}
+      hasQuery
+      title={
+        <span className="d-flex align-items-center gap-2">
+          {translate('Issue status mapping')}
+          <Tip
+            id="issue-status-mapping-info"
+            label={translate(
+              'Map your service desk status names to Waldur outcome types. "Resolved" statuses complete orders successfully. "Canceled" statuses terminate resources.',
+            )}
+          >
+            <InfoIcon
+              size={18}
+              className="text-muted cursor-pointer"
+              weight="bold"
+            />
+          </Tip>
+        </span>
+      }
+      tableActions={<IssueStatusCreateButton refetch={tableProps.fetch} />}
+      rowActions={({ row }) => (
+        <IssueStatusRowActions row={row} refetch={tableProps.fetch} />
+      )}
+    />
+  );
+};
