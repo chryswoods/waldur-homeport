@@ -1,10 +1,13 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { RoleDetails, rolesList } from 'waldur-js-client';
 
 import { Badge } from '@/core/Badge';
+import { BaseButton } from '@/core/buttons/BaseButton';
+import { lazyComponent } from '@/core/lazyComponent';
 import { Link } from '@/core/Link';
 import { RoleUsersExpandableRow } from '@/customer/roles/RoleUsersExpandableRow';
 import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
 import { formatRoleType } from '@/permissions/utils';
 import { createFetcher } from '@/table/api';
 import { BooleanField } from '@/table/BooleanField';
@@ -21,6 +24,33 @@ import { renderFieldOrDash } from '@/table/utils';
 import { RoleActions } from './RoleActions';
 import { RoleCreateButton } from './RoleCreateButton';
 import { RolePermissionDelta } from './RolePermissionDelta';
+
+const RoleUsersDialog = lazyComponent(() =>
+  import('./RoleUsersDialog').then((m) => ({ default: m.RoleUsersDialog })),
+);
+
+/**
+ * The assigned-users count, clickable through to the users holding the role.
+ * A bare number leaves an operator with nowhere to go from "42 users".
+ */
+const UsersCountCell = ({ row }: { row: RoleDetails }) => {
+  const { openDialog } = useModal();
+  const open = useCallback(
+    () => openDialog(RoleUsersDialog, { resolve: { role: row }, size: 'xl' }),
+    [openDialog, row],
+  );
+  if (!row.users_count) {
+    return <>{row.users_count ?? 0}</>;
+  }
+  return (
+    <BaseButton
+      variant="link"
+      className="p-0"
+      onClick={open}
+      label={String(row.users_count)}
+    />
+  );
+};
 
 export const RolesList = () => {
   const filterValues = useFilterValues('RolesList');
@@ -125,7 +155,7 @@ export const RolesList = () => {
         {
           title: translate('Assigned users count'),
           orderField: 'users_count',
-          render: ({ row }) => row.users_count,
+          render: ({ row }) => <UsersCountCell row={row} />,
         },
         {
           title: translate('Active'),
