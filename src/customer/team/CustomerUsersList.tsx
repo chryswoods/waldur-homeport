@@ -17,7 +17,7 @@ import {
 import { useFilterValues } from '@/table/useFilterValues';
 import { useTable } from '@/table/useTable';
 import { useCustomer, useUser } from '@/workspace/hooks';
-import { checkIsOwnerOrStaff } from '@/workspace/selectors';
+import { checkIsOwnerOrStaffOrReader } from '@/workspace/selectors';
 
 import { CustomerPermissionsLogButton } from './CustomerPermissionsLogButton';
 import { CustomerUserRowActions } from './CustomerUserRowActions';
@@ -36,6 +36,16 @@ const mandatoryFields: CustomersUsersListData['query']['field'] = [
   'projects',
 ];
 
+// The CustomerUserSerializer returns slug (structure/serializers.py), but the
+// published waldur-js-client's CustomerUserFieldEnum does not list it yet —
+// the same lag as the accounting summary and the proposals project filter, see
+// docs/guides/resync-decisions.md section 3. Needed by the show_slug_as_id
+// column in TeamTableComponent.
+const mandatoryFieldsWithSlug = [
+  ...mandatoryFields,
+  'slug',
+] as CustomersUsersListData['query']['field'];
+
 export const CustomerUsersList: FunctionComponent = () => {
   const values = useFilterValues('customer-users');
   const filter = useMemo(() => selectCustomersUsersFilter(values), [values]);
@@ -50,18 +60,20 @@ export const CustomerUsersList: FunctionComponent = () => {
     }),
     queryField: 'user_keyword',
     filter,
-    mandatoryFields,
+    mandatoryFields: mandatoryFieldsWithSlug,
   });
 
   // The "Team" page contains several other pages. We have to check the access permissions to this page here.
   const router = useRouter();
   const user = useUser();
-  const isOwnerOrStaff = useMemo(
-    () => checkIsOwnerOrStaff(customer, user),
+  // Readers hold a read-only organisation role and the team list only
+  // displays organisation data.
+  const canViewTeam = useMemo(
+    () => checkIsOwnerOrStaffOrReader(customer, user),
     [customer, user],
   );
   useEffect(() => {
-    if (!isOwnerOrStaff) {
+    if (!canViewTeam) {
       router.stateService.go('organization-invitations');
     }
   }, []);
