@@ -9,6 +9,7 @@ import { IBreadcrumbItem } from '@/navigation/types';
 import { useUser, useCustomer, useProject } from '@/workspace/hooks';
 
 import { ProjectBreadcrumbPopover } from './ProjectBreadcrumbPopover';
+import { ProjectGracePeriodBanner } from './ProjectGracePeriodBanner';
 import { ProjectProfile } from './ProjectProfile';
 import { canEditProject } from './utils';
 
@@ -48,6 +49,7 @@ const PageHero = ({ project }) => {
         </Tab.Container>
       )}
       <ProjectProfile project={project} />
+      <ProjectGracePeriodBanner project={project} />
     </div>
   );
 };
