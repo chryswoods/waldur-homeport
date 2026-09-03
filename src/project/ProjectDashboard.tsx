@@ -3,7 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from '@uirouter/react';
 import { FunctionComponent } from 'react';
 import { Col, Row } from 'react-bootstrap';
-import { projectsListUsersList, projectsStatsRetrieve } from 'waldur-js-client';
+import {
+  openportalManagedProjectsList,
+  openportalRemoteProjectsList,
+  projectsListUsersList,
+  projectsStatsRetrieve,
+} from 'waldur-js-client';
 
 import { getResourcesCount } from '@/administration/api';
 import { parseSelectData } from '@/core/api';
@@ -16,7 +21,7 @@ import { filterComponentsWithUsage } from '@/customer/dashboard/utils';
 import { COMMON_WIDGET_HEIGHT } from '@/dashboard/constants';
 import { TeamWidget } from '@/dashboard/TeamWidget';
 import { isFeatureVisible } from '@/features/connect';
-import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { CustomerFeatures, MarketplaceFeatures } from '@/FeaturesEnums';
 import { EditButton } from '@/form/EditButton';
 import { translate } from '@/i18n';
 import { useCreateInvitation } from '@/invitations/actions/useCreateInvitation';
@@ -24,15 +29,23 @@ import { AggregateLimitWidget } from '@/marketplace/aggregate-limits/AggregateLi
 import { UsageViewsSection } from '@/marketplace/aggregate-limits/usage-views/UsageViewsSection';
 import { NON_TERMINATED_STATES } from '@/marketplace/resources/list/constants';
 import { useModal } from '@/modal/actions';
+import { canChangeMembership } from '@/openportal/awardPolicy';
+import { ManagedProjectDashboardCards } from '@/openportal/managed-projects/ManagedProjectDashboardCards';
+import { RemoteProjectDashboardCards } from '@/openportal/remote-projects/RemoteProjectDashboardCards';
 import { PermissionEnum } from '@/permissions/enums';
 import { hasPermission } from '@/permissions/hasPermission';
 import { ActionButton } from '@/table/ActionButton';
-import { useUser, useProject } from '@/workspace/hooks';
+import { useThemeFeatures } from '@/theme/useThemeFeatures';
+import { useCustomer, useUser, useProject } from '@/workspace/hooks';
 
+import { AwardLockedDialog } from './AwardLockedDialog';
 import { ProjectLimitUsageBasedResources } from './dashboard/ProjectLimitUsageBasedResources';
+import { membershipLockedDialogProps } from './MembershipLockedDialog';
 import { ProjectCreditHealthBlock } from './policy-watch/ProjectCreditHealthBlock';
+import { ProjectDashboardBalance } from './ProjectDashboardBalance';
 import { ProjectDashboardCostLimits } from './ProjectDashboardCostLimits';
 import { ProjectDashboardCredit } from './ProjectDashboardCredit';
+import { useProjectAwardDetails } from './useProjectAwardDetails';
 import { getProjectTeamChart } from './utils';
 
 const EditFieldDialog = lazyComponent(() =>
@@ -47,6 +60,10 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
   );
 
   const { openDialog } = useModal();
+
+  // Limits are aggregated across all resources, which reads as though the
+  // budget were N * remaining_credits. Hidden for this deployment.
+  const { ShowResourceLimits } = useThemeFeatures();
   const user = useUser();
   const userFromSelector = useUser();
   const project = useProject();
@@ -133,10 +150,10 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
   );
 
   const shouldShowAggregateLimitWidget =
-    aggregateLimitData?.components?.length > 0;
+    aggregateLimitData?.components?.length > 0 && ShowResourceLimits;
 
   const shouldShowCurrentMonthWidget =
-    currentMonthFilteredData?.components?.length > 0;
+    currentMonthFilteredData?.components?.length > 0 && ShowResourceLimits;
 
   // Check if there are limit-based resources to show
   const { data: limitBasedResourcesCount } = useQuery({
@@ -158,6 +175,66 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
   const shouldShowLimitBasedResources = (limitBasedResourcesCount || 0) > 0;
 
   const showBillingInfo = project.customer_display_billing_info_in_projects;
+
+  // ── OpenPortal remote and managed projects ──────────────────────────────
+  // A project backed by an external award shows that award's allocation and
+  // usage in place of the local credit widgets, which say nothing useful when
+  // the budget lives on the awarding portal.
+  const customer = useCustomer();
+
+  const showRemoteProjects = isFeatureVisible(
+    CustomerFeatures.show_openportal_remote_projects,
+  );
+
+  const { data: remoteProjects } = useQuery({
+    queryKey: ['remote-projects-for-project', project?.uuid],
+    queryFn: () =>
+      openportalRemoteProjectsList({
+        query: { project_uuid: project.uuid },
+      }).then((r) => r.data),
+    enabled: showRemoteProjects && Boolean(project?.uuid),
+    staleTime: STALE_TIME,
+  });
+
+  const remoteCount =
+    remoteProjects?.filter((rp) => rp.state !== 'deleted').length ?? 0;
+  const hasAnyRemoteProjects = showRemoteProjects && remoteCount > 0;
+  const hasManyRemoteProjects = showRemoteProjects && remoteCount > 1;
+
+  const showManagedProjects = isFeatureVisible(
+    MarketplaceFeatures.show_managed_projects,
+  );
+
+  const { data: managedProjects } = useQuery({
+    queryKey: ['managed-projects-for-project', project?.uuid],
+    queryFn: () =>
+      openportalManagedProjectsList({
+        query: { project_uuid: project.uuid },
+      }).then((r) => r.data),
+    enabled: showManagedProjects && Boolean(project?.uuid),
+    staleTime: STALE_TIME,
+  });
+
+  const hasAnyManagedProjects =
+    showManagedProjects &&
+    (managedProjects?.filter(
+      (mp) => mp.state === 'approved' || mp.state === 'pending',
+    ).length ?? 0) > 0;
+
+  // When the award controls membership, the team widget's Add button explains
+  // that rather than opening the invitation flow.
+  const { data: awardDetails } = useProjectAwardDetails(project?.uuid);
+  const membershipLocked = !canChangeMembership(
+    awardDetails?.membership_control,
+  );
+  const handleAddClick =
+    membershipLocked && awardDetails
+      ? () =>
+          openDialog(
+            AwardLockedDialog,
+            membershipLockedDialogProps(awardDetails),
+          )
+      : callback;
 
   if (!project || !user) {
     return null;
@@ -239,42 +316,64 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
         />
       )}
       <Row>
-        {!shouldConcealPrices && showBillingInfo && (
+        {!shouldConcealPrices &&
+          showBillingInfo &&
+          ShowResourceLimits &&
+          !hasManyRemoteProjects && (
+            <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
+              <ProjectDashboardCostLimits project={project} />
+            </Col>
+          )}
+        {hasAnyRemoteProjects && remoteProjects && (
+          <RemoteProjectDashboardCards
+            remoteProjects={remoteProjects}
+            customerEmail={customer?.email}
+          />
+        )}
+        {hasAnyManagedProjects && managedProjects && (
+          <ManagedProjectDashboardCards
+            managedProjects={managedProjects}
+            project={project}
+          />
+        )}
+        {!hasManyRemoteProjects && !hasAnyManagedProjects && (
           <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
-            <ProjectDashboardCostLimits project={project} />
+            <ProjectDashboardBalance project={project} />
           </Col>
         )}
-        <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
-          <TeamWidget
-            api={() =>
-              projectsListUsersList({
-                path: { uuid: project.uuid },
-                query: {
-                  field: [
-                    'user_uuid',
-                    'user_full_name',
-                    'user_email',
-                    'user_image',
-                    'role_name',
-                  ],
+        {!hasAnyRemoteProjects && (
+          <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
+            <TeamWidget
+              api={() =>
+                projectsListUsersList({
+                  path: { uuid: project.uuid },
+                  query: {
+                    field: [
+                      'user_uuid',
+                      'user_full_name',
+                      'user_email',
+                      'user_image',
+                      'role_name',
+                    ],
 
-                  page_size: 5,
-                },
-              }).then(parseSelectData)
-            }
-            scope={project}
-            chartData={teamData}
-            showChart
-            onBadgeClick={isProjectRemoved ? undefined : goToUsers}
-            onAddClick={isProjectRemoved ? undefined : callback}
-            showAdd={canInvite && !isProjectRemoved}
-            loadingAdd={loadingProjects}
-            className="h-100"
-            nameKey="user_full_name"
-            emailKey="user_email"
-            imageKey="user_image"
-          />
-        </Col>
+                    page_size: 5,
+                  },
+                }).then(parseSelectData)
+              }
+              scope={project}
+              chartData={teamData}
+              showChart
+              onBadgeClick={isProjectRemoved ? undefined : goToUsers}
+              onAddClick={isProjectRemoved ? undefined : handleAddClick}
+              showAdd={(canInvite || membershipLocked) && !isProjectRemoved}
+              loadingAdd={loadingProjects}
+              className="h-100"
+              nameKey="user_full_name"
+              emailKey="user_email"
+              imageKey="user_image"
+            />
+          </Col>
+        )}
         {shouldShowCurrentMonthWidget && (
           <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
             <AggregateLimitWidget
@@ -298,7 +397,7 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
             />
           </Col>
         )}
-        {showBillingInfo && (
+        {showBillingInfo && !hasManyRemoteProjects && (
           <ProjectDashboardCredit project={project} className="mb-5" />
         )}
       </Row>
