@@ -4,11 +4,18 @@ import {
   GlobeSimpleIcon,
   GraduationCapIcon,
 } from '@phosphor-icons/react';
+import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { Stack } from 'react-bootstrap';
-import { Project } from 'waldur-js-client';
+import {
+  type ProposalProposalsListData,
+  Project,
+  proposalProposalsList,
+} from 'waldur-js-client';
 
 import { Badge } from '@/core/Badge';
+import { STALE_TIME } from '@/core/constants';
+import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
 import { formatDate } from '@/core/dateUtils';
 import { Link } from '@/core/Link';
 import { PublicDashboardHero } from '@/dashboard/hero/PublicDashboardHero';
@@ -20,6 +27,27 @@ import { useUser, useCustomer } from '@/workspace/hooks';
 import { checkIsOwnerOrStaff } from '@/workspace/selectors';
 
 import { ProjectActions } from './dashboard/ProjectActions';
+import { useProjectAwardDetails } from './useProjectAwardDetails';
+
+/** An award or call reference: a link when it carries a URL, plain text otherwise. */
+const AwardReference = ({
+  label,
+  link,
+}: {
+  label: string;
+  link: { id?: string | null; url?: string | null };
+}) => (
+  <>
+    <span className="fw-semibold text-dark">{label}</span>
+    {link.url ? (
+      <a href={link.url} target="_blank" rel="noopener noreferrer">
+        {link.id || link.url}
+      </a>
+    ) : (
+      <span>{link.id}</span>
+    )}
+  </>
+);
 
 interface ProjectProfileProps {
   project: Project;
@@ -151,6 +179,28 @@ const ProjectEndDate = ({ project }: ProjectProfileProps) => {
 export const ProjectProfile = ({ project }: ProjectProfileProps) => {
   const abbreviation = useMemo(() => getItemAbbreviation(project), [project]);
 
+  // The proposals this project came from, and the OpenPortal award backing it.
+  // Both give the user a way back to where the project was granted.
+  const { data: proposals } = useQuery({
+    queryKey: ['project-proposals', project.uuid],
+    queryFn: () =>
+      proposalProposalsList({
+        // project_uuid is served by the resynced mastermind branch
+        // (proposal/filters.py) but is not in the published
+        // waldur-js-client's query type yet, so the query is cast. Same
+        // situation as the accounting summary — see
+        // docs/guides/resync-decisions.md section 3. Remove the cast once a
+        // client generated from the resynced schema ships.
+        query: {
+          project_uuid: project.uuid,
+          page_size: 100,
+        } as NonNullable<ProposalProposalsListData['query']>,
+      }).then((response) => response.data),
+    staleTime: STALE_TIME,
+  });
+
+  const { data: awardDetails } = useProjectAwardDetails(project.uuid);
+
   return (
     <PublicDashboardHero
       hideQuickSection={!['public', 'course'].includes(project.kind)}
@@ -168,6 +218,15 @@ export const ProjectProfile = ({ project }: ProjectProfileProps) => {
       actions={<ProjectActions project={project} />}
     >
       <Stack direction="horizontal" className="gap-6 mb-1">
+        <span className="fw-semibold text-dark">
+          {translate('ID')}: {project.slug}
+          <CopyToClipboardButton
+            value={project.slug}
+            onlyButton
+            size={16}
+            buttonClassName="ms-2"
+          />
+        </span>
         {project.oecd_fos_2007_code && (
           <span>{`${project.oecd_fos_2007_code}. ${project.oecd_fos_2007_label}`}</span>
         )}
@@ -179,6 +238,57 @@ export const ProjectProfile = ({ project }: ProjectProfileProps) => {
         )}
         {project.end_date && <ProjectEndDate project={project} />}
       </Stack>
+      {awardDetails && (awardDetails.award || awardDetails.call) && (
+        <Stack direction="horizontal" className="gap-6 mt-2">
+          {awardDetails.award && (
+            <AwardReference
+              label={translate('Award:')}
+              link={awardDetails.award}
+            />
+          )}
+          {awardDetails.call &&
+            (awardDetails.call.id || awardDetails.call.url) && (
+              <AwardReference
+                label={translate('Call:')}
+                link={awardDetails.call}
+              />
+            )}
+        </Stack>
+      )}
+      {awardDetails?.renewal?.url && (
+        <Stack direction="horizontal" className="gap-3 mt-1">
+          <a
+            href={awardDetails.renewal.url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {translate('Apply for a renewal')} &rarr;
+          </a>
+        </Stack>
+      )}
+      {proposals && proposals.length > 0 && (
+        <Stack direction="horizontal" className="gap-3 mt-2">
+          <span className="fw-semibold text-dark">
+            {proposals.length === 1
+              ? translate('Proposal')
+              : translate('Proposals')}
+            :
+          </span>
+          {proposals.map((proposal, index) => (
+            <span key={proposal.uuid}>
+              <Link
+                state="call-management.proposal-details"
+                params={{
+                  proposal_uuid: proposal.uuid,
+                  uuid: project.customer_uuid,
+                }}
+                label={proposal.slug}
+              />
+              {index < proposals.length - 1 && ', '}
+            </span>
+          ))}
+        </Stack>
+      )}
     </PublicDashboardHero>
   );
 };
