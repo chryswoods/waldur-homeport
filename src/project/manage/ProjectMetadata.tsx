@@ -10,7 +10,7 @@ import { UI_STALE_TIME } from '@/core/constants';
 import { lazyComponent } from '@/core/lazyComponent';
 import { LoadingErred } from '@/core/LoadingErred';
 import { isFeatureVisible } from '@/features/connect';
-import { ProjectFeatures } from '@/FeaturesEnums';
+import { DeploymentFeatures, ProjectFeatures } from '@/FeaturesEnums';
 import { CompactEditButton } from '@/form/CompactEditButton';
 import {
   EditFieldProvider,
@@ -51,6 +51,10 @@ export const ProjectMetadata: React.FC<ProjectMetadataProps> = ({
 }) => {
   const { openDialog } = useModal();
   const user = useUser();
+  // Where the deployment treats slugs as permanent identifiers, a slug that
+  // has already been set cannot be changed — external systems key off it.
+  const slugImmutable =
+    isFeatureVisible(DeploymentFeatures.make_slugs_immutable) && !!project.slug;
   const setProject = useSetProject();
   const { showErrorResponse } = useNotify();
   const { data, isLoading, error, refetch } = useQuery({
@@ -159,7 +163,17 @@ export const ProjectMetadata: React.FC<ProjectMetadataProps> = ({
 
           <StringEditField name="backend_id" label={translate('Backend ID')} />
 
-          <StringEditField name="slug" label={translate('Slug')} isStaffOnly />
+          <StringEditField
+            name="slug"
+            label={translate('Slug')}
+            isStaffOnly
+            disabled={slugImmutable}
+            tooltip={
+              slugImmutable
+                ? translate('Slug cannot be changed once set.')
+                : undefined
+            }
+          />
 
           <FormTable.Item
             label={translate('Affiliation')}

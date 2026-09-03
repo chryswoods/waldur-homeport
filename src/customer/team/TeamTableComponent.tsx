@@ -116,6 +116,23 @@ export const TeamTableComponent = <
         optional: !isFeatureVisible(UserFeatures.show_username),
         copyField: (row) => getField(row, 'username'),
       },
+      isFeatureVisible(UserFeatures.show_slug) &&
+        isFeatureVisible(UserFeatures.show_slug_as_id) && {
+          title: translate('ID'),
+          render: ({ row }) => {
+            const slug = getField(row, 'slug');
+            return slug ? (
+              <span className="fw-semibold">{slug}</span>
+            ) : (
+              DASH_ESCAPE_CODE
+            );
+          },
+          export: getKey('slug'),
+          id: 'id',
+          keys: [getKey('slug')],
+          copyField: (row) => getField(row, 'slug') ?? '',
+          className: 'text-nowrap',
+        },
       !hideRole && {
         title:
           context === 'organization'

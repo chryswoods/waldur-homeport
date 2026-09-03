@@ -8,9 +8,13 @@ import { useMemo } from 'react';
 import { Stack } from 'react-bootstrap';
 import { User } from 'waldur-js-client';
 
+import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
 import { StateIndicator } from '@/core/StateIndicator';
 import { formatPhoneNumber } from '@/core/utils';
 import { PublicDashboardHero } from '@/dashboard/hero/PublicDashboardHero';
+import { isFeatureVisible } from '@/features/connect';
+import { UserFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
 import { getItemAbbreviation } from '@/navigation/workspace/context-selector/utils';
 import { useUser } from '@/workspace/hooks';
 
@@ -62,6 +66,19 @@ export const UserProfile = ({
         className="flex-wrap text-gray-500 lh-1"
         gap={5}
       >
+        {isFeatureVisible(UserFeatures.show_slug) &&
+          isFeatureVisible(UserFeatures.show_slug_as_id) &&
+          user.slug && (
+            <span className="fw-semibold text-dark text-nowrap">
+              {translate('ID')}: {user.slug}
+              <CopyToClipboardButton
+                value={user.slug}
+                onlyButton
+                size={16}
+                buttonClassName="ms-2"
+              />
+            </span>
+          )}
         {user.job_title && (
           <span className="text-nowrap">
             <UserSquareIcon size={18} weight="duotone" className="me-1" />
