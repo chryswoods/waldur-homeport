@@ -25,6 +25,10 @@ export const FeaturesDescription: FeatureSection[] = [
         description: translate('Enable onboarding functionality.'),
       },
       {
+        key: 'show_openportal_remote_projects',
+        description: translate('Allows to show OpenPortal Remote Projects (remotes) in an organization.'),
+      },
+      {
         key: 'show_permission_reviews',
         description: translate('Allows to show permission reviews tab and popups for organisations.'),
       },
@@ -65,12 +69,20 @@ export const FeaturesDescription: FeatureSection[] = [
     description: translate('Waldur deployment settings'),
     items: [
       {
+        key: 'application_portal_only',
+        description: translate('Configure Waldur to function as an application and awards portal only.'),
+      },
+      {
         key: 'enable_cookie_notice',
         description: translate('Enable cookie notice in marketplace.'),
       },
       {
         key: 'enable_disclaimer_area',
         description: translate('Enable disclaimer area below the footer.'),
+      },
+      {
+        key: 'make_slugs_immutable',
+        description: translate('Make slugs immutable, i.e. disallow direct changes to slugs after they have been set. Note that slugs may still be changed indirectly.'),
       },
       {
         key: 'send_metrics',
@@ -181,6 +193,10 @@ export const FeaturesDescription: FeatureSection[] = [
         description: translate('Enabled display of experimental or mocked components in marketplace.'),
       },
       {
+        key: 'show_managed_projects',
+        description: translate('Allows to show managed (openportal) remote projects in organization.'),
+      },
+      {
         key: 'show_openstack_duplicate_offerings',
         description: translate('Show the staff diagnostics page listing tenants with duplicate per-tenant OpenStack offerings.'),
       },
@@ -212,6 +228,10 @@ export const FeaturesDescription: FeatureSection[] = [
     key: 'project',
     description: translate('Project workspace'),
     items: [
+      {
+        key: 'enforce_allowed_domains',
+        description: translate('Enforce allowed-domain restrictions from OpenPortal AwardDetails when adding or inviting users to a project.'),
+      },
       {
         key: 'estimated_cost',
         description: translate('Render estimated cost column in projects list.'),
@@ -255,6 +275,10 @@ export const FeaturesDescription: FeatureSection[] = [
       {
         key: 'show_matrix_chat',
         description: translate('Render the project Matrix chat UI. Backend access is gated separately on the MATRIX_ENABLED Constance setting.'),
+      },
+      {
+        key: 'show_openportal_accounting_pages',
+        description: translate('Show OpenPortal accounting pages to users in the project workspace.'),
       },
       {
         key: 'show_permission_reviews',
@@ -325,6 +349,10 @@ export const FeaturesDescription: FeatureSection[] = [
     description: translate('User workspace'),
     items: [
       {
+        key: 'allow_user_creation',
+        description: translate('Allow users to create new user accounts when adding team members to projects and proposals.'),
+      },
+      {
         key: 'conceal_api_token',
         description: translate('Hide API token management tab from non-staff and non-support users.'),
       },
@@ -337,8 +365,20 @@ export const FeaturesDescription: FeatureSection[] = [
         description: translate('Hide remote accounts tab from non-staff and non-support users.'),
       },
       {
+        key: 'credentials',
+        description: translate('Enable credentials management (SSH keys, API tokens, etc.) in user workspace.'),
+      },
+      {
+        key: 'disable_long_tokens',
+        description: translate('Disallow non-staff/support users from creating API tokens with unlimited or long expiration times (more than an hour).'),
+      },
+      {
         key: 'disable_user_termination',
         description: translate('Disable user termination in user workspace.'),
+      },
+      {
+        key: 'minimal_user_profile',
+        description: translate('Show and allow editing of minimal set of user profile fields (e.g. just name and email).'),
       },
       {
         key: 'notifications',
@@ -347,6 +387,10 @@ export const FeaturesDescription: FeatureSection[] = [
       {
         key: 'pending_user_actions',
         description: translate('Show pending user actions.'),
+      },
+      {
+        key: 'permission_requests',
+        description: translate('Enable permission requests management in user workspace.'),
       },
       {
         key: 'preferred_language',
@@ -363,6 +407,10 @@ export const FeaturesDescription: FeatureSection[] = [
       {
         key: 'show_slug',
         description: translate('Enable display of slug field in user summary.'),
+      },
+      {
+        key: 'show_slug_as_id',
+        description: translate('Show the user slug as an identifier on the dashboard and all user lists.'),
       },
       {
         key: 'show_username',
