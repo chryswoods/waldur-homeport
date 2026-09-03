@@ -16,16 +16,24 @@ export function checkScope(
   if (user?.is_staff) {
     return true;
   }
-  const userRole = user.permissions?.find(
-    ({ scope_uuid, scope_type }) =>
-      scope_uuid === targetScopeId && scope_type === targetScopeType,
-  );
-  if (userRole) {
+  // A user can hold several roles on the same scope — CALL.REVIEWER and
+  // CALL.MANAGER, say — so every match has to be considered. Taking only the
+  // first meant a permission granted by the second role was invisible, and
+  // which role came first was down to API ordering.
+  const userRoles =
+    user.permissions?.filter(
+      ({ scope_uuid, scope_type }) =>
+        scope_uuid === targetScopeId && scope_type === targetScopeType,
+    ) ?? [];
+
+  for (const userRole of userRoles) {
     const role = ENV.roles.find(({ name }) => name === userRole.role_name);
     if (role && role.permissions.includes(targetPerm)) {
       return true;
     }
   }
+
+  return false;
 }
 
 export const hasPermission = (

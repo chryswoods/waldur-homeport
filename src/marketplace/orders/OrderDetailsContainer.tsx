@@ -35,7 +35,7 @@ async function loadOrder(order_uuid: string) {
 
   const pluginLimits = plugins.find(
     (plugin) => plugin.offering_type === offering.type,
-  ).available_limits;
+  )?.available_limits;
   const limits = offering.effective_available_limits || pluginLimits;
   return {
     order,
