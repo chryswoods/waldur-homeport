@@ -88,7 +88,20 @@ export const UserAffiliationsList: FunctionComponent<
   const props = useTable({
     table: 'UserAffiliationsList',
     syncFiltersToURL: true,
-    fetchData: createFetcher(userPermissionsList),
+    fetchData: createFetcher(userPermissionsList, {
+      // A permission whose scope has since been deleted comes back with its
+      // scope fields empty. Such a row has nothing to show and nowhere to
+      // link, so drop it rather than render a blank line.
+      parser: (data) =>
+        Array.isArray(data)
+          ? data.filter(
+              (permission) =>
+                permission.scope_uuid &&
+                permission.scope_name &&
+                permission.scope_type,
+            )
+          : [],
+    }),
     queryField: 'name',
     filter,
   });

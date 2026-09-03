@@ -9,11 +9,6 @@ import { ENV } from '@/core/config';
  * global level.
  */
 export const useThemeFeatures = () => {
-  // Whether the MarketplaceTrigger appears in the sidebar. Useful when Waldur
-  // is used as a marketplace, but not when it is used to manage calls, or when
-  // the marketplace is not accessible to users.
-  const ShowMarketplaceTrigger = false;
-
   // Whether the AuthHeader appears in the login column. It is only useful when
   // several login methods are available, and otherwise confuses users because
   // it says "Your session has expired...".
@@ -27,10 +22,6 @@ export const useThemeFeatures = () => {
   // marketplace, calls and so on, which should only be reachable after login.
   const ShowLoginFooter = false;
 
-  // Whether the marketplace appears in the sidebar. Turned off when Waldur is
-  // only used to manage calls, or when the marketplace is not accessible.
-  const ShowSidebarMarketplace = false;
-
   // Whether to show anything to do with "limits" on the project and customer
   // dashboards. Limits currently confuse users because they are aggregated
   // across all resources: with the limit set to the remaining credits, a
@@ -38,11 +29,9 @@ export const useThemeFeatures = () => {
   const ShowResourceLimits = false;
 
   return {
-    ShowMarketplaceTrigger,
     ShowLoginAuthHeader,
     ShowLocalSigninForm,
     ShowLoginFooter,
-    ShowSidebarMarketplace,
     ShowResourceLimits,
   };
 };

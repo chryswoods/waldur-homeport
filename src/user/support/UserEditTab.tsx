@@ -3,6 +3,8 @@ import { User } from 'waldur-js-client';
 
 import { LOCAL_IDP } from '@/auth/providers/constants';
 import { ExternalLink } from '@/core/ExternalLink';
+import { isFeatureVisible } from '@/features/connect';
+import { UserFeatures } from '@/FeaturesEnums';
 import FormTable from '@/form/FormTable';
 import { translate } from '@/i18n';
 import { useUser } from '@/workspace/hooks';
@@ -22,6 +24,8 @@ export const UserEditTab: React.FC<UserEditTabProps> = ({ user }) => {
   const isSelf = currentUser.uuid === user.uuid;
   // Disable editing if viewing own profile and haven't accepted ToS
   const isDisabled = isSelf && !currentUser.agreement_date;
+  // A minimal profile omits identity-provider detail altogether.
+  const minimalProfile = isFeatureVisible(UserFeatures.minimal_user_profile);
   // Show warning if the viewed user hasn't accepted ToS
   const showTosWarning = !user.agreement_date;
 
@@ -52,14 +56,15 @@ export const UserEditTab: React.FC<UserEditTabProps> = ({ user }) => {
             {/* Users signed in against the local database have no external
                 identity provider to point at, so the logo and backend name
                 are noise on their own profile. */}
-            {user.registration_method &&
+            {!minimalProfile &&
+              user.registration_method &&
               user.registration_method !== LOCAL_IDP && (
                 <IdentityProviderIndicator
                   user={user}
                   showManagementLink={false}
                 />
               )}
-            {user.identity_provider_management_url && (
+            {!minimalProfile && user.identity_provider_management_url && (
               <ExternalLink
                 label={translate('Manage profile')}
                 url={user.identity_provider_management_url}

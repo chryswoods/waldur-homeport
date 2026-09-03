@@ -28,6 +28,8 @@ const mandatoryFields = [
   'user_full_name',
   'role_name',
   'user_username',
+  // Needed by the show_slug_as_id column in TeamTableComponent.
+  'user_slug',
 ];
 
 const TeamSecondaryDropdownActions = ({ project, refetch }) => {

@@ -11,6 +11,7 @@ import { LanguageSelectorBox } from '@/i18n/LanguageSelectorBox';
 import { LanguageUtilsService } from '@/i18n/LanguageUtilsService';
 import { FooterLinks } from '@/navigation/footer/FooterLinks';
 import { ThemeSwitcherButton } from '@/theme/ThemeSwitcher';
+import { useThemeFeatures } from '@/theme/useThemeFeatures';
 
 import { AuthHeader } from './AuthHeader';
 import { IdentityProviderSelector } from './IdentityProviderSelector';
@@ -25,6 +26,7 @@ type LoginView = 'providers' | 'local-login';
 
 export const LoginColumn = () => {
   const features = useAuthFeatures();
+  const themeFeatures = useThemeFeatures();
   const currentLanguage = LanguageUtilsService.getCurrentLanguage();
   const imageUrl = getIconUrl('login_logo', currentLanguage?.code);
   const { data, isLoading, error, refetch } = useQuery({
@@ -50,7 +52,7 @@ export const LoginColumn = () => {
               style={{ maxWidth: '100%' }}
             />
           </div>
-          <AuthHeader />
+          {themeFeatures.ShowLoginAuthHeader && <AuthHeader />}
           {view === 'providers' ? (
             <>
               {isLoading ? (
@@ -66,7 +68,7 @@ export const LoginColumn = () => {
                   providers={data}
                 />
               ) : null}
-              {features.SigninForm && (
+              {features.SigninForm && themeFeatures.ShowLocalSigninForm && (
                 <LocalLoginButton onClick={() => setView('local-login')} />
               )}
             </>
@@ -81,9 +83,11 @@ export const LoginColumn = () => {
           <PoweredBy />
         </div>
       </div>
-      <div className="login-footer">
-        <FooterLinks />
-      </div>
+      {themeFeatures.ShowLoginFooter && (
+        <div className="login-footer">
+          <FooterLinks />
+        </div>
+      )}
     </div>
   );
 };

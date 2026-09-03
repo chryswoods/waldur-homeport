@@ -1,7 +1,6 @@
 import { getIconUrl } from '@/core/api';
 
-// Image is taken from https://www.flickr.com/photos/visitestonia/33974817076
-import DefaultHeroImage from './estonian-bog.jpg';
+import DefaultHeroImage from './brics-hero.jpg';
 
 /**
  * CSS `background-image` value for the login page hero.
@@ -13,6 +12,10 @@ import DefaultHeroImage from './estonian-bog.jpg';
  * fails to load and paint the fallback instead, so the hero is never empty.
  *
  * Same idiom as the marketplace and call management landing heroes.
+ *
+ * The bundled default is this deployment's own image rather than upstream's
+ * stock photograph, so the branding is right even before an operator uploads
+ * a hero_image.
  */
 export const getHeroBackgroundImage = () =>
   `url(${getIconUrl('hero_image')}), url(${DefaultHeroImage})`;

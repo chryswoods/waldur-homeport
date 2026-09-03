@@ -3,15 +3,15 @@ import { isFeatureVisible } from '@/features/connect';
 import { CustomerFeatures, InvitationsFeatures } from '@/FeaturesEnums';
 import { translate } from '@/i18n';
 import { useUser, useCustomer } from '@/workspace/hooks';
-import { checkIsOwnerOrStaff } from '@/workspace/selectors';
+import { checkIsOwnerOrStaffOrReader } from '@/workspace/selectors';
 
 export const useTeamTableTabs = () => {
   const user = useUser();
   const customer = useCustomer();
-  const isOwnerOrStaff = checkIsOwnerOrStaff(customer, user);
+  const canViewMembers = checkIsOwnerOrStaffOrReader(customer, user);
 
   return [
-    isOwnerOrStaff && {
+    canViewMembers && {
       key: 'users',
       title: translate('Active'),
       state: 'organization-users',
