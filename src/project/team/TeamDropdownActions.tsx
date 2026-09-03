@@ -3,12 +3,18 @@ import { Dropdown } from 'react-bootstrap';
 import { useSelector } from 'react-redux';
 import { Project } from 'waldur-js-client';
 
+import { BaseButton } from '@/core/buttons/BaseButton';
 import { ServiceAccountCreateButton } from '@/customer/service-accounts/ServiceAccountCreateAction';
 import { translate } from '@/i18n';
 import { InvitationCreateButton } from '@/invitations/actions/create/InvitationCreateButton';
+import { useModal } from '@/modal/actions';
+import { canChangeMembership } from '@/openportal/awardPolicy';
 import { getTableState } from '@/table/selectors';
 
+import { AwardLockedDialog } from '../AwardLockedDialog';
 import { CourseAccountCreateButton } from '../course-accounts/CourseAccountCreateAction';
+import { membershipLockedDialogProps } from '../MembershipLockedDialog';
+import { useProjectAwardDetails } from '../useProjectAwardDetails';
 
 import { AddUserButton } from './AddUserButton';
 
@@ -30,9 +36,36 @@ export const TeamDropdownActions = ({
 
   const isCourseProject = project.kind === 'course';
 
+  // An externally managed project may declare that its membership is the
+  // award's to set. The Add dropdown is then replaced by a single button that
+  // explains where to go instead — see src/openportal/awardPolicy.ts.
+  const { openDialog } = useModal();
+  const { data: awardDetails } = useProjectAwardDetails(project?.uuid);
+  const membershipLocked = !canChangeMembership(
+    awardDetails?.membership_control,
+  );
+
   // Don't render Add dropdown for removed projects
   if (project.is_removed) {
     return null;
+  }
+
+  if (membershipLocked && awardDetails) {
+    return (
+      <BaseButton
+        variant="primary"
+        size="lg"
+        className="btn-icon-right"
+        iconNode={<PlusCircleIcon weight="bold" />}
+        label={translate('Add')}
+        onClick={() =>
+          openDialog(
+            AwardLockedDialog,
+            membershipLockedDialogProps(awardDetails),
+          )
+        }
+      />
+    );
   }
 
   return (
