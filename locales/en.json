@@ -5,5 +5,9 @@
   "Resources": "Resources",
   "Save": "Save",
   "Services": "Services",
-  "Users": "Users"
+  "Users": "Users",
+  "{sender} has invited you to join {name} {type} in {role} role.": "{sender} has invited you to join the {type} called '{name}' in the role of '{role}'.",
+  "Upload additional documents, which support the proposal and help to review it.": "You must complete any application forms described in the call details (available from the Documents tab of the Call Details page). Please upload the completed forms here.",
+  "Upload supporting documentation": "Upload any forms described in the call details (available from the Documents tab of the Call Details page).",
+  "Sign in with {label}": "Click here to login"
 }
