@@ -102,6 +102,22 @@ const FormModalComponent: FC<
     return parseDate(value.input.value);
   }, [value]);
 
+  // A project that has already ended may be backdated further — up to 30 days
+  // before today, or back to its current end date, whichever is earlier — so
+  // an allocator extending a grace period is never blocked by a picker whose
+  // range excludes the value the project already has. A project that has not
+  // ended yet keeps the "tomorrow onward" restriction: ending a still-active
+  // project in the past is not meaningful.
+  const minEndDate = useMemo(() => {
+    const today = DateTime.now().startOf('day');
+    const currentEndDate = project.end_date
+      ? parseDate(project.end_date).startOf('day')
+      : null;
+    return currentEndDate && currentEndDate < today
+      ? DateTime.min(currentEndDate, today.minus({ days: 30 })).toISO()
+      : today.plus({ days: 1 }).toISO();
+  }, [project.end_date]);
+
   const selectedResources = useSelector(selectSelectedRows(TABLE_ID));
   const [confirm, setConfirm] = useState(false);
   const [step, setStep] = useState(1);
@@ -217,7 +233,7 @@ const FormModalComponent: FC<
           <DateGroup
             name="end_date"
             spaceless
-            minDate={DateTime.now().plus({ days: 1 }).toISO()}
+            minDate={minEndDate}
             description={
               <span className="text-gray-700">
                 {translate(

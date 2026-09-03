@@ -11,7 +11,7 @@ import { ProjectsList } from '@/project/ProjectsList';
 import { useUser, useCustomer } from '@/workspace/hooks';
 import {
   checkIsServiceManager,
-  checkIsOwnerOrStaff,
+  checkIsOwnerOrStaffOrReader,
 } from '@/workspace/selectors';
 
 import { CustomerDashboardChart } from './CustomerDashboardChart';
@@ -26,8 +26,10 @@ export const CustomerDashboard: FunctionComponent = () => {
     () => checkIsServiceManager(customer, user),
     [customer, user],
   );
+  // Readers hold a read-only organisation role, and the dashboard charts only
+  // display organisation data.
   const canSeeCharts = useMemo(
-    () => checkIsOwnerOrStaff(customer, user),
+    () => checkIsOwnerOrStaffOrReader(customer, user),
     [customer, user],
   );
 
