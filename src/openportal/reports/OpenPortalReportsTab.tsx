@@ -26,6 +26,7 @@ import {
   fetchStorageReports,
   fetchOfferingMapping,
   fetchUserMapping,
+  selectUserMappingIds,
 } from './api';
 import {
   getCached,
@@ -136,10 +137,16 @@ export const OpenPortalReportsTab: FC = () => {
           usageByUid[uid] = (usageByUid[uid] ?? 0) + sec;
         }
       }
-      const userIds = allUserIds
+      const usersWithUsage = allUserIds
         .filter((uid) => (usageByUid[uid] ?? 0) > 0)
-        .sort((a, b) => (usageByUid[b] ?? 0) - (usageByUid[a] ?? 0))
-        .slice(0, MAX_USER_MAPPINGS);
+        .sort((a, b) => (usageByUid[b] ?? 0) - (usageByUid[a] ?? 0));
+      // The cap counts only identifiers we'd have to fetch: already-cached
+      // names come along for free, so repeat visits keep widening coverage
+      // instead of re-requesting the same top slice every time.
+      const { ids: userIds } = selectUserMappingIds(
+        usersWithUsage,
+        MAX_USER_MAPPINGS,
+      );
       const offerings = await fetchOfferingMapping(offeringIds);
       const users = await fetchUserMapping(userIds);
       const maps = {
