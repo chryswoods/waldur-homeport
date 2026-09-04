@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { Stack } from 'react-bootstrap';
 import {
+  type Proposal,
   type ProposalProposalsListData,
   Project,
   proposalProposalsList,
@@ -28,6 +29,20 @@ import { checkIsOwnerOrStaff } from '@/workspace/selectors';
 
 import { ProjectActions } from './dashboard/ProjectActions';
 import { useProjectAwardDetails } from './useProjectAwardDetails';
+
+/**
+ * Whether a proposal really belongs to this project.
+ *
+ * Waldur hyperlinks relations, so `proposal.project` is a URL ending in the
+ * project's uuid. Checked against the last path segment rather than with a
+ * substring match, so one uuid cannot match another URL that merely contains
+ * it.
+ */
+export const belongsToProject = (
+  proposal: Proposal,
+  projectUuid: string,
+): boolean =>
+  Boolean(proposal.project?.replace(/\/$/, '').endsWith(`/${projectUuid}`));
 
 /** An award or call reference: a link when it carries a URL, plain text otherwise. */
 const AwardReference = ({
@@ -195,7 +210,19 @@ export const ProjectProfile = ({ project }: ProjectProfileProps) => {
           project_uuid: project.uuid,
           page_size: 100,
         } as NonNullable<ProposalProposalsListData['query']>,
-      }).then((response) => response.data),
+      }).then((response) =>
+        // Fail closed. The generated client drops an undefined query value
+        // silently and the API ignores a filter it does not recognise, so a
+        // project_uuid that fails to land turns this call into "list every
+        // proposal the user may see" — which then renders as though all of
+        // them belonged to this project. Re-checking each row against the
+        // project makes the worst case an empty list rather than a wrong one.
+        // A no-op whenever the server did apply the filter.
+        (response.data ?? []).filter((proposal) =>
+          belongsToProject(proposal, project.uuid),
+        ),
+      ),
+    enabled: Boolean(project?.uuid),
     staleTime: STALE_TIME,
   });
 
