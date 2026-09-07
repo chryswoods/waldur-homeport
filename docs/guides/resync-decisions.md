@@ -1,11 +1,33 @@
 # Homeport resync: decisions and findings
 
 Working record for the resync of `chryswoods/waldur-homeport` onto
-`waldur/waldur-homeport` `develop`, carried out against the plan in
+`waldur/waldur-homeport`, carried out against the plan in
 `chryswoods/waldur-mastermind:docs/guides/homeport-resync-plan.md`
 (branch `claude/waldur-mastermind-resync-analysis-w824hs`).
 
-Measured at `upstream/develop` = `abd2f89e2` (2026-09-03).
+**Base: upstream tag `8.1.3-rc.8` (`9fdb3e812`, 2026-09-01).**
+
+The resync was originally carried out against `upstream/develop` at
+`abd2f89e2` (2026-09-03) and then re-based onto the tag, so that this fork
+tracks something upstream has cut and tested as a unit rather than a moving
+development head. The tag is an ancestor of that develop commit — 11 commits
+behind it — so the move was backwards by two days' worth of upstream work.
+The analysis below was done against `abd2f89e2`; every figure was re-checked
+against the tag and none of the conclusions change. The two trees differ in
+only 26 files, and exactly one of them — `src/marketplace/details/DetailsPage.tsx`
+— is also a file this fork changes. Even there the hunks are far apart
+(upstream's at line 41, ours at line 27), so the replay was clean.
+
+Worth knowing what the pin gives up. The 11 commits between the tag and that
+develop commit are six merges: deployment-aware event groups, an enums and
+descriptions refresh from Waldur MasterMind, hide-accounting-on-child-offerings,
+error-shape config bootstrap, a maintenance-window-picker fix, and a VM
+order-form tab-refetch fix. The last of those is a data-loss fix — without
+`refetchOnWindowFocus: false` in `DetailsPage`, an in-progress order form
+resets when the user switches tabs. That regression is back until the next tag.
+
+The base moves again when upstream tags the next release candidate or 8.1.3
+itself — not on every develop commit.
 
 ## 1. Divergence: the plan's figures hold
 
@@ -166,14 +188,16 @@ and still present, as required.
 
 ## 7. Outcome
 
-The fork's delta against `upstream/develop` at the end of the resync:
+The fork's delta against upstream at the end of the resync:
 
 | | Files | Insertions | Deletions |
 | --- | --- | --- | --- |
 | Before (fork point `e506ac8e1` -> `e3872e5`) | 325 | 29,488 | 662 |
-| After | 59 | 2,510 | 179 |
+| After (against `8.1.3-rc.8`) | 59 | 2,878 | 177 |
 
-Fifteen of those files are new; the rest are edits to upstream files. The
+Sixteen of those files are new; the other 43 are edits to upstream files.
+Three of the new ones are these notes and a test, so the carried code is
+smaller than the line count suggests. The
 reduction is almost entirely section 4 — OpenPortal, which the plan expected
 to be "the bulk of the job", came down to two new components, four tail
 commits and a policy module.

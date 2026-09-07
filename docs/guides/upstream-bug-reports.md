@@ -9,8 +9,13 @@ if they agree, offered back as patches.
 | | |
 | --- | --- |
 | Verified against | `upstream/develop` at `3e867acb3` (2026-09-04) |
-| Fork branch carrying the fixes | `claude/waldur-homeport-resync-ttwxn2` at `9c0803664` |
+| Also confirmed present in | tag `8.1.3-rc.8` (`9fdb3e812`, 2026-09-01), which this fork is based on |
+| Fork branch carrying the fixes | `claude/waldur-homeport-resync-ttwxn2` |
 | How they were found | Resyncing this fork onto upstream, September 2026 |
+
+All five are present in both the newest release candidate and the current
+development head, so none of them is something upstream has already fixed and
+not yet tagged.
 
 Every line reference below is to **upstream's** file at `3e867acb3`, not to this
 fork's copy. Each finding states what was actually checked, so a maintainer can
