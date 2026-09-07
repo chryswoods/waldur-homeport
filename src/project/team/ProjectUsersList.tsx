@@ -1,23 +1,20 @@
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
+import { useMemo } from 'react';
+import { projectsListUsersList, UserRoleDetails } from 'waldur-js-client';
+
+import { TeamTableComponent } from '@/customer/team/TeamTableComponent';
+import { getProjectRoles } from '@/permissions/utils';
+import { createFetcher } from '@/table/api';
 import {
-  Project,
-  projectsListUsersList,
-  UserRoleDetails,
-} from 'waldur-js-client';
-
-import { TeamTableComponent } from '@waldur/customer/team/TeamTableComponent';
-import { createFetcher } from '@waldur/table/api';
-import { useTable } from '@waldur/table/useTable';
-import { getProject } from '@waldur/workspace/selectors';
-
-import { PROJECT_USERS_LIST_FILTER_FORM_ID } from '../constants';
+  ProjectsListUsersFilter,
+  selectProjectsListUsersFilter,
+} from '@/table/generated/ProjectsListUsersFilter';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { useProject } from '@/workspace/hooks';
 
 import { ProjectPermisionActions } from './ProjectPermisionActions';
 import { ProjectPermissionsLogButton } from './ProjectPermissionsLogButton';
 import { ProjectUsersBulkRemoveButton } from './ProjectUsersBulkRemoveButton';
-import { ProjectUsersListFilter } from './ProjectUsersListFilter';
 import { SyncMembersButton } from './SyncMembersButton';
 import { useTeamTableTabs } from './tabs';
 import { TeamDropdownActions } from './TeamDropdownActions';
@@ -31,21 +28,7 @@ const mandatoryFields = [
   'user_full_name',
   'role_name',
   'user_username',
-  'user_slug',
-  'user_unix_username',
 ];
-const mapStateToFilter = createSelector(
-  getFormValues(PROJECT_USERS_LIST_FILTER_FORM_ID),
-  (filterValues: any) => {
-    const filter: Record<string, string | boolean> = {};
-    if (filterValues) {
-      if (filterValues.project_role) {
-        filter.role = filterValues.project_role.map(({ name }) => name);
-      }
-    }
-    return filter;
-  },
-);
 
 const TeamSecondaryDropdownActions = ({ project, refetch }) => {
   // For removed projects, only show permissions log (read-only)
@@ -68,15 +51,19 @@ export const ProjectUsersList = ({
   project,
 }: {
   hideTabs?: boolean;
-  project: Project;
+  project?: any;
 }) => {
-  const filter = useSelector(mapStateToFilter);
-  const currentProject = useSelector(getProject);
+  const values = useFilterValues('project-users');
+
+  const filter = useMemo(() => selectProjectsListUsersFilter(values), [values]);
+
+  const currentProject = useProject();
 
   const _project = project || currentProject;
 
   const tableProps = useTable({
     table: 'project-users',
+    syncFiltersToURL: true,
     fetchData: createFetcher(projectsListUsersList, {
       path: { uuid: _project?.uuid },
     }),
@@ -114,7 +101,7 @@ export const ProjectUsersList = ({
           project={_project}
         />
       )}
-      filters={<ProjectUsersListFilter />}
+      filters={<ProjectsListUsersFilter projectRoles={getProjectRoles()} />}
       enableMultiSelect
       multiSelectActions={({ rows, refetch }) => (
         <ProjectUsersBulkRemoveButton

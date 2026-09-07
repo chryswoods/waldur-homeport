@@ -1,14 +1,16 @@
 import { QuestionIcon } from '@phosphor-icons/react';
 import React, { PropsWithChildren } from 'react';
-import { useSelector } from 'react-redux';
+import { LimitPeriodEnum } from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
-import { formatCurrency } from '@waldur/core/formatCurrency';
-import { Tip } from '@waldur/core/Tooltip';
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
-import { getActiveFixedPricePaymentProfile } from '@waldur/invoices/details/utils';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { ENV } from '@/core/config';
+import { formatCurrency } from '@/core/formatCurrency';
+import { Tip } from '@/core/Tooltip';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import { getActiveFixedPricePaymentProfile } from '@/invoices/details/utils';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
+import { renderFieldOrDash } from '@/table/utils';
+import { useCustomer } from '@/workspace/hooks';
 
 import { ComponentCost } from './ComponentCost';
 import { Component, PlanPeriod } from './types';
@@ -20,29 +22,31 @@ interface ComponentRowProps {
   hidePrices?: boolean;
   hasX?: boolean;
   className?: string;
+  /** Set when the quantity is unknown, so no total can be stated yet. */
+  hideTotal?: boolean;
 }
 
 export const ComponentRow: React.FC<PropsWithChildren<ComponentRowProps>> = (
   props,
 ) => {
-  const customer = useSelector(getCustomer);
+  const customer = useCustomer();
   const activeFixedPriceProfile =
     customer && getActiveFixedPricePaymentProfile(customer.payment_profiles);
 
   return (
-    <tr>
+    <tr data-testid={`row-${props.offeringComponent.type}`}>
       <td>
         <p>
           {props.offeringComponent.name}
           <Tip label={props.offeringComponent.type} id="componentTypeTooltip">
             {' '}
-            <QuestionIcon />
+            <QuestionIcon weight="bold" />
           </Tip>
         </p>
       </td>
       <td className={props.className}>{props.children}</td>
       <td>
-        <p>{props.offeringComponent.measured_unit || 'N/A'}</p>
+        <p>{renderFieldOrDash(props.offeringComponent.measured_unit)}</p>
       </td>
       {!activeFixedPriceProfile && !props.hidePrices
         ? props.offeringComponent.prices.map((price, innerIndex) => (
@@ -70,11 +74,21 @@ export const ComponentRow2: React.FC<PropsWithChildren<ComponentRowProps>> = (
   const perPeriod = !props.period
     ? ''
     : props.period === 'annual'
-      ? ' /year'
-      : ' /mo';
+      ? translate(' /year')
+      : translate(' /mo');
+
+  const limitPeriod = props.offeringComponent.limit_period as LimitPeriodEnum;
+  const perLimitPeriod =
+    limitPeriod === 'annual'
+      ? translate(' /year')
+      : limitPeriod === 'quarterly'
+        ? translate(' /quarter')
+        : '';
 
   return (
     <FormTable.Item
+      htmlFor={`limit-${props.offeringComponent.type}`}
+      data-testid={`row-${props.offeringComponent.type}`}
       label={props.offeringComponent.name}
       description={
         props.hidePrices ? null : (
@@ -83,18 +97,35 @@ export const ComponentRow2: React.FC<PropsWithChildren<ComponentRowProps>> = (
       }
       value={props.children}
       actions={
-        !props.hidePrices && (
+        !props.hidePrices &&
+        (props.hideTotal ? (
+          <span className="d-block">{DASH_ESCAPE_CODE}</span>
+        ) : (
           <>
-            {translate('Total')}
-            {': '}
-            {formatCurrency(
-              componentTotalPrice,
-              ENV.plugins.WALDUR_CORE.CURRENCY_NAME,
-              4,
-            )}
-            {perPeriod}
+            <span className="d-block">
+              {translate('Total')}
+              {': '}
+              {formatCurrency(
+                perLimitPeriod
+                  ? props.offeringComponent.subTotal
+                  : componentTotalPrice,
+                ENV.plugins.WALDUR_CORE.CURRENCY_NAME,
+                4,
+              )}
+              {perLimitPeriod || perPeriod}
+            </span>
+            {perLimitPeriod ? (
+              <span className="fs-7">
+                {formatCurrency(
+                  componentTotalPrice,
+                  ENV.plugins.WALDUR_CORE.CURRENCY_NAME,
+                  4,
+                )}
+                {perPeriod}
+              </span>
+            ) : null}
           </>
-        )
+        ))
       }
     />
   );

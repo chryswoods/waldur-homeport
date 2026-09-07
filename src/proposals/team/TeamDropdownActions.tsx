@@ -1,23 +1,20 @@
 import { CaretDownIcon, PlusCircleIcon } from '@phosphor-icons/react';
 import { Dropdown } from 'react-bootstrap';
 
-import { translate } from '@waldur/i18n';
-import { InvitationCreateButton } from '@waldur/invitations/actions/create/InvitationCreateButton';
-import { GenericInvitationContext } from '@waldur/invitations/types';
+import { translate } from '@/i18n';
+import { InvitationCreateButton } from '@/invitations/actions/create/InvitationCreateButton';
+import { GenericInvitationContext } from '@/invitations/types';
 
 import { AddUserButton } from './AddUserButton';
-import { ImportReviewersButton } from './ImportReviewersButton';
 
 interface TeamDropdownActionsProps extends GenericInvitationContext {
   refetchUsers?(): void;
   refetchInvitations?(): void;
-  showImportReviewers?: boolean;
 }
 
 export const TeamDropdownActions = ({
   refetchUsers,
   refetchInvitations,
-  showImportReviewers = false,
   ...rest
 }: TeamDropdownActionsProps) => {
   return (
@@ -32,15 +29,8 @@ export const TeamDropdownActions = ({
         </span>
       </Dropdown.Toggle>
       <Dropdown.Menu flip>
-        <InvitationCreateButton
-          refetch={refetchInvitations}
-          enableBulkUpload={true}
-          {...rest}
-        />
+        <InvitationCreateButton refetch={refetchInvitations} {...rest} />
         <AddUserButton refetch={refetchUsers} {...rest} />
-        {showImportReviewers && (
-          <ImportReviewersButton refetch={refetchUsers} {...rest} />
-        )}
       </Dropdown.Menu>
     </Dropdown>
   );

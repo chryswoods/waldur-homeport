@@ -1,13 +1,13 @@
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { OfferingConfiguration } from '@waldur/marketplace/common/types';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { OfferingConfiguration } from '@/marketplace/common/types';
 
 import { MARKETPLACE_RANCHER } from './constants';
 import { rancherOrderSerializer } from './serializers';
 
-const RancherCredentialsForm = lazyComponent(() =>
-  import('@waldur/rancher/RancherCredentialsForm').then((module) => ({
-    default: module.RancherCredentialsForm,
+const RancherCredentialsSection = lazyComponent(() =>
+  import('./RancherCredentialsSection').then((module) => ({
+    default: module.RancherCredentialsSection,
   })),
 );
 
@@ -35,9 +35,9 @@ export const RancherOffering: OfferingConfiguration = {
   },
   orderFormComponent: RancherOrderForm,
   checkoutSummaryComponent: RancherClusterCheckoutSummary,
-  credentialsForm: RancherCredentialsForm,
-  provisioningConfigForm: RancherProvisioningConfigurationForm,
-  serializer: rancherOrderSerializer,
+  credentialsSection: RancherCredentialsSection,
+  provisioningConfigSection: RancherProvisioningConfigurationForm,
+  serializer: rancherOrderSerializer as any,
   secretOptionsSerializer: ({ customer_uuid, ...formData }) => ({
     ...formData,
     customer_uuid: customer_uuid ? customer_uuid.uuid : undefined,

@@ -2,11 +2,11 @@ import { PlusCircleIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
 import { openstackTenantsCreateFloatingIp } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { OpenStackTenant } from '@waldur/openstack/openstack-tenant/types';
-import { AsyncActionButton } from '@waldur/resource/actions/AsyncActionButton';
-import { validateState } from '@waldur/resource/actions/base';
-import { ActionContext } from '@waldur/resource/actions/types';
+import { translate } from '@/i18n';
+import { OpenStackTenant } from '@/openstack/openstack-tenant/types';
+import { AsyncActionButton } from '@/resource/actions/AsyncActionButton';
+import { validateState } from '@/resource/actions/base';
+import { ActionContext } from '@/resource/actions/types';
 
 import { TenantActionProps } from './types';
 
@@ -29,9 +29,21 @@ export const CreateFloatingIpAction: FC<TenantActionProps> = ({
     iconNode={<PlusCircleIcon weight="bold" />}
     resource={resource}
     validators={validators}
-    apiMethod={(uuid) => openstackTenantsCreateFloatingIp({ path: { uuid } })}
+    apiMethod={(uuid, data) => {
+      const requestParams: any = {
+        path: { uuid },
+      };
+      if (data?.router) {
+        requestParams.body = { router: data.router };
+      }
+      return openstackTenantsCreateFloatingIp(requestParams);
+    }}
     refetch={refetch}
     hasConfirmation
     actionTitle={translate('Create floating IP')}
+    confirmationOptions={{
+      showRouterSelect: true,
+      tenantUuid: resource.uuid,
+    }}
   />
 );

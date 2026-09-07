@@ -1,28 +1,32 @@
 import arrayMutators from 'final-form-arrays';
-import { useCallback } from 'react';
+import { useMemo } from 'react';
 import { Form } from 'react-final-form';
-import { useDispatch } from 'react-redux';
 import {
   Notification,
   notificationMessagesTemplatesOverride,
   NotificationTemplateDetailSerializers,
 } from 'waldur-js-client';
 
-import { SubmitButton } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
 import { NotificationForm } from './NotificationForm';
 
 function findDifferentTemplates(
-  formTemplates: NotificationTemplateDetailSerializers[],
-  baseTemplates: NotificationTemplateDetailSerializers[],
+  formTemplate: { templates: NotificationTemplateDetailSerializers[] },
+  initTemplate: { templates: NotificationTemplateDetailSerializers[] },
 ) {
-  return formTemplates.filter((formTemplate) => {
-    const base = baseTemplates.find((t) => t.uuid === formTemplate.uuid);
-    return base && formTemplate.content !== base.content;
+  const formTemplates = formTemplate.templates;
+  const initTemplates = initTemplate.templates;
+
+  return formTemplates.filter((template1) => {
+    const matchingTemplate2 = initTemplates.find(
+      (template2) => template2.content === template1.content,
+    );
+    return !matchingTemplate2;
   });
 }
 
@@ -31,53 +35,44 @@ export const NotificationUpdateDialog = ({
 }: {
   resolve: { notification: Notification; refetch };
 }) => {
-  const dispatch = useDispatch();
+  const normalizedTemplates = useMemo(
+    () =>
+      resolve.notification.templates.map((t) => ({
+        ...t,
+        content: t.content ?? t.original_content ?? '',
+      })),
+    [resolve.notification.templates],
+  );
 
-  const initialTemplates = resolve.notification.templates.map((t) => ({
-    ...t,
-    content: t.content ?? t.original_content,
-  }));
-
-  const onSubmit = useCallback(
-    async (formData) => {
-      const templatesToUpdate = findDifferentTemplates(
-        formData.templates,
-        initialTemplates,
-      );
+  const { mutateAsync } = useManagedMutation<any, any, any>({
+    mutationFn: async (formData) => {
+      const templatesToUpdate = findDifferentTemplates(formData, {
+        templates: normalizedTemplates,
+      });
 
       if (templatesToUpdate.length === 0) {
-        dispatch(closeModalDialog());
         return;
       }
 
       for (const template of templatesToUpdate) {
-        try {
-          await notificationMessagesTemplatesOverride({
-            path: { uuid: template.uuid },
-            body: {
-              content: template.content,
-            },
-          });
-        } catch (e) {
-          dispatch(
-            showErrorResponse(e, translate('Unable to update a notification.')),
-          );
-          return;
-        }
+        await notificationMessagesTemplatesOverride({
+          path: { uuid: template.uuid },
+          body: {
+            content: template.content,
+          },
+        });
       }
-      await resolve.refetch();
-      dispatch(showSuccess(translate('Notification has been updated.')));
-      dispatch(closeModalDialog());
     },
-    [dispatch, resolve],
-  );
+    refetch: resolve.refetch,
+    successMessage: translate('Notification has been updated.'),
+    errorMessage: translate('Unable to update a notification.'),
+  });
 
-  // @ts-ignore
   const contextSchema = resolve.notification.context_schema;
   return (
     <Form
-      onSubmit={onSubmit}
-      initialValues={{ templates: initialTemplates }}
+      onSubmit={(values) => mutateAsync(values)}
+      initialValues={{ templates: normalizedTemplates }}
       mutators={{
         ...arrayMutators,
       }}
@@ -86,12 +81,17 @@ export const NotificationUpdateDialog = ({
           <ModalDialog
             title={translate('Update notification template')}
             subtitle={resolve.notification.description}
+            bodyClassName="h-500px overflow-auto"
             footer={
-              <SubmitButton
-                submitting={submitting}
-                disabled={pristine}
-                label={translate('Save')}
-              />
+              <>
+                <CloseDialogButton className="min-w-150px" />
+                <SubmitButton
+                  submitting={submitting}
+                  disabled={pristine}
+                  label={translate('Confirm')}
+                  className="min-w-150px"
+                />
+              </>
             }
           >
             <NotificationForm schema={contextSchema} />

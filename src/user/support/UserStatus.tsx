@@ -1,46 +1,55 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useDispatch } from 'react-redux';
 import { usersPartialUpdate } from 'waldur-js-client';
 import { User } from 'waldur-js-client';
 
-import { AwesomeCheckbox } from '@waldur/core/AwesomeCheckbox';
-import { Panel } from '@waldur/core/Panel';
-import { formatJsxTemplate, translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { useNotify } from '@waldur/store/hooks';
+import { AwesomeCheckbox } from '@/core/AwesomeCheckbox';
+import { Panel } from '@/core/Panel';
+import { formatJsxTemplate, translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { useNotify } from '@/store/notify';
 
-const getConfirmationText = (isActive: boolean, name: string): string => {
-  return isActive
-    ? translate(
-        'Are you sure you want to disable {name}?',
-        { name: <strong>{name}</strong> },
-        formatJsxTemplate,
-      )
-    : translate(
-        'Are you sure you want to activate {name}?',
-        { name: <strong>{name}</strong> },
-        formatJsxTemplate,
-      );
-};
+import { UserDeactivateDialog } from './UserDeactivateDialog';
 
 export const UserStatus = ({ user }: { user: User }) => {
+  const { confirm, openDialog } = useModal();
   const queryClient = useQueryClient();
-  const dispatch = useDispatch();
   const { showErrorResponse, showSuccess } = useNotify();
   const [isActive, setIsActive] = useState(user.is_active);
 
+  const setLocalActive = (value: boolean) => {
+    queryClient.invalidateQueries({ queryKey: ['User', user.uuid] });
+    queryClient.setQueryData(
+      ['User', user.uuid],
+      (cachedUser: User | undefined) =>
+        cachedUser
+          ? { ...cachedUser, is_active: value }
+          : { ...user, is_active: value },
+    );
+    setIsActive(value);
+  };
+
   const toggleUserStatus = async () => {
+    // Deactivation requires a reason and sets an administrative override that
+    // the role-sync task will not undo, so collect it via a dedicated dialog.
+    if (isActive) {
+      openDialog(UserDeactivateDialog, {
+        resolve: { user, onDeactivated: () => setLocalActive(false) },
+      });
+      return;
+    }
+
     try {
-      await waitForConfirmation(
-        dispatch,
+      await confirm(
         translate('Confirmation'),
-        getConfirmationText(isActive, user.full_name),
+        translate(
+          'Are you sure you want to activate {name}?',
+          { name: <strong>{user.full_name}</strong> },
+          formatJsxTemplate,
+        ),
         {
           type: 'danger',
-          positiveButton: isActive
-            ? translate('Disable')
-            : translate('Activate'),
+          positiveButton: translate('Activate'),
           negativeButton: translate('Cancel'),
         },
       );
@@ -52,29 +61,11 @@ export const UserStatus = ({ user }: { user: User }) => {
       await usersPartialUpdate({
         path: { uuid: user.uuid },
         body: {
-          is_active: !isActive,
+          is_active: true,
         },
       });
-      queryClient.invalidateQueries({
-        queryKey: ['User', user.uuid],
-      });
-
-      queryClient.setQueryData(
-        ['User', user.uuid],
-        (cachedUser: User | undefined) => {
-          if (!cachedUser) {
-            return { ...user, is_active: !isActive };
-          }
-          return { ...cachedUser, is_active: !isActive };
-        },
-      );
-      setIsActive(!isActive);
-
-      if (isActive) {
-        showSuccess(translate('User has been disabled.'));
-      } else {
-        showSuccess(translate('User has been activated.'));
-      }
+      setLocalActive(true);
+      showSuccess(translate('User has been activated.'));
     } catch (error) {
       showErrorResponse(error, translate('Unable to toggle user status.'));
     }
@@ -101,6 +92,11 @@ export const UserStatus = ({ user }: { user: User }) => {
           )}
         </li>
         <li>{translate('Blocked users cannot login into the system')}</li>
+        <li>
+          {translate(
+            'Disabling here is an administrative override: when automatic role-based deactivation is enabled, the system will not re-enable the account automatically, even if the user regains roles. It can only be reactivated manually here.',
+          )}
+        </li>
       </ul>
     </Panel>
   );

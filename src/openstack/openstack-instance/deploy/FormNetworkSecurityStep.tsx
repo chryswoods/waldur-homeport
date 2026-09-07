@@ -1,34 +1,55 @@
-import { PlusCircleIcon, QuestionIcon, TrashIcon } from '@phosphor-icons/react';
+import {
+  PlusCircleIcon,
+  QuestionIcon,
+  TrashIcon,
+  WarningCircleIcon,
+} from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Col, Form, FormLabel, Row } from 'react-bootstrap';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { Col, Form, FormLabel, Row } from 'react-bootstrap';
+import { Field, useForm, useFormState } from 'react-final-form';
+import { FieldArray } from 'react-final-form-arrays';
 import { components } from 'react-select';
 import { useToggle } from 'react-use';
-import { Field, FieldArray } from 'redux-form';
-import { OpenStackSubNetAllocationPool } from 'waldur-js-client';
+import {
+  openstackFloatingIpsList,
+  OpenStackSubNetAllocationPool,
+  openstackSubnetsList,
+} from 'waldur-js-client';
 
-import { AwesomeCheckbox } from '@waldur/core/AwesomeCheckbox';
-import { Tip } from '@waldur/core/Tooltip';
-import { required } from '@waldur/core/validators';
-import { FieldError, FormGroup, SelectField, StringField } from '@waldur/form';
-import { Select } from '@waldur/form/themed-select';
-import { VStepperFormStepCard } from '@waldur/form/VStepperFormStep';
-import { translate } from '@waldur/i18n';
-import { FormStepProps } from '@waldur/marketplace/deploy/types';
-import { loadFloatingIps, loadSubnets } from '@waldur/openstack/api';
+import { AlertItem } from '@/core/AlertItem';
+import { getAllPages } from '@/core/api';
+import { AwesomeCheckbox } from '@/core/AwesomeCheckbox';
+import { UI_STALE_TIME } from '@/core/constants';
+import { Tip } from '@/core/Tooltip';
+import { required } from '@/core/validators';
+import { BaseStringField, FieldError, SelectGroup } from '@/form';
+import { Select } from '@/form/select';
+import { translate } from '@/i18n';
+import { FormStepProps } from '@/marketplace/deploy/types';
 import {
   getIPsInRange,
   isIPInRange,
-} from '@waldur/openstack/openstack-network/utils';
-import { DASH_ESCAPE_CODE } from '@waldur/table/constants';
-import { renderFieldOrDash } from '@waldur/table/utils';
+} from '@/openstack/openstack-network/utils';
+import { ActionButton } from '@/table/ActionButton';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
+import { renderFieldOrDash } from '@/table/utils';
+import { VStepperFormStepCard } from '@/wizard';
 
-import { getDefaultFloatingIps, formatSubnet } from '../utils';
+import { formatSubnet, getDefaultFloatingIps } from '../utils';
 
 import { FormSecurityGroupsField } from './FormSecurityGroupsField';
 import { FormSSHPublicKeysField } from './FormSSHPublicKeysField';
+import { useQuotasData } from './utils';
 
-export const CustomIpField = ({
+const CustomIpField = ({
   parentName,
   data,
   autoFocus = false,
@@ -75,7 +96,14 @@ export const CustomIpField = ({
   return (
     <Field
       name={`${parentName}.fixed_ip`}
-      component={(fieldProps) => (
+      validate={(value) => {
+        if (selected?.value === false) return undefined;
+        const req = required(value);
+        if (req) return req;
+        return isOutsideRange(value);
+      }}
+    >
+      {({ input, meta }) => (
         <div>
           <FormLabel>{translate('Custom IP')}</FormLabel>
           <Select
@@ -84,35 +112,31 @@ export const CustomIpField = ({
             value={options.find((opt) => opt.value === selected?.value)}
             onChange={(opt) => {
               setSelected(opt);
-              fieldProps.input.onChange(opt.value === 'other' ? '' : opt.value);
+              input.onChange(opt.value === 'other' ? '' : opt.value);
             }}
+            onBlur={input.onBlur}
           />
 
-          <StringField
+          <BaseStringField
             placeholder={translate('Enter custom IP')}
-            value={fieldProps.input?.value}
-            onChange={fieldProps.input.onChange}
+            value={input?.value}
+            onChange={input.onChange}
             hidden={selected?.value !== 'other'}
             className="mt-4"
             autoFocus={autoFocus}
           />
 
-          {fieldProps.meta.dirty &&
-            (fieldProps.meta.error ? (
-              <FieldError error={fieldProps.meta.error} />
-            ) : fieldProps.meta.warning ? (
+          {(meta.touched || meta.submitFailed) &&
+            (meta.error ? (
+              <FieldError error={meta.error} />
+            ) : isOutsideAllocationPool(input.value) ? (
               <Form.Text className="text-warning" as="div">
-                {fieldProps.meta.warning}
+                {isOutsideAllocationPool(input.value)}
               </Form.Text>
             ) : null)}
         </div>
       )}
-      validate={
-        selected?.value === false ? undefined : [required, isOutsideRange]
-      }
-      warn={selected?.value === false ? undefined : [isOutsideAllocationPool]}
-      required={true}
-    />
+    </Field>
   );
 };
 
@@ -168,13 +192,14 @@ const renderNetworkRows = ({
   subnets,
   floatingIps,
   hasCustomIp,
+  fipQuotaExhausted,
 }: any) => {
+  const form = useForm();
   const availableNetworkItemsFilter = useCallback(
     (itemType) => (item) => {
       let res = true;
-      if (fields.length > 0) {
-        fields.forEach((_, i) => {
-          const net = fields.get(i);
+      if (fields.length > 0 && fields.value) {
+        fields.value.forEach((net) => {
           if (net && net[itemType] && net[itemType].uuid === item.uuid) {
             res = false;
           }
@@ -196,11 +221,11 @@ const renderNetworkRows = ({
 
   const freeFloatingIps = useMemo(
     () => [
-      ...getDefaultFloatingIps(),
+      ...getDefaultFloatingIps({ fipQuotaExhausted }),
       ...floatingIps.filter(availableNetworkItemsFilter('floatingIp')),
     ],
 
-    [floatingIps, availableNetworkItemsFilter],
+    [floatingIps, availableNetworkItemsFilter, fipQuotaExhausted],
   );
 
   const getDefaultValue = useCallback(
@@ -212,26 +237,31 @@ const renderNetworkRows = ({
     [freeSubnets],
   );
 
+  // The "Add subnet" button uses addRow. Dedupe via `form.getState()` so any
+  // accidental double-fire (stale `fields.value` snapshot, click replay)
+  // can't push the same subnet twice.
   const addRow = useCallback(() => {
-    // if has free subnets
-    if (freeSubnets.length > 0) {
-      fields.push(getDefaultValue());
+    if (freeSubnets.length === 0) return;
+    const value = getDefaultValue();
+    const current: any[] = form.getState().values?.attributes?.networks ?? [];
+    if (
+      value.subnet?.uuid &&
+      current.some((n) => n?.subnet?.uuid === value.subnet.uuid)
+    ) {
+      return;
     }
-  }, [fields, freeSubnets, getDefaultValue]);
+    fields.push(value);
+  }, [form, fields, freeSubnets, getDefaultValue]);
 
   useEffect(() => {
-    if (fields?.length === 0) {
-      addRow();
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!hasCustomIp) {
-      fields.forEach((_, index) => {
-        delete fields.get(index).fixed_ip;
+    if (!hasCustomIp && fields.value) {
+      fields.value.forEach((val, index) => {
+        if (val && val.fixed_ip !== undefined) {
+          fields.update(index, { ...val, fixed_ip: undefined });
+        }
       });
     }
-  }, [hasCustomIp]);
+  }, [hasCustomIp, fields]);
 
   return (
     <div className="mb-5">
@@ -240,12 +270,11 @@ const renderNetworkRows = ({
           <Fragment key={index}>
             <Row className="g-4">
               <Col sm={6}>
-                <Field
+                <SelectGroup
                   name={`${network}.subnet`}
                   label={translate('Subnet')}
-                  component={FormGroup}
                   options={freeSubnets}
-                  validate={[required]}
+                  validate={required}
                   required={true}
                   placeholder={translate('Select subnet')}
                   getOptionValue={(option) => option.url}
@@ -253,44 +282,56 @@ const renderNetworkRows = ({
                   noUpdateOnBlur
                   spaceless
                   components={{ ValueContainer: SubnetValueContainer }}
-                >
-                  <SelectField />
-                </Field>
+                />
               </Col>
               <Col sm>
-                <Field
+                <SelectGroup
                   name={`${network}.floatingIp`}
-                  label={translate('Floating IP')}
-                  component={FormGroup}
+                  label={
+                    fipQuotaExhausted ? (
+                      <>
+                        {translate('Floating IP')}{' '}
+                        <Tip
+                          id={`fip-quota-tip-${index}`}
+                          label={translate(
+                            'Floating IP quota is exhausted; auto-assign is unavailable. Ask the administrator to raise the limit.',
+                          )}
+                        >
+                          <WarningCircleIcon
+                            weight="bold"
+                            size={14}
+                            className="text-warning align-text-bottom ms-1"
+                          />
+                        </Tip>
+                      </>
+                    ) : (
+                      translate('Floating IP')
+                    )
+                  }
                   options={freeFloatingIps}
-                  validate={[required]}
+                  validate={required}
                   required={true}
-                  isDisabled={!fields.get(index)?.subnet?.uuid}
+                  isDisabled={!fields.value[index]?.subnet?.uuid}
+                  isOptionDisabled={(option) => Boolean(option.isDisabled)}
                   getOptionValue={(option) => option.url}
                   getOptionLabel={(option) => option.address}
                   noUpdateOnBlur
                   spaceless
-                >
-                  <SelectField />
-                </Field>
+                />
               </Col>
               <Col xs="auto" className="align-self-end">
-                <Button
+                <ActionButton
+                  action={() => fields.remove(index)}
+                  iconNode={<TrashIcon weight="bold" />}
                   variant="text-danger"
-                  className="btn-icon"
-                  onClick={() => fields.remove(index)}
-                >
-                  <span className="svg-icon svg-icon-1x">
-                    <TrashIcon weight="bold" />
-                  </span>
-                </Button>
+                />
               </Col>
               {hasCustomIp && (
                 <Col xs={12}>
                   <Col sm={6}>
                     <CustomIpField
                       parentName={network}
-                      data={fields.get(index)}
+                      data={fields.value[index]}
                       hasAutoOption
                     />
                   </Col>
@@ -300,42 +341,114 @@ const renderNetworkRows = ({
           </Fragment>
         ))}
       </div>
-      <Button
-        variant="text-primary"
+      <ActionButton
+        action={addRow}
         disabled={freeSubnets.length === 0}
-        onClick={addRow}
-      >
-        <span className="svg-icon svg-icon-2">
-          <PlusCircleIcon weight="bold" />
-        </span>{' '}
-        {translate('Add subnet')}
-      </Button>
+        disabledReason={translate('No available subnets')}
+        title={translate('Add subnet')}
+        iconNode={<PlusCircleIcon weight="bold" />}
+        variant="text-primary"
+      />
     </div>
   );
 };
 
 export const FormNetworkSecurityStep = (props: FormStepProps) => {
   const [customIpEnabled, setCustomIpEnabled] = useToggle(false);
+  const [portSecurityEnabled, setPortSecurityEnabled] = useToggle(true);
+  const showSshKeyWarning = (props.offering.plugin_options as any)
+    ?.show_ssh_key_loss_warning;
+  const form = useForm();
+  const { values } = useFormState({ subscription: { values: true } });
+
+  // Track whether the user has explicitly flipped the toggle. Once true,
+  // we stop auto-defaulting on subnet changes so a deliberate choice is not
+  // clobbered when the user switches subnets.
+  const userTouchedRef = useRef(false);
+  const lastAppliedSubnetUuidRef = useRef<string | undefined>(undefined);
+
+  const firstSubnet = values?.attributes?.networks?.[0]?.subnet;
+  const firstSubnetUuid: string | undefined = firstSubnet?.uuid;
+  const firstSubnetPortSecurity: boolean | undefined =
+    firstSubnet?.port_security_enabled;
+
+  const { fipQuota } = useQuotasData(props.offering);
+  const fipQuotaExhausted = Boolean(
+    fipQuota &&
+    typeof fipQuota.limit === 'number' &&
+    fipQuota.limit !== -1 &&
+    (fipQuota.usage || 0) >= fipQuota.limit,
+  );
+
+  useEffect(() => {
+    form.change('attributes.port_security_enabled', portSecurityEnabled);
+  }, [portSecurityEnabled, form]);
+
+  // When the selected subnet changes, default the "Disable port security"
+  // toggle to match the parent network's port_security_enabled flag.
+  // Skip if the user has already made an explicit choice this session, and
+  // skip when the backend payload omits the field (older Neutron clouds).
+  useEffect(() => {
+    if (!firstSubnetUuid) return;
+    if (firstSubnetUuid === lastAppliedSubnetUuidRef.current) return;
+    lastAppliedSubnetUuidRef.current = firstSubnetUuid;
+    if (userTouchedRef.current) return;
+    if (firstSubnetPortSecurity === false) {
+      setPortSecurityEnabled(false);
+    } else if (firstSubnetPortSecurity === true) {
+      setPortSecurityEnabled(true);
+    }
+  }, [firstSubnetUuid, firstSubnetPortSecurity, setPortSecurityEnabled]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['network-step', props.offering.scope_uuid],
 
     queryFn: () => {
       return Promise.all([
-        loadSubnets({ tenant_uuid: props.offering.scope_uuid }),
-        loadFloatingIps({
-          tenant_uuid: props.offering.scope_uuid,
-          free: true,
-          field: ['url', 'address'],
-        }),
+        getAllPages((page) =>
+          openstackSubnetsList({
+            query: { page, tenant_uuid: props.offering.scope_uuid },
+          }),
+        ),
+        getAllPages((page) =>
+          openstackFloatingIpsList({
+            query: {
+              page,
+              tenant_uuid: props.offering.scope_uuid,
+              free: true,
+              field: ['url', 'address'],
+            },
+          }),
+        ),
       ]).then(([subnets, floatingIps]) => ({
         subnets,
         floatingIps,
       }));
     },
 
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
+
+  // Seed the first network row once subnet data is available.
+  // Must run in the PARENT effect (not inside the FieldArray's component),
+  // because react-final-form's `useField` registers its subscription in its
+  // own `useEffect`; child effects fire before that, so a push from inside
+  // FieldArray's render component would update form state but never reach
+  // the field subscriber (it sees only the post-registration "initial"
+  // notification, which `useField` deliberately skips on first render). The
+  // parent's effect runs after the child's, so the subscription is in place
+  // by the time we push and the row renders.
+  useEffect(() => {
+    if (!data?.subnets?.length) return;
+    const existing = form.getState().values?.attributes?.networks;
+    if (existing && existing.length > 0) return;
+    form.change('attributes.networks', [
+      {
+        subnet: data.subnets[0],
+        floatingIp: getDefaultFloatingIps({ fipQuotaExhausted })[0],
+      },
+    ]);
+  }, [data, form, fipQuotaExhausted]);
 
   return (
     <VStepperFormStepCard
@@ -346,8 +459,42 @@ export const FormNetworkSecurityStep = (props: FormStepProps) => {
       disabledTooltip={props.disabledTooltip}
     >
       <div className="mb-5 mt-n4 border-bottom">
+        {showSshKeyWarning && (
+          <AlertItem
+            variant="warning"
+            className="mb-4"
+            title={translate(
+              'Important: If you lose the SSH private key selected here, you will permanently lose access to your virtual machine (VM). It cannot be recovered without the key.',
+            )}
+            body={
+              <>
+                <p className="mb-1">
+                  {translate(
+                    'To reduce this risk, we strongly recommend that you:',
+                  )}
+                </p>
+                <ul className="mb-2">
+                  <li>
+                    {translate(
+                      'Keep your SSH private key secure and back it up in a safe location.',
+                    )}
+                  </li>
+                  <li>
+                    {translate(
+                      'Configure at least one additional trusted user with root-level privileges and SSH access to the VM as a backup.',
+                    )}
+                  </li>
+                </ul>
+                <p className="mb-0">
+                  {translate(
+                    "As a service provider, we do not retain access or any backdoor to your VM, meaning we cannot add, modify, or recover SSH keys for you after creation. Managing system access is strictly the client's responsibility.",
+                  )}
+                </p>
+              </>
+            }
+          />
+        )}
         <FormSSHPublicKeysField
-          change={props.change}
           cardBordered={false}
           minHeight="auto"
           headerClassName="mx-0"
@@ -372,17 +519,46 @@ export const FormNetworkSecurityStep = (props: FormStepProps) => {
           name="attributes.networks"
           component={renderNetworkRows}
           hasCustomIp={customIpEnabled}
+          fipQuotaExhausted={fipQuotaExhausted}
           {...data}
         />
       </Form.Group>
-      <FormSecurityGroupsField
-        offering={props.offering}
-        change={props.change}
-        cardBordered={false}
-        minHeight="auto"
-        headerClassName="mx-0"
-        titleClassName="fs-6 text-gray-700"
-      />
+      <div className={!portSecurityEnabled ? 'opacity-50 pe-none' : ''}>
+        <FormSecurityGroupsField
+          offering={props.offering}
+          cardBordered={false}
+          minHeight="auto"
+          headerClassName="mx-0"
+          titleClassName="fs-6 text-gray-700"
+          tableActions={
+            <div
+              style={
+                !portSecurityEnabled
+                  ? { opacity: 1, pointerEvents: 'auto' as const }
+                  : undefined
+              }
+            >
+              <AwesomeCheckbox
+                value={!portSecurityEnabled}
+                onChange={() => {
+                  userTouchedRef.current = true;
+                  setPortSecurityEnabled(!portSecurityEnabled);
+                }}
+                size="sm"
+                className="align-self-center fw-normal"
+                label={translate('Disable port security')}
+              />
+            </div>
+          }
+        />
+      </div>
+      {!portSecurityEnabled && (
+        <Form.Text className="text-muted">
+          {translate(
+            'Port security is disabled. Security groups will not be applied. Use this for VM-based routers that manage their own firewall.',
+          )}
+        </Form.Text>
+      )}
     </VStepperFormStepCard>
   );
 };

@@ -2,13 +2,15 @@ import { useCurrentStateAndParams, useRouter } from '@uirouter/react';
 import Qs from 'qs';
 import { FunctionComponent, useEffect, useState } from 'react';
 
-import { Link } from '@waldur/core/Link';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { getQueryString } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
+import { Link } from '@/core/Link';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { RedirectStorage } from '@/core/StorageManager';
+import { getQueryString } from '@/core/utils';
+import { translate } from '@/i18n';
+import { useRequestToAccessOrganization } from '@/invitations/join-organization/submission';
 
-import * as AuthService from '../AuthService';
-import { loginUser } from '../AuthService';
+import { redirectOnSuccess } from '../authNavigation';
+import { exchangeToken, loginUser } from '../AuthService';
 
 export const OauthLoginCompleted: FunctionComponent = () => {
   const router = useRouter();
@@ -16,16 +18,35 @@ export const OauthLoginCompleted: FunctionComponent = () => {
     params: { provider },
   } = useCurrentStateAndParams();
   const [error, setError] = useState();
+  const { checkAndRequest } = useRequestToAccessOrganization();
 
   useEffect(() => {
     async function fetchToken() {
       const qs = Qs.parse(getQueryString());
       try {
-        const token = decodeURIComponent(qs.token as string);
+        const code = qs.code as string;
+        const token = await exchangeToken(code);
         await loginUser(token, provider);
-        AuthService.redirectOnSuccess();
+        // Only check for pending group invitation if NOT redirecting to user-group-invitation
+        // (that route handles invitations via its own confirmation dialog)
+        const redirect = RedirectStorage.get();
+        let handled = false;
+        if (redirect?.toState !== 'user-group-invitation') {
+          handled = await checkAndRequest();
+        }
+        if (handled) {
+          // checkAndRequest already navigated to the request's destination;
+          // drop the stored redirect so it can't fire on a later login.
+          RedirectStorage.remove();
+        } else {
+          await redirectOnSuccess();
+        }
       } catch (e) {
-        setError(e.data?.detail || translate('Unknown error'));
+        setError(
+          e.response?.data?.detail ||
+            e.data?.detail ||
+            translate('Unknown error'),
+        );
       }
     }
     fetchToken();

@@ -4,7 +4,7 @@ import React from 'react';
 import { Form } from 'react-bootstrap';
 import { useToggle } from 'react-use';
 
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
 
 interface SecretValueFieldProps {
   value: string;
@@ -34,7 +34,11 @@ export const SecretValueField: React.FC<SecretValueFieldProps> = (props) => {
         title={showSecret ? translate('Hide') : translate('Show')}
         onClick={onToggle}
       >
-        {!showSecret ? <EyeIcon size={18} /> : <EyeSlashIcon size={18} />}
+        {!showSecret ? (
+          <EyeIcon size={18} weight="bold" />
+        ) : (
+          <EyeSlashIcon size={18} weight="bold" />
+        )}
       </button>
     </div>
   );

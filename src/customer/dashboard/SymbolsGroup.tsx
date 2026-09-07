@@ -1,8 +1,9 @@
+import classNames from 'classnames';
 import { FC } from 'react';
 import { User } from 'waldur-js-client';
 
-import Avatar from '@waldur/core/Avatar';
-import { Tip } from '@waldur/core/Tooltip';
+import Avatar from '@/core/Avatar';
+import { Tip } from '@/core/Tooltip';
 
 interface SymbolsGroupProps {
   items: object[];
@@ -12,21 +13,9 @@ interface SymbolsGroupProps {
   imageKey?: string;
   length?: number;
   size?: number;
+  space?: 'sm' | 'xs';
   onClick?(): void;
 }
-
-const colorClasses = [
-  'bg-primary text-inverse-primary',
-  'bg-warning text-inverse-warning',
-  'bg-success text-inverse-success',
-  'bg-danger text-inverse-danger',
-  'bg-dark text-inverse-dark',
-  'bg-info text-inverse-info',
-];
-
-const getSymbolColorClass = (index: number) => {
-  return colorClasses[index % colorClasses.length];
-};
 
 export const SymbolsGroup: FC<SymbolsGroupProps> = ({
   max = 8,
@@ -36,40 +25,39 @@ export const SymbolsGroup: FC<SymbolsGroupProps> = ({
   items,
   length,
   size = 35,
+  space,
   onClick,
 }) => (
   <div
-    className="symbol-group symbol-hover"
+    className={classNames(
+      'symbol-group symbol-hover' + (space && `symbol-group-${space}`),
+    )}
     onClick={onClick}
-    onKeyPress={(e) => e.key === 'Enter' && onClick()}
+    onKeyDown={(e) => e.key === 'Enter' && onClick()}
     role="button"
     tabIndex={0}
   >
     {items.slice(0, max).map((item: User, index: number) => (
-      <div key={index} className={`symbol symbol-circle symbol-${size}px`}>
-        <Tip key={index} label={item[nameKey]} id={`customer-${index}`}>
-          {item[imageKey] || item[nameKey] ? (
-            <Avatar
-              size={size}
-              src={item[imageKey]}
-              name={item[nameKey]}
-              circle
-            />
-          ) : (
-            <div
-              className={`symbol-label fs-4 fw-bold ${getSymbolColorClass(
-                index,
-              )}`}
-            >
+      <Tip key={index} label={item[nameKey]} id={`customer-${index}`}>
+        {item[imageKey] || item[nameKey] ? (
+          <Avatar
+            size={size}
+            src={item[imageKey]}
+            name={item[nameKey]}
+            circle
+          />
+        ) : (
+          <div className={`symbol symbol-circle symbol-${size}px`}>
+            <div className="symbol-label fs-4 fw-bold bg-tertiary text-quaternary">
               {item[emailKey] ? item[emailKey][0].toUpperCase() : '?'}
             </div>
-          )}
-        </Tip>
-      </div>
+          </div>
+        )}
+      </Tip>
     ))}
     {(length ?? items.length) > max && (
       <div className={`symbol symbol-circle symbol-${size}px`}>
-        <div className="symbol-label fs-5 fw-bold bg-secondary text-primary-600">
+        <div className="symbol-label fs-3 fw-bold bg-tertiary text-quaternary">
           +{length ? Math.max(length - max, 0) : items.slice(max).length}
         </div>
       </div>

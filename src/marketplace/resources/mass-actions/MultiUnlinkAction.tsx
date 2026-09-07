@@ -1,45 +1,60 @@
 import { LinkBreakIcon } from '@phosphor-icons/react';
-import { useCallback } from 'react';
-import { useDispatch } from 'react-redux';
-import { marketplaceResourcesUnlink } from 'waldur-js-client';
+import { useMemo } from 'react';
+import { marketplaceResourcesUnlink, Resource } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
+import { translate } from '@/i18n';
+import { ResourceAction } from '@/marketplace/resources/actions/constants';
+import { useBatchMutation } from '@/modal/useBatchMutation';
+import { ActionItem } from '@/resource/actions/ActionItem';
 
 export const MultiUnlinkAction = ({ rows, refetch }) => {
-  const dispatch = useDispatch();
-  const callback = useCallback(async () => {
-    try {
-      await waitForConfirmation(
-        dispatch,
-        translate('Perform mass action'),
-        translate(
-          'Are you sure you want to unlink {count} resources? Unlinking will only remove objects from the database, it will not trigger any cleanup',
-          {
-            count: rows.length,
-          },
-        ),
-      );
-    } catch {
-      return;
-    }
-    Promise.all(
-      rows.map((resource) =>
-        marketplaceResourcesUnlink({ path: { uuid: resource.uuid } }),
+  const permittedResources = useMemo(
+    () =>
+      rows.filter(
+        (resource) =>
+          resource.state === 'Erred' &&
+          !resource.offering_plugin_options?.disabled_resource_actions?.includes(
+            ResourceAction.UNLINK,
+          ),
       ),
-    ).then(() => {
-      refetch();
-    });
-  }, [dispatch, rows, refetch]);
+    [rows],
+  );
+
+  const { mutate, isPending } = useBatchMutation<Resource, void>({
+    rows: permittedResources,
+    refetch,
+    mutationFn: (resource) =>
+      marketplaceResourcesUnlink({ path: { uuid: resource.uuid } }),
+    successMessage: translate('Resources have been unlinked.'),
+    renderPartialSuccessMessage: (count) =>
+      translate('{count} resources have been unlinked.', { count }),
+    errorMessage: translate('Unable to unlink resources.'),
+    renderErrorMessage: (count) =>
+      translate('{count} resources could not be unlinked.', { count }),
+    confirmation: {
+      title: translate('Unlink resources'),
+      body: translate(
+        'Are you sure you want to unlink {count} resources? Unlinking will only remove objects from the database, it will not trigger any cleanup',
+        {
+          count: permittedResources.length,
+        },
+      ),
+    },
+  });
+
+  if (permittedResources.length === 0) {
+    return null;
+  }
+
   return (
     <ActionItem
-      title={translate('Unlink')}
-      action={callback}
+      title={translate('Unlink (no cleanup)')}
+      action={mutate}
       className="text-danger"
       staff
       iconNode={<LinkBreakIcon weight="bold" />}
       iconColor="danger"
+      disabled={isPending || permittedResources.length !== rows.length}
     />
   );
 };

@@ -1,35 +1,16 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Provider } from 'react-redux';
-import configureStore from 'redux-mock-store';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { useModal } from '@waldur/modal/hooks';
+import { useModal } from '@/modal/actions';
 
 import { OpenStackSecurityGroupsLink } from './OpenStackSecurityGroupsLink';
 
-const mockStore = configureStore();
-const store = mockStore();
-
-vi.mock('@waldur/modal/hooks');
-
 export const renderLink = (props) => {
-  return render(
-    <Provider store={store}>
-      <OpenStackSecurityGroupsLink {...props} />
-    </Provider>,
-  );
+  return render(<OpenStackSecurityGroupsLink {...props} />);
 };
 
 describe('OpenStackSecurityGroupsLink', () => {
-  const mockOpenDialog = vi.fn();
-
-  beforeEach(() => {
-    vi.mocked(useModal).mockReturnValue({
-      openDialog: mockOpenDialog,
-    } as any);
-  });
-
   afterEach(() => {
     vi.clearAllMocks();
   });
@@ -63,8 +44,8 @@ describe('OpenStackSecurityGroupsLink', () => {
     const button = screen.getByRole('button');
     await userEvent.click(button);
 
-    expect(mockOpenDialog).toHaveBeenCalledTimes(1);
-    expect(mockOpenDialog).toHaveBeenCalledWith(
+    expect(useModal().openDialog).toHaveBeenCalledTimes(1);
+    expect(useModal().openDialog).toHaveBeenCalledWith(
       expect.anything(), // We can't directly compare the lazy-loaded component
       {
         resolve: { securityGroups: items },

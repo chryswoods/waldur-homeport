@@ -10,10 +10,11 @@ import {
   useRef,
   useState,
 } from 'react';
+// eslint-disable-next-line waldur-custom/no-direct-bootstrap-button -- Navigation button with Metronic menu data attributes
 import { Button, Nav, TabContainer } from 'react-bootstrap';
 
-import { Link } from '@waldur/core/Link';
-import { useDOMChangeObserver } from '@waldur/core/useDomChangeObserver';
+import { Link } from '@/core/Link';
+import { useDOMChangeObserver } from '@/core/useDomChangeObserver';
 
 import { PageBarContext, PageBarTab } from '../context';
 import { scrollToSectionById } from '../offerings/utils';
@@ -47,6 +48,7 @@ const PageBarTabItem = (props: PageBarTabProps) =>
               : '')
         }
         onClick={() => scrollToSectionById(props.name)}
+        data-testid={`page-bar-tab-${props.name}`}
       >
         {props.title}
       </Button>
@@ -82,6 +84,7 @@ const PageBarTabItem = (props: PageBarTabProps) =>
           (props.active ? ' active' : '')
       }
       onClick={() => scrollToSectionById(props.name)}
+      data-testid={`page-bar-tab-${props.name}`}
     >
       {props.title}
     </Link>
@@ -99,6 +102,14 @@ export const PageBarTabs: FC<PageBarTabsProps> = (props) => {
   const { tabs, addTabs, visibleSectionId } = useContext(PageBarContext);
   const { state, params } = useCurrentStateAndParams();
   const router = useRouter();
+
+  // The observer below reacts to later DOM changes but never fires for the
+  // initial render, so the tabs have to be published once on mount as well.
+  // Without this the container renders empty until something unrelated
+  // mutates the page.
+  useEffect(() => {
+    addTabs(props.tabs);
+  }, [props.tabs]);
 
   useDOMChangeObserver(() => {
     addTabs(props.tabs);

@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { vmwareLimitsRetrieve } from 'waldur-js-client';
 
-import { minAmount } from '@waldur/marketplace/common/utils';
+import { UI_STALE_TIME } from '@/core/constants';
+import { minAmount } from '@/marketplace/common/utils';
 
 export const minOne = minAmount(1);
 
@@ -15,7 +16,7 @@ export const useVMwareLimitsLoader = (settingsId: string) => {
         (response) => response.data,
       ),
 
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
   const limits = useMemo(
     () =>

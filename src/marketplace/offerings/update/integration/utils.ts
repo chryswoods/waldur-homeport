@@ -1,19 +1,17 @@
-import { useCallback } from 'react';
-import { useDispatch } from 'react-redux';
-import { SubmissionError } from 'redux-form';
+import { merge } from 'lodash-es';
 import {
+  marketplaceProviderOfferingsUpdateBackendIdRules,
   marketplaceProviderOfferingsUpdateIntegration,
   OfferingIntegrationUpdateRequest,
   ProviderOfferingDetails,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
 import {
   getPluginOptionsSerializer,
   getSecretOptionsSerializer,
-} from '@waldur/marketplace/common/registry';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { showError, showSuccess } from '@waldur/store/notify';
+} from '@/marketplace/common/registry';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
 export const SCRIPT_ROWS = [
   { label: translate('Script language'), type: 'language' },
@@ -41,13 +39,40 @@ export const SCRIPT_ROWS = [
   },
 ];
 
+/**
+ * Whether the current user may see this offering's secret options.
+ *
+ * The backend gates reading them on the permission to change them, held on the
+ * offering, its organization, or that organization's service provider — so a
+ * user who may open the offering-update page at all can still get a payload
+ * with no `secret_options` key. Rather than restate that rule here, take the
+ * response as the answer: the field is dropped from the serializer exactly
+ * when the user may not see it.
+ *
+ * Everything reading a `secret_options.*` path must handle its absence:
+ * controls bound to one must be read-only, or a save silently overwrites a
+ * value the user was never shown, and a direct read must be optional, or the
+ * whole section throws while rendering.
+ */
+export const canSeeOfferingSecretOptions = (
+  offering: ProviderOfferingDetails,
+): boolean => offering.secret_options !== undefined;
+
+/** Why a control bound to `secret_options` is read-only for this user. */
+export const SECRET_OPTIONS_HIDDEN_REASON = translate(
+  "Only users who can manage this offering's integration settings can view or change it.",
+);
+
 export const useUpdateOfferingIntegration = (
   offering: ProviderOfferingDetails,
   refetch?,
 ) => {
-  const dispatch = useDispatch();
-  const update = useCallback(
-    async (formData: OfferingIntegrationUpdateRequest) => {
+  const { mutateAsync: update } = useManagedMutation<
+    any,
+    any,
+    OfferingIntegrationUpdateRequest
+  >({
+    mutationFn: async (formData) => {
       if (formData.plugin_options) {
         const serializer = getPluginOptionsSerializer(offering.type);
         if (serializer) {
@@ -60,23 +85,43 @@ export const useUpdateOfferingIntegration = (
           formData.secret_options = serializer(formData.secret_options);
         }
       }
-      try {
-        await marketplaceProviderOfferingsUpdateIntegration({
-          path: { uuid: offering.uuid },
-          body: formData,
-        });
-        dispatch(
-          showSuccess(translate('Offering has been updated successfully.')),
-        );
-        if (refetch) await refetch();
-        dispatch(closeModalDialog());
-      } catch (error) {
-        dispatch(showError(translate('Unable to update offering.')));
-        throw new SubmissionError(error);
-      }
+      return await marketplaceProviderOfferingsUpdateIntegration({
+        path: { uuid: offering.uuid },
+        body: formData,
+      });
     },
-    [dispatch, offering, refetch],
-  );
+    successMessage: translate('Offering has been updated successfully.'),
+    errorMessage: translate('Unable to update offering.'),
+    refetch,
+  });
+
+  return { update };
+};
+
+export const useUpdateOfferingBackendIdRules = (
+  offering: ProviderOfferingDetails,
+  refetch?,
+) => {
+  const { mutateAsync: update } = useManagedMutation<any, any, any>({
+    // The update_backend_id_rules action replaces the whole backend_id_rules
+    // JSON blob, but each inline EditField submits only its own path. Deep-merge
+    // the partial change into the offering's current rules so sibling keys (e.g.
+    // format.regex vs uniqueness.scope) are preserved.
+    mutationFn: (formData) =>
+      marketplaceProviderOfferingsUpdateBackendIdRules({
+        path: { uuid: offering.uuid },
+        body: {
+          backend_id_rules: merge(
+            {},
+            offering.backend_id_rules ?? {},
+            formData.backend_id_rules ?? {},
+          ),
+        },
+      }),
+    successMessage: translate('Backend ID rules have been updated.'),
+    errorMessage: translate('Unable to update backend ID rules.'),
+    refetch,
+  });
 
   return { update };
 };

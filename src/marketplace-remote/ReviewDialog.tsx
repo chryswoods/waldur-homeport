@@ -1,55 +1,46 @@
-import { useDispatch } from 'react-redux';
-import { reduxForm } from 'redux-form';
+import { FC } from 'react';
+import { Form } from 'react-final-form';
 
-import { FormContainer, SubmitButton, TextField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { FormFooter, TextGroup } from '@/form';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
-interface OwnProps {
+interface ReviewDialogProps {
   resolve: { refetch(): void; apiMethod; resource };
 }
 
-const enhance = reduxForm<{}, OwnProps>({
-  form: 'ReviewDialog',
-});
+export const ReviewDialog: FC<ReviewDialogProps> = ({ resolve }) => {
+  const mutation = useManagedMutation<any, any, any>({
+    mutationFn: (formData) =>
+      resolve.apiMethod(resolve.resource.uuid, formData.review_comment),
+    successMessage: translate('Review has been submitted.'),
+    errorMessage: translate('Unable to submit review.'),
+    refetch: resolve.refetch,
+  });
 
-export const ReviewDialog = enhance(
-  ({ resolve, invalid, submitting, handleSubmit }) => {
-    const dispatch = useDispatch();
-    const setRoutes = async (formData) => {
-      try {
-        await resolve.apiMethod(resolve.resource.uuid, formData.review_comment);
-        resolve.refetch();
-        dispatch(showSuccess(translate('Review has been submitted.')));
-        dispatch(closeModalDialog());
-      } catch (e) {
-        dispatch(showErrorResponse(e, translate('Unable to submit review.')));
-      }
-    };
-
-    return (
-      <form onSubmit={handleSubmit(setRoutes)}>
-        <ModalDialog
-          title={translate('Review request')}
-          footer={
-            <>
-              <CloseDialogButton />
-              <SubmitButton
-                disabled={invalid}
-                submitting={submitting}
-                label={translate('Submit')}
+  return (
+    <Form
+      onSubmit={(values) => mutation.mutateAsync(values)}
+      render={({ handleSubmit }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate('Review request')}
+            subtitle={
+              <ScopeSubtitle
+                label={translate('Resource name')}
+                name={resolve.resource.name}
               />
-            </>
-          }
-        >
-          <FormContainer submitting={submitting}>
-            <TextField label={translate('Comment')} name="review_comment" />
-          </FormContainer>
-        </ModalDialog>
-      </form>
-    );
-  },
-);
+            }
+            footer={<FormFooter />}
+          >
+            <div className="size-sm">
+              <TextGroup label={translate('Comment')} name="review_comment" />
+            </div>
+          </ModalDialog>
+        </form>
+      )}
+    />
+  );
+};

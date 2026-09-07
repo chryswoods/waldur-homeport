@@ -1,44 +1,44 @@
-import { useCallback } from 'react';
-import { useDispatch } from 'react-redux';
-import { reduxForm } from 'redux-form';
+import { FC } from 'react';
+import { Form } from 'react-final-form';
 import { rancherClustersImportYaml } from 'waldur-js-client';
 
-import { MonacoField } from '@waldur/form/MonacoField';
-import { translate } from '@waldur/i18n';
-import { ActionDialog } from '@waldur/modal/ActionDialog';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
+import { MonacoGroup } from '@/form';
+import { translate } from '@/i18n';
+import { ActionDialogFinal } from '@/modal/ActionDialogFinal';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
-export const ImportYAMLDialog = reduxForm<
-  { yaml: string },
-  { resolve: { cluster_id } }
->({ form: 'ImportYAMLDialog' })(({ resolve, handleSubmit, submitting }) => {
-  const dispatch = useDispatch();
+interface ImportYAMLDialogProps {
+  resolve: {
+    cluster_id: string;
+  };
+}
 
-  const handler = useCallback(
-    async (formData) => {
-      try {
-        await rancherClustersImportYaml({
-          path: { uuid: resolve.cluster_id },
-          body: { yaml: formData.yaml },
-        });
-        dispatch(showSuccess(translate('YAML has been imported.')));
-        dispatch(closeModalDialog());
-      } catch (e) {
-        dispatch(showErrorResponse(e, translate('Unable to import YAML.')));
-      }
-    },
-    [dispatch, resolve.cluster_id],
-  );
+export const ImportYAMLDialog: FC<ImportYAMLDialogProps> = ({
+  resolve: { cluster_id },
+}) => {
+  const { mutateAsync } = useManagedMutation<any, any, any>({
+    mutationFn: (formData) =>
+      rancherClustersImportYaml({
+        path: { uuid: cluster_id },
+        body: { yaml: formData.yaml },
+      }),
+    successMessage: translate('YAML has been imported.'),
+    errorMessage: translate('Unable to import YAML.'),
+  });
 
   return (
-    <ActionDialog
-      title={translate('Import YAML')}
-      submitLabel={translate('Submit')}
-      onSubmit={handleSubmit(handler)}
-      submitting={submitting}
-    >
-      <MonacoField name="yaml" language="yaml" height={200} />
-    </ActionDialog>
+    <Form
+      onSubmit={mutateAsync}
+      render={({ handleSubmit, submitting, invalid }) => (
+        <ActionDialogFinal
+          title={translate('Import YAML')}
+          onSubmit={handleSubmit}
+          submitting={submitting}
+          invalid={invalid}
+        >
+          <MonacoGroup name="yaml" language="yaml" height={200} />
+        </ActionDialogFinal>
+      )}
+    />
   );
-});
+};

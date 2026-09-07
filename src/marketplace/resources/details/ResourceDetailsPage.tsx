@@ -1,9 +1,11 @@
 import { FC } from 'react';
-import { Resource } from 'waldur-js-client';
+import {
+  Resource,
+  ProviderOfferingDetails as Offering,
+} from 'waldur-js-client';
 
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { Offering } from '@waldur/marketplace/types';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
 
 interface OwnProps {
   data: {
@@ -31,10 +33,16 @@ export const ResourceDetailsPage: FC<OwnProps> = (props) => {
   }
 
   return (
-    <props.tabSpec.component
-      {...data}
-      title={props.tabSpec.title}
-      refetch={props.refetch}
-    />
+    <div
+      className={
+        data.offering.state === 'Unavailable' ? 'disabled-view' : undefined
+      }
+    >
+      <props.tabSpec.component
+        {...data}
+        title={props.tabSpec.title}
+        refetch={props.refetch}
+      />
+    </div>
   );
 };

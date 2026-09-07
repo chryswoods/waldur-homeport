@@ -6,12 +6,13 @@ import {
   vmwareFoldersList,
 } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { ENV } from '@waldur/core/config';
-import { FormContainer, SelectField } from '@waldur/form';
-import { VStepperFormStepCard } from '@waldur/form/VStepperFormStep';
-import { translate } from '@waldur/i18n';
-import { FormStepProps } from '@waldur/marketplace/deploy/types';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { ENV } from '@/core/config';
+import { UI_STALE_TIME } from '@/core/constants';
+import { SelectGroup } from '@/form';
+import { translate } from '@/i18n';
+import { FormStepProps } from '@/marketplace/deploy/types';
+import { VStepperFormStepCard } from '@/wizard';
 
 export const FormAdvancedOptionsStep = (props: FormStepProps) => {
   const advancedMode = !ENV.plugins.WALDUR_VMWARE.BASIC_MODE;
@@ -25,6 +26,7 @@ export const FormAdvancedOptionsStep = (props: FormStepProps) => {
           vmwareClustersList({
             query: {
               page,
+              page_size: MAX_PAGE_SIZE,
               settings_uuid: props.offering.scope_uuid,
               customer_uuid: props.offering.customer_uuid,
             },
@@ -34,6 +36,7 @@ export const FormAdvancedOptionsStep = (props: FormStepProps) => {
           vmwareDatastoresList({
             query: {
               page,
+              page_size: MAX_PAGE_SIZE,
               settings_uuid: props.offering.scope_uuid,
               customer_uuid: props.offering.customer_uuid,
             },
@@ -43,6 +46,7 @@ export const FormAdvancedOptionsStep = (props: FormStepProps) => {
           vmwareFoldersList({
             query: {
               page,
+              page_size: MAX_PAGE_SIZE,
               settings_uuid: props.offering.scope_uuid,
               customer_uuid: props.offering.customer_uuid,
             },
@@ -56,7 +60,7 @@ export const FormAdvancedOptionsStep = (props: FormStepProps) => {
       };
     },
 
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
 
   return (
@@ -68,9 +72,9 @@ export const FormAdvancedOptionsStep = (props: FormStepProps) => {
       disabledTooltip={props.disabledTooltip}
     >
       {data && (
-        <FormContainer submitting={false} className="size-xl">
+        <div className="size-xl">
           {advancedMode && data.clusters.length > 0 && (
-            <SelectField
+            <SelectGroup
               label={translate('Cluster')}
               name="attributes.cluster"
               options={data.clusters}
@@ -81,7 +85,7 @@ export const FormAdvancedOptionsStep = (props: FormStepProps) => {
             />
           )}
           {advancedMode && data.datastores.length > 0 && (
-            <SelectField
+            <SelectGroup
               label={translate('Datastore')}
               name="attributes.datastore"
               options={data.datastores}
@@ -92,7 +96,7 @@ export const FormAdvancedOptionsStep = (props: FormStepProps) => {
             />
           )}
           {advancedMode && data.folders.length > 0 && (
-            <SelectField
+            <SelectGroup
               label={translate('Folder')}
               name="attributes.folder"
               options={data.folders}
@@ -102,7 +106,7 @@ export const FormAdvancedOptionsStep = (props: FormStepProps) => {
               noUpdateOnBlur
             />
           )}
-        </FormContainer>
+        </div>
       )}
     </VStepperFormStepCard>
   );

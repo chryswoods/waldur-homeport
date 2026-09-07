@@ -31,74 +31,11 @@ This guide covers code quality standards, testing practices, and technical requi
 - Handle errors at appropriate level
 - Never silently swallow exceptions
 
-## Testing Strategy
-
-### Testing Frameworks
-
-- **Unit Tests**: Vitest with React Testing Library for component testing
-- **Integration Tests**: Cypress for end-to-end workflows
-
-#### Check Testing Framework Versions
-
-Check current versions
-
-yarn info vitest @testing-library/react cypress version```
-
-- Test files use `.test.ts/.test.tsx` extensions
-- Setup files in `test/setupTests.js`
-- Integrated coverage reporting
-
-### Test Guidelines
-
-- Test behavior, not implementation
-- One assertion per test when possible
-- Clear test names describing scenario
-- Use existing test utilities/helpers
-- Tests should be deterministic
-
-### Test Code Sharing & Mocking
-
-**Extracting Common Test Code**:
-
-- Extract shared test data into separate files (e.g., `test-utils.ts`)
-- Only mock what's actually imported by the component under test
-- Don't mock exports that aren't used - it adds unnecessary complexity
-- Verify import paths match actual usage (e.g., `./constants` vs `@waldur/marketplace/common/constants`)
-
-**Vitest Mocking Constraints**:
-
-- `vi.mock()` calls must be at the top level, not inside functions
-- Vitest hoists mocks, so they can't reference variables defined later
-- Share test data as exported constants, not function calls
-- Mock the exact module path used in the component's imports
-
-**Example Pattern**:
-
-```js
-// test-utils.ts
-export const mockOffering = { uuid: '123', name: 'Test' };
-export const mockPlan = { uuid: '456', name: 'Plan' };
-
-// component.test.tsx
-import { mockOffering, mockPlan } from './test-utils';
-
-vi.mock('./constants', () => ({
-  getBillingPeriods: () => [...], // Only mock what's actually used
-  // Don't include ADD_PLAN_FORM_ID if component doesn't import it
-}));
-```
-
-**Code Duplication Detection**:
-
-- CI/CD uses `jscpd` with strict thresholds (typically 250 tokens)
-- Extract common patterns properly - don't game the detector with formatting
-- Shared test utilities reduce duplication and improve maintainability
-
 ## Development Guidelines
 
 ### TypeScript Configuration
 
-- Uses `@waldur/*` path mapping for internal imports
+- Uses `@/*` path mapping for internal imports
 - Strict TypeScript checking disabled for legacy compatibility
 - Module resolution set to "Bundler" for Vite compatibility
 
@@ -112,10 +49,11 @@ vi.mock('./constants', () => ({
 
 #### Check Code Style Tool Versions
 
-```
+```bash
 Check current versions
 
-yarn info eslint prettier stylelint husky version```
+yarn info eslint prettier stylelint husky version
+```
 
 ### TypeScript and SDK Types
 
@@ -128,7 +66,7 @@ yarn info eslint prettier stylelint husky version```
   - `ComponentUserUsageCreateRequest` - for user usage submission request bodies
   - `ComponentUsage` - for general component usage data
   - All marketplace API request/response types are available in the SDK
-- When using React Final Form, use standard pattern: `<Field component={NumberField as any} />`
+- When using React Final Form, use standard pattern: `<Field component={NumberField} />`
 - Convert between SDK string types and numbers when necessary (e.g., `parseFloat(component.usage)`)
 - Handle nullable SDK types properly with optional chaining (`period.value?.components`)
 
@@ -144,13 +82,7 @@ yarn info eslint prettier stylelint husky version```
 - `yarn format:fix` - Auto-format code with Prettier
 - `yarn style:check` - Check SCSS/CSS styles with Stylelint
 - `yarn deps:unused` - Check for unused dependencies with Knip
-- `yarn tsc` - Typescript type check
-
-#### Testing
-
-- `yarn test` - Run unit tests with Vitest
-- `yarn ci:test` - Run full integration test suite with Cypress
-- `yarn ci:run` - Run Cypress tests headless
+- `yarn tsgo` - Typescript type check
 
 #### Dependency Management
 
@@ -180,3 +112,15 @@ yarn info eslint prettier stylelint husky version```
 - **Flat ESLint config** format
 - **Husky** git hooks for automated quality checks
 - **Yarn** package management with lockfile integrity
+
+## UI-Router state name guard
+
+`src/state-names.test.ts` is a Vitest smoke test that asserts every literal UI-Router state name referenced from source (`<Link state="...">`, `<UISref state="...">`, `router.stateService.go('...')`, and breadcrumb `to:` fields) resolves to a state registered in `src/states.ts`. It catches the regression class where a route is renamed in a `routes.ts` module but call sites elsewhere keep the old name and silently 404.
+
+Dynamic references (`state={variable}`, `router.stateService.go(name)`, computed names) are skipped — the literal-string regexes do not match expression syntax.
+
+### Opt-outs
+
+- **Per-line**: append `// state-check: ignore` to the line containing the literal. Use this for fixture data or constants where the literal value is intentionally not a real state name.
+- **Global allowlist** (in the test file): for values that are intentionally not in the registry but legitimately appear in the codebase (e.g., the `'404'` fallback used inside `useSref(state || '404', ...)` in `src/core/Link.tsx`). Keep this set small and add a comment explaining each entry.
+- **Known-broken set** (in the test file): for pre-existing broken references that require product knowledge to fix. Do not add new entries — fix the reference instead. When the last call site for an entry is gone, remove the entry.

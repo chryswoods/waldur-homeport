@@ -1,11 +1,11 @@
 import { PencilSimpleIcon } from '@phosphor-icons/react';
 import { FunctionComponent, useCallback } from 'react';
-import { useDispatch } from 'react-redux';
 import { User } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { openModalDialog } from '@waldur/modal/actions';
-import { ActionButton } from '@waldur/table/ActionButton';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { CompactActionButton } from '@/table/CompactActionButton';
 
 const UserEmailChangeDialog = lazyComponent(() =>
   import('./UserEmailChangeDialog').then((module) => ({
@@ -22,22 +22,22 @@ interface ChangeEmailButtonProps {
 export const ChangeEmailButton: FunctionComponent<ChangeEmailButtonProps> = (
   props,
 ) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const openChangeEmailDialog = useCallback(() => {
-    dispatch(
-      openModalDialog(UserEmailChangeDialog, {
-        resolve: { user: props.user, isProtected: props.protected },
-        size: 'sm',
-      }),
-    );
-  }, [dispatch, props.user]);
+    openDialog(UserEmailChangeDialog, {
+      resolve: { user: props.user, isProtected: props.protected },
+      size: 'sm',
+    });
+  }, [props.user, props.protected]);
   return (
-    <ActionButton
+    <CompactActionButton
       iconNode={<PencilSimpleIcon weight="bold" />}
       action={openChangeEmailDialog}
       variant="secondary"
-      className="btn-sm btn-icon"
+      className="btn-icon"
       disabled={props.disabled}
+      disabledReason={translate('Profile editing is currently disabled')}
+      data-testid="change-email-btn"
     />
   );
 };

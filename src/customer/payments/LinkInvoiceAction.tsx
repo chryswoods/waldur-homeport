@@ -1,16 +1,16 @@
-import { FunctionComponent, useCallback, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useAsyncFn, useBoolean } from 'react-use';
+import { useQuery } from '@tanstack/react-query';
+import { FunctionComponent } from 'react';
+import { useBoolean } from 'react-use';
 import { Invoice, invoicesList, paymentsLinkToInvoice } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { InvoicesDropdown } from '@waldur/customer/payments/InvoicesDropdown';
-import { translate } from '@waldur/i18n';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
-import { getCustomer, getUser } from '@waldur/workspace/selectors';
-import { Customer } from '@waldur/workspace/types';
+import { getAllPages } from '@/core/api';
+import { InvoicesDropdown } from '@/customer/payments/InvoicesDropdown';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { useCustomer, useUser } from '@/workspace/hooks';
+import { Customer } from '@/workspace/types';
 
-import { updatePaymentsList } from './utils';
+import { PAYMENTS_TABLE } from '../details/constants';
 
 const loadInvoices = (customer: Customer) =>
   getAllPages((page) =>
@@ -22,56 +22,46 @@ const loadInvoices = (customer: Customer) =>
 export const LinkInvoiceAction: FunctionComponent<{ row }> = ({
   row: payment,
 }) => {
-  const customer = useSelector(getCustomer);
-  const dispatch = useDispatch();
-  const user = useSelector(getUser);
+  const customer = useCustomer();
 
-  const [{ loading, error, value }, getInvoices] = useAsyncFn(
-    () => loadInvoices(customer),
-    [customer],
-  );
+  const user = useUser();
 
   const [open, onToggle] = useBoolean(false);
 
-  const loadInvoicesIfOpen = useCallback(() => {
-    if (open) getInvoices();
-  }, [open, getInvoices]);
+  const {
+    isLoading: loading,
+    error,
+    data: value,
+  } = useQuery({
+    queryKey: ['invoices', customer.uuid],
+    queryFn: () => loadInvoices(customer),
+    enabled: open,
+  });
 
-  useEffect(loadInvoicesIfOpen, [open]);
-
-  const triggerAction = async (selectedInvoice: Invoice) => {
-    try {
-      await paymentsLinkToInvoice({
+  const { mutate, isPending } = useManagedMutation<any, any, Invoice>({
+    mutationFn: (selectedInvoice) =>
+      paymentsLinkToInvoice({
         path: { uuid: payment.uuid },
         body: {
           invoice: selectedInvoice.url,
         },
-      });
-      dispatch(
-        showSuccess(
-          translate('Invoice has been successfully linked to payment.'),
-        ),
-      );
-      dispatch(updatePaymentsList(customer));
-    } catch (error) {
-      dispatch(
-        showErrorResponse(
-          error,
-          translate('Unable to link invoice to the payment.'),
-        ),
-      );
-    }
-  };
+      }),
+    successMessage: translate(
+      'Invoice has been successfully linked to payment.',
+    ),
+    errorMessage: translate('Unable to link invoice to the payment.'),
+    invalidateQueries: [{ queryKey: ['table', PAYMENTS_TABLE] }],
+  });
 
   return (
     <InvoicesDropdown
       open={open}
-      disabled={!user.is_staff}
+      disabled={!user.is_staff || isPending}
       loading={loading}
       error={error}
       invoices={value}
       onToggle={onToggle}
-      onSelect={triggerAction}
+      onSelect={mutate}
       variant="outline"
     />
   );

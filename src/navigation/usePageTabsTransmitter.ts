@@ -1,5 +1,5 @@
-import { useCurrentStateAndParams, useRouter } from '@uirouter/react';
-import { useMemo, useEffect } from 'react';
+import { useCurrentStateAndParams } from '@uirouter/react';
+import { useMemo } from 'react';
 
 import { useExtraTabs } from './context';
 import { Tab } from './Tab';
@@ -13,6 +13,7 @@ export const usePageTabsTransmitter = (tabs: PageBarTab[]) => {
         ? {
             title: tab.title,
             disabled: tab.disabled,
+            disabledReason: tab.disabledReason,
             visible: tab.visible,
             redirectTo: tab.defaultKey
               ? { state: state.name, params: { tab: tab.defaultKey } }
@@ -22,6 +23,7 @@ export const usePageTabsTransmitter = (tabs: PageBarTab[]) => {
               to: state.name,
               params: { tab: child.key },
               disabled: child.disabled,
+              disabledReason: child.disabledReason,
               visible: child.visible,
             })),
           }
@@ -30,10 +32,11 @@ export const usePageTabsTransmitter = (tabs: PageBarTab[]) => {
             to: state.name,
             params: { tab: tab.key },
             disabled: tab.disabled,
+            disabledReason: tab.disabledReason,
             visible: tab.visible,
           },
     );
-  }, [state, tabs]);
+  }, [state.name, tabs]);
   useExtraTabs(mainTabs);
 
   const flatTabs = useMemo(
@@ -54,17 +57,6 @@ export const usePageTabsTransmitter = (tabs: PageBarTab[]) => {
       return flatTabs[0];
     }
   }, [tabs, params?.tab]);
-
-  const router = useRouter();
-  useEffect(() => {
-    if (!params?.tab && tabSpec) {
-      router.stateService.go(
-        state,
-        { ...params, tab: tabSpec.key },
-        { location: 'replace' },
-      );
-    }
-  }, [router, tabSpec, state, params?.tab]);
 
   return { tabSpec };
 };

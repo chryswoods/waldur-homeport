@@ -1,7 +1,7 @@
-import { StateIndicatorProps } from '@waldur/core/StateIndicator';
-import { translate } from '@waldur/i18n';
-import { Resource } from '@waldur/resource/types';
-import { formatResourceType } from '@waldur/resource/utils';
+import { StateIndicatorProps } from '@/core/StateIndicator';
+import { translate } from '@/i18n';
+import { Resource } from '@/resource/types';
+import { formatResourceType } from '@/resource/utils';
 
 import { getStateMessages } from './constants';
 
@@ -9,6 +9,7 @@ export function getResourceState(resource: Resource): StateIndicatorProps {
   const resourceType = formatResourceType(resource);
   const runtimeShutdownStates = ['SHUTOFF', 'STOPPED', 'SUSPENDED'];
   const runtimeErrorStates = ['ERROR', 'ERRED'];
+  const runtimeWarningStates = ['RESCUE'];
   const state = resource.state && resource.state.toLowerCase();
   const runtimeState =
     resource.runtime_state && resource.runtime_state.toUpperCase();
@@ -27,6 +28,8 @@ export function getResourceState(resource: Resource): StateIndicatorProps {
   if (state === 'ok') {
     if (runtimeShutdownStates.indexOf(runtimeState) !== -1) {
       context.variant = 'default';
+    } else if (runtimeWarningStates.indexOf(runtimeState) !== -1) {
+      context.variant = 'warning';
     }
     context.label = runtimeState || resource.state;
     if (

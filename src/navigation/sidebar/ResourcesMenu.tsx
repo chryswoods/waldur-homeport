@@ -3,19 +3,21 @@ import { useQuery } from '@tanstack/react-query';
 import { useCurrentStateAndParams } from '@uirouter/react';
 import classNames from 'classnames';
 import { useMemo, useState } from 'react';
-import { Badge } from 'react-bootstrap';
 import { useSelector } from 'react-redux';
 import {
   marketplaceGlobalCategoriesRetrieve,
   MarketplaceGlobalCategoriesRetrieveData,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { getGroupedCategories } from '@waldur/marketplace/category/utils';
-import { getCategoryGroups } from '@waldur/marketplace/common/api';
-import { ALL_RESOURCES_TABLE_ID } from '@waldur/marketplace/resources/list/constants';
-import { selectFiltersStorage } from '@waldur/table/selectors';
-import { getResource } from '@waldur/workspace/selectors';
+import { SHORT_STALE_TIME } from '@/core/constants';
+import { translate } from '@/i18n';
+import { getGroupedCategories } from '@/marketplace/category/utils';
+import { getCategoryGroups } from '@/marketplace/common/api';
+import { ALL_RESOURCES_TABLE_ID } from '@/marketplace/resources/list/constants';
+import { selectFiltersStorage } from '@/table/selectors';
+import { getCustomer, getProject, getResource } from '@/workspace/selectors';
+
+import { isDescendantOf } from '../useTabs';
 
 import { MenuAccordion } from './MenuAccordion';
 import { MenuItem } from './MenuItem';
@@ -64,7 +66,17 @@ const CustomToggle = ({
   </div>
 );
 
-const RenderMenuItems = ({ items }) => {
+interface RenderMenuItemsProps {
+  items: Array<{
+    uuid?: string;
+    title?: string;
+    resource_count?: number;
+    categories?: Array<any>;
+  }>;
+  filterParams?: Record<string, string | undefined>;
+}
+
+const RenderMenuItems = ({ items, filterParams }: RenderMenuItemsProps) => {
   const { state } = useCurrentStateAndParams();
   const resource = useSelector(getResource);
   return (
@@ -78,6 +90,7 @@ const RenderMenuItems = ({ items }) => {
             state="category-resources"
             params={{
               category_uuid: item.uuid,
+              ...filterParams,
             }}
             activeState={
               state.name === 'marketplace-resource-details' &&
@@ -93,12 +106,13 @@ const RenderMenuItems = ({ items }) => {
             itemId={item.uuid}
             child
             badge={
-              <Badge bg="" pill className="badge">
-                {item.resource_count}
-              </Badge>
+              <span className="badge badge-pill">{item.resource_count}</span>
             }
           >
-            <RenderMenuItems items={item.categories} />
+            <RenderMenuItems
+              items={item.categories}
+              filterParams={filterParams}
+            />
           </MenuAccordion>
         ),
       )}
@@ -106,29 +120,94 @@ const RenderMenuItems = ({ items }) => {
   );
 };
 
-export const ResourcesMenu = ({ user }) => {
+interface ResourcesMenuProps {
+  user;
+  disabled?: boolean;
+  disabledTooltip?: string;
+}
+
+export const ResourcesMenu = ({
+  user,
+  disabled,
+  disabledTooltip,
+}: ResourcesMenuProps) => {
   const categories = useOfferingCategories();
 
   const { data: categoryGroups } = useQuery({
     queryKey: ['MarketplaceCategoryGroups'],
     queryFn: () => getCategoryGroups({ field: ['uuid', 'title', 'url'] }),
-    staleTime: 1 * 60 * 1000,
+    staleTime: SHORT_STALE_TIME,
   });
 
   const resourcesFilters = useSelector((state: any) =>
     selectFiltersStorage(state, ALL_RESOURCES_TABLE_ID),
   );
-  const query = useMemo(() => {
-    if (!resourcesFilters) return undefined;
-    const project = resourcesFilters.find((item) => item.name === 'project');
-    const organization = resourcesFilters.find(
+  const workspaceProject = useSelector(getProject);
+  const workspaceCustomer = useSelector(getCustomer);
+
+  const { state } = useCurrentStateAndParams();
+  const isProjectContext = useMemo(
+    () => isDescendantOf('project', state),
+    [state],
+  );
+  const isCustomerContext = useMemo(
+    () =>
+      isDescendantOf('organization', state) ||
+      isDescendantOf('call-management', state) ||
+      isDescendantOf('marketplace-provider', state),
+    [state],
+  );
+
+  // Resolve project/customer to scope sidebar links by, preferring the active
+  // workspace (project detail / organization detail page) over whatever is
+  // persisted in the resources-filter storage. Without this, clicking
+  // "Virtual machines" while inside a project drops the project filter.
+  const scope = useMemo(() => {
+    const storedProject = resourcesFilters?.find(
+      (item) => item.name === 'project',
+    )?.value;
+    const storedCustomer = resourcesFilters?.find(
       (item) => item.name === 'organization',
-    );
+    )?.value;
     return {
-      project_uuid: project?.value?.uuid,
-      customer_uuid: organization?.value?.uuid,
-    } satisfies MarketplaceGlobalCategoriesRetrieveData['query'];
-  }, [resourcesFilters]);
+      project: isProjectContext
+        ? (workspaceProject ?? storedProject)
+        : storedProject,
+      customer:
+        isProjectContext || isCustomerContext
+          ? (workspaceCustomer ??
+            (workspaceProject as any)?.customer ??
+            storedCustomer)
+          : storedCustomer,
+    };
+  }, [
+    resourcesFilters,
+    workspaceProject,
+    workspaceCustomer,
+    isProjectContext,
+    isCustomerContext,
+  ]);
+
+  // Encoded as "uuid::name" to match the compact format produced by
+  // src/core/filters.ts (compactFilterValue); AllResourcesList /
+  // CategoryResourcesList expand these back to {uuid, name} on mount.
+  const filterParams = useMemo(() => {
+    const encode = (entity?: { uuid?: string; name?: string }) =>
+      entity?.uuid ? `${entity.uuid}::${entity.name ?? ''}` : undefined;
+    return {
+      project: encode(scope.project as any),
+      organization: encode(scope.customer as any),
+    };
+  }, [scope]);
+
+  const query = useMemo(
+    () =>
+      ({
+        project_uuid: (scope.project as any)?.uuid,
+        customer_uuid: (scope.customer as any)?.uuid,
+      }) satisfies MarketplaceGlobalCategoriesRetrieveData['query'],
+    [scope],
+  );
 
   // We will clean counters on impersonation (on change user)
   const { data: counters = {} } = useQuery({
@@ -161,8 +240,8 @@ export const ResourcesMenu = ({ user }) => {
     if (!counters) return groupedCategories;
 
     return groupedCategories.sort((a, b) => {
-      const aCount = counters[a.uuid] || 0;
-      const bCount = counters[b.uuid] || 0;
+      const aCount = Number(counters[a.uuid]) || 0;
+      const bCount = Number(counters[b.uuid]) || 0;
       return bCount - aCount;
     });
   }, [categories, categoryGroups, counters]);
@@ -185,16 +264,20 @@ export const ResourcesMenu = ({ user }) => {
       itemId="resources-menu"
       icon={<SquaresFourIcon weight="bold" />}
       badge={<ResourcesMenuFilterButton />}
+      disabled={disabled}
+      disabledTooltip={disabledTooltip}
     >
       <ResourcesMenuFilters />
       <MenuItem
         title={translate('All resources')}
         badge={allResourcesCount}
         state="all-resources"
+        params={filterParams}
       />
 
       <RenderMenuItems
         items={sortedCategoryGroups.slice(0, MAX_COLLAPSE_MENU_COUNT)}
+        filterParams={filterParams}
       />
 
       {sortedCategoryGroups.length > MAX_COLLAPSE_MENU_COUNT ? (
@@ -202,6 +285,7 @@ export const ResourcesMenu = ({ user }) => {
           {expanded && (
             <RenderMenuItems
               items={sortedCategoryGroups.slice(MAX_COLLAPSE_MENU_COUNT)}
+              filterParams={filterParams}
             />
           )}
           <CustomToggle

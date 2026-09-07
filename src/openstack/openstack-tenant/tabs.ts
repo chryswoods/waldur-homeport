@@ -1,6 +1,6 @@
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { ResourceTabsConfiguration } from '@waldur/resource/tabs/types';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { ResourceTabsConfiguration } from '@/resource/tabs/types';
 
 export const OpenStackTenantTabConfiguration: ResourceTabsConfiguration = {
   type: 'OpenStack.Tenant',
@@ -110,6 +110,26 @@ export const OpenStackTenantTabConfiguration: ResourceTabsConfiguration = {
           component: lazyComponent(() =>
             import('./TenantPortsList').then((module) => ({
               default: module.TenantPortsList,
+            })),
+          ),
+        },
+        {
+          key: 'load_balancers',
+          title: translate('Load balancers'),
+          component: lazyComponent(() =>
+            import('../openstack-lbaas/TenantLoadBalancersList').then(
+              (module) => ({
+                default: module.TenantLoadBalancersList,
+              }),
+            ),
+          ),
+        },
+        {
+          key: 'topology',
+          title: translate('Topology'),
+          component: lazyComponent(() =>
+            import('./TenantTopology/TenantTopologyTab').then((module) => ({
+              default: module.TenantTopologyTab,
             })),
           ),
         },

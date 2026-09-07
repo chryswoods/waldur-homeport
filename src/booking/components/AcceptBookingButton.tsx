@@ -1,14 +1,12 @@
-import { FC, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { FC } from 'react';
 import { bookingResourcesAccept } from 'waldur-js-client';
 
-import { SubmitButton } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { getCustomer, getUser } from '@waldur/workspace/selectors';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { useUser, useCustomer } from '@/workspace/hooks';
 
 interface AcceptBookingButtonProps {
   resourceUuid: string;
@@ -21,24 +19,15 @@ export const AcceptBookingButton: FC<AcceptBookingButtonProps> = ({
   pending,
   refetch,
 }) => {
-  const [isAccepting, setIsAccepting] = useState(false);
-  const dispatch = useDispatch();
-  const user = useSelector(getUser);
-  const customer = useSelector(getCustomer);
+  const user = useUser();
+  const customer = useCustomer();
 
-  const acceptRequest = async () => {
-    try {
-      setIsAccepting(true);
-      await bookingResourcesAccept({ path: { uuid: resourceUuid } });
-      setIsAccepting(false);
-      if (refetch) refetch();
-      dispatch(showSuccess(translate('Booking has been accepted.')));
-      dispatch(closeModalDialog());
-    } catch (e) {
-      setIsAccepting(false);
-      dispatch(showErrorResponse(e, translate('Unable to accept booking.')));
-    }
-  };
+  const acceptMutation = useManagedMutation<any, any, void>({
+    mutationFn: () => bookingResourcesAccept({ path: { uuid: resourceUuid } }),
+    successMessage: translate('Booking has been accepted.'),
+    errorMessage: translate('Unable to accept booking.'),
+    refetch,
+  });
 
   return (
     <SubmitButton
@@ -49,10 +38,10 @@ export const AcceptBookingButton: FC<AcceptBookingButtonProps> = ({
           customerId: customer.uuid,
         })
       }
-      submitting={isAccepting}
+      submitting={acceptMutation.isPending}
       label={translate('Accept')}
       className="btn btn-success me-2"
-      onClick={acceptRequest}
+      onClick={() => acceptMutation.mutate()}
     />
   );
 };

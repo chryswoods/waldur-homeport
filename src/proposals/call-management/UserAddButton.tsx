@@ -1,20 +1,19 @@
 import { FunctionComponent } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 
-import { AddButton } from '@waldur/core/AddButton';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { getCustomer, getUser } from '@waldur/workspace/selectors';
+import { AddButton } from '@/core/AddButton';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { useUser, useCustomer } from '@/workspace/hooks';
 
 interface UserAddButtonProps {
   refetch;
 }
 
 const AddUserDialog = lazyComponent(() =>
-  import('@waldur/project/team/AddUserDialog').then((module) => ({
+  import('@/project/team/AddUserDialog').then((module) => ({
     default: module.AddUserDialog,
   })),
 );
@@ -22,9 +21,9 @@ const AddUserDialog = lazyComponent(() =>
 export const UserAddButton: FunctionComponent<UserAddButtonProps> = ({
   refetch,
 }) => {
-  const dispatch = useDispatch();
-  const user = useSelector(getUser);
-  const customer = useSelector(getCustomer);
+  const { openDialog } = useModal();
+  const user = useUser();
+  const customer = useCustomer();
   const canAddUser = hasPermission(user, {
     permission: PermissionEnum.CREATE_CUSTOMER_PERMISSION,
     customerId: customer.uuid,
@@ -32,13 +31,11 @@ export const UserAddButton: FunctionComponent<UserAddButtonProps> = ({
   return (
     <AddButton
       action={() =>
-        dispatch(
-          openModalDialog(AddUserDialog, {
-            refetch,
-            level: 'call_organizer',
-            title: translate('Add member'),
-          }),
-        )
+        openDialog(AddUserDialog, {
+          refetch,
+          level: 'call_organizer',
+          title: translate('Add member'),
+        })
       }
       disabled={!canAddUser}
     />

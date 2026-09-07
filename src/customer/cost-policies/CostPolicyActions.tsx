@@ -1,8 +1,9 @@
 import { FC } from 'react';
 
-import { ActionsDropdownComponent } from '@waldur/table/ActionsDropdown';
+import { ActionsDropdownComponent } from '@/table/ActionsDropdown';
 
 import { CostPolicyDeleteButton } from './CostPolicyDeleteButton';
+import { CostPolicyDuplicateButton } from './CostPolicyDuplicateButton';
 import { CostPolicyEditButton } from './CostPolicyEditButton';
 import { CostPolicyType } from './types';
 
@@ -15,6 +16,7 @@ interface CostPolicyActionsProps {
 export const CostPolicyActions: FC<CostPolicyActionsProps> = (props) => (
   <ActionsDropdownComponent>
     <CostPolicyEditButton {...props} />
+    <CostPolicyDuplicateButton {...props} />
     <CostPolicyDeleteButton {...props} />
   </ActionsDropdownComponent>
 );

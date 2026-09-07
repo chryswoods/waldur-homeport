@@ -1,23 +1,22 @@
 import { PlusIcon } from '@phosphor-icons/react';
 import { QueryFunction, useInfiniteQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
-import { useEffectOnce } from 'react-use';
-import { Field } from 'redux-form';
+import { Field, useForm } from 'react-final-form';
 import {
   marketplacePublicOfferingsList,
   PublicOfferingDetails,
 } from 'waldur-js-client';
 
-import { parseNextPage } from '@waldur/core/api';
-import { required } from '@waldur/core/validators';
-import { VStepperFormStepCard } from '@waldur/form/VStepperFormStep';
-import { translate } from '@waldur/i18n';
-import { isExperimentalUiComponentsVisible } from '@waldur/marketplace/utils';
-import { getProject } from '@waldur/workspace/selectors';
+import { parseNextPage } from '@/core/api';
+import { UI_STALE_TIME } from '@/core/constants';
+import { required } from '@/core/validators';
+import { translate } from '@/i18n';
+import { isExperimentalUiComponentsVisible } from '@/marketplace/utils';
+import { CompactActionButton } from '@/table/CompactActionButton';
+import { VStepperFormStepCard } from '@/wizard';
+import { useProject } from '@/workspace/hooks';
 
-import { orderProjectSelector } from '../selectors';
+import { useOrderFormData } from '../selectors';
 import { FormStepProps } from '../types';
 
 import { BoxRadioField } from './BoxRadioField';
@@ -53,21 +52,22 @@ const tabs: TabSpec[] = [
 ];
 
 export const FormCloudStep = (props: FormStepProps) => {
+  const form = useForm();
   const [tab, setTab] = useState<TabSpec>(tabs[0]);
   const showExperimentalUiComponents = isExperimentalUiComponentsVisible();
 
-  const currentProject = useSelector(getProject);
+  const currentProject = useProject();
 
   const initialOffering = useRef(props.offering);
   const initialProjectUuid = useRef(currentProject?.uuid);
-  const project = useSelector(orderProjectSelector);
+  const { project } = useOrderFormData();
 
   const context = useInfiniteQuery({
     queryKey: ['deploy-offerings', project?.uuid, props.params?.type],
     queryFn: loadData,
     initialPageParam: 1,
     getNextPageParam: (lastPage) => lastPage.nextPage,
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
     meta: {
       project_uuid: project?.uuid,
       type: props.params?.type,
@@ -120,26 +120,19 @@ export const FormCloudStep = (props: FormStepProps) => {
   const onChangeOffering = useCallback(
     (value) => {
       if (value) {
-        props.change('attributes.flavor', undefined);
-        props.change('attributes.image', undefined);
-        props.change('attributes.security_groups', undefined);
+        form.change('attributes.flavor', undefined);
+        form.change('attributes.image', undefined);
+        form.change('attributes.security_groups', undefined);
       }
     },
-    [props.change],
+    [form.change],
   );
-
-  // Initialize offering
-  useEffectOnce(() => {
-    if (initialOffering.current) {
-      props.change('offering', initialOffering.current);
-    }
-  });
 
   // Select first option if project changed
   useEffect(() => {
     if (choices.length === 0) return;
     if (!choices.some((choice) => choice.value.uuid === props.offering.uuid)) {
-      props.change('offering', choices[0].value);
+      form.change('offering', choices[0].value);
       onChangeOffering(choices[0].value);
     }
   }, [
@@ -147,7 +140,7 @@ export const FormCloudStep = (props: FormStepProps) => {
     choices,
     props.offering,
     initialProjectUuid.current,
-    props.change,
+    form.change,
     onChangeOffering,
   ]);
 
@@ -164,12 +157,13 @@ export const FormCloudStep = (props: FormStepProps) => {
               <StepCardTabs tabs={tabs} tab={tab} setTab={setTab} />
             </div>
             <div className="d-flex gap-10 justify-content-end">
-              <Button variant="tertiary" className="text-nowrap" size="sm">
-                <span className="svg-icon svg-icon-2">
-                  <PlusIcon weight="bold" />
-                </span>
-                {translate('New cloud')}
-              </Button>
+              <CompactActionButton
+                variant="tertiary"
+                className="text-nowrap"
+                action={() => {}}
+                iconNode={<PlusIcon weight="bold" />}
+                title={translate('New cloud')}
+              />
             </div>
           </div>
         ) : null
@@ -185,13 +179,20 @@ export const FormCloudStep = (props: FormStepProps) => {
         </p>
       ) : (
         <>
-          <Field
-            name="offering"
-            component={BoxRadioField}
-            choices={choices}
-            validate={[required]}
-            onChange={onChangeOffering}
-          />
+          <Field name="offering" validate={required}>
+            {({ input }) => (
+              <BoxRadioField
+                input={{
+                  ...input,
+                  onChange: (value) => {
+                    input.onChange(value);
+                    onChangeOffering(value);
+                  },
+                }}
+                choices={choices}
+              />
+            )}
+          </Field>
 
           <div className="text-center">
             {context.hasNextPage && (

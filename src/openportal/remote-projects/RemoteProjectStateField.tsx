@@ -1,27 +1,30 @@
-import { StateIndicator } from '@waldur/core/StateIndicator';
-import { translate } from '@waldur/i18n';
+import { RemoteProject } from 'waldur-js-client';
 
-const VARIANT_MAP = {
-  pending: 'warning',
-  active: 'success',
-  stale: 'warning',
-  error: 'danger',
-  deleted: 'secondary',
-} as const;
+import { StateIndicator } from '@/core/StateIndicator';
 
-const LABEL_MAP: Record<string, () => string> = {
-  pending: () => translate('Pending'),
-  active: () => translate('Active'),
-  stale: () => translate('Stale'),
-  error: () => translate('Error'),
-  deleted: () => translate('Deleted'),
-};
+interface RemoteProjectStateFieldProps {
+  project: Pick<RemoteProject, 'state' | 'state_display'>;
+  hasBullet?: boolean;
+}
 
-export const RemoteProjectStateField = ({ state }: { state: string }) => (
+export const RemoteProjectStateField = ({
+  project,
+  hasBullet,
+}: RemoteProjectStateFieldProps) => (
   <StateIndicator
-    label={LABEL_MAP[state]?.() ?? state}
-    variant={VARIANT_MAP[state] ?? 'secondary'}
-    light
+    label={project.state_display || project.state}
+    variant={
+      {
+        pending: 'warning',
+        active: 'success',
+        stale: 'warning',
+        error: 'danger',
+        deleted: 'default',
+      }[project.state] || 'default'
+    }
+    hasBullet={hasBullet}
+    outline
     pill
+    data-testid="remote-project-state-field"
   />
 );

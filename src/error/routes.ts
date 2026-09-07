@@ -1,20 +1,39 @@
 import { UIView } from '@uirouter/react';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { StateDeclaration } from '@waldur/core/types';
+import { lazyComponent } from '@/core/lazyComponent';
+import { StateDeclaration } from '@/core/types';
 
 export const states: StateDeclaration[] = [
   {
     name: 'errorPage',
     component: UIView,
     abstract: true,
+    parent: 'layout',
   },
 
   {
     name: 'errorPage.notFound',
     component: lazyComponent(() =>
-      import('./InvalidObjectPage').then((module) => ({
-        default: module.InvalidObjectPage,
+      import('./InvalidRoutePage').then((module) => ({
+        default: module.InvalidRoutePage,
+      })),
+    ),
+  },
+
+  {
+    name: 'errorPage.featureDisabled',
+    component: lazyComponent(() =>
+      import('./FeatureDisabledPage').then((module) => ({
+        default: module.FeatureDisabledPage,
+      })),
+    ),
+  },
+
+  {
+    name: 'errorPage.noPermission',
+    component: lazyComponent(() =>
+      import('./AccessDeniedPage').then((module) => ({
+        default: module.AccessDeniedPage,
       })),
     ),
   },
@@ -24,6 +43,15 @@ export const states: StateDeclaration[] = [
     component: lazyComponent(() =>
       import('./ServerErrorPage').then((module) => ({
         default: module.ServerErrorPage,
+      })),
+    ),
+  },
+
+  {
+    name: 'errorPage.serviceNotAvailable',
+    component: lazyComponent(() =>
+      import('./ServiceNotAvailablePage').then((module) => ({
+        default: module.ServiceNotAvailablePage,
       })),
     ),
   },

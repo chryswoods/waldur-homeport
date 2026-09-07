@@ -1,8 +1,8 @@
 import { createSelector } from 'reselect';
 
-import { AtLeast } from '@waldur/core/types';
-import { RoleEnum } from '@waldur/permissions/enums';
-import { type RootState } from '@waldur/store/reducers';
+import { AtLeast } from '@/core/types';
+import { RoleEnum } from '@/permissions/enums';
+import { type RootState } from '@/store/reducers';
 
 import { Customer, Project, User } from './types';
 
@@ -22,11 +22,11 @@ export const getProject = (state: RootState): Project =>
 export const isStaff = (state: RootState): boolean =>
   getUser(state) && getUser(state).is_staff;
 
-export const isSupport = (state: RootState): boolean =>
-  getUser(state) && getUser(state).is_support;
+export const checkIsStaffOrSupport = (user: User): boolean =>
+  user && (user.is_staff || user.is_support);
 
 export const isStaffOrSupport = (state: RootState): boolean =>
-  isStaff(state) || isSupport(state);
+  checkIsStaffOrSupport(getUser(state));
 
 export const checkIsOwner = (
   customer: AtLeast<Customer, 'uuid'>,
@@ -50,7 +50,17 @@ export const checkIsServiceManager = (
       permission.role_name === RoleEnum.CUSTOMER_MANAGER,
   );
 
-export const checkIsReader = (
+export const checkIsOwnerOrStaff = (
+  customer: AtLeast<Customer, 'uuid'>,
+  user: User,
+): boolean => {
+  if (user && user.is_staff) {
+    return true;
+  }
+  return customer && checkIsOwner(customer, user);
+};
+
+const checkIsReader = (
   customer: AtLeast<Customer, 'uuid'>,
   user: User,
 ): boolean =>
@@ -61,65 +71,61 @@ export const checkIsReader = (
       permission.role_name === RoleEnum.CUSTOMER_READER,
   );
 
-export const checkCustomerUser = (
-  customer: AtLeast<Customer, 'uuid'>,
-  user: User,
-): boolean => {
-  if (user && user.is_staff) {
-    return true;
-  }
-  return customer && checkIsOwner(customer, user);
-};
-
-export const isServiceManagerSelector = createSelector(
-  getCustomer,
-  getUser,
-  checkIsServiceManager,
-);
-
 export const isOwner = createSelector(getCustomer, getUser, checkIsOwner);
 
 export const isOwnerOrStaff = createSelector(
+  getCustomer,
   getUser,
-  isOwner,
-  (user: User, userIsOwner: boolean): boolean => {
-    if (!user) {
-      return false;
-    }
-    if (user.is_staff) {
-      return true;
-    }
-    return userIsOwner;
-  },
+  checkIsOwnerOrStaff,
 );
 
-export const isOwnerOrStaffOrSupport = createSelector(
-  getUser,
-  isOwner,
-  (user: User, userIsOwner: boolean): boolean => {
-    if (!user) {
-      return false;
-    }
-    if (user.is_staff || user.is_support) {
-      return true;
-    }
-    return userIsOwner;
-  },
-);
-
-export const isReader = createSelector(getCustomer, getUser, checkIsReader);
-
+/**
+ * Organisation readers hold a read-only role, so they belong wherever a page
+ * only displays organisation data and offers no way to change it.
+ */
 export const isOwnerOrStaffOrReader = createSelector(
+  getCustomer,
   getUser,
-  isOwner,
-  isReader,
-  (user: User, userIsOwner: boolean, userIsReader: boolean): boolean => {
-    if (!user) {
-      return false;
-    }
-    if (user.is_staff) {
-      return true;
-    }
-    return userIsOwner || userIsReader;
-  },
+  (customer, user) =>
+    checkIsOwnerOrStaff(customer, user) || checkIsReader(customer, user),
 );
+
+/**
+ * Check if user has access to any organization
+ * (either as owner, manager, or staff)
+ */
+const checkHasAnyOrganizationAccess = (user: User): boolean => {
+  if (!user) return false;
+  if (user.is_staff || user.is_support) return true;
+  return user.permissions?.some((p) => p.scope_type === 'customer') ?? false;
+};
+
+export const hasAnyOrganizationAccess = (state: RootState): boolean =>
+  checkHasAnyOrganizationAccess(getUser(state));
+
+// Check if user has any non-project permissions
+export const checkHasNonProjectPermissions = (user: User): boolean => {
+  if (!user) return false;
+  if (user.is_staff || user.is_support) return true;
+  return user.permissions?.some((p) => p.scope_type !== 'project') ?? false;
+};
+
+export const hasNonProjectPermissions = (state: RootState): boolean =>
+  checkHasNonProjectPermissions(getUser(state));
+
+/**
+ * Check if user manages any service provider offerings
+ */
+export const isServiceProviderManager = (state: RootState): boolean => {
+  const user = getUser(state);
+  if (!user) return false;
+  if (user.is_staff) return true;
+  return (
+    user.permissions?.some(
+      (p) =>
+        p.scope_type === 'customer' &&
+        (p.role_name === RoleEnum.CUSTOMER_OWNER ||
+          p.role_name === RoleEnum.CUSTOMER_MANAGER),
+    ) ?? false
+  );
+};

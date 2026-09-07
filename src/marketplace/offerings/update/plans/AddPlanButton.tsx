@@ -1,11 +1,10 @@
 import { PlusCircleIcon } from '@phosphor-icons/react';
 import { FunctionComponent } from 'react';
-import { useDispatch } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { ActionButton } from '@waldur/table/ActionButton';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { ActionButton } from '@/table/ActionButton';
 
 import { ADD_PLAN_FORM_ID } from './constants';
 
@@ -19,15 +18,13 @@ export const AddPlanButton: FunctionComponent<{
   offering;
   refetch;
 }> = ({ offering, refetch }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const callback = () => {
-    dispatch(
-      openModalDialog(AddPlanDialog, {
-        resolve: { offering, refetch },
-        size: 'lg',
-        formId: ADD_PLAN_FORM_ID,
-      }),
-    );
+    openDialog(AddPlanDialog, {
+      resolve: { offering, refetch },
+      size: 'lg',
+      formId: ADD_PLAN_FORM_ID,
+    });
   };
   return (
     <ActionButton

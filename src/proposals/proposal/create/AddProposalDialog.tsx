@@ -1,140 +1,257 @@
 import { PlusCircleIcon } from '@phosphor-icons/react';
 import { useRouter } from '@uirouter/react';
-import { useCallback, useMemo } from 'react';
-import { reduxForm, formValueSelector } from 'redux-form';
-import { NestedRound, proposalProposalsCreate } from 'waldur-js-client';
-import { useSelector } from 'react-redux';
+import { FC, useEffect, useMemo } from 'react';
+import { Form } from 'react-final-form';
+import {
+  NestedRound,
+  Offering,
+  proposalProposalsCreate,
+  proposalProposalsResourcesSet,
+  PublicCall,
+} from 'waldur-js-client';
 
-import { required, composeValidators, createProposalNameValidator } from '@waldur/core/validators';
-import { SubmitButton } from '@waldur/form';
-import { FormContainer } from '@waldur/form/FormContainer';
-import { StringField } from '@waldur/form/StringField';
-import { translate } from '@waldur/i18n';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { EndingField } from '@waldur/proposals/EndingField';
-import { Call } from '@waldur/proposals/types';
-import { Field } from '@waldur/resource/summary';
-import { useNotify } from '@waldur/store/hooks';
-import { UsersService } from '@waldur/user/UsersService';
+import { required } from '@/core/validators';
+import { SubmitButton, StringGroup } from '@/form';
+import { formatJsxTemplate, translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import {
+  checkProjectNameRegex,
+  getProjectNameRestrictionHint,
+} from '@/project/validators';
+import { EndingField } from '@/proposals/EndingField';
+import { usesCallVocabulary } from '@/proposals/presentation';
+import { getProposalProjectName } from '@/proposals/proposalProjectName';
+import { Call } from '@/proposals/types';
+import { Field } from '@/resource/summary';
+import { useNotify } from '@/store/notify';
+import { UsersService } from '@/user/UsersService';
 
 interface FormData {
   name: string;
 }
 
-const selector = formValueSelector('AddProposalForm');
+interface AddProposalDialogProps {
+  resolve: {
+    round: NestedRound;
+    call: Call | PublicCall;
+    /** When set, the offering is attached to the new proposal as a resource request. */
+    offering?: Offering;
+  };
+}
 
-export const AddProposalDialog = reduxForm<
-  FormData,
-  { resolve: { round: NestedRound; call: Call } }
->({
-  form: 'AddProposalForm',
-})((props) => {
+export const AddProposalDialog: FC<AddProposalDialogProps> = (props) => {
   const router = useRouter();
-  const { showSuccess, showErrorResponse } = useNotify();
-  const proposalName = useSelector((state) => selector(state, 'name')) || '';
+  const { showError, showErrorResponse } = useNotify();
 
-  // Get call prefix (backend_id or slug)
-  const callPrefix = props.resolve.call.backend_id || props.resolve.call.slug || '';
+  // The call's entry for this offering: it carries the plan and components the
+  // amounts are priced against, and the call manager's purchase-order setting.
+  const requestedOffering = useMemo(() => {
+    const offering = props.resolve.offering;
+    if (!offering) {
+      return undefined;
+    }
+    return props.resolve.call.offerings?.find(
+      (item) =>
+        item.offering_uuid === offering.uuid && item.state === 'accepted',
+    );
+  }, [props.resolve.call, props.resolve.offering]);
 
-  // Calculate maximum allowed length for proposal name
-  const maxProposalNameLength = useMemo(() => {
-    // Formula: 150 - callPrefix.length - 10 - 6
-    return 150 - callPrefix.length - 10 - 6;
-  }, [callPrefix]);
+  // The amounts the call manager published for this offering. Attaching an
+  // offering used to create a request asking for nothing, which read as a
+  // priced row costing zero and counted towards a complete proposal. Starting
+  // from the call's own template gives the applicant a figure to adjust rather
+  // than an empty one to discover.
+  const templateLimits = useMemo(() => {
+    if (!requestedOffering) {
+      return undefined;
+    }
+    const template = (props.resolve.call as any).resource_templates?.find(
+      (item) => item.requested_offering_uuid === requestedOffering.uuid,
+    );
+    return template?.limits && Object.keys(template.limits).length
+      ? (template.limits as Record<string, number>)
+      : undefined;
+  }, [props.resolve.call, requestedOffering]);
 
-  // Create validator with the calculated max length
-  const nameValidator = useMemo(
-    () => composeValidators(required, createProposalNameValidator(callPrefix)),
-    [callPrefix]
-  );
+  // The name is carried into the project created on approval, so it is held to
+  // the deployment's project-name pattern — same rule the backend applies in
+  // ProposalSerializer.validate_name. That rule is the only description worth
+  // showing: the placeholder already says to name the project, and the preview
+  // below shows what the name becomes, so a sentence between them was only
+  // something more to read.
+  const nameDescription = getProjectNameRestrictionHint();
+  const validateName = (value: string) =>
+    required(value) || checkProjectNameRegex(value);
 
-  const processRequest = useCallback(
-    async (values: FormData) => {
-      try {
-        const response = await proposalProposalsCreate({
-          body: {
-            ...values,
-            round_uuid: props.resolve.round.uuid,
-          },
-        });
-        const proposal = response.data;
-        showSuccess(translate('Proposal created successfully'));
-        UsersService.refreshCurrentUser();
-        router.stateService.go('proposals.manage-proposal', {
-          proposal_uuid: proposal.uuid,
-        });
-      } catch (error) {
-        showErrorResponse(error, translate('Something went wrong'));
+  useEffect(() => {
+    // Delay focus to run after modal animation and autoFocus complete (~150ms)
+    const timer = setTimeout(() => {
+      const input =
+        document.querySelector<HTMLInputElement>('input[name="name"]');
+      input?.focus();
+    }, 200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const { mutate, isPending } = useManagedMutation({
+    mutationFn: async (values: FormData) => {
+      const response = await proposalProposalsCreate({
+        body: {
+          name: values.name,
+          round_uuid: props.resolve.round.uuid,
+        },
+      });
+      const offering = props.resolve.offering;
+      if (offering) {
+        const attachFailed = translate(
+          'The offering could not be attached automatically. Please add it in the resource requests step.',
+        );
+        if (!requestedOffering) {
+          // Don't hand back a proposal named after an offering it lacks.
+          showError(attachFailed);
+        } else {
+          try {
+            await proposalProposalsResourcesSet({
+              path: { uuid: response.data.uuid },
+              body: {
+                requested_offering_uuid: requestedOffering.uuid,
+                attributes: {},
+                // The call's published amounts, else nothing. This dialog only
+                // names the proposal; the amounts and the purchase order are
+                // the resource-request step's job on the proposal page.
+                limits: templateLimits || {},
+                purchase_order_reference: '',
+              },
+            });
+          } catch (error) {
+            // The backend names the actual constraint; the sentence alone does not.
+            showErrorResponse(error, attachFailed);
+          }
+        }
       }
+      return response;
     },
-    [props.resolve, router],
-  );
+    onSuccess: (response) => {
+      UsersService.refreshCurrentUser();
+      router.stateService.go('proposals.manage-proposal', {
+        proposal_uuid: response.data.uuid,
+      });
+    },
+    successMessage: usesCallVocabulary()
+      ? translate('Proposal created successfully')
+      : translate('Access request created successfully'),
+  });
 
   return (
-    <form onSubmit={props.handleSubmit(processRequest)}>
-      <ModalDialog
-        title={translate('Create proposal')}
-        iconNode={<PlusCircleIcon weight="bold" />}
-        iconColor="success"
-        footer={
-          <>
-            <CloseDialogButton variant="tertiary" className="w-125px" />
-            <SubmitButton
-              disabled={props.invalid}
-              submitting={props.submitting}
-              label={translate('Create')}
-              className="btn btn-primary w-125px"
-            />
-          </>
-        }
-      >
-        <Field
-          label={translate('Call name')}
-          value={props.resolve.call.name}
-          labelCol={4}
-          valueCol={8}
-          space={2}
-        />
-        <Field
-          label={translate('Round reference')}
-          value={props.resolve.round.name}
-          labelCol={4}
-          valueCol={8}
-          space={2}
-        />
-        <Field
-          label={translate('Round deadline')}
-          value={
-            <EndingField
-              endDate={props.resolve.round.cutoff_time}
-              dateFirst
-              hasFixedDuration={Boolean(
-                props.resolve.call.fixed_duration_in_days,
-              )}
-            />
-          }
-          labelCol={4}
-          valueCol={8}
-          space={2}
-        />
-        <FormContainer submitting={props.submitting} className="mt-7">
-          <StringField
-            label={translate('Name')}
-            name="name"
-            required
-            validate={nameValidator}
-            description={translate(
-              'Maximum {maxLength} characters. Current: {current}/{maxLength}',
-              {
-                maxLength: maxProposalNameLength,
-                current: proposalName.length,
+    // Deliberately no initial name: it becomes the project name on approval, so
+    // defaulting it to the offering would have every applicant to a call
+    // propose the same one — and name their project after the product rather
+    // than their work.
+    <Form<FormData>
+      onSubmit={mutate}
+      render={({ handleSubmit, invalid, submitting, values }) => {
+        const projectName = getProposalProjectName(
+          props.resolve.call,
+          props.resolve.round,
+          values.name,
+        );
+        return (
+          <form onSubmit={handleSubmit}>
+            <ModalDialog
+              title={
+                usesCallVocabulary()
+                  ? translate('Create proposal')
+                  : translate('Request access')
               }
-            )}
-            spaceless
-          />
-        </FormContainer>
-      </ModalDialog>
-    </form>
+              iconNode={<PlusCircleIcon weight="bold" />}
+              iconColor="success"
+              footer={
+                <>
+                  <CloseDialogButton
+                    variant="tertiary"
+                    className="min-w-125px"
+                  />
+                  <SubmitButton
+                    disabled={invalid}
+                    submitting={submitting || isPending}
+                    // The dialog's title already says which of the two this
+                    // is; the button just needs the verb every other create
+                    // dialog in the app uses.
+                    label={translate('Create')}
+                    className="btn btn-primary min-w-125px"
+                  />
+                </>
+              }
+            >
+              <Field
+                label={
+                  usesCallVocabulary()
+                    ? translate('Call name')
+                    : translate('Available under')
+                }
+                value={props.resolve.call.name}
+                labelCol={4}
+                valueCol={8}
+                space={2}
+              />
+              {usesCallVocabulary() ? (
+                <Field
+                  label={translate('Round reference')}
+                  value={props.resolve.round.name}
+                  labelCol={4}
+                  valueCol={8}
+                  space={2}
+                />
+              ) : null}
+              <Field
+                label={
+                  usesCallVocabulary()
+                    ? translate('Round deadline')
+                    : translate('Submission closes')
+                }
+                value={
+                  <EndingField
+                    endDate={props.resolve.round.cutoff_time}
+                    dateFirst
+                    hasFixedDuration={Boolean(
+                      props.resolve.call.fixed_duration_in_days,
+                    )}
+                  />
+                }
+                labelCol={4}
+                valueCol={8}
+                space={2}
+              />
+              <div className="mt-7">
+                <StringGroup
+                  label={translate('Name')}
+                  name="name"
+                  placeholder={translate('Name your project')}
+                  required
+                  validate={validateName}
+                  description={nameDescription}
+                  spaceless
+                  disabled={submitting || isPending}
+                />
+                {/* The applicant's name is only the last third of what the
+                    project ends up called, so show the whole thing rather than
+                    describing the rule in prose. */}
+                {projectName ? (
+                  <div className="text-muted fs-7 mt-2">
+                    {translate(
+                      'Project name: {name}',
+                      { name: <strong>{projectName}</strong> },
+                      formatJsxTemplate,
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            </ModalDialog>
+          </form>
+        );
+      }}
+    />
   );
-});
+};

@@ -1,20 +1,20 @@
-import { Button } from 'react-bootstrap';
-
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { router } from '@waldur/router';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { router } from '@/router';
 
 export const CallProposalsButton = ({ call }) =>
   isFeatureVisible(MarketplaceFeatures.call_only) ? null : (
-    <Button
+    <SubmitButton
+      submitting={false}
+      type="button"
       onClick={() =>
         router.stateService.go('proposals-call-proposals', {
           call: JSON.stringify(call),
         })
       }
       variant="tertiary"
-    >
-      {translate('My Proposals')}
-    </Button>
+      label={translate('My Proposals')}
+    />
   );

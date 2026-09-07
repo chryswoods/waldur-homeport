@@ -1,12 +1,9 @@
-import { useDispatch, useSelector } from 'react-redux';
-
-import { AddButton } from '@waldur/core/AddButton';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { openModalDialog } from '@waldur/modal/actions';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { useUser } from '@waldur/workspace/hooks';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { AddButton } from '@/core/AddButton';
+import { lazyComponent } from '@/core/lazyComponent';
+import { useModal } from '@/modal/actions';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { useUser, useCustomer } from '@/workspace/hooks';
 
 const OfferingCreateDialog = lazyComponent(() =>
   import('../actions/OfferingCreateDialog').then((module) => ({
@@ -23,16 +20,14 @@ export const CreateOfferingButton = ({
   className?;
   showProvider?: boolean;
 }) => {
-  const dispatch = useDispatch();
-  const customer = useSelector(getCustomer);
+  const { openDialog } = useModal();
+  const customer = useCustomer();
   const user = useUser();
 
   const callback = () => {
-    dispatch(
-      openModalDialog(OfferingCreateDialog, {
-        resolve: { fetch, showProvider },
-      }),
-    );
+    openDialog(OfferingCreateDialog, {
+      resolve: { fetch, showProvider },
+    });
   };
 
   if (
@@ -43,7 +38,13 @@ export const CreateOfferingButton = ({
         customerId: customer.uuid,
       }))
   ) {
-    return <AddButton action={callback} className={className} />;
+    return (
+      <AddButton
+        action={callback}
+        className={className}
+        data-testid="offering-add-btn"
+      />
+    );
   } else {
     return null;
   }

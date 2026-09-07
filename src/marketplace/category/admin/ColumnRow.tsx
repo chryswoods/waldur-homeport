@@ -1,17 +1,15 @@
-import { TrashIcon } from '@phosphor-icons/react';
-import { Button } from 'react-bootstrap';
 import { Field } from 'react-final-form';
-import { useDispatch } from 'react-redux';
 import { marketplaceCategoryColumnsDestroy } from 'waldur-js-client';
 
-import { SelectField } from '@waldur/form/SelectField';
-import { StringField } from '@waldur/form/StringField';
-import { formatJsxTemplate, translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { useNotify } from '@waldur/store/hooks';
+import { SelectField } from '@/form/select/SelectField';
+import { StringField } from '@/form/StringField';
+import { formatJsxTemplate, translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { useNotify } from '@/store/notify';
+import { RemovalActionButton } from '@/table/RemovalActionButton';
 
 export const ColumnRow = ({ column, fields, index, name }) => {
-  const dispatch = useDispatch();
+  const { confirm } = useModal();
   const { showSuccess, showErrorResponse } = useNotify();
   const onRemove = async () => {
     if (!column?.uuid) {
@@ -19,8 +17,7 @@ export const ColumnRow = ({ column, fields, index, name }) => {
       return;
     }
     try {
-      await waitForConfirmation(
-        dispatch,
+      await confirm(
         translate('Confirmation'),
         translate(
           'Are you sure you want to remove this column: {title}?',
@@ -46,55 +43,68 @@ export const ColumnRow = ({ column, fields, index, name }) => {
   return (
     <tr>
       <td>
-        <Field
-          name={`${name}.title`}
-          component={StringField as any}
-          placeholder={translate('Title is rendered as column header')}
-        />
-      </td>
-
-      <td>
-        <Field
-          name={`${name}.attribute`}
-          component={StringField as any}
-          placeholder={translate(
-            'Resource attribute is rendered as table cell',
+        <Field name={`${name}.title`}>
+          {({ input, meta }) => (
+            <StringField
+              input={input}
+              meta={meta}
+              placeholder={translate('Title is rendered as column header')}
+              aria-label={translate('Title')}
+            />
           )}
-        />
+        </Field>
       </td>
-
       <td>
-        <Field
-          name={`${name}.widget`}
-          component={SelectField as any}
-          placeholder={translate(
-            'Widget field allows to customise table cell rendering',
+        <Field name={`${name}.attribute`}>
+          {({ input, meta }) => (
+            <StringField
+              input={input}
+              meta={meta}
+              placeholder={translate(
+                'Resource attribute is rendered as table cell',
+              )}
+              aria-label={translate('Attribute')}
+            />
           )}
-          options={[
-            { value: '', label: translate('None') },
-            { value: 'csv', label: 'CSV' },
-            { value: 'filesize', label: translate('Filesize') },
-            {
-              value: 'attached_instance',
-              label: translate('Attached instance'),
-            },
-          ]}
-          isClearable
-        />
+        </Field>
       </td>
-
       <td>
-        <Field
-          name={`${name}.index`}
-          component={StringField as any}
-          placeholder={translate('Index allows to reorder columns')}
-        />
+        <Field name={`${name}.widget`}>
+          {({ input, meta }) => (
+            <SelectField
+              input={input}
+              meta={meta}
+              placeholder={translate(
+                'Widget field allows to customise table cell rendering',
+              )}
+              options={[
+                { value: '', label: translate('None') },
+                { value: 'csv', label: 'CSV' },
+                { value: 'filesize', label: translate('Filesize') },
+                {
+                  value: 'attached_instance',
+                  label: translate('Attached instance'),
+                },
+              ]}
+              isClearable
+            />
+          )}
+        </Field>
       </td>
-
       <td>
-        <Button variant="danger" onClick={onRemove} aria-description="Delete">
-          <TrashIcon />
-        </Button>
+        <Field name={`${name}.index`}>
+          {({ input, meta }) => (
+            <StringField
+              input={input}
+              meta={meta}
+              placeholder={translate('Index allows to reorder columns')}
+              aria-label={translate('Index')}
+            />
+          )}
+        </Field>
+      </td>
+      <td>
+        <RemovalActionButton action={onRemove} tooltip={translate('Remove')} />
       </td>
     </tr>
   );

@@ -1,14 +1,14 @@
-import { translate } from '@waldur/i18n';
-import { FormFinalConfigurationStep } from '@waldur/openportal/FormFinalConfigurationStep';
+import { translate } from '@/i18n';
+import { FormFinalConfigurationStep } from '@/marketplace/deploy/steps/FormFinalConfigurationStep';
 
 export const OPENPORTAL_PLUGIN = 'Marketplace.OpenPortal';
-
-export const PROJECT_REQUESTS_FILTER_FORM_ID = 'ProjectRequestsFilter';
 
 export const PROJECT_TEMPLATE_FIELD_CONSTRAINTS = {
   MAX_PORTALIDENTIFIER_LENGTH: 32,
   MAX_PROJECTCLASS_LENGTH: 128,
   MAX_PROJECT_SHORTNAME_LENGTH: 30,
+  MAX_OFFERING_LENGTH: 128,
+  MAX_KEY_LENGTH: 64,
 } as const;
 
 export const FinalConfigurationStep = {

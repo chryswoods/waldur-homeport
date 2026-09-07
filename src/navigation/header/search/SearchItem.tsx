@@ -1,9 +1,10 @@
 import { StarIcon } from '@phosphor-icons/react';
+import classNames from 'classnames';
 import { ReactNode } from 'react';
 
-import { Link } from '@waldur/core/Link';
-import { useOrganizationAndProjectFiltersForResources } from '@waldur/navigation/sidebar/resources-filter/utils';
-import { ItemIcon } from '@waldur/navigation/workspace/context-selector/ItemIcon';
+import { Link } from '@/core/Link';
+import { useOrganizationAndProjectAutocompletesForResources } from '@/navigation/sidebar/resources-filter/utils';
+import { ItemImage } from '@/navigation/workspace/context-selector/ItemImage';
 
 import { useFavoritePages } from '../favorite-pages/FavoritePageService';
 
@@ -18,10 +19,11 @@ export interface SearchItemProps {
   to: string;
   params?: { [key: string]: string };
   badge?: ReactNode;
+  actions?: ReactNode;
   onClick?(item: SearchItemProps);
   isFavorite?: ReturnType<typeof useFavoritePages>['isFavorite'];
   addFavoritePage?: ReturnType<typeof useFavoritePages>['addFavoritePage'];
-  removeFavorite: ReturnType<typeof useFavoritePages>['removeFavorite'];
+  removeFavorite?: ReturnType<typeof useFavoritePages>['removeFavorite'];
 }
 
 export const SearchItem = (props: SearchItemProps) => {
@@ -30,7 +32,7 @@ export const SearchItem = (props: SearchItemProps) => {
     : false;
 
   const { syncResourceFilters } =
-    useOrganizationAndProjectFiltersForResources();
+    useOrganizationAndProjectAutocompletesForResources();
 
   return (
     <Link
@@ -43,9 +45,8 @@ export const SearchItem = (props: SearchItemProps) => {
         } else e.stopPropagation();
         syncResourceFilters(getResourceFilterFromSearchItem(props));
       }}
-      aria-hidden={true}
     >
-      <ItemIcon
+      <ItemImage
         item={{ image: props.image, name: props.title }}
         className="me-4"
         circle
@@ -59,29 +60,32 @@ export const SearchItem = (props: SearchItemProps) => {
       </div>
       <div className="ms-auto d-flex">
         {props.badge && <div>{props.badge}</div>}
-        <button
-          className={'btn-fav' + (isFav ? ' show' : '')}
-          onClick={(e) =>
-            isFav
-              ? props.removeFavorite(props.to, props.params, e)
-              : props.addFavoritePage(
-                  {
-                    state: props.to,
-                    params: props.params,
-                    title: props.title,
-                    subtitle: props.subtitle,
-                    image: props.image,
-                  },
-                  e,
-                )
-          }
-        >
-          {isFav ? (
-            <StarIcon size={20} weight="fill" className="text-warning" />
-          ) : (
-            <StarIcon size={20} className="text-dark" />
-          )}
-        </button>
+        {props.actions}
+        {props.addFavoritePage && (
+          <button
+            className={classNames('btn-fav', isFav && 'show')}
+            onClick={(e) =>
+              isFav
+                ? props.removeFavorite(props.to, props.params, e)
+                : props.addFavoritePage(
+                    {
+                      state: props.to,
+                      params: props.params,
+                      title: props.title,
+                      subtitle: props.subtitle,
+                      image: props.image,
+                    },
+                    e,
+                  )
+            }
+          >
+            {isFav ? (
+              <StarIcon size={20} weight="fill" className="text-warning" />
+            ) : (
+              <StarIcon size={20} className="text-dark" weight="bold" />
+            )}
+          </button>
+        )}
       </div>
     </Link>
   );

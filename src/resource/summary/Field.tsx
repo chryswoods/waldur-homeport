@@ -1,16 +1,16 @@
 import { QuestionIcon } from '@phosphor-icons/react';
 import classNames from 'classnames';
-import React, { FunctionComponent } from 'react';
-import { Col, Row } from 'react-bootstrap';
+import React, { FunctionComponent, ReactNode, useMemo } from 'react';
+import { Col, ColProps, Row } from 'react-bootstrap';
 
-import { CopyToClipboardButton } from '@waldur/core/CopyToClipboardButton';
-import { Tip } from '@waldur/core/Tooltip';
-import { DASH_ESCAPE_CODE } from '@waldur/table/constants';
+import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
+import { Tip } from '@/core/Tooltip';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
 
 import './Field.css';
 
 interface FieldProps {
-  label: string;
+  label: ReactNode;
   labelTooltipLen?: number | false;
   tooltip?: string;
   value?: React.ReactNode;
@@ -20,39 +20,55 @@ interface FieldProps {
   valueClass?: string;
   hasCopy?: boolean;
   isStuck?: boolean;
-  labelCol?: number;
-  valueCol?: number;
+  labelCol?: number | 'auto';
+  valueCol?: number | 'auto';
+  labelWidth?: number;
+  xs?: ColProps['xs'];
   space?: number;
 }
 
 export const Field: FunctionComponent<FieldProps> = ({
   labelTooltipLen = 20,
+  space = 1,
+  labelWidth,
   ...props
-}) =>
-  props.value || props.children ? (
+}) => {
+  const labelStyle = useMemo(
+    () =>
+      labelWidth ? { width: labelWidth, minWidth: labelWidth } : undefined,
+    [labelWidth],
+  );
+  return props.value || props.children ? (
     <Row
       className={classNames(
         'field-row g-0',
-        `mb-${props.space ?? 1}`,
+        space && `mb-${space}`,
         props.className,
       )}
     >
       <Col
-        sm={props.isStuck ? 'auto' : props.labelCol || 3}
+        xs={props.xs}
+        sm={props.isStuck || labelWidth ? 'auto' : props.labelCol || 3}
+        style={labelStyle}
         className={classNames(
           'field-label text-gray-700 fw-bold',
           props.labelClass,
         )}
       >
-        {labelTooltipLen && props.label.length > labelTooltipLen ? (
-          <Tip label={props.label} id="fieldLabel">
-            {props.label}:
-          </Tip>
+        {typeof props.label === 'string' ? (
+          labelTooltipLen && props.label.length > labelTooltipLen ? (
+            <Tip label={props.label} id="fieldLabel">
+              {props.label}:
+            </Tip>
+          ) : (
+            props.label + ':'
+          )
         ) : (
-          props.label + ':'
+          props.label
         )}
       </Col>
       <Col
+        xs={props.xs}
         sm={props.isStuck ? undefined : props.valueCol || 9}
         className={classNames('text-gray-500', props.valueClass)}
       >
@@ -60,7 +76,7 @@ export const Field: FunctionComponent<FieldProps> = ({
         {props.tooltip && (
           <Tip label={props.tooltip} id="fieldHelpText">
             {' '}
-            <QuestionIcon size={17} />
+            <QuestionIcon size={16} weight="bold" className="text-gray-400" />
           </Tip>
         )}
         {props.hasCopy && (
@@ -73,3 +89,4 @@ export const Field: FunctionComponent<FieldProps> = ({
       </Col>
     </Row>
   ) : null;
+};

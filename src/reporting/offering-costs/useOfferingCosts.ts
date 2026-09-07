@@ -1,0 +1,52 @@
+import { useQuery } from '@tanstack/react-query';
+import {
+  marketplaceStatsOfferingCostsSummaryRetrieve,
+  marketplaceStatsTotalCostOfActiveResourcesPerOfferingList,
+} from 'waldur-js-client';
+
+import { STALE_TIME } from '@/core/constants';
+
+import { OfferingCostsStats, OfferingCostsSummary } from './types';
+
+async function fetchOfferingCosts(
+  signal?: AbortSignal,
+): Promise<OfferingCostsStats> {
+  const response =
+    await marketplaceStatsTotalCostOfActiveResourcesPerOfferingList({
+      query: { page_size: 10 },
+      signal,
+    });
+  return {
+    offerings: response.data ?? [],
+  };
+}
+
+async function fetchOfferingCostsSummary(
+  signal?: AbortSignal,
+): Promise<OfferingCostsSummary> {
+  const response = await marketplaceStatsOfferingCostsSummaryRetrieve({
+    signal,
+  });
+  const data = response.data;
+  return {
+    totalCost: parseFloat(data.total_cost),
+    offeringCount: data.offering_count,
+    averageCost: parseFloat(data.average_cost),
+  };
+}
+
+export function useOfferingCosts() {
+  return useQuery({
+    queryKey: ['offeringCosts'],
+    queryFn: ({ signal }) => fetchOfferingCosts(signal),
+    staleTime: STALE_TIME,
+  });
+}
+
+export function useOfferingCostsSummary() {
+  return useQuery({
+    queryKey: ['offeringCostsSummary'],
+    queryFn: ({ signal }) => fetchOfferingCostsSummary(signal),
+    staleTime: STALE_TIME,
+  });
+}

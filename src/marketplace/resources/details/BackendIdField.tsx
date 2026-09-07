@@ -1,8 +1,8 @@
 import { PublicOfferingDetails, Resource } from 'waldur-js-client';
 
-import { CopyToClipboardButton } from '@waldur/core/CopyToClipboardButton';
-import { translate } from '@waldur/i18n';
-import { Field } from '@waldur/resource/summary';
+import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
+import { translate } from '@/i18n';
+import { Field } from '@/resource/summary';
 
 export const BackendIdField = ({
   resource,
@@ -11,11 +11,15 @@ export const BackendIdField = ({
   resource: Resource;
   offering: PublicOfferingDetails;
 }) => {
-  // Use effective_id if available, otherwise backend_id
-  const backendId = resource.effective_id || resource.backend_id;
+  const highlightedId = offering.plugin_options
+    ?.require_effective_id_for_highlighted_display
+    ? resource.effective_id
+    : resource.effective_id || resource.backend_id;
 
-  // Only show if backend_id exists and highlight_backend_id_display is true
-  if (!backendId || !offering.plugin_options?.highlight_backend_id_display) {
+  if (
+    !highlightedId ||
+    !offering.plugin_options?.highlight_backend_id_display
+  ) {
     return null;
   }
 
@@ -29,8 +33,8 @@ export const BackendIdField = ({
       label={label}
       value={
         <span className="d-flex align-items-center gap-2">
-          <span>{backendId}</span>
-          <CopyToClipboardButton value={backendId} onlyButton />
+          <span>{highlightedId}</span>
+          <CopyToClipboardButton value={highlightedId} onlyButton />
         </span>
       }
     />

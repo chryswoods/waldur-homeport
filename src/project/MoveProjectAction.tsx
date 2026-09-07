@@ -1,12 +1,16 @@
 import { ArrowsOutCardinalIcon } from '@phosphor-icons/react';
-import { useSelector, useDispatch } from 'react-redux';
 import { Project } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { isStaff as isStaffSelector } from '@waldur/workspace/selectors';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { PermissionEnum } from '@/permissions/enums';
+import {
+  hasPermission,
+  hasPermissionOnAnyCustomer,
+} from '@/permissions/hasPermission';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { useUser } from '@/workspace/hooks';
 
 const MoveProjectDialog = lazyComponent(() =>
   import('./MoveProjectDialog').then((module) => ({
@@ -21,22 +25,42 @@ export const MoveProjectAction = ({
   project: Project;
   refetch;
 }) => {
-  const dispatch = useDispatch();
-  const isStaff = useSelector(isStaffSelector);
+  const { openDialog } = useModal();
+  const user = useUser();
+  const isStaff = user?.is_staff;
+  const hasSourcePermission = hasPermission(user, {
+    permission: PermissionEnum.CREATE_PROJECT,
+    customerId: project.customer_uuid,
+  });
+  const hasTargetPermission = hasPermissionOnAnyCustomer(
+    user,
+    PermissionEnum.CREATE_PROJECT,
+  );
+
+  const isDisabled = !isStaff && (!hasSourcePermission || !hasTargetPermission);
 
   const callback = () => {
-    dispatch(
-      openModalDialog(MoveProjectDialog, {
-        resolve: { project, refetch },
-      }),
-    );
+    openDialog(MoveProjectDialog, {
+      resolve: { project, refetch },
+    });
   };
 
   return (
     <ActionItem
       title={translate('Move project')}
       action={callback}
-      disabled={!isStaff}
+      disabled={isDisabled}
+      tooltip={
+        isDisabled
+          ? !hasSourcePermission
+            ? translate(
+                'You do not have permission to move projects from this organization.',
+              )
+            : translate(
+                'You do not have permission to create projects in any organization.',
+              )
+          : undefined
+      }
       iconNode={<ArrowsOutCardinalIcon weight="bold" />}
     />
   );

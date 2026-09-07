@@ -6,7 +6,7 @@ This guide covers the application architecture, design patterns, and organizatio
 
 - **React** with TypeScript for component development
 - **Vite** for build tooling and development server
-- **Redux** with Redux Saga for legacy state management
+- **Redux** for legacy state management
 - **UI Router React** for navigation (state-based routing)
 - **React Bootstrap** (Bootstrap 5) for UI components
 - **React Final Form** for modern form handling
@@ -33,28 +33,143 @@ The codebase follows a feature-based folder structure under `src/`:
 - Each domain (customer, project, marketplace, etc.) has its own folder
 - Components are co-located with their specific business logic
 - Shared utilities are in `core/` and `table/`
-- API interactions use Redux patterns with sagas
+- Legacy API interactions might use Redux patterns
 
 ### State Management
 
 #### Modern Patterns (Use for New Development)
 
 - **TanStack React Query**: Server state management and caching for API calls
-- **React Final Form**: Local form state management
+- **Autonomous Table Filters**: Redux-based state management for table filters using `@/table` components (StringFilter, SelectFilter, etc.)
+- **React Final Form**: Local form state management (use for data entry forms, not table filters)
 - **Local Component State**: useState and useReducer for UI state
 - **Custom Hooks**: Reusable state logic and business operations
 
 #### Legacy Patterns (Maintenance Only - Do Not Extend)
 
-- **Redux Store**: Global state with dynamic reducer injection (legacy - avoid for new features)
-- **Redux Saga**: Async operations and side effects (legacy - use React Query instead)
-- **Table Store**: Specialized table data management in `src/table/` (legacy pattern)
+- **Redux Store**: Global state with dynamic reducer injection (legacy - avoid for new features, except for the Table Store)
+- **React Final Form for Filters**: Old pattern of wrapping tables in `<Form>` (legacy - migrate to autonomous filters)
 
 ### Navigation & Routing
 
-- Uses UI-Router for React with state-based routing
-- Routes defined in module-specific `routes.ts` files
-- Navigation context provides tab and breadcrumb management
+The application uses **UI-Router for React** with state-based routing. Routes are defined in module-specific `routes.ts` files.
+
+#### Route Definition Structure
+
+```typescript
+// Basic route with query parameters
+{
+  name: 'protected-call.main',
+  url: 'edit/?tab&coi_tab',
+  component: lazyComponent(() =>
+    import('./update/CallUpdateContainer').then((module) => ({
+      default: module.CallUpdateContainer,
+    })),
+  ),
+  params: {
+    coi_tab: {
+      dynamic: true,  // Prevents component reload when param changes
+    },
+  },
+}
+```
+
+#### Dynamic Parameters (Preventing Full Reloads)
+
+When a query parameter controls nested tabs or filters within a page, mark it as `dynamic: true` to prevent full component reloads:
+
+```typescript
+// BAD: Changing coi_tab triggers full state reload
+{
+  name: 'my-route',
+  url: 'page/?tab&subtab',
+  component: MyComponent,
+}
+
+// GOOD: Changing subtab only re-renders, no full reload
+{
+  name: 'my-route',
+  url: 'page/?tab&subtab',
+  component: MyComponent,
+  params: {
+    subtab: {
+      dynamic: true,
+    },
+  },
+}
+```
+
+#### Nested Tabs Pattern
+
+For tabs within a page section that need URL synchronization:
+
+1. **Add the parameter to the route URL** with `dynamic: true`:
+
+   ```typescript
+   {
+     name: 'protected-call.main',
+     url: 'edit/?tab&coi_tab',
+     params: {
+       coi_tab: { dynamic: true },
+     },
+   }
+   ```
+
+2. **Use router hooks in the component**:
+
+   ```typescript
+   import { useCurrentStateAndParams, useRouter } from '@uirouter/react';
+
+   const MyTabbedSection: FC = () => {
+     const { state, params } = useCurrentStateAndParams();
+     const router = useRouter();
+
+     const activeTab = params.my_tab || 'default';
+
+     const handleTabSelect = useCallback(
+       (key: string | null) => {
+         if (key) {
+           router.stateService.go(state.name, { ...params, my_tab: key });
+         }
+       },
+       [router, state, params],
+     );
+
+     return (
+       <Tab.Container activeKey={activeTab} onSelect={handleTabSelect}>
+         {/* Tab content */}
+       </Tab.Container>
+     );
+   };
+   ```
+
+#### Main Page Tabs (usePageTabsTransmitter)
+
+For main page-level tabs, use the `usePageTabsTransmitter` hook which automatically handles URL synchronization:
+
+```typescript
+const tabs = useMemo<PageBarTab[]>(
+  () => [
+    { key: 'general', title: translate('General'), component: GeneralSection },
+    { key: 'settings', title: translate('Settings'), component: SettingsSection },
+  ],
+  [],
+);
+
+const {
+  tabSpec: { component: Component },
+} = usePageTabsTransmitter(tabs);
+
+return <Component {...props} />;
+```
+
+#### Route Best Practices
+
+1. **Use `dynamic: true`** for any parameter that controls UI state within a page (subtabs, filters, panel states)
+2. **Keep routes hierarchical** - child routes inherit parent's URL prefix
+3. **Use abstract routes** for shared layouts and data fetching
+4. **Lazy load components** with `lazyComponent()` for code splitting
+5. **Define query params in URL** - e.g., `url: 'page/?tab&filter'` makes params explicit
 
 ### Data Fetching
 
@@ -67,9 +182,9 @@ The codebase follows a feature-based folder structure under `src/`:
 
 #### Legacy Approach (Maintenance Only)
 
-- **Redux Actions/Sagas**: Centralized API calls (legacy - use React Query instead)
+- **Redux Actions**: Centralized API calls (legacy - use React Query instead)
 - **Table Store**: Standardized data loading patterns (legacy pattern)
-- **Periodic Polling**: Real-time updates through sagas (use React Query polling instead)
+- **Periodic Polling**: Real-time updates via legacy polling (use React Query polling instead)
 
 ## Component Architecture
 
@@ -77,6 +192,84 @@ The codebase follows a feature-based folder structure under `src/`:
 - **Presentation Components**: Pure UI components with props
 - **Form Components**: Specialized forms using React Final Form
 - **Table Components**: Reusable table infrastructure with filtering, sorting, pagination
+- **Button Components**: Unified button system wrapping Bootstrap for consistent UX
+
+### Button Component Architecture
+
+The application uses a unified button system that wraps Bootstrap Button to ensure consistent styling, behavior, and accessibility. **Direct Bootstrap Button imports are forbidden** - use the appropriate Waldur wrapper component instead.
+
+```text
+Bootstrap Button (internal only, wrapped by BaseButton)
+│
+├── ActionButton (general purpose table/card actions)
+│   ├── RowActionButton (optimized for table rows)
+│   └── CompactActionButton (small variant for inline actions)
+│
+├── SubmitButton (form submission, large size)
+│   └── CompactSubmitButton (small forms, popovers)
+│
+├── EditButton (edit navigation/dialogs, large size)
+│   └── CompactEditButton (inline field editing)
+│
+├── CloseDialogButton (modal cancel/close)
+│
+├── IconButton (icon-only with tooltip)
+│
+├── ToolbarButton (table/panel toolbars)
+│
+├── SaveButton (form save with dirty state tracking)
+│
+└── Factory Components
+    ├── CreateModalButton (opens create dialog)
+    ├── EditModalButton (opens edit dialog)
+    └── DeleteButton (delete with confirmation)
+```
+
+#### Button Selection Guide
+
+| Use Case | Component |
+|----------|-----------|
+| Form submit | `SubmitButton` |
+| Form submit in popover/compact form | `CompactSubmitButton` |
+| Table row action | `ActionButton` or `RowActionButton` |
+| Inline action (small) | `CompactActionButton` |
+| Modal cancel/close | `CloseDialogButton` |
+| Icon-only button with tooltip | `IconButton` |
+| Table toolbar (refresh, export, filter) | `ToolbarButton` or `IconButton` |
+| Edit field in settings row | `CompactEditButton` |
+| Edit in card header | `EditButton` |
+| Create with dialog | `CreateModalButton` |
+| Delete with confirmation | `DeleteButton` |
+
+#### ESLint Enforcement
+
+Two rules cover the two ways a Bootstrap button reaches the tree.
+
+`waldur-custom/no-direct-bootstrap-button` (**error**) catches the import —
+`import { Button } from 'react-bootstrap'`.
+
+`waldur-custom/no-bootstrap-button-markup` (**warning**) catches the hand-rolled
+form — `<button className="btn btn-danger">` — which carries no import and so was
+invisible to the rule above. It is a warning rather than an error because the tree
+still holds well over a hundred of these and converting one is a per-screen
+judgement, not a mechanical swap; promote it to `error` once the count reaches zero.
+`waldur-custom/prefer-alert-item` works the same way for `<div className="alert">`.
+
+Each rule keeps its own `ALLOWED_FILES` list at the top of
+`packages/eslint-plugin-waldur/rules/`, and the two lists differ on purpose — the
+import rule additionally exempts files that reference `Button` only as a type or
+compose it with `ButtonGroup`/`Dropdown`, which says nothing about markup. The
+wrappers exempted from both are:
+
+- `src/core/buttons/BaseButton.tsx`
+- `src/core/buttons/IconButton.tsx`
+- `src/core/SaveButton.tsx`
+- `src/modal/CloseDialogButton.tsx`
+- `src/table/ToolbarButton.tsx`
+
+`src/core/Link.tsx` is exempt from the markup rule only: its `buttonVariant` prop is
+the sanctioned link-as-button, so the `btn` class it composes is the abstraction
+rather than an instance of the problem.
 
 ## Key Directories
 

@@ -5,16 +5,17 @@ import {
   OpenstackVolumesListData,
 } from 'waldur-js-client';
 
-import { formatFilesize } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
-import { ModalActionsRouter } from '@waldur/marketplace/resources/actions/ModalActionsRouter';
-import { ResourceName } from '@waldur/resource/ResourceName';
-import { ResourceState } from '@waldur/resource/state/ResourceState';
-import { ResourceSummary } from '@waldur/resource/summary/ResourceSummary';
-import { createFetcher } from '@waldur/table/api';
-import { BooleanField } from '@waldur/table/BooleanField';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { formatFilesize } from '@/core/utils';
+import { translate } from '@/i18n';
+import { ModalActionsRouter } from '@/marketplace/resources/actions/ModalActionsRouter';
+import { ResourceName } from '@/resource/ResourceName';
+import { ResourceState } from '@/resource/state/ResourceState';
+import { ResourceSummary } from '@/resource/summary/ResourceSummary';
+import { createFetcher } from '@/table/api';
+import { BooleanField } from '@/table/BooleanField';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 import { VOLUME_TYPE } from '../constants';
 import { AttachVolumeAction } from '../openstack-instance/actions/AttachVolumeAction';
@@ -53,11 +54,11 @@ export const InstanceVolumesList: FunctionComponent<{ resourceScope }> = ({
         },
         {
           title: translate('Type'),
-          render: ({ row }) => row.type_name || 'N/A',
+          render: ({ row }) => renderFieldOrDash(row.type_name),
         },
         {
           title: translate('Attached to'),
-          render: ({ row }) => row.device || 'N/A',
+          render: ({ row }) => renderFieldOrDash(row.device),
         },
         {
           title: translate('State'),

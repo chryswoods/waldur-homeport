@@ -1,130 +1,46 @@
-import { useCallback } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import {
-  bookingOfferingsGoogleCalendarSync,
-  bookingOfferingsShareGoogleCalendar,
-  bookingOfferingsUnshareGoogleCalendar,
-} from 'waldur-js-client';
+import { FC } from 'react';
 
-import { OFFERING_TYPE_BOOKING } from '@waldur/booking/constants';
-import { translate } from '@waldur/i18n';
-import { isOfferingTypeSchedulable } from '@waldur/marketplace/common/registry';
-import { ARCHIVED } from '@waldur/marketplace/offerings/store/constants';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { useUser } from '@waldur/workspace/hooks';
-import { isOwner as isOwnerSelector } from '@waldur/workspace/selectors';
+import { OFFERING_TYPE_BOOKING } from '@/booking/constants';
+import { translate } from '@/i18n';
+import { isOfferingTypeSchedulable } from '@/marketplace/common/registry';
+import { ARCHIVED } from '@/marketplace/offerings/store/constants';
+import { ActionsDropdownComponent } from '@/table/ActionsDropdown';
+import { useCustomer, useUser } from '@/workspace/hooks';
+import { checkIsOwner } from '@/workspace/selectors';
 
-import { ActionsDropdown } from '../../actions/ActionsDropdown';
+import { GoogleCalendarPublishAction } from './GoogleCalendarPublishAction';
+import { GoogleCalendarSyncAction } from './GoogleCalendarSyncAction';
+import { GoogleCalendarUnpublishAction } from './GoogleCalendarUnpublishAction';
 
-const useGoogleCalendarSync = () => {
-  const dispatch = useDispatch();
+interface GoogleCalendarActionsProps {
+  offering: any;
+}
 
-  return useCallback(
-    async (uuid: string) => {
-      try {
-        await bookingOfferingsGoogleCalendarSync({ path: { uuid } });
-        dispatch(
-          showSuccess(
-            translate('Google Calendar has been synced successfully.'),
-          ),
-        );
-        dispatch(closeModalDialog());
-      } catch (error) {
-        dispatch(
-          showErrorResponse(
-            error,
-            translate('Unable to sync Google Calendar.'),
-          ),
-        );
-      }
-    },
-    [dispatch],
-  );
-};
-
-const useGoogleCalendarPublish = () => {
-  const dispatch = useDispatch();
-
-  return useCallback(
-    async (uuid: string) => {
-      try {
-        await bookingOfferingsShareGoogleCalendar({ path: { uuid } });
-        dispatch(
-          showSuccess(
-            translate('Google Calendar has been published successfully.'),
-          ),
-        );
-        dispatch(closeModalDialog());
-      } catch (error) {
-        dispatch(
-          showErrorResponse(
-            error,
-            translate('Unable to publish Google Calendar.'),
-          ),
-        );
-      }
-    },
-    [dispatch],
-  );
-};
-
-const useGoogleCalendarUnpublish = () => {
-  const dispatch = useDispatch();
-
-  return useCallback(
-    async (uuid: string) => {
-      try {
-        await bookingOfferingsUnshareGoogleCalendar({ path: { uuid } });
-        dispatch(
-          showSuccess(
-            translate('Google Calendar has been unpublished successfully.'),
-          ),
-        );
-        dispatch(closeModalDialog());
-      } catch (error) {
-        dispatch(
-          showErrorResponse(
-            error,
-            translate('Unable to unpublish Google Calendar.'),
-          ),
-        );
-      }
-    },
-    [dispatch],
-  );
-};
-
-export const GoogleCalendarActions = ({ offering }) => {
+export const GoogleCalendarActions: FC<GoogleCalendarActionsProps> = ({
+  offering,
+}) => {
   const user = useUser();
-  const isOwner = useSelector(isOwnerSelector);
+  const customer = useCustomer();
+  const isOwner = checkIsOwner(customer, user);
   const isVisible =
     offering.type === OFFERING_TYPE_BOOKING &&
     ![ARCHIVED].includes(offering.state) &&
     isOfferingTypeSchedulable(offering.type) &&
     (user?.is_staff || isOwner);
+
   if (!isVisible) {
     return null;
   }
-  const googleCalendarSync = useGoogleCalendarSync();
-  const googleCalendarPublish = useGoogleCalendarPublish();
-  const googleCalendarUnpublish = useGoogleCalendarUnpublish();
-  const actions = [
-    {
-      label: translate('Sync with Google Calendar'),
-      handler: () => googleCalendarSync(offering.uuid),
-    },
-    {
-      label: translate('Publish as Google Calendar'),
-      handler: () => googleCalendarPublish(offering.uuid),
-      visible: !offering.google_calendar_is_public,
-    },
-    {
-      label: translate('Unpublish as Google Calendar'),
-      handler: () => googleCalendarUnpublish(offering.uuid),
-      visible: offering.google_calendar_is_public,
-    },
-  ];
 
-  return <ActionsDropdown actions={actions} />;
+  return (
+    <ActionsDropdownComponent
+      label={translate('Google Calendar')}
+      labeled
+      variant="tertiary"
+    >
+      <GoogleCalendarSyncAction offering={offering} />
+      <GoogleCalendarPublishAction offering={offering} />
+      <GoogleCalendarUnpublishAction offering={offering} />
+    </ActionsDropdownComponent>
+  );
 };

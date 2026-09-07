@@ -47,6 +47,7 @@ $theme-colors: (
   'primary-600': $primary-600,
   'primary-700': $primary-700,
   'secondary': $secondary,
+  'tertiary': $bg-tertiary,
   'success': $success,
   'success-600': $success-600,
   'success-700': $success-700,
@@ -154,13 +155,20 @@ $theme-text-colors: (
   'primary-300': $primary-300,
   'primary-600': $primary-600,
   'primary-700': $primary-700,
-  'secondary': $secondary,
+  'primary-900': $primary-900,
+  'secondary': $text-secondary,
+  'quaternary': $text-quaternary,
+  'tertiary': $text-tertiary,
   'light': $light,
   'success': if(isDarkMode(), $success-500, $success),
   'info': $info,
   'warning': if(isDarkMode(), $warning-500, $warning),
+  'warning-600': $warning-600,
+  'warning-900': $warning-900,
   'danger': if(isDarkMode(), $danger-500, $danger),
+  'danger-600': $danger-600,
   'danger-700': $danger-700,
+  'danger-900': $danger-900,
   'dark': $dark,
   'dark-always': $dark-always,
   'muted': $text-muted,
@@ -206,25 +214,25 @@ $spacers: (
     ),
   // 10.5px
   4: (
-      $spacer * 1,
+      $spacer * 0.154 * 6,
     ),
-  // 14px
+  // 12px
   5: (
       $spacer * 1.25,
     ),
   // 17.5px
   6: (
-      $spacer * 1.5,
+      $spacer * 1.54,
     ),
-  // 21px
+  // 20px
   7: (
-      $spacer * 1.75,
+      $spacer * 1.692,
     ),
-  // 24.5px
+  // 22px
   8: (
-      $spacer * 2,
+      $spacer * 1.846,
     ),
-  // 28px
+  // 24px
   9: (
       $spacer * 2.25,
     ),
@@ -271,7 +279,27 @@ $spacers: (
   // 65.5px
   20: (
       $spacer * 5,
-    ), // 69px
+    ),
+  // 69px
+  // Pixelated
+  2px: (
+      $spacer * 0.154,
+    ),
+  4px: (
+    $spacer * 0.154 * 2,
+  ),
+  6px: (
+    $spacer * 0.154 * 3,
+  ),
+  8px: (
+    $spacer * 0.154 * 4,
+  ),
+  10px: (
+    $spacer * 0.154 * 5,
+  ),
+  12px: (
+    $spacer * 0.154 * 6,
+  ),
 );
 
 // Position
@@ -342,7 +370,7 @@ $container-max-widths: (
 // Define common padding and border radius sizes and more.
 
 $border-width: 1px !default;
-$border-color: if(isDarkMode(), $gray-100, $gray-200) !default;
+$border-color: $border-secondary !default;
 $border-dashed-color: $gray-300 !default; // Custom variable
 
 $border-widths: (
@@ -400,6 +428,9 @@ $box-shadow-xs: 0 0.1rem 0.75rem 0.25rem rgba($black, 0.05) !default; // Custom 
 $box-shadow-sm: 0 0.1rem 1rem 0.25rem rgba($black, 0.05) !default;
 $box-shadow: 0 0.5rem 1.5rem 0.5rem rgba($black, 0.075) !default;
 $box-shadow-lg: 0 1rem 2rem 1rem rgba($black, 0.1) !default;
+$box-shadow-xl:
+  0 20px 24px -4px rgba(16, 24, 40, 0.1),
+  0 8px 8px -4px rgba(16, 24, 40, 0.04) !default;
 
 // Border settings
 $border-color: $gray-200 !default;
@@ -454,7 +485,11 @@ $gutters: (
   // 31.5px
   10: (
       $spacer * 2.5,
-    ), // 35px
+    ),
+  // 35px
+  8px: (
+      $spacer * 0.154 * 4,
+    ),
 ) !default;
 
 // Container padding
@@ -469,7 +504,7 @@ $container-padding-x: $grid-gutter-width !default;
 $font-family-sans-serif: Inter, Helvetica, 'sans-serif' !default;
 
 $font-size-base: 1rem !default; // Assumes the browser default, typically `13px`
-$font-size-lg: $font-size-base * 1.075 !default; // 14.04px
+$font-size-lg: $font-size-base * 1.077 !default; // 14px
 $font-size-sm: $font-size-base * 0.925 !default; // 12.025px
 
 $font-weight-lighter: lighter !default;
@@ -482,7 +517,7 @@ $font-weight-boldest: 700 !default;
 $font-weight-base: $font-weight-normal !default;
 
 // Line heights
-$line-height-base: 1.5 !default;
+$line-height-base: 1.43 !default; // ~20px
 $line-height-sm: 1.25 !default;
 $line-height-lg: 1.75 !default;
 $line-height-xl: 2 !default;
@@ -491,10 +526,10 @@ $line-height-xxl: 2.25 !default;
 // Heading sizes
 $h1-font-size: $font-size-base * 1.75 !default; // 22.75px
 $h2-font-size: $font-size-base * 1.54 !default; // 20.02px
-$h3-font-size: $font-size-base * 1.35 !default; // 17.55px
+$h3-font-size: $font-size-base * 1.385 !default; // 18px
 $h4-font-size: $font-size-base * 1.25 !default; // 16.25px
 $h5-font-size: $font-size-base * 1.15 !default; // 14.95px
-$h6-font-size: $font-size-base * 1.075 !default; // 13.97px
+$h6-font-size: $font-size-base * 1.077 !default; // 14px
 
 // Font Sizes
 $font-sizes: (
@@ -767,8 +802,8 @@ $form-switch-height-lg: 2.75rem !default; // Custom variable
 $form-switch-padding-start: $form-switch-width + 0.5rem !default;
 $form-switch-padding-left: $form-switch-width + 0.5rem !default;
 $form-switch-bg-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'><circle r='3' fill='#{$form-switch-color}'/></svg>") !default;
-$form-switch-bg-image-solid: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 8 8"><defs><filter id="shadow" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="0.3" stdDeviation="0.4" flood-color="#101828" flood-opacity="0.05"/></filter></defs><g filter="url(#shadow)"><circle r="3.2" fill="#{$form-switch-color-solid}" stroke="#{$border-color}" stroke-width="0.25"/></g></svg>') !default;
-$form-switch-bg-image-solid-disabled: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 8 8"><defs><filter id="shadow" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="0.3" stdDeviation="0.4" flood-color="#101828" flood-opacity="0.05"/></filter></defs><g filter="url(#shadow)"><circle r="3.2" fill="#{$gray-100}" stroke="#{$border-color}" stroke-width="0.25"/></g></svg>') !default; // Custom
+$form-switch-bg-image-solid: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 8 8"><defs><filter id="shadow" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="0.3" stdDeviation="0.4" flood-color="#101828" flood-opacity="0.05"/></filter></defs><g filter="url(#shadow)"><circle r="3.2" fill="#{$form-switch-color-solid}" stroke="#{$border-primary}" stroke-width="0.3"/></g></svg>') !default;
+$form-switch-bg-image-solid-disabled: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 8 8"><defs><filter id="shadow" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="0.3" stdDeviation="0.4" flood-color="#101828" flood-opacity="0.05"/></filter></defs><g filter="url(#shadow)"><circle r="3.2" fill="#{$fg-disabled_subtle}" stroke="#{$border-secondary}" stroke-width="0.3"/></g></svg>') !default; // Custom
 $form-switch-border-radius: $form-switch-width !default;
 
 $form-switch-focus-color: $input-focus-border-color !default;
@@ -777,8 +812,8 @@ $form-switch-focus-bg-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.o
 $form-switch-checked-color: $component-active-color !default;
 $form-switch-checked-bg-color: $component-active-bg !default;
 $form-switch-checked-bg-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'><circle r='3' fill='#{$form-switch-checked-color}'/></svg>") !default;
-$form-switch-checked-bg-image-solid: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 8 8"><defs><filter id="shadow" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="0.3" stdDeviation="0.4" flood-color="#101828" flood-opacity="0.05"/></filter></defs><g filter="url(#shadow)"><circle r="3.2" fill="#{$form-switch-color-solid}"/></g></svg>') !default; // Custom
-$form-switch-checked-bg-image-solid-disabled: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 8 8"><defs><filter id="shadow" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="0.3" stdDeviation="0.4" flood-color="#101828" flood-opacity="0.05"/></filter></defs><g filter="url(#shadow)"><circle r="3.2" fill="#{$gray-50}"/></g></svg>') !default; // Custom
+$form-switch-checked-bg-image-solid: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 8 8"><defs><filter id="shadow" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="0.3" stdDeviation="0.4" flood-color="#101828" flood-opacity="0.05"/></filter></defs><g filter="url(#shadow)"><circle r="2.9" fill="#{$form-switch-color-solid}" stroke="#fff8" stroke-width="0.6"/></g></svg>') !default; // Custom
+$form-switch-checked-bg-image-solid-disabled: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 8 8"><defs><filter id="shadow" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="0.3" stdDeviation="0.4" flood-color="#101828" flood-opacity="0.05"/></filter></defs><g filter="url(#shadow)"><circle r="3.2" fill="#{$bg-primary}"/></g></svg>') !default; // Custom
 $form-switch-checked-bg-position: right center !default;
 
 $form-check-inline-margin-right: 1rem !default;
@@ -994,7 +1029,7 @@ $code-padding: 0.1rem 0.4rem !default; // Custom variable
 $code-margin: 0 0.5rem !default; // Custom variable
 $code-font-weight: 400 !default; // Custom variable
 $code-border-radius: 0.3rem !default; // Custom variable
-$code-color: #b93993 !default; // Custom variable
+$code-color: if(isDarkMode(), #e493c6, #b93993) !default; // Custom variable
 $code-space: 0.25rem !default; // Custom variable
 
 // Spinners
@@ -1005,7 +1040,7 @@ $spinner-border-width-sm: 0.145em !default;
 
 // Breadcrumbs
 $breadcrumb-divider-color: $gray-600 !default;
-$breadcrumb-active-color: $gray-800;
+$breadcrumb-active-color: $gray-800 !default;
 $breadcrumb-item-padding-x: 0.5rem !default;
 $breadcrumb-margin-bottom: 0px;
 
@@ -1054,6 +1089,8 @@ $zindex-values: (
   1: 1,
   2: 2,
   3: 3,
+  4: 4,
+  5: 5,
 ) !default;
 
 // Letter spacing
@@ -1250,8 +1287,8 @@ $menu: (
   ),
   link: (
     self: (
-      padding-y: 0.65rem,
-      padding-x: 1rem,
+      padding-y: 0.615rem,
+      padding-x: 0.923rem,
       border-bottom: (
         hover: 4px solid #78bf69,
         show: 4px solid #78bf69,
@@ -1260,20 +1297,20 @@ $menu: (
       ),
     ),
     icon: (
-      width: 2rem,
-      space: 0.5rem,
+      width: 1.54rem,
+      space: 0.616rem,
     ),
     bullet: (
       width: 1.25rem,
-      space: 0.5rem,
+      space: 0.616rem,
     ),
     badge: (
-      space: 0.5rem,
+      space: 0.616rem,
     ),
     arrow: (
-      height: 1rem,
-      width: 1rem,
-      space: 0.5rem,
+      height: 1.3rem,
+      width: 1.3rem,
+      space: 0.616rem,
     ),
   ),
 ) !default;

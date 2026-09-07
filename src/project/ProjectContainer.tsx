@@ -1,22 +1,20 @@
 import { UIView, useCurrentStateAndParams, useRouter } from '@uirouter/react';
 import { useMemo } from 'react';
 import { Nav, Tab } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
 
-import { translate } from '@waldur/i18n';
-import { useBreadcrumbs, usePageHero } from '@waldur/navigation/context';
-import { usePresetBreadcrumbItems } from '@waldur/navigation/header/breadcrumb/utils';
-import { IBreadcrumbItem } from '@waldur/navigation/types';
-import { getCustomer, getProject, getUser } from '@waldur/workspace/selectors';
+import { translate } from '@/i18n';
+import { useBreadcrumbs, usePageHero } from '@/navigation/context';
+import { usePresetBreadcrumbItems } from '@/navigation/header/breadcrumb/utils';
+import { IBreadcrumbItem } from '@/navigation/types';
+import { useUser, useCustomer, useProject } from '@/workspace/hooks';
 
 import { ProjectBreadcrumbPopover } from './ProjectBreadcrumbPopover';
-import { ProjectGracePeriodBanner } from './ProjectGracePeriodBanner';
 import { ProjectProfile } from './ProjectProfile';
 import { canEditProject } from './utils';
 
 const PageHero = ({ project }) => {
-  const user = useSelector(getUser);
-  const customer = useSelector(getCustomer);
+  const user = useUser();
+  const customer = useCustomer();
 
   const canEdit = canEditProject(user, { customer, project });
 
@@ -50,36 +48,29 @@ const PageHero = ({ project }) => {
         </Tab.Container>
       )}
       <ProjectProfile project={project} />
-      <ProjectGracePeriodBanner project={project} />
     </div>
   );
 };
 
 const ProjectContainerWithHero = (props) => {
-  const project = useSelector(getProject);
+  const project = useProject();
 
   usePageHero(<PageHero project={project} />, [project]);
 
-  const { getOrganizationBreadcrumbItem } = usePresetBreadcrumbItems();
+  const {
+    getOrganizationsBreadcrumbItem,
+    getOrganizationBreadcrumbItem,
+    getOrganizationProjectsBreadcrumbItem,
+  } = usePresetBreadcrumbItems();
 
   const breadcrumbItems = useMemo<IBreadcrumbItem[]>(
     () => [
-      {
-        key: 'organizations',
-        text: translate('Organizations'),
-        to: 'organizations',
-      },
+      getOrganizationsBreadcrumbItem(),
       getOrganizationBreadcrumbItem(
         { uuid: project.customer_uuid, name: project.customer_name },
         { ellipsis: 'md' },
       ),
-      {
-        key: 'organization.projects',
-        text: translate('Projects'),
-        to: 'organization.projects',
-        params: { uuid: project.customer_uuid },
-        ellipsis: 'xl',
-      },
+      getOrganizationProjectsBreadcrumbItem(project.customer_uuid),
       {
         key: 'project',
         text: project.name,
@@ -101,7 +92,7 @@ const ProjectContainerWithHero = (props) => {
 
 export const ProjectContainer = (props) => {
   const { state } = useCurrentStateAndParams();
-  const project = useSelector(getProject);
+  const project = useProject();
 
   if (!project) {
     return null;

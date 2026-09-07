@@ -1,21 +1,20 @@
 import React from 'react';
 import { marketplaceOrdersList } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { OrderProviderActions } from '@waldur/marketplace/orders/actions/OrderProviderActions';
-import { TABLE_PENDING_PROVIDER_PUBLIC_ORDERS } from '@waldur/marketplace/orders/list/constants';
-import { OrderNameField } from '@waldur/marketplace/orders/list/OrderNameField';
-import { OrderStateCell } from '@waldur/marketplace/orders/list/OrderStateCell';
-import { OrderTablePlaceholderActions } from '@waldur/marketplace/orders/list/OrderTablePlaceholderActions';
-import { OrderTypeCell } from '@waldur/marketplace/orders/list/OrderTypeCell';
-import { ResourceNameField } from '@waldur/marketplace/orders/list/ResourceNameField';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { translate } from '@/i18n';
+import { OrderProviderActions } from '@/marketplace/orders/actions/OrderProviderActions';
+import { TABLE_PENDING_PROVIDER_PUBLIC_ORDERS } from '@/marketplace/orders/list/constants';
+import { OrderNameField } from '@/marketplace/orders/list/OrderNameField';
+import { OrderStateCell } from '@/marketplace/orders/list/OrderStateCell';
+import { OrderTablePlaceholderActions } from '@/marketplace/orders/list/OrderTablePlaceholderActions';
+import { OrderTypeCell } from '@/marketplace/orders/list/OrderTypeCell';
+import { ResourceNameField } from '@/marketplace/orders/list/ResourceNameField';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
 
-import { BulkProviderActions } from './BulkProviderActions';
 import { PENDING_PROVIDER_ORDERS_FILTER } from './constants';
-import { OrderExpandableRow } from './OrderExpandableRow';
+import { PendingOrderExpandableRow } from './PendingOrderExpandableRow';
 
 export const PendingProviderOrders: React.FC<{}> = () => {
   const tableProps = useTable({
@@ -60,10 +59,13 @@ export const PendingProviderOrders: React.FC<{}> = () => {
       verboseName={translate('Orders')}
       initialSorting={{ field: 'created', mode: 'desc' }}
       initialPageSize={5}
-      expandableRow={OrderExpandableRow}
-      tableActions={<BulkProviderActions orders={tableProps.rows} />}
+      expandableRow={PendingOrderExpandableRow}
       rowActions={({ row }) => (
-        <OrderProviderActions order={row} refetch={tableProps.fetch} />
+        <OrderProviderActions
+          order={row}
+          refetch={tableProps.fetch}
+          size="sm"
+        />
       )}
     />
   );

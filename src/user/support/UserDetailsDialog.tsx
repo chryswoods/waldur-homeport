@@ -1,23 +1,25 @@
 import { UserGearIcon } from '@phosphor-icons/react';
 import { FunctionComponent } from 'react';
 import { Tab, Tabs } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
 import { User } from 'waldur-js-client';
 
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { UserFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { renderFieldOrDash } from '@waldur/table/utils';
-import { UserEvents } from '@waldur/user/dashboard/UserEvents';
-import { KeysList } from '@waldur/user/keys/KeysList';
-import { UserDetailsTable } from '@waldur/user/support/UserDetailsTable';
-import { UserOfferingList } from '@waldur/user/UserOfferingList';
-import { getUser } from '@waldur/workspace/selectors';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { isFeatureVisible } from '@/features/connect';
+import { UserFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { renderFieldOrDash } from '@/table/utils';
+import { UserEvents } from '@/user/dashboard/UserEvents';
+import { DataAccessDialogContent } from '@/user/data-access/DataAccessDialogContent';
+import { KeysList } from '@/user/keys/KeysList';
+import { UserDetailsTable } from '@/user/support/UserDetailsTable';
+import { UserOfferingList } from '@/user/UserOfferingList';
+import { useUser } from '@/workspace/hooks';
 
 import { UserAffiliationsList } from '../affiliations/UserAffiliationsList';
+
+import { UserIdentityBridgeTab } from './UserIdentityBridgeTab';
 
 interface UserDetailsDialogProps {
   resolve: {
@@ -31,7 +33,7 @@ interface UserDetailsDialogProps {
 export const UserDetailsDialog: FunctionComponent<UserDetailsDialogProps> = ({
   resolve: { user, loading, error, refetch },
 }) => {
-  const currentUser = useSelector(getUser) as User;
+  const currentUser = useUser() as User;
   return (
     <ModalDialog
       title={translate('User details of {fullName}', {
@@ -42,8 +44,7 @@ export const UserDetailsDialog: FunctionComponent<UserDetailsDialogProps> = ({
       )}
       iconNode={<UserGearIcon weight="bold" />}
       iconColor="success"
-      bodyClassName="min-h-425px"
-      closeButton
+      bodyClassName="h-425px"
     >
       {loading ? (
         <LoadingSpinner />
@@ -62,7 +63,7 @@ export const UserDetailsDialog: FunctionComponent<UserDetailsDialogProps> = ({
             <UserDetailsTable user={user} />
           </Tab>
           <Tab eventKey={3} title={translate('Audit log')}>
-            <UserEvents user={user} hasActionBar={false} />
+            <UserEvents user={user} />
           </Tab>
           {isFeatureVisible(UserFeatures.ssh_keys) ? (
             <Tab eventKey={4} title={translate('Keys')}>
@@ -76,9 +77,25 @@ export const UserDetailsDialog: FunctionComponent<UserDetailsDialogProps> = ({
           currentUser.is_support ||
           currentUser.uuid === user.uuid ? (
             <Tab eventKey={6} title={translate('Roles and permissions')}>
-              <UserAffiliationsList user={user} hasActionBar={false} />
+              <UserAffiliationsList
+                user={user}
+                hasActionBar={false}
+                fullWidth
+              />
             </Tab>
           ) : null}
+          {isFeatureVisible(UserFeatures.show_data_access) &&
+            (currentUser.is_staff || currentUser.is_support) && (
+              <Tab eventKey={7} title={translate('Data access')}>
+                <DataAccessDialogContent user={user} />
+              </Tab>
+            )}
+          {isFeatureVisible(UserFeatures.show_identity_bridge) &&
+            currentUser.is_staff && (
+              <Tab eventKey={8} title={translate('Identity Bridge')}>
+                <UserIdentityBridgeTab user={user} />
+              </Tab>
+            )}
         </Tabs>
       ) : null}
     </ModalDialog>

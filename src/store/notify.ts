@@ -1,50 +1,78 @@
-import { notify } from 'reapop';
+import { useMemo } from 'react';
+import { NewNotification } from 'reapop';
 
-import { format } from '@waldur/core/ErrorMessageFormatter';
+import { format } from '@/core/ErrorMessageFormatter';
 
-export const showSuccess = (message, title = undefined) =>
-  notify({
-    status: 'success',
-    title,
-    message,
-    position: 'top-right',
-    dismissAfter: 7000,
-    showDismissButton: true,
-    dismissible: true,
-  });
+type NotifyCallback = (notification: NewNotification) => void;
+let globalNotify: NotifyCallback | null = null;
 
-export const showError = (message) =>
-  notify({
-    status: 'error',
-    message,
-    position: 'top-right',
-    dismissAfter: 7000,
-    showDismissButton: true,
-    dismissible: true,
-  });
+export const setGlobalNotify = (fn: NotifyCallback | null) => {
+  globalNotify = fn;
+};
 
-export const showInfo = (message) =>
-  notify({
-    status: 'info',
-    message,
-    position: 'top-right',
-    dismissAfter: 7000,
-    showDismissButton: true,
-    dismissible: true,
-  });
+const showSuccess = (title: string, message?: string) => {
+  if (globalNotify) {
+    globalNotify({
+      status: 'success',
+      title,
+      message,
+    });
+  }
+};
 
-export const showRedirectMessage = (title, message) =>
-  notify({
-    title,
-    status: 'warning',
-    message,
-    position: 'top-right',
-    showDismissButton: true,
-    dismissible: true,
-  });
+const showError = (title: string) => {
+  if (globalNotify) {
+    globalNotify({
+      status: 'error',
+      title,
+    });
+  }
+};
 
-export const showErrorResponse = (response: Response, message?: string) => {
-  const details = format(response);
+const showInfo = (title: string) => {
+  if (globalNotify) {
+    globalNotify({
+      status: 'info',
+      title,
+    });
+  }
+};
+
+const showRedirectMessage = (title: string, message: string) => {
+  if (globalNotify) {
+    globalNotify({
+      title,
+      status: 'warning',
+      message,
+    });
+  }
+};
+
+const showErrorResponse = (error: unknown, message?: string) => {
+  const details = format(error);
   const errorMessage = message ? `${message} ${details}` : details;
-  return showError(errorMessage);
+  showError(errorMessage);
+};
+
+export const useNotify = () => {
+  // Memoize the returned object so that callers using these handlers in
+  // useEffect / useCallback dependency arrays don't refire on every parent render.
+  return useMemo(
+    () => ({
+      showSuccess,
+      showError,
+      showInfo,
+      showRedirectMessage,
+      showErrorResponse,
+    }),
+    [],
+  );
+};
+
+export const NotifyService = {
+  success: showSuccess,
+  error: showError,
+  info: showInfo,
+  warning: showRedirectMessage,
+  errorResponse: showErrorResponse,
 };

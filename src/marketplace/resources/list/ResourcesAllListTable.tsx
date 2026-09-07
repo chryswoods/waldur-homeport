@@ -1,15 +1,14 @@
 import { FC } from 'react';
-import { useSelector } from 'react-redux';
 import { Customer, Project } from 'waldur-js-client';
 
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { ResourceImportButton } from '@waldur/marketplace/resources/import/ResourceImportButton';
-import { ResourceMultiSelectAction } from '@waldur/marketplace/resources/mass-actions/ResourceMultiSelectAction';
-import Table from '@waldur/table/Table';
-import { TableProps } from '@waldur/table/types';
-import { getCustomer, getProject } from '@waldur/workspace/selectors';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { ResourceImportButton } from '@/marketplace/resources/import/ResourceImportButton';
+import { ResourceMultiSelectAction } from '@/marketplace/resources/mass-actions/ResourceMultiSelectAction';
+import Table from '@/table/Table';
+import { TableProps } from '@/table/types';
+import { useCustomer, useProject } from '@/workspace/hooks';
 
 import { CreateResourceButton } from './CreateResourceButton';
 import { ExpandableResourceSummary } from './ExpandableResourceSummary';
@@ -41,8 +40,8 @@ const AddResourceButton = ({
 export const ResourcesAllListTable: FC<ResourcesAllListTableProps> = (
   props,
 ) => {
-  const customer = useSelector(getCustomer);
-  const project = useSelector(getProject);
+  const customer = useCustomer();
+  const project = useProject();
   return (
     <Table
       {...props}

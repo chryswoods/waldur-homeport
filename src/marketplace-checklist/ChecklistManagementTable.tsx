@@ -1,6 +1,6 @@
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { TableWithTabs } from '@waldur/table/TableWithTabs';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { TableWithTabs } from '@/table/TableWithTabs';
 
 import { CHECKLIST_FLAGS } from './utils';
 
@@ -11,15 +11,6 @@ const tabs = [
     component: lazyComponent(() =>
       import('./checklists/ChecklistsTable').then((module) => ({
         default: module.ChecklistsTable,
-      })),
-    ),
-  },
-  {
-    key: 'categories',
-    title: translate('Categories'),
-    component: lazyComponent(() =>
-      import('./categories/CategoriesTable').then((module) => ({
-        default: module.CategoriesTable,
       })),
     ),
   },

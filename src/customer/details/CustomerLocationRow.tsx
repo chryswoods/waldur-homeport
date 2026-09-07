@@ -1,72 +1,68 @@
-import { CheckIcon, XIcon, TrashIcon } from '@phosphor-icons/react';
-import { useMutation } from '@tanstack/react-query';
+import { XIcon, TrashIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
 import { Spinner } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
+import { customersPartialUpdate } from 'waldur-js-client';
 
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
-import { ActionButton } from '@waldur/table/ActionButton';
-import { Customer } from '@waldur/workspace/types';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import { formatCoordinates } from '@/map/coordinates';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ActionButton } from '@/table/ActionButton';
+import { useCustomer, useSetCustomer } from '@/workspace/hooks';
+import { Customer } from '@/workspace/types';
 
 import { SetLocationButton } from '../list/SetLocationButton';
 
 export const CustomerLocationRow: FC<{
   customer: Customer;
-  callback;
   canUpdate?: boolean;
-}> = ({ customer, callback, canUpdate }) => {
-  const dispatch = useDispatch();
+}> = ({ customer, canUpdate }) => {
+  const setCurrentCustomer = useSetCustomer();
+  const currentCustomer = useCustomer();
 
-  const { mutate: removeLocation, isPending: isRemovingLocation } = useMutation(
-    {
-      mutationFn: async () => {
-        try {
-          await waitForConfirmation(
-            dispatch,
-            translate('Confirmation'),
-            translate('Are you sure you want to remove the location?'),
-          );
-        } catch {
-          return;
-        }
-
-        try {
-          await callback({ latitude: null, longitude: null }, dispatch);
-          dispatch(showSuccess(translate('Location has been removed.')));
-        } catch (e) {
-          dispatch(
-            showErrorResponse(e, translate('Unable to remove the location.')),
-          );
-        }
-      },
+  const { mutate, isPending } = useManagedMutation<any, any, void>({
+    mutationFn: () =>
+      customersPartialUpdate({
+        path: { uuid: customer.uuid },
+        body: {
+          latitude: null,
+          longitude: null,
+        },
+      }),
+    successMessage: translate('Location has been removed.'),
+    errorMessage: translate('Unable to remove the location.'),
+    onSuccess: (response) => {
+      if (customer.uuid === currentCustomer?.uuid) {
+        setCurrentCustomer(response.data);
+      }
     },
-  );
+    confirmation: {
+      options: {
+        forDeletion: true,
+      },
+      title: translate('Confirmation'),
+      body: translate('Are you sure you want to remove the location?'),
+    },
+  });
+
+  const coordinates = formatCoordinates(customer);
 
   return (
     <FormTable.Item
       label={translate('Location')}
-      value={
-        customer.latitude && customer.longitude ? (
-          <CheckIcon weight="bold" className="text-info" />
-        ) : (
-          <XIcon weight="bold" className="text-danger" />
-        )
-      }
+      value={coordinates ?? <XIcon weight="bold" className="text-danger" />}
       actions={
         canUpdate ? (
           <>
             <ActionButton
               iconNode={
-                !isRemovingLocation ? (
+                !isPending ? (
                   <TrashIcon weight="bold" className="text-danger" />
                 ) : (
                   <Spinner className="animation-spin" />
                 )
               }
-              action={removeLocation}
+              action={mutate}
               variant="secondary"
               className="btn-sm btn-icon me-3"
             />

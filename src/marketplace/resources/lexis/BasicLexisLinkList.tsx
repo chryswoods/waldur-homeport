@@ -1,13 +1,15 @@
 import { FunctionComponent } from 'react';
 import { lexisLinksList } from 'waldur-js-client';
 
-import { CopyToClipboardContainer } from '@waldur/core/CopyToClipboardContainer';
-import { StateIndicator } from '@waldur/core/StateIndicator';
-import { translate } from '@waldur/i18n';
-import { LexisLinkDeleteButton } from '@waldur/marketplace/resources/lexis/LexisLinkDeleteButton';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { CopyToClipboardContainer } from '@/core/CopyToClipboardContainer';
+import { StateIndicator } from '@/core/StateIndicator';
+import { translate } from '@/i18n';
+import { LexisLinkDeleteAction } from '@/marketplace/resources/lexis/LexisLinkDeleteButton';
+import { ActionsDropdown } from '@/table/ActionsDropdown';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 export const BasicLexisLinkList: FunctionComponent<{ filter? }> = ({
   filter,
@@ -30,7 +32,7 @@ export const BasicLexisLinkList: FunctionComponent<{ filter? }> = ({
     },
     {
       title: translate('Robot account type'),
-      render: ({ row }) => row.robot_account_type || 'N/A',
+      render: ({ row }) => renderFieldOrDash(row.robot_account_type),
     },
     {
       title: translate('State'),
@@ -57,7 +59,9 @@ export const BasicLexisLinkList: FunctionComponent<{ filter? }> = ({
       columns={columns}
       verboseName={translate('LEXIS links')}
       rowActions={({ row }) => (
-        <LexisLinkDeleteButton row={row} refetch={props.fetch} />
+        <ActionsDropdown row={row} refetch={props.fetch}>
+          <LexisLinkDeleteAction row={row} refetch={props.fetch} />
+        </ActionsDropdown>
       )}
       title={translate('LEXIS links')}
       hasQuery={true}

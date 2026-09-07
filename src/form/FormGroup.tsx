@@ -1,82 +1,85 @@
 import { QuestionIcon } from '@phosphor-icons/react';
 import classNames from 'classnames';
-import {
-  cloneElement,
-  FC,
-  PropsWithChildren,
-  ReactNode,
-  useContext,
-  useEffect,
-} from 'react';
+import { uniqueId } from 'lodash-es';
+import { FC, PropsWithChildren, ReactNode, useMemo } from 'react';
 import { Form } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
-import { clearFields, WrappedFieldMetaProps } from 'redux-form';
+import { FieldMetaState } from 'react-final-form';
 
-import { Tip, TipProps } from '@waldur/core/Tooltip';
+import { Tip, TipProps } from '@/core/Tooltip';
 
-import { FormFieldsContext } from './context';
 import { FieldError } from './FieldError';
-import { FormField } from './types';
 
-export interface FormGroupProps extends FormField {
-  meta: WrappedFieldMetaProps;
-  clearOnUnmount?: boolean;
+export interface FormGroupProps {
+  label?: ReactNode;
+  required?: boolean;
+  description?: ReactNode;
+
+  // Tooltip / Help aliases
+  tooltip?: ReactNode;
+  help?: ReactNode;
+  tooltipEnd?: boolean;
+  helpEnd?: boolean;
+  tooltipProps?: Partial<TipProps>;
+
+  hideLabel?: boolean;
+  hideError?: boolean;
   actions?: ReactNode;
   quickAction?: ReactNode;
-  tooltipEnd?: boolean;
-  tooltipProps?: Partial<TipProps>;
+
+  // Styling
+  className?: string;
+  containerClassName?: string;
+  spaceless?: boolean;
+  space?: number;
+
+  // React Final Form
+  input?: any;
+  meta?: Partial<FieldMetaState<any>> & { submitError?: any };
+  noUpdateOnBlur?: boolean;
+  forceTouched?: boolean;
+
+  id?: string;
+  controlId?: string;
 }
 
 export const FormGroup: FC<PropsWithChildren<FormGroupProps>> = (props) => {
-  const context = useContext(FormFieldsContext);
-  const dispatch = useDispatch();
-
   const {
     input,
     required,
     label,
     description,
-    tooltip,
-    tooltipEnd,
+    tooltip: propsTooltip,
+    help,
+    tooltipEnd: propsTooltipEnd,
+    helpEnd,
     tooltipProps,
     hideLabel,
+    hideError,
     meta,
     children,
     actions,
     quickAction,
-    clearOnUnmount,
     spaceless,
     containerClassName,
+    className,
     space = 7,
-    ...rest
+    id,
+    controlId: propsControlId,
   } = props;
 
-  useEffect(() => {
-    return () => {
-      if (!clearOnUnmount) {
-        return;
-      }
-      dispatch(clearFields(meta.form, false, false, input.name));
-    };
-  }, []);
+  const tooltip = propsTooltip || help;
+  const tooltipEnd = propsTooltipEnd || helpEnd;
 
-  const newProps = {
-    input,
-    ...rest,
-    readOnly: context.readOnlyFields.includes(input.name) || rest.readOnly,
-    onBlur: (event) => {
-      if (!props.noUpdateOnBlur) {
-        props.input.onBlur(event);
-      }
-    },
-    isInvalid: meta.touched && !!meta.error,
-  };
+  const controlId = useMemo(
+    () => propsControlId || id || input?.name || uniqueId('form-group-'),
+    [propsControlId, id, input?.name],
+  );
 
-  const labelNode = !hideLabel && (
-    <Form.Label className={classNames({ required })}>
+  const labelNode = !hideLabel && (label || tooltip) && (
+    <Form.Label className={classNames({ required, 'me-auto': true })}>
       {tooltip && !tooltipEnd && (
         <Tip
-          id={'form-field-tooltip-' + input.name}
+          id={'form-field-tooltip-' + controlId}
           label={tooltip}
           {...tooltipProps}
         >
@@ -88,40 +91,40 @@ export const FormGroup: FC<PropsWithChildren<FormGroupProps>> = (props) => {
   );
 
   const mainContent = (
-    <div
+    <Form.Group
       className={classNames(
         {
           'flex-grow-1': Boolean(actions),
         },
-        'position-relative',
-        !actions && containerClassName,
+        !actions && (containerClassName || className),
         !spaceless && `mb-${space}`,
       )}
+      controlId={controlId}
     >
       {quickAction || (tooltip && tooltipEnd) ? (
         <div className="d-flex align-items-end">
-          <span className="me-auto">{labelNode}</span>
-          {props.quickAction}
+          {labelNode && <span className="me-auto">{labelNode}</span>}
+          {quickAction}
           {tooltip && tooltipEnd && (
             <Tip
-              id={'form-field-tooltip-' + input.name}
-              className="align-self-center ms-2"
+              id={'form-field-tooltip-' + controlId}
+              className="align-self-center ms-2 mb-2"
               label={tooltip}
               {...tooltipProps}
             >
-              <QuestionIcon weight="bold" size={20} className="text-muted" />
+              <QuestionIcon weight="bold" size={16} className="text-muted" />
             </Tip>
           )}
         </div>
       ) : (
         labelNode
       )}
-      {cloneElement(children as any, newProps)}
-      {description && (
-        <Form.Text className="text-muted">{description}</Form.Text>
+      <div>{children}</div>
+      {description && <Form.Text>{description}</Form.Text>}
+      {!hideError && meta && meta.touched && (
+        <FieldError error={meta.error || meta.submitError} />
       )}
-      {meta.touched && <FieldError error={meta.error} />}
-    </div>
+    </Form.Group>
   );
 
   if (actions) {
@@ -129,7 +132,7 @@ export const FormGroup: FC<PropsWithChildren<FormGroupProps>> = (props) => {
       <div
         className={classNames(
           'd-flex align-items-start gap-4',
-          containerClassName,
+          containerClassName || className,
         )}
       >
         {mainContent}

@@ -1,13 +1,13 @@
+import { useQuery } from '@tanstack/react-query';
 import { useCurrentStateAndParams } from '@uirouter/react';
 import { FunctionComponent } from 'react';
-import { useAsync } from 'react-use';
 import { marketplaceProviderOfferingsList } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { getServiceProviderByCustomer } from '@waldur/marketplace/common/api';
-import { useTitle } from '@waldur/navigation/title';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { getServiceProviderByCustomer } from '@/marketplace/common/api';
+import { useTitle } from '@/navigation/title';
 
 import { ProviderDetailsBody } from './ProviderDetailsBody';
 
@@ -16,7 +16,9 @@ async function loadProviderData(customer_uuid) {
     customer_uuid,
   });
   const offerings = await getAllPages((page) =>
-    marketplaceProviderOfferingsList({ query: { page, customer_uuid } }),
+    marketplaceProviderOfferingsList({
+      query: { page, page_size: MAX_PAGE_SIZE, customer_uuid },
+    }),
   );
   return { provider, offerings };
 }
@@ -26,10 +28,14 @@ export const ProviderDetails: FunctionComponent = () => {
     params: { customer_uuid },
   } = useCurrentStateAndParams();
 
-  const { loading, value, error } = useAsync(
-    () => loadProviderData(customer_uuid),
-    [customer_uuid],
-  );
+  const {
+    isLoading: loading,
+    data: value,
+    error,
+  } = useQuery({
+    queryKey: ['providerDetails', customer_uuid],
+    queryFn: () => loadProviderData(customer_uuid),
+  });
 
   useTitle(
     value ? value.provider.customer_name : translate('Provider details'),

@@ -1,5 +1,7 @@
+import classNames from 'classnames';
 import { useMemo } from 'react';
-import { Badge } from 'react-bootstrap';
+
+import { Badge } from '@/core/Badge';
 
 import { Quota } from './types';
 import { formatQuota } from './utils';
@@ -17,9 +19,9 @@ export const QuotaBadge = ({
 
   return (
     <Badge
-      bg="secondary"
-      text="dark"
-      className={'fw-normal ' + (className ?? '')}
+      variant="default"
+      outline
+      className={classNames('fw-normal', className)}
     >
       {Boolean(image) && (
         <img src={image} alt="quota" width={15} className="me-2" />

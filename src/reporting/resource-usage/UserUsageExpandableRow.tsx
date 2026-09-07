@@ -18,15 +18,17 @@ import {
   marketplaceResourcesRetrieve,
 } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { GRID_BREAKPOINTS } from '@waldur/core/constants';
-import { EChart } from '@waldur/core/EChart';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { getUsageHistoryPeriodOptions } from '@waldur/marketplace/resources/usage/utils';
-import { Field } from '@waldur/resource/summary';
-import { ExpandableContainer } from '@waldur/table/ExpandableContainer';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { GRID_BREAKPOINTS, UI_STALE_TIME } from '@/core/constants';
+import { EChart } from '@/core/EChart';
+import { formatUsageValue } from '@/core/formatNumber';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { getUsageHistoryPeriodOptions } from '@/marketplace/resources/usage/utils';
+import { Field } from '@/resource/summary';
+import { ExpandableContainer } from '@/table/ExpandableContainer';
+import { renderFieldOrDash } from '@/table/utils';
 
 import { getUsageLineChartOptions } from '../utils';
 
@@ -86,9 +88,7 @@ export const UsageExpandableRow = ({
         .toFormat('yyyy-MM-dd')
     : undefined;
 
-  const { data, refetch, isLoading, error } = useQuery<
-    (ComponentUsage | ComponentUserUsage)[]
-  >({
+  const { data, refetch, isLoading, error } = useQuery({
     queryKey: ['usage-data', type, row.resource_uuid, componentType, period],
     queryFn: () =>
       period
@@ -97,7 +97,7 @@ export const UsageExpandableRow = ({
               marketplaceComponentUsagesList({
                 query: {
                   page,
-                  page_size: 300,
+                  page_size: MAX_PAGE_SIZE,
                   resource_uuid: row.resource_uuid,
                   date_after,
                   type: componentType,
@@ -109,7 +109,7 @@ export const UsageExpandableRow = ({
               marketplaceComponentUserUsagesList({
                 query: {
                   page,
-                  page_size: 300,
+                  page_size: MAX_PAGE_SIZE,
                   resource_uuid: row.resource_uuid,
                   date_after,
                   type: componentType,
@@ -119,7 +119,7 @@ export const UsageExpandableRow = ({
             )
         : [],
     refetchOnWindowFocus: false,
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
 
   const chartOptions = useMemo(() => {
@@ -162,11 +162,11 @@ export const UsageExpandableRow = ({
           <Field label={translate('Resource')} value={row.resource_uuid} />
           <Field
             label={translate('Comment')}
-            value={row.description || 'N/A'}
+            value={renderFieldOrDash(row.description)}
           />
         </Col>
         <Col sm={6} className="border-sm-start ps-md-9">
-          <Card className="card-bordered rounded-3">
+          <Card className="card-bordered">
             <Card.Body className="p-4">
               <div className="d-flex align-items-center justify-content-between gap-2 text-nowrap flex-wrap">
                 <div>
@@ -183,7 +183,7 @@ export const UsageExpandableRow = ({
                           key={option.value}
                           id={'tbg-' + option.value + uniqueId()}
                           value={option.value}
-                          variant="outline btn-outline-default"
+                          variant="outline-secondary"
                           size="sm"
                           className="px-4"
                         >
@@ -215,12 +215,12 @@ export const UsageExpandableRow = ({
                       <span>
                         {translate('Max')}
                         {': '}
-                        {Math.max(...chartData)}
+                        {formatUsageValue(Math.max(...chartData))}
                       </span>
                       <span>
                         {translate('Last')}
                         {': '}
-                        {chartData[chartData.length - 1]}
+                        {formatUsageValue(chartData[chartData.length - 1])}
                       </span>
                     </div>
                     <EChart options={chartOptions} height="70px" />

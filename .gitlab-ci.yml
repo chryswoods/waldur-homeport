@@ -1,5 +1,7 @@
 include:
   - project: "waldur/waldur-pipelines"
+    file: "/templates/release/tag-release.yml"
+  - project: "waldur/waldur-pipelines"
     file: "/templates/stages.yml"
   - project: "waldur/waldur-pipelines"
     file: "/templates/release/publish-multiarch.yml"
@@ -14,27 +16,78 @@ include:
   - project: "waldur/waldur-pipelines"
     file: "/templates/deploy/dev-env-update.yml"
   - project: "waldur/waldur-pipelines"
+    file: "/templates/test/vulnerability-scan.yml"
+  - project: "waldur/waldur-pipelines"
     file: "/templates/sbom/upload-sboms-to-docs.yml"
   - project: "waldur/waldur-pipelines"
     file: "/templates/sbom/generate-image-sbom.yml"
+  - project: "waldur/waldur-pipelines"
+    file: "/templates/test/license-scan.yml"
 variables:
   COMPONENT_VERSION: "latest"
 
+stages:
+  - pre-test
+  - test
+  - build
+  - release
+  - validate
+  - deploy
+  - postdeploy
+
 image: registry.hpc.ut.ee/mirror/library/node:lts-alpine3.22
 
-cache:
-  key: "$CI_COMMIT_REF_NAME"
+# Cache was previously keyed on the branch name with policy:pull and NO job ever
+# pushing it, so it was permanently empty — every node job paid a full ~60s cold
+# `yarn install` to do a few seconds of real work. Key on the lockfile so the
+# cache is shared across all branches/MRs, keep the default policy:pull for the
+# many consumer jobs, and let the dedicated "Prime yarn cache" job below (.pre
+# stage, pull-push) populate it once per pipeline.
+cache: &yarn_cache
+  key:
+    files:
+      - yarn.lock
   policy: pull
   paths:
-    - .yarn
+    - .yarn/cache
     - node_modules/
 
 before_script:
   - apk add git || echo "Non-Alpine image, skipping"
-  - yarn config set cache-folder .yarn
-  - yarn install --frozen-lockfile
+  - corepack enable
+  - yarn install --immutable
 
-Run linters:
+# Runs before every other stage and is the single writer of the yarn cache.
+# Its global before_script does the actual `yarn install`; here we only push the
+# resulting .yarn/cache + node_modules so downstream jobs restore them and their own
+# `yarn install --immutable` becomes a near-instant no-op.
+Prime yarn cache:
+  stage: .pre
+  interruptible: true
+  # Without explicit rules a job defaults to `only: branches/tags`, which EXCLUDES
+  # merge_request pipelines — so the cache would never be primed where it matters.
+  # Run wherever the cache consumers run (MRs, develop, tags).
+  rules:
+    - if: '$SKIP_TESTS == "true" || $SKIP_TESTS == "yes"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: $CI_COMMIT_TAG
+  cache:
+    <<: *yarn_cache
+    policy: pull-push
+  script:
+    - echo "Yarn dependencies installed and cached by the global before_script."
+
+Scan JS dependencies:
+  extends: .Vulnerability scan template
+  variables:
+    LOCKFILE_PATH: "yarn.lock"
+  before_script:
+    - wget -q "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64" -O /usr/local/bin/osv-scanner
+    - chmod +x /usr/local/bin/osv-scanner
+
+.linter-rules: &linter-rules
   stage: test
   interruptible: true
   rules:
@@ -54,14 +107,61 @@ Run linters:
         - vite.config.ts
         - .eslintrc.cjs
         - .eslintignore
+        - .gitlab-ci.yml
+
+Run type checking:
+  <<: *linter-rules
+  script:
+    - yarn tsgo -b
+
+# apps/* members aren't covered by the root `yarn tsgo -b` above — see
+# docs/micro-apps.md for the full apps/* pipeline this is one piece of.
+Run apps typecheck and build:
+  stage: test
+  interruptible: true
+  rules:
+    - if: '$SKIP_TESTS == "true" || $SKIP_TESTS == "yes"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - apps/**/*
+        - packages/**/*
+        - package.json
+        - yarn.lock
+        - .gitlab-ci.yml
+  script:
+    - yarn apps:typecheck
+    - yarn apps:build
+
+Run JS linters:
+  <<: *linter-rules
   script:
     - yarn oxlint
     - yarn format:check
-    - yarn tsc -b
     - yarn lint:check
+
+Run style and dependency checks:
+  <<: *linter-rules
+  script:
     - yarn style:check
     - yarn deps:unused
     - yarn deps:circular
+
+# template.json is generated from src/ but nothing regenerated it, so it drifted
+# for weeks at a time and i18n:validate started reporting a negative unused
+# count. Extraction is deterministic and takes ~3s, so the check is simply
+# "re-run it and expect no diff". See waldur/waldur-homeport#229.
+Check translation template is current:
+  <<: *linter-rules
+  allow_failure: true
+  script:
+    - yarn i18n:extract
+    - |
+      if ! git diff --exit-code --stat template.json; then
+        echo "template.json is out of date. Run 'yarn i18n:extract' and commit the result."
+        exit 1
+      fi
 
 Run code duplication detection:
   stage: test
@@ -78,13 +178,24 @@ Run code duplication detection:
         - src/**/*.tsx
         - .gitlab-ci.yml
   script:
-    - npm install -g jscpd
+    # Pin to the last pure-Node release. jscpd 5.x replaced the Node
+    # implementation with a Rust binary (`cpd`) shipped per-platform via
+    # optional npm packages (cpd-{os}-{arch}-{libc}). On cold-cache
+    # runners the musl variant the Alpine image needs isn't always
+    # pulled in, and the binary also uses kebab-case flags incompatible
+    # with the legacy CLI used below. Pinning sidesteps both issues
+    # until the project is ready to migrate the script.
+    - npm install -g jscpd@4.2.5
     - npx jscpd src/ --exitCode 1 -r consoleFull --pattern "**/*.scss"
     - npx jscpd src/ --exitCode 1 -r consoleFull --pattern "**/*.tsx" -k 250
 
 Run unit tests:
   stage: test
   interruptible: true
+  variables:
+    # vitest --coverage runs close to Node's default ~4 GB old-space ceiling and
+    # OOMs when the build cache misses. Raise the heap for the test workers.
+    NODE_OPTIONS: "--max-old-space-size=8192"
   rules:
     - if: '$SKIP_TESTS == "true" || $SKIP_TESTS == "yes"'
       when: never
@@ -103,10 +214,15 @@ Run unit tests:
         - test/*
       allow_failure: true
   script:
-    - yarn vitest --run --reporter junit --outputFile junit.xml --coverage
+    # --project=unit: excludes the "storybook" Vitest project (added
+    # alongside @storybook/addon-vitest) — that one needs a real browser
+    # (Playwright/Chromium), which this job's plain node image doesn't
+    # have. See "Run Storybook tests" below.
+    - yarn vitest --project=unit --run --reporter junit --outputFile junit.xml --coverage
   coverage: /All\sfiles.*?\s+(\d+.\d+)/
   artifacts:
     when: always
+    expire_in: 1 week
     paths:
       - junit.xml
       - coverage/
@@ -116,9 +232,14 @@ Run unit tests:
         coverage_format: cobertura
         path: coverage/cobertura-coverage.xml
 
-Run E2E tests:
+# Smoke-tests every Storybook story (renders it in a real browser via the
+# "storybook" Vitest project, added alongside @storybook/addon-vitest —
+# see vitest.config.ts) — catches a story that doesn't render/errors out,
+# distinct from "Run unit tests" above which explicitly excludes this
+# project. Needs the Playwright browser image, like the E2E jobs below.
+Run Storybook tests:
   image:
-    name: registry.hpc.ut.ee/mirror/cypress/included:14.5.0
+    name: mcr.microsoft.com/playwright:v1.61.1-noble
     entrypoint: [""]
   stage: test
   interruptible: true
@@ -137,23 +258,105 @@ Run E2E tests:
         - tsconfig.json
         - typings.d.ts
         - vite.config.ts
-        - cypress/**/*
-        - cypress.config.js
+        - vitest.config.ts
+        - .storybook/**/*
       allow_failure: true
   script:
-    - NO_COLOR=1 yarn ci:test
+    - yarn test:storybook
+
+Run E2E tests:
+  image:
+    name: mcr.microsoft.com/playwright:v1.61.1-noble
+    entrypoint: [""]
+  stage: test
+  interruptible: true
+  rules:
+    - if: '$SKIP_TESTS == "true" || $SKIP_TESTS == "yes"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - src/**/*.css
+        - src/**/*.scss
+        - src/**/*.ts
+        - src/**/*.tsx
+        - package.json
+        - yarn.lock
+        - tsconfig.json
+        - typings.d.ts
+        - vite.config.ts
+        - e2e/**/*
+        - playwright.config.ts
+      allow_failure: true
+  script:
+    - yarn test:e2e
   artifacts:
     expire_in: 1 week
     when: always
     paths:
-      - cypress/screenshots
-      - cypress/videos
-    reports:
-      junit:
-        - cypress/results/output-*.xml
+      - test-results/
+
+# The `visual` Playwright project (e2e-visual/) was never wired into any CI
+# job before this — only `--project e2e` ran. --workers=1: a full run at
+# higher worker counts has exhausted available RAM (see
+# docs/tailwind-shadcn-migration-notes.md); the visual project's per-test
+# screenshot diffing is heavier than the plain e2e project's.
+#
+# Scoped to base-button-parity only, not the whole e2e-visual/ directory:
+# charts.spec.ts and wizards.spec.ts log in with real credentials against a
+# real backend (no page.route() mocking, unlike e2e/login.spec.ts) and this
+# job provisions no backend at all — they'd fail 100% of the time, every
+# run, regardless of any code change. base-button-parity.spec.ts is the one
+# spec in this directory built to need no backend (it renders via a
+# Storybook story, not a live app route), which is exactly why it's the
+# one that can run here. Run charts/wizards locally against a real dev
+# stack instead (yarn test:visual, or ./scripts/start-dev-stack.sh).
+Run E2E visual tests:
+  image:
+    name: mcr.microsoft.com/playwright:v1.61.1-noble
+    entrypoint: [""]
+  stage: test
+  interruptible: true
+  rules:
+    - if: '$SKIP_TESTS == "true" || $SKIP_TESTS == "yes"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - src/**/*.css
+        - src/**/*.scss
+        - src/**/*.ts
+        - src/**/*.tsx
+        - package.json
+        - yarn.lock
+        - tsconfig.json
+        - typings.d.ts
+        - vite.config.ts
+        - vitest.config.ts
+        - e2e-visual/**/*
+        - playwright.config.ts
+        - .storybook/**/*
+      allow_failure: true
+  # 288 cases (12 variants x 2 sizes x 2 themes x 6 states) at --workers=1 took
+  # 12.1 min, and Playwright itself flagged it: "Slow test file ... Consider
+  # running tests from slow files in parallel."
+  #
+  # Shard across runners rather than raising --workers: the worker count is held
+  # at 1 by the RAM ceiling documented above, and each shard is its own runner
+  # with its own RAM, so this cuts wall-clock ~3x without touching that ceiling.
+  # Verified locally: --shard=1/3, 2/3 and 3/3 list 96 tests each, 288 total.
+  # See waldur/waldur-mastermind#293.
+  parallel: 3
+  script:
+    - yarn test:e2e:visual base-button-parity --shard=${CI_NODE_INDEX}/${CI_NODE_TOTAL}
+  artifacts:
+    expire_in: 1 week
+    when: always
+    paths:
+      - test-results/
 
 Build artifact:
-  stage: build
+  stage: pre-test
   interruptible: true
   rules:
     - if: '$SKIP_TESTS == "true" || $SKIP_TESTS == "yes"'
@@ -165,6 +368,37 @@ Build artifact:
     paths:
       - dist/
     expire_in: 1 week
+
+Publish YOLO docker image:
+  stage: test
+  interruptible: true
+  image:
+    name: quay.io/containers/buildah:latest
+    entrypoint: [""]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  variables:
+    BUILDAH_FORMAT: docker
+    BUILDAH_ISOLATION: chroot
+    DOCKER_HUB_REGISTRY: "docker.io"
+    IMAGE_TAG: "opennode/${CI_PROJECT_NAME}:yolo"
+  before_script:
+    - echo "[+] Build and publish YOLO docker image for ${CI_DEFAULT_BRANCH} branch"
+    # Log in to Docker Hub
+    - echo "${WALDUR_DOCKER_HUB_PASSWORD}" | buildah login -u "${WALDUR_DOCKER_HUB_USER}" --password-stdin "${DOCKER_HUB_REGISTRY}"
+  script:
+    - echo "[+] Building image ${IMAGE_TAG}"
+    - |
+      buildah bud \
+        --build-arg DOCKER_REGISTRY="${DOCKER_REGISTRY}" \
+        --build-arg COMMIT_INFO="${CI_COMMIT_SHA}" \
+        --build-arg VERSION="latest" \
+        -t "${IMAGE_TAG}" \
+        -f "${CI_PROJECT_DIR}/Dockerfile" \
+        "${CI_PROJECT_DIR}"
+    - buildah push "${IMAGE_TAG}" "docker://${IMAGE_TAG}"
 
 Publish latest docker image:
   stage: release
@@ -180,29 +414,23 @@ Publish latest docker image:
     BUILDAH_FORMAT: docker
     BUILDAH_ISOLATION: chroot
     DOCKER_HUB_REGISTRY: "docker.io"
-    IMAGE_TAG: "opennode/waldur-homeport:latest"
   before_script:
     - echo "[+] Build and publish latest docker image for ${CI_DEFAULT_BRANCH} branch"
-    # Log in to Docker Hub
     - echo "${WALDUR_DOCKER_HUB_PASSWORD}" | buildah login -u "${WALDUR_DOCKER_HUB_USER}" --password-stdin "${DOCKER_HUB_REGISTRY}"
+    - echo "${CI_REGISTRY_PASSWORD}" | buildah login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
   script:
-    - echo "[+] Building image ${IMAGE_TAG}"
-    - |
-      buildah bud \
-        --build-arg DOCKER_REGISTRY="${DOCKER_REGISTRY}" \
-        --build-arg COMMIT_INFO="${CI_COMMIT_SHA}" \
-        --build-arg VERSION="latest" \
-        -t "${IMAGE_TAG}" \
-        -f "${CI_PROJECT_DIR}/Dockerfile" \
-        "${CI_PROJECT_DIR}"
-    - buildah push "${IMAGE_TAG}" "docker://${IMAGE_TAG}"
+    - buildah pull "docker://opennode/${CI_PROJECT_NAME}:yolo"
+    - buildah tag "opennode/${CI_PROJECT_NAME}:yolo" "opennode/${CI_PROJECT_NAME}:latest"
+    - buildah push "opennode/${CI_PROJECT_NAME}:latest" "docker://opennode/${CI_PROJECT_NAME}:latest"
+    - buildah tag "opennode/${CI_PROJECT_NAME}:yolo" "${CI_REGISTRY_IMAGE}:latest"
+    - buildah push "${CI_REGISTRY_IMAGE}:latest" "docker://${CI_REGISTRY_IMAGE}:latest"
 
 Publish multiarch docker image with specific version:
   extends: .Publish multiarch docker image with specific version template
   variables:
     EXTRA_BUILD_ARGS: "--build-arg COMMIT_INFO=${CI_COMMIT_TAG} --build-arg VERSION=${CI_COMMIT_TAG}"
 
-Test Multi-arch docker image build:
+Test docker image build:
   stage: test
   interruptible: true
   image: registry.hpc.ut.ee/mirror/docker:latest
@@ -217,7 +445,9 @@ Test Multi-arch docker image build:
       changes:
         - Dockerfile
         - docker/**/*
-        - .gitlab-ci.yml
+        - apps/**/* # the Dockerfile builds apps/* into the image too — docs/micro-apps.md
+        # `.gitlab-ci.yml` intentionally left out: this job is scoped to
+        # paths that actually affect the built image.
   variables:
     DOCKER_DRIVER: overlay2
     DOCKER_REGISTRY: registry.hpc.ut.ee/mirror/
@@ -231,10 +461,15 @@ Test Multi-arch docker image build:
     - docker context create builder
     - docker buildx version
     - docker buildx create builder --use
-    - docker buildx build --platform linux/amd64,linux/arm64 --build-arg DOCKER_REGISTRY=$DOCKER_REGISTRY -t ${CI_REGISTRY_IMAGE}:${CI_MERGE_REQUEST_ID}-multiarch --push .
-    - docker buildx imagetools inspect ${CI_REGISTRY_IMAGE}:${CI_MERGE_REQUEST_ID}-multiarch
-    - docker pull ${CI_REGISTRY_IMAGE}:${CI_MERGE_REQUEST_ID}-multiarch
-    - docker image inspect ${CI_REGISTRY_IMAGE}:${CI_MERGE_REQUEST_ID}-multiarch
+    # arm64 dropped: the emulated QEMU leg of this buildx job crashes/times
+    # out running `yarn install` (see MR discussion) and provided no real
+    # image-coverage signal for an MR-time smoke build. Real multi-arch
+    # images are still produced by "Publish multiarch docker image with
+    # specific version" on tags, which is unaffected by this change.
+    - docker buildx build --platform linux/amd64 --build-arg DOCKER_REGISTRY=$DOCKER_REGISTRY -t ${CI_REGISTRY_IMAGE}:${CI_MERGE_REQUEST_ID}-image-smoke --push .
+    - docker buildx imagetools inspect ${CI_REGISTRY_IMAGE}:${CI_MERGE_REQUEST_ID}-image-smoke
+    - docker pull ${CI_REGISTRY_IMAGE}:${CI_MERGE_REQUEST_ID}-image-smoke
+    - docker image inspect ${CI_REGISTRY_IMAGE}:${CI_MERGE_REQUEST_ID}-image-smoke
 
 Lint docker image:
   extends: .Lint docker image template
@@ -254,6 +489,8 @@ Lint dockerfile:
 
 Generate Image SBOM:
   extends: .Generate Image SBOM template
+  rules:
+    - when: never
   variables:
     PROJECT_NAME: "waldur-homeport"
 
@@ -261,8 +498,10 @@ Generate Codebase SBOM:
   stage: build
   image: registry.hpc.ut.ee/mirror/library/node:lts-alpine
   interruptible: true
+  allow_failure: true
   rules:
-    - if: '$CI_COMMIT_TAG =~ /^\d+\.\d+\.\d+$/'
+    - when: never
+    # - if: '$CI_COMMIT_TAG =~ /^\d+\.\d+\.\d+$/'
   cache: []
   before_script: []
   script:
@@ -276,6 +515,10 @@ Generate Codebase SBOM:
     - echo "SBOM archived. Size:"
     - du -h waldur-homeport-${CI_COMMIT_TAG}-source.cyclonedx.tar.gz
   artifacts:
+    # Tag-scoped SBOM kept longer than the 1 week used elsewhere as release
+    # evidence. Durable copies belong in the package registry, not here — raise
+    # this only against a stated supply-chain retention requirement.
+    expire_in: 90 days
     paths:
       - waldur-homeport-${CI_COMMIT_TAG}-source.cyclonedx.tar.gz
 
@@ -299,15 +542,84 @@ Build test docker image:
     # Log in to GitLab Container Registry
     - echo "${CI_REGISTRY_PASSWORD}" | buildah login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
   script:
-    - echo "[+] Building image ${CI_REGISTRY_IMAGE}:${CI_MERGE_REQUEST_ID}"
+    # 1. Build a standard image for E2E tests (No ASSET_PATH)
+    #
+    # INCLUDE_DEPLOY_FALSE_APPS=true here (and below) live-tests every
+    # apps/* member without shipping opted-out ones to production — see
+    # docs/micro-apps.md.
+    - echo "[+] Building standard image for E2E tests"
+    - |
+      buildah bud \
+        --build-arg DOCKER_REGISTRY="${DOCKER_REGISTRY}" \
+        --build-arg INCLUDE_DEPLOY_FALSE_APPS=true \
+        -t "${CI_REGISTRY_IMAGE}:${CI_MERGE_REQUEST_ID}-e2e" \
+        -f "${CI_PROJECT_DIR}/Dockerfile" \
+        "${CI_PROJECT_DIR}"
+    - buildah push "${CI_REGISTRY_IMAGE}:${CI_MERGE_REQUEST_ID}-e2e"
+
+    # 2. Build the image with ASSET_PATH for the k8s preview environment
+    - echo "[+] Building image with ASSET_PATH for k8s preview"
     - |
       buildah bud \
         --build-arg DOCKER_REGISTRY="${DOCKER_REGISTRY}" \
         --build-arg ASSET_PATH="/${CI_MERGE_REQUEST_ID}/" \
+        --build-arg INCLUDE_DEPLOY_FALSE_APPS=true \
         -t "${CI_REGISTRY_IMAGE}:${CI_MERGE_REQUEST_ID}" \
         -f "${CI_PROJECT_DIR}/Dockerfile" \
         "${CI_PROJECT_DIR}"
     - buildah push "${CI_REGISTRY_IMAGE}:${CI_MERGE_REQUEST_ID}"
+
+Trigger integration tests:
+  stage: validate
+  trigger:
+    project: waldur/waldur-integration-testing
+    branch: main
+    strategy: depend
+  # Without `needs:` this bridge is only stage-ordered, so it could not start
+  # until every job in `test`, `build` and `release` had finished — including the
+  # ~15-minute "Run E2E visual tests" job, which is `allow_failure: true` and so
+  # was delaying the downstream suite without even being able to block the merge.
+  # All the bridge depends on is the frontend image. Both needs are `optional`
+  # because only one producer exists in any given pipeline: the MR build on merge
+  # requests, the release job on develop.
+  # See waldur/waldur-mastermind#293.
+  needs:
+    - job: Build test docker image
+      optional: true
+    - job: Publish latest docker image
+      optional: true
+  # TRIGGER_SOURCE lets the downstream E2E suite skip backend-only jobs
+  # (ansible, mitogen, SCIM, OIDC, GLAuth) that a frontend change cannot affect.
+  variables:
+    TRIGGER_SOURCE: homeport
+  # Only run E2E when a change can actually affect the built frontend image.
+  # Docs / lint-config / unit-test-only MRs (e.g. *.md, docs/**,
+  # packages/eslint-plugin-waldur/**, e2e/**, test/**) skip the whole downstream
+  # suite. The include-list is a
+  # positive filter: it matches whenever any runtime-affecting path changed.
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: &integration_test_changes
+        - src/**/*
+        - locales/**/*
+        - docker/**/*
+        - Dockerfile
+        - index.html
+        - package.json
+        - yarn.lock
+        - vite.config.ts
+        - vite-plugin-react-displayname.ts
+        - tsconfig.json
+        - typings.d.ts
+        - generate-filters.cjs
+        - generate-filters-config.yaml
+        - .gitlab-ci.yml
+      variables:
+        WALDUR_HOMEPORT_IMAGE: "${CI_REGISTRY_IMAGE}:latest"
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *integration_test_changes
+      variables:
+        WALDUR_HOMEPORT_IMAGE: "${CI_REGISTRY_IMAGE}:${CI_MERGE_REQUEST_ID}-e2e"
 
 Test k8s deployment:
   stage: validate
@@ -319,7 +631,7 @@ Test k8s deployment:
     name: test-${CI_MERGE_REQUEST_ID}
     action: start
     on_stop: Cleanup test k8s deployment
-    url: https://homeport-testing.waldur.com/${CI_MERGE_REQUEST_ID}/
+    url: https://helm-testing.waldur.com/${CI_MERGE_REQUEST_ID}/
   rules:
     - if: '$SKIP_TESTS == "true" || $SKIP_TESTS == "yes"'
       when: never
@@ -352,6 +664,8 @@ Test k8s deployment:
 
 Upload Image SBOM:
   extends: .Upload SBOM template
+  rules:
+    - when: never
   needs:
     - Generate Image SBOM
   variables:
@@ -361,6 +675,8 @@ Upload Image SBOM:
 
 Upload Source SBOM:
   extends: .Upload SBOM template
+  rules:
+    - when: never
   needs:
     - Generate Codebase SBOM
   variables:
@@ -374,6 +690,9 @@ Cleanup test k8s deployment:
     name: "registry.hpc.ut.ee/mirror/alpine/kubectl:1.33.3"
     entrypoint: ['']
   interruptible: false
+  # No artifacts needed; without this the stop job fails with
+  # missing_dependency_failure when triggered after earlier jobs' artifacts expire.
+  dependencies: []
   rules:
   - if: '$SKIP_TESTS == "true" || $SKIP_TESTS == "yes"'
     when: never
@@ -385,10 +704,7 @@ Cleanup test k8s deployment:
   before_script:
     - export KUBECONFIG=${K8S_CONFIG_WALDUR_HELM_TEST}
   script:
-    - kubectl delete secret waldur-homeport-test-${CI_MERGE_REQUEST_ID} || true
-    - kubectl delete deployment waldur-homeport-test-${CI_MERGE_REQUEST_ID} || true
-    - kubectl delete service waldur-homeport-test-${CI_MERGE_REQUEST_ID} || true
-    - kubectl delete ingress waldur-homeport-test-${CI_MERGE_REQUEST_ID} || true
+    - kubectl delete secret,deployment,service,ingress waldur-homeport-test-${CI_MERGE_REQUEST_ID} --ignore-not-found=true --wait=true
 
 Cleanup previous k8s test deployment:
   extends: Cleanup test k8s deployment
@@ -397,3 +713,36 @@ Cleanup previous k8s test deployment:
   - if: '$SKIP_TESTS == "true" || $SKIP_TESTS == "yes"'
     when: never
   - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+Release tag:
+  extends: .release-tag-base
+  image: registry.hpc.ut.ee/mirror/library/node:lts-alpine
+  before_script:
+    - apk add --no-cache git
+    - !reference [.release-tag-base, before_script]
+  script:
+    - |
+      git tag -a $RELEASE_VERSION -m "Release $RELEASE_VERSION" || echo "Tag already exists"
+      git push origin $RELEASE_VERSION || echo "Tag already pushed"
+
+# Fails when a dependency arrives under a licence Waldur cannot ship — strong
+# copyleft (GPL, AGPL), source-available (SSPL, BUSL, Elastic) or non-OSI
+# use-restricted (Hippocratic, JSON). LGPL and MPL pass but stay listed in the
+# job artifact. See waldur/waldur-mastermind#285.
+#
+# `yarn licenses` comes from the yarn-plugin-licenses plugin committed under
+# .yarn/plugins, so this needs no network fetch at pipeline time.
+#
+# before_script mirrors the repo-global one rather than taking the template's:
+# extending replaces the global hook, and every other job here installs through
+# `apk add git` first. The shared yarn cache makes the install a near no-op.
+#
+# allow_failure is inherited as true from the template. Drop it to false once
+# #222 (react-leaflet is Hippocratic-2.1) is closed.
+Check dependency licences:
+  extends: .Licence gate (node) template
+  cache: *yarn_cache
+  before_script:
+    - apk add git || echo "Non-Alpine image, skipping"
+    - corepack enable
+    - yarn install --immutable

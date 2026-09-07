@@ -1,43 +1,45 @@
 import { PlusIcon, TrashIcon } from '@phosphor-icons/react';
 import React from 'react';
-import { Button, Table } from 'react-bootstrap';
-import { Field } from 'redux-form';
+import { Table } from 'react-bootstrap';
+import { Field } from 'react-final-form';
 
-import { renderValidationWrapper } from '@waldur/form/FieldValidationWrapper';
-import { InputField } from '@waldur/form/InputField';
-import { translate } from '@waldur/i18n';
+import { FieldError } from '@/form/FieldError';
+import { BaseInputField } from '@/form/InputField';
+import { translate } from '@/i18n';
+import { CompactActionButton } from '@/table/CompactActionButton';
 
 import { validateIPv4 } from '../utils';
-
-const ValidatedInputField = renderValidationWrapper(InputField);
 
 const IPAddressRow = ({ address, onRemove }) => (
   <tr>
     <td>
-      <Field
-        name={address}
-        component={ValidatedInputField}
-        validate={validateIPv4}
-      />
+      <Field name={address} validate={validateIPv4}>
+        {({ input, meta }) => (
+          <>
+            <BaseInputField {...input} aria-label={translate('IP address')} />
+            <FieldError error={meta.touched && meta.error} />
+          </>
+        )}
+      </Field>
     </td>
     <td>
-      <Button variant="text-secondary" onClick={onRemove} size="sm">
-        <span className="svg-icon svg-icon-2">
-          <TrashIcon />
-        </span>{' '}
-        {translate('Remove')}
-      </Button>
+      <CompactActionButton
+        title={translate('Remove')}
+        action={onRemove}
+        iconNode={<TrashIcon weight="bold" />}
+        variant="text-secondary"
+      />
     </td>
   </tr>
 );
 
 const IPAddressAddButton = ({ onClick }) => (
-  <Button variant="text-secondary" onClick={onClick} size="sm">
-    <span className="svg-icon svg-icon-2">
-      <PlusIcon weight="bold" />
-    </span>{' '}
-    {translate('Add address')}
-  </Button>
+  <CompactActionButton
+    title={translate('Add address')}
+    action={onClick}
+    iconNode={<PlusIcon weight="bold" />}
+    variant="text-secondary"
+  />
 );
 
 export const IpAddressList: React.FC<any> = ({ fields }) => (

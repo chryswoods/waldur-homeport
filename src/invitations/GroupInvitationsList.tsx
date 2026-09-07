@@ -4,43 +4,47 @@ import {
   LockIcon,
   XIcon,
 } from '@phosphor-icons/react';
-import { FunctionComponent } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
+import { FunctionComponent, useMemo } from 'react';
 import { GroupInvitation, userGroupInvitationsList } from 'waldur-js-client';
 
-import { Badge } from '@waldur/core/Badge';
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { CustomerPermissionsLogButton } from '@waldur/customer/team/CustomerPermissionsLogButton';
-import { TeamDropdownActions } from '@waldur/customer/team/TeamDropdownActions';
-import { translate } from '@waldur/i18n';
-import { GROUP_INVITATIONS_FILTER_FORM_ID } from '@waldur/invitations/constants';
-import { GroupInvitationRowActions } from '@waldur/invitations/GroupInvitationRowActions';
-import { GroupInvitationsFilter } from '@waldur/invitations/GroupInvitationsFilter';
-import { GroupInvitationsListExpandableRow } from '@waldur/invitations/GroupInvitationsListExpandableRow';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { RoleField } from '@waldur/user/affiliations/RoleField';
-import { exportRoleField } from '@waldur/user/affiliations/RolePopover';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { Badge } from '@/core/Badge';
+import { formatDateTime } from '@/core/dateUtils';
+import { CustomerPermissionsLogButton } from '@/customer/team/CustomerPermissionsLogButton';
+import { TeamDropdownActions } from '@/customer/team/TeamDropdownActions';
+import { translate } from '@/i18n';
+import { GroupInvitationRowActions } from '@/invitations/GroupInvitationRowActions';
+import { GroupInvitationsListExpandableRow } from '@/invitations/GroupInvitationsListExpandableRow';
+import { createFetcher } from '@/table/api';
+import {
+  UserGroupInvitationsFilter,
+  UserGroupInvitationsFilterFormId,
+  selectUserGroupInvitationsFilter,
+} from '@/table/generated/UserGroupInvitationsFilter';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { RoleField } from '@/user/affiliations/RoleField';
+import { exportRoleField } from '@/user/affiliations/RolePopover';
+import { useCustomer } from '@/workspace/hooks';
 
 import { useTeamTableTabs } from '../customer/team/tabs';
 
-const mapStateToFilter = createSelector(
-  getCustomer,
-  getFormValues(GROUP_INVITATIONS_FILTER_FORM_ID),
-  (customer, filterValues) => ({
-    ...filterValues,
-    customer_uuid: customer.uuid,
-  }),
-);
+export const GroupInvitationsList: FunctionComponent = () => {
+  const customer = useCustomer();
+  const values = useFilterValues('group-invitations');
+  const filterValues = useMemo(
+    () => selectUserGroupInvitationsFilter(values),
+    [values],
+  );
 
-export const GroupInvitationsList: FunctionComponent<{}> = () => {
-  const filter = useSelector(mapStateToFilter);
+  const filter = useMemo(
+    () => ({ ...filterValues, customer_uuid: customer?.uuid }),
+    [filterValues, customer],
+  );
+
   const props = useTable({
     table: 'group-invitations',
+    syncFiltersToURL: true,
     fetchData: createFetcher(userGroupInvitationsList),
     filter,
   });
@@ -50,7 +54,10 @@ export const GroupInvitationsList: FunctionComponent<{}> = () => {
   return (
     <Table<GroupInvitation>
       {...props}
-      filters={<GroupInvitationsFilter />}
+      formId={UserGroupInvitationsFilterFormId}
+      filters={<UserGroupInvitationsFilter />}
+      filterPosition="menu"
+      hasQuery
       columns={[
         {
           title: translate('Created by'),
@@ -69,19 +76,14 @@ export const GroupInvitationsList: FunctionComponent<{}> = () => {
           export: (row) => formatDateTime(row.created),
         },
         {
-          title: translate('Expires at'),
-          render: ({ row }) => formatDateTime(row.expires),
-          export: (row) => formatDateTime(row.expires),
-        },
-        {
           title: translate('Type'),
           render: ({ row }) =>
             row.is_public ? (
               <Badge
                 variant="blue"
                 leftIcon={<GlobeSimpleIcon weight="bold" />}
-                outline
                 pill
+                outline
               >
                 {translate('Public')}
               </Badge>
@@ -89,8 +91,8 @@ export const GroupInvitationsList: FunctionComponent<{}> = () => {
               <Badge
                 variant="default"
                 leftIcon={<LockIcon weight="bold" />}
-                outline
                 pill
+                outline
               >
                 {translate('Private')}
               </Badge>
@@ -105,8 +107,8 @@ export const GroupInvitationsList: FunctionComponent<{}> = () => {
               <Badge
                 variant="success"
                 leftIcon={<CheckIcon weight="bold" />}
-                outline
                 pill
+                outline
               >
                 {translate('Active')}
               </Badge>
@@ -114,8 +116,8 @@ export const GroupInvitationsList: FunctionComponent<{}> = () => {
               <Badge
                 variant="default"
                 leftIcon={<XIcon weight="bold" />}
-                outline
                 pill
+                outline
               >
                 {translate('Inactive')}
               </Badge>

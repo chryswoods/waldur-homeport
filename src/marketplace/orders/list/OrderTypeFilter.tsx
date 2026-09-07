@@ -1,8 +1,7 @@
-import { FunctionComponent } from 'react';
-import { Field } from 'redux-form';
+import { FC } from 'react';
 
-import { REACT_SELECT_TABLE_FILTER, Select } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
+import { SelectFilter } from '@/table';
 
 export const getOrderTypeOptions = () => [
   { value: 'Create', label: translate('Create') },
@@ -10,18 +9,16 @@ export const getOrderTypeOptions = () => [
   { value: 'Terminate', label: translate('Terminate') },
 ];
 
-export const OrderTypeFilter: FunctionComponent = () => (
-  <Field
-    name="type"
-    component={(fieldProps) => (
-      <Select
-        placeholder={translate('Select type...')}
-        options={getOrderTypeOptions()}
-        value={fieldProps.input.value}
-        onChange={(value) => fieldProps.input.onChange(value)}
-        isClearable={true}
-        {...REACT_SELECT_TABLE_FILTER}
-      />
-    )}
-  />
-);
+export const OrderTypeFilter: FC<any> = (props) => {
+  return (
+    <SelectFilter
+      title={translate('Type')}
+      name="type"
+      badgeValue={(value) => value?.label}
+      placeholder={translate('Select type...')}
+      options={getOrderTypeOptions()}
+      isClearable={true}
+      {...props}
+    />
+  );
+};

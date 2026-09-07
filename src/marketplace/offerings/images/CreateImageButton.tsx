@@ -1,15 +1,14 @@
 import { PlusCircleIcon } from '@phosphor-icons/react';
-import { useDispatch } from 'react-redux';
+import { ProviderOfferingDetails as Offering } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { Offering } from '@waldur/marketplace/types';
-import { REMOTE_OFFERING_TYPE } from '@waldur/marketplace-remote/constants';
-import { openModalDialog } from '@waldur/modal/actions';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { ActionButton } from '@waldur/table/ActionButton';
-import { useUser } from '@waldur/workspace/hooks';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { REMOTE_OFFERING_TYPE } from '@/marketplace-remote/constants';
+import { useModal } from '@/modal/actions';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { ActionButton } from '@/table/ActionButton';
+import { useUser } from '@/workspace/hooks';
 
 const CreateImageDialog = lazyComponent(() =>
   import('./CreateImageDialog').then((module) => ({
@@ -24,13 +23,11 @@ interface CreateImageButtonProps {
 
 export const CreateImageButton = (props: CreateImageButtonProps) => {
   const user = useUser();
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const callback = () =>
-    dispatch(
-      openModalDialog(CreateImageDialog, {
-        resolve: props,
-      }),
-    );
+    openDialog(CreateImageDialog, {
+      resolve: props,
+    });
 
   if (
     !hasPermission(user, {

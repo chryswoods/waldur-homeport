@@ -1,33 +1,27 @@
 import { PlusIcon, XIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { Fragment, useCallback } from 'react';
-import { Button, Form, FormCheck } from 'react-bootstrap';
-import { useDispatch, useSelector } from 'react-redux';
-import { arrayPush, arrayRemoveAll, Field, FieldArray } from 'redux-form';
+import { Form, FormCheck } from 'react-bootstrap';
+import { Field, useForm } from 'react-final-form';
+import { FieldArray } from 'react-final-form-arrays';
 import { rancherClusterTemplatesList } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { required } from '@waldur/core/validators';
-import { FormGroup, SelectField, StringField } from '@waldur/form';
-import { BoxNumberField } from '@waldur/form/BoxNumberField';
-import { VStepperFormStepCard } from '@waldur/form/VStepperFormStep';
-import { translate } from '@waldur/i18n';
-import {
-  formatIntField,
-  parseIntField,
-} from '@waldur/marketplace/common/utils';
-import { StepCardPlaceholder } from '@waldur/marketplace/deploy/steps/StepCardPlaceholder';
-import { FormStepProps } from '@waldur/marketplace/deploy/types';
-import { ORDER_FORM_ID } from '@waldur/marketplace/details/constants';
-import { waitForConfirmation } from '@waldur/modal/actions';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { UI_STALE_TIME } from '@/core/constants';
+import { required } from '@/core/validators';
+import { SelectField, SelectGroup, StringField } from '@/form';
+import { BoxNumberField } from '@/form/BoxNumberField';
+import { translate } from '@/i18n';
+import { formatIntField, parseIntField } from '@/marketplace/common/utils';
+import { StepCardPlaceholder } from '@/marketplace/deploy/steps/StepCardPlaceholder';
+import { FormStepProps } from '@/marketplace/deploy/types';
+import { useModal } from '@/modal/actions';
+import { ActionButton } from '@/table/ActionButton';
+import { VStepperFormStepCard } from '@/wizard';
 
 import { NODES_FIELD_ARRAY } from './constants';
 import { RANCHER_NODE_ROLES } from './RANCHER_NODE_ROLES';
-import {
-  filterFlavors,
-  formTenantSelector,
-  useVolumeDataLoader,
-} from './utils';
+import { filterFlavors, useFormTenant, useVolumeDataLoader } from './utils';
 
 import './FormNodesStep.scss';
 
@@ -45,7 +39,7 @@ const filterFlavor = (node, flavor) => {
   return true;
 };
 
-const CheckboxGroup = ({ groupName, options, input, groupClassName }) => (
+const BooleanGroup = ({ groupName, options, input, groupClassName }) => (
   <Form.Group controlId={groupName} className={groupClassName}>
     {options.map((option, index) => (
       <FormCheck inline key={index}>
@@ -57,9 +51,9 @@ const CheckboxGroup = ({ groupName, options, input, groupClassName }) => (
           id={`${option.name}-checkbox-${index}`}
           type="checkbox"
           value={option.name}
-          checked={input.value.indexOf(option.name) !== -1}
+          checked={(input.value || []).indexOf(option.name) !== -1}
           onChange={(e) => {
-            const newValue = [...input.value];
+            const newValue = [...(input.value || [])];
             if (e.target.checked) {
               newValue.push(option.name);
             } else {
@@ -105,56 +99,66 @@ const renderNodeRows = ({ fields, flavors }: any) => {
                     <Fragment key={node}>
                       <tr>
                         <td>
-                          <Field
-                            name={`${node}.name`}
-                            required={true}
-                            component={StringField}
-                            placeholder={translate('Node name')}
-                            validate={[required]}
-                          />
+                          <Field name={`${node}.name`} validate={required}>
+                            {({ input, meta }) => (
+                              <StringField
+                                input={input}
+                                meta={meta}
+                                placeholder={translate('Node name')}
+                                required={true}
+                              />
+                            )}
+                          </Field>
                         </td>
                         <td>
                           <Field
                             name={`${node}.units`}
-                            component={BoxNumberField}
-                            validate={[required]}
-                            required={true}
-                            min={1}
-                            max={100}
+                            validate={required}
                             parse={parseIntField}
                             format={formatIntField}
-                          />
+                          >
+                            {({ input, meta }) => (
+                              <BoxNumberField
+                                input={input}
+                                meta={meta}
+                                min={1}
+                                max={100}
+                                required={true}
+                              />
+                            )}
+                          </Field>
                         </td>
                         <td>
-                          <Field
-                            name={`${node}.flavor`}
-                            component={SelectField}
-                            placeholder={translate('Select flavor...')}
-                            options={flavors}
-                            validate={required}
-                            isClearable={true}
-                          />
+                          <Field name={`${node}.flavor`} validate={required}>
+                            {({ input, meta }) => (
+                              <SelectField
+                                input={input}
+                                meta={meta}
+                                placeholder={translate('Select flavor...')}
+                                options={flavors}
+                                isClearable={true}
+                              />
+                            )}
+                          </Field>
                         </td>
                         <td colSpan={3}>
-                          <Field
-                            name={`${node}.roles`}
-                            groupName={`${node}.roles`}
-                            component={CheckboxGroup}
-                            options={RANCHER_NODE_ROLES}
-                            groupClassName="d-flex justify-content-around node-roles"
-                            validate={required}
-                          />
+                          <Field name={`${node}.roles`} validate={required}>
+                            {(fieldProps) => (
+                              <BooleanGroup
+                                groupName={`${node}.roles`}
+                                options={RANCHER_NODE_ROLES}
+                                groupClassName="d-flex justify-content-around node-roles"
+                                input={fieldProps.input}
+                              />
+                            )}
+                          </Field>
                         </td>
                         <td>
-                          <Button
+                          <ActionButton
                             variant="text-danger"
-                            className="btn-icon"
-                            onClick={() => fields.remove(index)}
-                          >
-                            <span className="svg-icon svg-icon-2">
-                              <XIcon weight="bold" />
-                            </span>
-                          </Button>
+                            action={() => fields.remove(index)}
+                            iconNode={<XIcon weight="bold" />}
+                          />
                         </td>
                       </tr>
                     </Fragment>
@@ -165,28 +169,35 @@ const renderNodeRows = ({ fields, flavors }: any) => {
           </div>
         </Form.Group>
       )}
-      <Button variant="tertiary" className="text-nowrap" onClick={addRow}>
-        <span className="svg-icon svg-icon-2">
-          <PlusIcon weight="bold" />
-        </span>
-        {translate('Add')}
-      </Button>
+      <ActionButton
+        variant="tertiary"
+        className="text-nowrap"
+        action={addRow}
+        iconNode={<PlusIcon weight="bold" />}
+        title={translate('Add')}
+      />
     </>
   );
 };
 
 export const FormNodesStep = (props: FormStepProps) => {
-  const dispatch = useDispatch();
-  const tenant = useSelector(formTenantSelector);
+  const { confirm } = useModal();
+  const form = useForm();
+
+  const tenant = useFormTenant();
 
   const { data: volumeData } = useVolumeDataLoader(tenant);
   const { data: templates, isLoading: templateLoading } = useQuery({
     queryKey: ['nodes-step-templates'],
 
     queryFn: () =>
-      getAllPages((page) => rancherClusterTemplatesList({ query: { page } })),
+      getAllPages((page) =>
+        rancherClusterTemplatesList({
+          query: { page, page_size: MAX_PAGE_SIZE },
+        }),
+      ),
 
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
   const { data: flavors, isLoading } = useQuery({
     queryKey: ['nodes-step-flavors', tenant?.url, props.offering.uuid],
@@ -196,7 +207,7 @@ export const FormNodesStep = (props: FormStepProps) => {
         ? filterFlavors(tenant.uuid, props.offering)
         : [],
 
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
 
   const onSelectTemplate = useCallback(
@@ -205,41 +216,39 @@ export const FormNodesStep = (props: FormStepProps) => {
         return;
       }
 
-      waitForConfirmation(
-        dispatch,
+      confirm(
         translate('Confirmation'),
         translate(
           'Are you sure you want to select template? Note this will reset the node plan.',
         ),
       ).then(() => {
-        props.change('attributes.template', template);
-        dispatch(arrayRemoveAll(ORDER_FORM_ID, NODES_FIELD_ARRAY));
-        template.nodes.forEach((node, i) => {
-          const _flavors = flavors.filter((flavor) =>
-            filterFlavor(node, flavor),
-          );
+        form.change('attributes.template', template);
+        const nodes = (template.nodes || []).map((node, i) => {
+          const _flavors = flavors
+            ? flavors.filter((flavor) => filterFlavor(node, flavor))
+            : [];
           const flavor = _flavors.length > 0 ? _flavors[0] : undefined;
-          const preferredVolumeType = node.preferred_volume_type
-            ? volumeData.volumeTypeChoices.find(
-                (option) => option.name === node.preferred_volume_type,
-              )
-            : undefined;
-          dispatch(
-            arrayPush(ORDER_FORM_ID, NODES_FIELD_ARRAY, {
-              name: translate('Rancher node {index}', { index: i + 1 }),
-              units: 1,
-              roles: node.roles,
-              system_volume_size: node.system_volume_size,
-              system_volume_type: preferredVolumeType
-                ? preferredVolumeType.value
-                : undefined,
-              flavor,
-            }),
-          );
+          const preferredVolumeType =
+            node.preferred_volume_type && volumeData?.volumeTypeChoices
+              ? volumeData.volumeTypeChoices.find(
+                  (option) => option.name === node.preferred_volume_type,
+                )
+              : undefined;
+          return {
+            name: translate('Rancher node {index}', { index: i + 1 }),
+            units: 1,
+            roles: node.roles,
+            system_volume_size: node.system_volume_size,
+            system_volume_type: preferredVolumeType
+              ? preferredVolumeType.value
+              : undefined,
+            flavor,
+          };
         });
+        form.change(NODES_FIELD_ARRAY, nodes);
       });
     },
-    [dispatch, flavors],
+    [flavors, volumeData, form],
   );
 
   return (
@@ -254,25 +263,20 @@ export const FormNodesStep = (props: FormStepProps) => {
       {flavors && flavors.length > 0 ? (
         <>
           {templates && templates.length > 0 ? (
-            <Field
+            <SelectGroup
               name="attributes.template"
-              component={FormGroup}
               label={translate('Template')}
+              options={templates}
+              getOptionValue={(option) => option.uuid}
+              getOptionLabel={(option) => option.name}
+              isClearable={true}
               onChange={onSelectTemplate}
-            >
-              <SelectField
-                options={templates}
-                getOptionValue={(option) => option.uuid}
-                getOptionLabel={(option) => option.name}
-                isClearable={true}
-              />
-            </Field>
+            />
           ) : null}
           <FieldArray
             name={NODES_FIELD_ARRAY}
             component={renderNodeRows}
             flavors={flavors}
-            rerenderOnEveryChange
           />
         </>
       ) : (

@@ -1,37 +1,42 @@
 import {
-  CheckCircleIcon,
   ClockCountdownIcon,
   ClockCounterClockwiseIcon,
   PlayCircleIcon,
-  XCircleIcon,
 } from '@phosphor-icons/react';
-import { useCallback } from 'react';
-import { useDispatch } from 'react-redux';
+import { Icon } from '@phosphor-icons/react';
+import { FC } from 'react';
 import {
   MaintenanceAnnouncement,
-  maintenanceAnnouncementsCancelMaintenance,
-  maintenanceAnnouncementsCompleteMaintenance,
   maintenanceAnnouncementsSchedule,
   maintenanceAnnouncementsStartMaintenance,
   maintenanceAnnouncementsUnschedule,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ActionItem } from '@/resource/actions/ActionItem';
+
+import { MaintenanceCancelAction } from './MaintenanceCancelAction';
+import { MaintenanceEndEarlyAction } from './MaintenanceEndEarlyAction';
+import { MaintenanceExtendAction } from './MaintenanceExtendAction';
 
 interface MaintenanceStateActionProps {
   row: MaintenanceAnnouncement;
   refetch: () => void;
 }
 
-const getMaintenanceStateActions = (row: MaintenanceAnnouncement) => {
-  const cancelAction = {
-    key: 'cancel',
-    label: translate('Cancel'),
-    icon: XCircleIcon,
-  };
+interface MaintenanceAction {
+  key: string;
+  label: string;
+  icon: Icon;
+  api: (params: { path: { uuid: string } }) => Promise<any>;
+  successMessage: string;
+  successDescription: string;
+}
+
+const getTransitionActions = (
+  row: MaintenanceAnnouncement,
+): MaintenanceAction[] => {
   switch (row.state) {
     case 'Draft':
       return [
@@ -39,103 +44,108 @@ const getMaintenanceStateActions = (row: MaintenanceAnnouncement) => {
           key: 'schedule',
           label: translate('Schedule'),
           icon: ClockCountdownIcon,
+          api: maintenanceAnnouncementsSchedule,
+          successMessage: translate('Maintenance scheduled'),
+          successDescription: translate(
+            'The maintenance window {name} has been scheduled.',
+            { name: row.name },
+          ),
         },
-        cancelAction,
       ];
     case 'Scheduled':
       return [
-        { key: 'start', label: translate('Start'), icon: PlayCircleIcon },
+        {
+          key: 'start',
+          label: translate('Start'),
+          icon: PlayCircleIcon,
+          api: maintenanceAnnouncementsStartMaintenance,
+          successMessage: translate('Maintenance started'),
+          successDescription: translate(
+            'The maintenance window {name} is now in progress.',
+            { name: row.name },
+          ),
+        },
         {
           key: 'unschedule',
-          label: translate('Unschedule'),
+          label: translate('Move back to draft'),
           icon: ClockCounterClockwiseIcon,
+          api: maintenanceAnnouncementsUnschedule,
+          successMessage: translate('Maintenance moved to draft'),
+          successDescription: translate(
+            'The maintenance window {name} has been moved back to draft.',
+            { name: row.name },
+          ),
         },
-        cancelAction,
-      ];
-    case 'In progress':
-      return [
-        {
-          key: 'complete',
-          label: translate('Set as completed'),
-          icon: CheckCircleIcon,
-        },
-        cancelAction,
       ];
     default:
-      return null;
+      return [];
   }
 };
 
-export const MaintenanceStateActions = ({
+const MaintenanceActionItem: FC<{
+  action: MaintenanceAction;
+  row: MaintenanceAnnouncement;
+  refetch: () => void;
+}> = ({ action, row, refetch }) => {
+  const { mutate, isPending } = useManagedMutation<any, any, void>({
+    mutationFn: () => action.api({ path: { uuid: row.uuid } }),
+    confirmation: {
+      title: translate('Confirmation'),
+      body: translate(
+        'Are you sure you want to {action} the maintenance announcement?',
+        { action: String(action.label).toLocaleLowerCase() },
+      ),
+      options: {
+        positiveButton: action.label,
+        negativeButton: translate('Cancel'),
+        iconNode: <action.icon weight="bold" />,
+      },
+    },
+    successMessage: action.successMessage,
+    successDescription: action.successDescription,
+    errorMessage: translate('Unable to update maintenance announcement state.'),
+    refetch,
+  });
+
+  return (
+    <ActionItem
+      title={action.label}
+      action={mutate}
+      iconNode={<action.icon weight="bold" />}
+      disabled={isPending}
+    />
+  );
+};
+
+export const MaintenanceStateActions: FC<MaintenanceStateActionProps> = ({
   row,
   refetch,
-}: MaintenanceStateActionProps) => {
-  const dispatch = useDispatch();
-  const actions = getMaintenanceStateActions(row);
+}) => {
+  const transitions = getTransitionActions(row);
+  const isInProgress = row.state === 'In progress';
+  const showCancel = row.state === 'Scheduled' || row.state === 'In progress';
 
-  const updateState = useCallback(
-    async (action: ReturnType<typeof getMaintenanceStateActions>[number]) => {
-      try {
-        await waitForConfirmation(
-          dispatch,
-          translate('Confirmation'),
-          translate(
-            'Are you sure you want to {action} the maintenance announcement?',
-            { action: String(action.label).toLocaleLowerCase() },
-          ),
-          {
-            positiveButton: action.label,
-            negativeButton: translate('Cancel'),
-            iconNode: <action.icon weight="bold" />,
-          },
-        );
-      } catch {
-        return;
-      }
+  if (transitions.length === 0 && !isInProgress && !showCancel) {
+    return null;
+  }
 
-      try {
-        let api;
-        switch (action.key) {
-          case 'start':
-            api = maintenanceAnnouncementsStartMaintenance;
-            break;
-          case 'schedule':
-            api = maintenanceAnnouncementsSchedule;
-            break;
-          case 'unschedule':
-            api = maintenanceAnnouncementsUnschedule;
-            break;
-          case 'complete':
-            api = maintenanceAnnouncementsCompleteMaintenance;
-            break;
-          case 'cancel':
-            api = maintenanceAnnouncementsCancelMaintenance;
-            break;
-        }
-        if (!api) return;
-        await api({ path: { uuid: row.uuid } });
-        dispatch(showSuccess(translate('Maintenance announcement updated')));
-        await refetch();
-      } catch (error) {
-        dispatch(
-          showErrorResponse(
-            error,
-            translate('Unable to update maintenance announcement state.'),
-          ),
-        );
-      }
-    },
-    [row, dispatch, refetch],
+  return (
+    <>
+      {transitions.map((action) => (
+        <MaintenanceActionItem
+          key={action.key}
+          action={action}
+          row={row}
+          refetch={refetch}
+        />
+      ))}
+      {isInProgress && (
+        <>
+          <MaintenanceExtendAction row={row} refetch={refetch} />
+          <MaintenanceEndEarlyAction row={row} refetch={refetch} />
+        </>
+      )}
+      {showCancel && <MaintenanceCancelAction row={row} refetch={refetch} />}
+    </>
   );
-
-  if (!actions) return null;
-
-  return actions.map((action) => (
-    <ActionItem
-      key={action.key}
-      title={action.label}
-      action={() => updateState(action)}
-      iconNode={<action.icon weight="bold" />}
-    />
-  ));
 };

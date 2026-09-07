@@ -2,76 +2,72 @@
  * Organisation-level OpenPortal reports tab.
  */
 
+/* eslint-disable waldur-custom/no-direct-bootstrap-button */
+/* eslint-disable no-console */
 import { useQuery } from '@tanstack/react-query';
-import { Project, projectsList } from 'waldur-js-client';
+import { ChangeEvent, FC, useEffect, useMemo, useState } from 'react';
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  Container,
+  Form,
+  Modal,
+  Row,
+} from 'react-bootstrap';
+import { projectsList } from 'waldur-js-client';
 
-import { getNextPageUrl } from '@waldur/core/api';
-import React, { FC, useMemo, useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
-
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { getNextPageUrl } from '@/core/api';
+import { Badge } from '@/core/Badge';
+import { LoadingErred } from '@/core/LoadingErred';
+import { translate } from '@/i18n';
+import { useCustomer } from '@/workspace/hooks';
 
 import {
-  fetchUsageReports,
-  fetchStorageReports,
   fetchOfferingMapping,
   fetchProjectMapping,
+  fetchStorageReports,
+  fetchUsageReports,
   fetchUserMapping,
   mappingBatchCount,
-  selectUserMappingIds,
 } from './api';
+import type { OpenPortalProject } from './api';
 import {
-  getCached,
-  setCached,
   clearCached,
   clearMappingCache,
-  getCacheAge,
   formatCacheAge,
+  getCacheAge,
+  getCached,
+  setCached,
   TTL,
 } from './localStorageCache';
-import { StageProgress } from './StageProgress';
-import { NameMaps } from './usageChartOptions';
-import { DailyProjectUsageReport, ProjectUsageReport } from './ProjectUsageReport';
 import { ProjectStorageReport } from './ProjectStorageReport';
+import {
+  DailyProjectUsageReport,
+  ProjectUsageReport,
+} from './ProjectUsageReport';
+import {
+  groupByMonth,
+  MAX_USER_MAPPINGS,
+  MONTH_NAMES,
+  ReportPreFilters,
+} from './ReportPreFilters';
+import { StageProgress } from './StageProgress';
 import { StorageReportVis } from './StorageReportVis';
+import { NameMaps } from './usageChartOptions';
 import { UsageReportVis } from './UsageReportVis';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const groupByMonth = <T extends { year: number; month: number }>(
-  items: T[],
-): Record<string, T[]> => {
-  const groups: Record<string, T[]> = {};
-  for (const item of items) {
-    const key = `${item.year}-${String(item.month).padStart(2, '0')}`;
-    groups[key] = [...(groups[key] ?? []), item];
-  }
-  return groups;
-};
-
-const CURRENT_YEAR = new Date().getFullYear();
-const YEAR_OPTIONS = Array.from(
-  { length: CURRENT_YEAR - 2024 + 1 },
-  (_, i) => 2024 + i,
-);
-const MONTH_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-const MAX_USER_MAPPINGS = 100;
-
-// ── Project filter dialog ─────────────────────────────────────────────────────
-
-interface ProjectFilterDialogProps {
-  projects: Project[];
+interface ProjectAutocompleteDialogProps {
+  projects: OpenPortalProject[];
   selected: Set<string>;
   onConfirm: (next: Set<string>) => void;
   onClose: () => void;
 }
 
-const ProjectFilterDialog: FC<ProjectFilterDialogProps> = ({
+const ProjectAutocompleteDialog: FC<ProjectAutocompleteDialogProps> = ({
   projects,
   selected,
   onConfirm,
@@ -86,7 +82,10 @@ const ProjectFilterDialog: FC<ProjectFilterDialogProps> = ({
 
   const visible = useMemo(() => {
     return projects.filter((p) => {
-      if (nameFilter && !p.name.toLowerCase().includes(nameFilter.toLowerCase()))
+      if (
+        nameFilter &&
+        !p.name.toLowerCase().includes(nameFilter.toLowerCase())
+      )
         return false;
       if (startAfter && p.start_date && p.start_date < startAfter) return false;
       if (endBefore && p.end_date && p.end_date > endBefore) return false;
@@ -116,144 +115,163 @@ const ProjectFilterDialog: FC<ProjectFilterDialogProps> = ({
   };
 
   return (
-    <div
-      className="modal fade show"
-      style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="modal-dialog modal-lg modal-dialog-scrollable">
-        <div className="modal-content">
-          <div className="modal-header">
-            <h5 className="modal-title">Select projects</h5>
-            <button type="button" className="btn-close" onClick={onClose} />
-          </div>
-          <div className="modal-body">
-            <div className="row g-2 mb-3">
-              <div className="col-12 col-md-4">
-                <label className="form-label small mb-1">Search</label>
-                <input
-                  type="text"
-                  className="form-control form-control-sm"
-                  placeholder="Filter by name…"
-                  value={nameFilter}
-                  onChange={(e) => setNameFilter(e.target.value)}
-                />
-              </div>
-              <div className="col-6 col-md-4">
-                <label className="form-label small mb-1">Start date — after</label>
-                <input
-                  type="date"
-                  className="form-control form-control-sm"
-                  value={startAfter}
-                  onChange={(e) => setStartAfter(e.target.value)}
-                />
-              </div>
-              <div className="col-6 col-md-4">
-                <label className="form-label small mb-1">End date — before</label>
-                <input
-                  type="date"
-                  className="form-control form-control-sm"
-                  value={endBefore}
-                  onChange={(e) => setEndBefore(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="d-flex align-items-center gap-4 mb-3 flex-wrap">
-              <div className="form-check mb-0">
-                <input
-                  type="checkbox"
-                  className="form-check-input"
-                  id="dlg-showFinished"
-                  checked={showFinished}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setShowFinished(e.target.checked)}
-                />
-                <label className="form-check-label small" htmlFor="dlg-showFinished">Finished</label>
-              </div>
-              <div className="form-check mb-0">
-                <input
-                  type="checkbox"
-                  className="form-check-input"
-                  id="dlg-showInGrace"
-                  checked={showInGrace}
-                  disabled={!showFinished}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setShowInGrace(e.target.checked)}
-                />
-                <label className={`form-check-label small${!showFinished ? ' text-muted' : ''}`} htmlFor="dlg-showInGrace">In grace period</label>
-              </div>
-            </div>
+    <Modal show onHide={onClose} size="lg" scrollable>
+      <Modal.Header closeButton>
+        <Modal.Title>{translate('Select projects')}</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <Row className="g-2 mb-3">
+          <Col xs={12} md={4}>
+            <Form.Label className="small mb-1" htmlFor="dlg-nameFilter">
+              {translate('Search')}
+            </Form.Label>
+            <Form.Control
+              id="dlg-nameFilter"
+              type="text"
+              size="sm"
+              placeholder={translate('Filter by name…')}
+              value={nameFilter}
+              onChange={(e) => setNameFilter(e.target.value)}
+            />
+          </Col>
+          <Col xs={6} md={4}>
+            <Form.Label className="small mb-1" htmlFor="dlg-startAfter">
+              {translate('Start date — after')}
+            </Form.Label>
+            <Form.Control
+              id="dlg-startAfter"
+              type="date"
+              size="sm"
+              value={startAfter}
+              onChange={(e) => setStartAfter(e.target.value)}
+            />
+          </Col>
+          <Col xs={6} md={4}>
+            <Form.Label className="small mb-1" htmlFor="dlg-endBefore">
+              {translate('End date — before')}
+            </Form.Label>
+            <Form.Control
+              id="dlg-endBefore"
+              type="date"
+              size="sm"
+              value={endBefore}
+              onChange={(e) => setEndBefore(e.target.value)}
+            />
+          </Col>
+        </Row>
+        <div className="d-flex align-items-center gap-4 mb-3 flex-wrap">
+          <Form.Check
+            id="dlg-showFinished"
+            className="mb-0"
+            label={translate('Finished')}
+            checked={showFinished}
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setShowFinished(e.target.checked)
+            }
+          />
+          <Form.Check
+            id="dlg-showInGrace"
+            className="mb-0"
+            label={translate('In grace period')}
+            checked={showInGrace}
+            disabled={!showFinished}
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setShowInGrace(e.target.checked)
+            }
+          />
+        </div>
 
-            <div className="d-flex align-items-center gap-2 mb-2">
-              <input
-                type="checkbox"
-                className="form-check-input"
-                checked={allVisibleSelected && visible.length > 0}
-                onChange={toggleAll}
-                id="select-all-visible"
-              />
-              <label htmlFor="select-all-visible" className="form-check-label small">
-                {allVisibleSelected ? 'Deselect' : 'Select'} all visible ({visible.length})
-              </label>
-              <span className="ms-auto text-muted small">
-                {draft.size} of {projects.length} selected
-              </span>
-            </div>
-            <div style={{ maxHeight: 320, overflowY: 'auto' }} className="border rounded p-2">
-              {visible.length === 0 && (
-                <p className="text-muted small mb-0 p-2">No projects match the filters.</p>
-              )}
-              {visible.map((p) => (
-                <div key={p.uuid} className="d-flex align-items-start gap-2 py-1">
-                  <input
-                    type="checkbox"
-                    className="form-check-input mt-1"
-                    checked={draft.has(p.uuid)}
-                    onChange={() => toggle(p.uuid)}
-                    id={`proj-${p.uuid}`}
-                  />
-                  <label
-                    htmlFor={`proj-${p.uuid}`}
-                    className="form-check-label flex-grow-1"
-                    style={{ cursor: 'pointer' }}
-                  >
+        <div className="d-flex align-items-center gap-2 mb-2">
+          <Form.Check
+            id="select-all-visible"
+            checked={allVisibleSelected && visible.length > 0}
+            onChange={toggleAll}
+            label={translate('{select} all visible ({count})', {
+              select: allVisibleSelected
+                ? translate('Deselect')
+                : translate('Select'),
+              count: visible.length,
+            })}
+          />
+          <span className="ms-auto text-muted small">
+            {translate('{count} of {total} selected', {
+              count: draft.size,
+              total: projects.length,
+            })}
+          </span>
+        </div>
+        <div
+          style={{ maxHeight: 320, overflowY: 'auto' }}
+          className="border rounded p-2"
+        >
+          {visible.length === 0 && (
+            <p className="text-muted small mb-0 p-2">
+              {translate('No projects match the filters.')}
+            </p>
+          )}
+          {visible.map((p) => (
+            <div key={p.uuid} className="d-flex align-items-start gap-2 py-1">
+              <Form.Check
+                id={`proj-${p.uuid}`}
+                className="mt-1"
+                checked={draft.has(p.uuid)}
+                onChange={() => toggle(p.uuid)}
+                label={
+                  <span className="flex-grow-1" style={{ cursor: 'pointer' }}>
                     <span className="fw-semibold">{p.name}</span>
                     {(p.start_date || p.end_date) && (
                       <span className="text-muted small ms-2">
-                        {p.start_date ?? '?'} → {p.end_date ?? 'ongoing'}
+                        {p.start_date ?? '?'} →{' '}
+                        {p.end_date ?? translate('ongoing')}
                       </span>
                     )}
                     {p.is_in_grace_period && (
-                      <span className="badge bg-warning text-dark ms-2" style={{ fontSize: '0.7em' }}>In grace</span>
+                      <Badge
+                        variant="warning"
+                        outline
+                        className="ms-2"
+                        style={{ fontSize: '0.7em' }}
+                      >
+                        {translate('In grace')}
+                      </Badge>
                     )}
                     {p.is_expired && !p.is_in_grace_period && (
-                      <span className="badge bg-secondary ms-2" style={{ fontSize: '0.7em' }}>Finished</span>
+                      <Badge
+                        variant="default"
+                        outline
+                        className="ms-2"
+                        style={{ fontSize: '0.7em' }}
+                      >
+                        {translate('Finished')}
+                      </Badge>
                     )}
-                  </label>
-                </div>
-              ))}
+                  </span>
+                }
+              />
             </div>
-          </div>
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={() => onConfirm(draft)}
-            >
-              Apply ({draft.size} project{draft.size !== 1 ? 's' : ''})
-            </button>
-          </div>
+          ))}
         </div>
-      </div>
-    </div>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" size="sm" onClick={onClose}>
+          {translate('Cancel')}
+        </Button>
+        <Button variant="primary" size="sm" onClick={() => onConfirm(draft)}>
+          {translate('Apply ({count} {project})', {
+            count: draft.size,
+            project:
+              draft.size !== 1 ? translate('projects') : translate('project'),
+          })}
+        </Button>
+      </Modal.Footer>
+    </Modal>
   );
 };
 
 // ── Main tab ──────────────────────────────────────────────────────────────────
 
 export const OrganisationReportsTab: FC = () => {
-  const customer = useSelector(getCustomer);
+  const customer = useCustomer();
   const [loadTriggered, setLoadTriggered] = useState(false);
   const [showLoadPrompt, setShowLoadPrompt] = useState(true);
 
@@ -277,7 +295,11 @@ export const OrganisationReportsTab: FC = () => {
   const [showSlowWarning, setShowSlowWarning] = useState(false);
 
   // ── Stage 1: Fetch all projects ──────────────────────────────────────────
-  const [projectProgress, setProjectProgress] = useState({ done: 0, total: 0, statusMsg: '' });
+  const [projectProgress, setProjectProgress] = useState({
+    done: 0,
+    total: 0,
+    statusMsg: '',
+  });
 
   const {
     data: projects,
@@ -285,7 +307,18 @@ export const OrganisationReportsTab: FC = () => {
     error: projectsError,
     refetch: refetchProjects,
   } = useQuery({
-    queryKey: ['openportal-org-projects', customer?.uuid, projectSearch, projectStartAfter, projectEndBefore, filterYear, filterMonth, includeFinished, includeInGrace, 'terminated'],
+    queryKey: [
+      'openportal-org-projects',
+      customer?.uuid,
+      projectSearch,
+      projectStartAfter,
+      projectEndBefore,
+      filterYear,
+      filterMonth,
+      includeFinished,
+      includeInGrace,
+      'terminated',
+    ],
     queryFn: async () => {
       const activeDuring = filterYear
         ? filterMonth
@@ -293,12 +326,16 @@ export const OrganisationReportsTab: FC = () => {
           : String(filterYear)
         : '';
       const cacheKey = `org-projects-${customer!.uuid}-${projectSearch}-${projectStartAfter}-${projectEndBefore}-${activeDuring}-${includeFinished}-${includeInGrace}-include_terminated`;
-      const cached = getCached<Project[]>(cacheKey, TTL.LISTS);
+      const cached = getCached<OpenPortalProject[]>(cacheKey, TTL.LISTS);
       if (cached) return cached;
-      let allProjects: Project[] = [];
+      let allProjects: OpenPortalProject[] = [];
       let page = 1;
       let totalPages: number | undefined;
-      setProjectProgress({ done: 0, total: 0, statusMsg: 'Starting…' });
+      setProjectProgress({
+        done: 0,
+        total: 0,
+        statusMsg: translate('Starting…'),
+      });
       while (true) {
         const result = await projectsList({
           query: {
@@ -308,7 +345,9 @@ export const OrganisationReportsTab: FC = () => {
             page,
             include_terminated: true,
             ...(projectSearch ? { query: projectSearch } : {}),
-            ...(projectStartAfter ? { start_date_after: projectStartAfter } : {}),
+            ...(projectStartAfter
+              ? { start_date_after: projectStartAfter }
+              : {}),
             ...(projectEndBefore ? { end_date_before: projectEndBefore } : {}),
             ...(activeDuring ? { active_during: activeDuring } : {}),
             ...(!includeFinished ? { ended: false } : {}),
@@ -324,8 +363,11 @@ export const OrganisationReportsTab: FC = () => {
           done: page,
           total: totalPages ?? 0,
           statusMsg: totalPages
-            ? `Downloading page ${page} of ${totalPages}`
-            : `Downloading page ${page}…`,
+            ? translate('Downloading page {page} of {totalPages}', {
+                page,
+                totalPages,
+              })
+            : translate('Downloading page {page}…', { page }),
         });
         if (!getNextPageUrl(result.response)) break;
         page++;
@@ -343,10 +385,21 @@ export const OrganisationReportsTab: FC = () => {
     () => new Set((projects ?? []).map((p) => p.uuid)),
     [projects],
   );
-  const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
+  const [selectedProjects, setSelectedProjects] = useState<Set<string>>(
+    new Set(),
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
-  const effectiveSelected = selectedProjects.size > 0 ? selectedProjects : allProjectUuids;
-  const selectedUuids = useMemo(() => [...effectiveSelected], [effectiveSelected]);
+  const effectiveSelected =
+    selectedProjects.size > 0 ? selectedProjects : allProjectUuids;
+  const selectedUuids = useMemo(
+    () => [...effectiveSelected],
+    [effectiveSelected],
+  );
+
+  const projectsCacheAge =
+    !projectsLoading && customer
+      ? getCacheAge(`org-projects-${customer.uuid}`)
+      : null;
 
   // ── Stage 2: Fetch reports ───────────────────────────────────────────────
   const [fetchProgress, setFetchProgress] = useState({ done: 0, total: 0 });
@@ -357,14 +410,28 @@ export const OrganisationReportsTab: FC = () => {
     error: reportsError,
     refetch: refetchReports,
   } = useQuery({
-    queryKey: ['openportal-org-reports', customer?.uuid, selectedUuids, filterYear, filterMonth],
+    queryKey: [
+      'openportal-org-reports',
+      customer?.uuid,
+      selectedUuids,
+      filterYear,
+      filterMonth,
+    ],
     queryFn: async () => {
       setFetchProgress({ done: 0, total: selectedUuids.length });
       const results = await Promise.all(
         selectedUuids.map(async (uuid) => {
           const [usage, storage] = await Promise.all([
-            fetchUsageReports({ project_uuid: uuid, year: filterYear, month: filterMonth }),
-            fetchStorageReports({ project_uuid: uuid, year: filterYear, month: filterMonth }),
+            fetchUsageReports({
+              project_uuid: uuid,
+              year: filterYear,
+              month: filterMonth,
+            }),
+            fetchStorageReports({
+              project_uuid: uuid,
+              year: filterYear,
+              month: filterMonth,
+            }),
           ]);
           setFetchProgress((prev) => ({ ...prev, done: prev.done + 1 }));
           return [usage, storage] as const;
@@ -384,8 +451,14 @@ export const OrganisationReportsTab: FC = () => {
   const allStorage = reportData?.storage ?? [];
 
   // ── Stage 3: Fetch name mappings ─────────────────────────────────────────
-  const [mappingsProgress, setMappingsProgress] = useState({ done: 0, total: 0, statusMsg: '' });
-  const [mapsResult, setMapsResult] = useState<{ maps: NameMaps; truncatedUserCount: number } | undefined>(undefined);
+  const [mappingsProgress, setMappingsProgress] = useState({
+    done: 0,
+    total: 0,
+    statusMsg: '',
+  });
+  const [mapsResult, setMapsResult] = useState<
+    { maps: NameMaps; truncatedUserCount: number } | undefined
+  >(undefined);
   const [mappingsLoading, setMappingsLoading] = useState(false);
 
   useEffect(() => {
@@ -420,13 +493,21 @@ export const OrganisationReportsTab: FC = () => {
         // otherwise it is a unix username (local report) — use the UserIdentifier (key).
         const uidToLookupId: Record<string, string> = {};
         for (const r of usageReports) {
-          for (const [uid, localOrEmail] of Object.entries(r.users) as [string, string][]) {
-            uidToLookupId[uid] = localOrEmail.includes('@') ? localOrEmail : uid;
+          for (const [uid, localOrEmail] of Object.entries(r.users) as [
+            string,
+            string,
+          ][]) {
+            uidToLookupId[uid] = localOrEmail.includes('@')
+              ? localOrEmail
+              : uid;
           }
         }
         // Reverse map so we can key nameMaps.user by UserIdentifier after the fetch.
         const lookupIdToUid: Record<string, string> = Object.fromEntries(
-          Object.entries(uidToLookupId).map(([uid, lookupId]) => [lookupId, uid]),
+          Object.entries(uidToLookupId).map(([uid, lookupId]) => [
+            lookupId,
+            uid,
+          ]),
         );
 
         const allUserIds = Object.keys(uidToLookupId);
@@ -443,22 +524,32 @@ export const OrganisationReportsTab: FC = () => {
         const usersWithUsage = allUserIds
           .filter((uid) => (usageByUid[uid] ?? 0) > 0)
           .sort((a, b) => (usageByUid[b] ?? 0) - (usageByUid[a] ?? 0));
-        const candidateLookupIds = usersWithUsage.map((uid) => uidToLookupId[uid] ?? uid);
-        const { ids: lookupIdsCapped, truncatedCount: truncatedUserCount } = loadAllUserMappings
-          ? { ids: candidateLookupIds, truncatedCount: 0 }
-          : selectUserMappingIds(candidateLookupIds, MAX_USER_MAPPINGS);
+        const userIdsCapped = loadAllUserMappings
+          ? usersWithUsage
+          : usersWithUsage.slice(0, MAX_USER_MAPPINGS);
+        const usersMappingsTruncated =
+          !loadAllUserMappings && usersWithUsage.length > MAX_USER_MAPPINGS;
+        const lookupIdsCapped = userIdsCapped.map(
+          (uid) => uidToLookupId[uid] ?? uid,
+        );
 
         // Find email identifiers that appear in daily reports but have no entry in
         // report.users (i.e. no UserIdentifier maps to them). These are unmapped
         // remote users — we can still look them up by email and store the result
         // keyed by email in nameMaps.user.
         const mappedLocalIds = new Set<string>(
-          usageReports.flatMap((r: ProjectUsageReport) => Object.values(r.users) as string[]),
+          usageReports.flatMap(
+            (r: ProjectUsageReport) => Object.values(r.users) as string[],
+          ),
         );
         const unmappedEmailIds = [
           ...new Set<string>(
             usageReports.flatMap((r: ProjectUsageReport) =>
-              r.localUsers().filter((u: string) => !mappedLocalIds.has(u) && u.includes('@')),
+              r
+                .localUsers()
+                .filter(
+                  (u: string) => !mappedLocalIds.has(u) && u.includes('@'),
+                ),
             ),
           ),
         ];
@@ -470,42 +561,101 @@ export const OrganisationReportsTab: FC = () => {
         const total = ob + pb + ub;
         let cum = 0;
 
-        console.debug('[OpenPortal org] mappings start:', { offerings: offeringIds.length, projects: projectIds.length, users: allLookupIds.length, total });
-        setMappingsProgress({ done: 0, total, statusMsg: 'Offering names…' });
+        console.debug('[OpenPortal org] mappings start:', {
+          offerings: offeringIds.length,
+          projects: projectIds.length,
+          users: allLookupIds.length,
+          total,
+        });
+        setMappingsProgress({
+          done: 0,
+          total,
+          statusMsg: translate('Offering names…'),
+        });
 
         const offerings = await fetchOfferingMapping(offeringIds, (done) => {
           if (cancelled) return;
           cum = done;
-          setMappingsProgress({ done: cum, total, statusMsg: `Offering names — ${done} of ${ob}` });
+          setMappingsProgress({
+            done: cum,
+            total,
+            statusMsg: translate('Offering names — {done} of {total}', {
+              done,
+              total: ob,
+            }),
+          });
         });
         if (cancelled) return;
         cum = ob;
-        setMappingsProgress({ done: cum, total, statusMsg: 'Project names…' });
+        setMappingsProgress({
+          done: cum,
+          total,
+          statusMsg: translate('Project names…'),
+        });
 
         const projMaps = await fetchProjectMapping(projectIds, (done) => {
           if (cancelled) return;
           cum = ob + done;
-          setMappingsProgress({ done: cum, total, statusMsg: `Project names — ${done} of ${pb}` });
+          setMappingsProgress({
+            done: cum,
+            total,
+            statusMsg: translate('Project names — {done} of {total}', {
+              done,
+              total: pb,
+            }),
+          });
         });
         if (cancelled) return;
         cum = ob + pb;
-        setMappingsProgress({ done: cum, total, statusMsg: 'User names…' });
+        setMappingsProgress({
+          done: cum,
+          total,
+          statusMsg: translate('User names…'),
+        });
 
         const users = await fetchUserMapping(allLookupIds, (done) => {
           if (cancelled) return;
           cum = ob + pb + done;
-          setMappingsProgress({ done: cum, total, statusMsg: `User names — ${done} of ${ub}` });
+          setMappingsProgress({
+            done: cum,
+            total,
+            statusMsg: translate('User names — {done} of {total}', {
+              done,
+              total: ub,
+            }),
+          });
         });
         if (cancelled) return;
 
-        console.debug('[OpenPortal org] mappings done:', { offerings: Object.keys(offerings).length, projects: Object.keys(projMaps).length, users: Object.keys(users).length });
+        console.debug('[OpenPortal org] mappings done:', {
+          offerings: Object.keys(offerings).length,
+          projects: Object.keys(projMaps).length,
+          users: Object.keys(users).length,
+        });
 
         const maps = {
-          offering: Object.fromEntries(Object.entries(offerings).filter(([, v]) => v != null).map(([k, v]) => [k, v.name])),
-          project: Object.fromEntries(Object.entries(projMaps).filter(([, v]) => v != null).map(([k, v]) => [k, v.name])),
-          user: Object.fromEntries(Object.entries(users).filter(([, v]) => v != null).map(([k, v]) => [lookupIdToUid[k] ?? k, v.full_name])),
+          offering: Object.fromEntries(
+            Object.entries(offerings)
+              .filter(([, v]) => v != null)
+              .map(([k, v]) => [k, v.name]),
+          ),
+          project: Object.fromEntries(
+            Object.entries(projMaps)
+              .filter(([, v]) => v != null)
+              .map(([k, v]) => [k, v.name]),
+          ),
+          user: Object.fromEntries(
+            Object.entries(users)
+              .filter(([, v]) => v != null)
+              .map(([k, v]) => [lookupIdToUid[k] ?? k, v.full_name]),
+          ),
         } as NameMaps;
-        setMapsResult({ maps, truncatedUserCount });
+        setMapsResult({
+          maps,
+          truncatedUserCount: usersMappingsTruncated
+            ? usersWithUsage.length - MAX_USER_MAPPINGS
+            : 0,
+        });
       } catch (err) {
         console.error('[OpenPortal org] mapping error:', err);
       } finally {
@@ -513,8 +663,10 @@ export const OrganisationReportsTab: FC = () => {
       }
     };
     run();
-    return () => { cancelled = true; };
-  }, [reportData, loadAllUserMappings]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true;
+    };
+  }, [reportData, loadAllUserMappings]);
 
   const nameMaps = mapsResult?.maps;
   const usersTruncatedCount = mapsResult?.truncatedUserCount ?? 0;
@@ -523,7 +675,13 @@ export const OrganisationReportsTab: FC = () => {
   const resourceConsumption = useMemo(() => {
     const totals: Record<string, number> = {};
     for (const r of allUsage) {
-      const sec = r.dailyReports().reduce((sum: number, d: DailyProjectUsageReport) => sum + d.totalUsage().seconds, 0);
+      const sec = r
+        .dailyReports()
+        .reduce(
+          (sum: number, d: DailyProjectUsageReport) =>
+            sum + d.totalUsage().seconds,
+          0,
+        );
       totals[r.resource] = (totals[r.resource] ?? 0) + sec;
     }
     return totals;
@@ -538,7 +696,10 @@ export const OrganisationReportsTab: FC = () => {
         ]),
       ]
         .filter((resource) => (resourceConsumption[resource] ?? 0) > 0)
-        .sort((a, b) => (resourceConsumption[b] ?? 0) - (resourceConsumption[a] ?? 0)),
+        .sort(
+          (a, b) =>
+            (resourceConsumption[b] ?? 0) - (resourceConsumption[a] ?? 0),
+        ),
     [allUsage, allStorage, resourceConsumption],
   );
 
@@ -547,8 +708,12 @@ export const OrganisationReportsTab: FC = () => {
     ? selectedResource
     : (allResources[0] ?? '');
 
-  const usageForResource = allUsage.filter((r) => r.resource === activeResource);
-  const storageForResource = allStorage.filter((r) => r.resource === activeResource);
+  const usageForResource = allUsage.filter(
+    (r) => r.resource === activeResource,
+  );
+  const storageForResource = allStorage.filter(
+    (r) => r.resource === activeResource,
+  );
 
   // ── Month filter ─────────────────────────────────────────────────────────
   const usageByMonth = groupByMonth(usageForResource);
@@ -562,19 +727,22 @@ export const OrganisationReportsTab: FC = () => {
   const [selectedMonth, setSelectedMonth] = useState('all');
 
   const activeUsage: ProjectUsageReport[] =
-    selectedMonth === 'all' ? usageForResource : (usageByMonth[selectedMonth] ?? []);
+    selectedMonth === 'all'
+      ? usageForResource
+      : (usageByMonth[selectedMonth] ?? []);
   const activeStorage: ProjectStorageReport[] =
-    selectedMonth === 'all' ? storageForResource : (storageByMonth[selectedMonth] ?? []);
+    selectedMonth === 'all'
+      ? storageForResource
+      : (storageByMonth[selectedMonth] ?? []);
 
   // ── Current loading stage ────────────────────────────────────────────────
-  const loadingStage =
-    projectsLoading
-      ? 1
-      : reportsLoading
-        ? 2
-        : mappingsLoading
-          ? 3
-          : 0;
+  const loadingStage = projectsLoading
+    ? 1
+    : reportsLoading
+      ? 2
+      : mappingsLoading
+        ? 3
+        : 0;
 
   // ── Slow-load warning timer ──────────────────────────────────────────────
   useEffect(() => {
@@ -588,30 +756,36 @@ export const OrganisationReportsTab: FC = () => {
   }, [projectsLoading, reportsLoading, loadingStage]);
 
   return (
-    <div className="container-fluid py-4">
+    <Container fluid className="py-4">
       {/* ── Toolbar ──────────────────────────────────────────────────── */}
       <div className="d-flex align-items-center gap-3 mb-4 flex-wrap">
-        <h4 className="mb-0">Usage Report</h4>
+        <h4 className="mb-0">{translate('Usage Report')}</h4>
 
         {projects && projects.length > 0 && (
           <div className="d-flex align-items-center gap-2">
             <span className="text-muted small">
-              {effectiveSelected.size} of {projects.length} project
-              {projects.length !== 1 ? 's' : ''} selected
+              {translate('{count} of {total} {project} selected', {
+                count: effectiveSelected.size,
+                total: projects.length,
+                project:
+                  projects.length !== 1
+                    ? translate('projects')
+                    : translate('project'),
+              })}
             </span>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
+            <Button
+              variant="primary"
+              size="sm"
               onClick={() => setDialogOpen(true)}
             >
-              Filter selected projects
-            </button>
+              {translate('Filter selected projects')}
+            </Button>
           </div>
         )}
 
         {allResources.length > 1 && (
-          <select
-            className="form-select form-select-sm"
+          <Form.Select
+            size="sm"
             style={{ width: 'auto' }}
             value={activeResource}
             onChange={(e) => {
@@ -624,17 +798,17 @@ export const OrganisationReportsTab: FC = () => {
                 {nameMaps?.offering?.[r] ?? r}
               </option>
             ))}
-          </select>
+          </Form.Select>
         )}
 
         {allMonths.length > 0 && (
-          <select
-            className="form-select form-select-sm"
+          <Form.Select
+            size="sm"
             style={{ width: 'auto' }}
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
           >
-            <option value="all">All time</option>
+            <option value="all">{translate('All time')}</option>
             {allMonths.map((m) => {
               const [y, mo] = m.split('-');
               return (
@@ -643,160 +817,140 @@ export const OrganisationReportsTab: FC = () => {
                 </option>
               );
             })}
-          </select>
+          </Form.Select>
         )}
 
-        {loadTriggered && <div className="ms-auto d-flex align-items-center gap-2">
-          {(() => {
-            const age = customer ? getCacheAge(`org-projects-${customer.uuid}`) : null;
-            return age ? (
-              <span className="text-muted small">Cached {formatCacheAge(age)}</span>
-            ) : null;
-          })()}
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => {
-              clearMappingCache();
-              if (customer) {
-                clearCached(
-                  `org-projects-${customer.uuid}`,
-                );
-              }
-              refetchProjects();
-              if (loadTriggered) refetchReports();
-            }}
-          >
-            Refresh
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => setShowLoadPrompt(true)}
-          >
-            Load new data…
-          </button>
-        </div>}
+        {loadTriggered && (
+          <div className="ms-auto d-flex align-items-center gap-2">
+            {projectsCacheAge && (
+              <span className="text-muted small">
+                {translate('Cached {age}', {
+                  age: formatCacheAge(projectsCacheAge),
+                })}
+              </span>
+            )}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                clearMappingCache();
+                if (customer) {
+                  clearCached(`org-projects-${customer.uuid}`);
+                }
+                refetchProjects();
+                if (loadTriggered) refetchReports();
+              }}
+            >
+              {translate('Refresh')}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowLoadPrompt(true)}
+            >
+              {translate('Load new data…')}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* ── Load prompt ──────────────────────────────────────────────── */}
       {showLoadPrompt && !projectsLoading && !reportsLoading && (
-        <div className="card mb-4">
-          <div className="card-body">
-            <p className="mb-2 fw-semibold">Usage reports not yet loaded</p>
+        <Card className="mb-4">
+          <Card.Body>
+            <p className="mb-2 fw-semibold">
+              {translate('Usage reports not yet loaded')}
+            </p>
 
             {/* Project pre-filters */}
-            <div className="row g-2 mb-3">
-              <div className="col-12 col-md-4">
-                <label className="form-label small mb-1">Project search</label>
-                <input
+            <Row className="g-2 mb-3">
+              <Col xs={12} md={4}>
+                <Form.Label className="small mb-1" htmlFor="projectSearch">
+                  {translate('Project search')}
+                </Form.Label>
+                <Form.Control
+                  id="projectSearch"
                   type="text"
-                  className="form-control form-control-sm"
-                  placeholder="Name search (applied at load time)…"
+                  size="sm"
+                  placeholder={translate('Name search (applied at load time)…')}
                   value={projectSearch}
                   onChange={(e) => setProjectSearch(e.target.value)}
                 />
-              </div>
-              <div className="col-6 col-md-4">
-                <label className="form-label small mb-1">Started after</label>
-                <input
+              </Col>
+              <Col xs={6} md={4}>
+                <Form.Label className="small mb-1" htmlFor="projectStartAfter">
+                  {translate('Started after')}
+                </Form.Label>
+                <Form.Control
+                  id="projectStartAfter"
                   type="date"
-                  className="form-control form-control-sm"
+                  size="sm"
                   value={projectStartAfter}
                   onChange={(e) => setProjectStartAfter(e.target.value)}
                 />
-              </div>
-              <div className="col-6 col-md-4">
-                <label className="form-label small mb-1">Ended before</label>
-                <input
+              </Col>
+              <Col xs={6} md={4}>
+                <Form.Label className="small mb-1" htmlFor="projectEndBefore">
+                  {translate('Ended before')}
+                </Form.Label>
+                <Form.Control
+                  id="projectEndBefore"
                   type="date"
-                  className="form-control form-control-sm"
+                  size="sm"
                   value={projectEndBefore}
                   onChange={(e) => setProjectEndBefore(e.target.value)}
                 />
-              </div>
-            </div>
+              </Col>
+            </Row>
 
             {/* Project status checkboxes */}
             <div className="d-flex align-items-center gap-4 mb-3 flex-wrap">
-              <div className="form-check mb-0">
-                <input
-                  type="checkbox"
-                  className="form-check-input"
-                  id="includeFinished"
-                  checked={includeFinished}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIncludeFinished(e.target.checked)}
-                />
-                <label className="form-check-label small" htmlFor="includeFinished">Finished</label>
-              </div>
-              <div className="form-check mb-0">
-                <input
-                  type="checkbox"
-                  className="form-check-input"
-                  id="includeInGrace"
-                  checked={includeInGrace}
-                  disabled={!includeFinished}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIncludeInGrace(e.target.checked)}
-                />
-                <label className={`form-check-label small${!includeFinished ? ' text-muted' : ''}`} htmlFor="includeInGrace">In grace period</label>
-              </div>
+              <Form.Check
+                id="includeFinished"
+                className="mb-0"
+                label={translate('Finished')}
+                checked={includeFinished}
+                onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  setIncludeFinished(e.target.checked)
+                }
+              />
+              <Form.Check
+                id="includeInGrace"
+                className="mb-0"
+                label={translate('In grace period')}
+                checked={includeInGrace}
+                disabled={!includeFinished}
+                onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  setIncludeInGrace(e.target.checked)
+                }
+              />
             </div>
 
-            {/* Year / Month pre-filters */}
-            <div className="d-flex align-items-center gap-3 mb-3 flex-wrap">
-              <div>
-                <label className="form-label small mb-1">Year</label>
-                <select
-                  className="form-select form-select-sm"
-                  style={{ width: 'auto' }}
-                  value={filterYear ?? ''}
-                  onChange={(e) =>
-                    setFilterYear(e.target.value ? Number(e.target.value) : undefined)
-                  }
-                >
-                  <option value="">All years</option>
-                  {YEAR_OPTIONS.map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="form-label small mb-1">Month</label>
-                <select
-                  className="form-select form-select-sm"
-                  style={{ width: 'auto' }}
-                  value={filterMonth ?? ''}
-                  onChange={(e) =>
-                    setFilterMonth(e.target.value ? Number(e.target.value) : undefined)
-                  }
-                >
-                  <option value="">All months</option>
-                  {MONTH_OPTIONS.map((m) => (
-                    <option key={m} value={m}>
-                      {MONTH_NAMES[m - 1]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            <ReportPreFilters
+              year={filterYear}
+              month={filterMonth}
+              onYearChange={setFilterYear}
+              onMonthChange={setFilterMonth}
+            />
 
             <p className="text-muted small mb-3">
-              Fetches reports for each project in parallel — this may take 15–30 seconds for large
-              organisations. Tip: selecting a year or month limits projects to those active during
-              that period, which is usually the fastest way to narrow the load for large organisations.
+              {translate(
+                'Fetches reports for each project in parallel — this may take 15–30 seconds for large organisations. Tip: selecting a year or month limits projects to those active during that period, which is usually the fastest way to narrow the load for large organisations.',
+              )}
             </p>
 
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={() => { setLoadTriggered(true); setShowLoadPrompt(false); }}
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                setLoadTriggered(true);
+                setShowLoadPrompt(false);
+              }}
             >
-              Load reports
-            </button>
-          </div>
-        </div>
+              {translate('Load reports')}
+            </Button>
+          </Card.Body>
+        </Card>
       )}
 
       {/* ── Progress bar ─────────────────────────────────────────────── */}
@@ -804,7 +958,7 @@ export const OrganisationReportsTab: FC = () => {
         <StageProgress
           stage={1}
           total={3}
-          label="Loading project list"
+          label={translate('Loading project list')}
           done={projectProgress.done}
           max={projectProgress.total}
           statusMsg={projectProgress.statusMsg || undefined}
@@ -814,7 +968,7 @@ export const OrganisationReportsTab: FC = () => {
         <StageProgress
           stage={2}
           total={3}
-          label="Loading reports"
+          label={translate('Loading reports')}
           done={fetchProgress.done}
           max={fetchProgress.total}
         />
@@ -823,7 +977,7 @@ export const OrganisationReportsTab: FC = () => {
         <StageProgress
           stage={3}
           total={3}
-          label="Loading name mappings"
+          label={translate('Loading name mappings')}
           done={mappingsProgress.done}
           max={mappingsProgress.total}
           statusMsg={mappingsProgress.statusMsg || undefined}
@@ -832,30 +986,41 @@ export const OrganisationReportsTab: FC = () => {
 
       {/* ── Slow-load warning ────────────────────────────────────────── */}
       {showSlowWarning && (
-        <div className="alert alert-warning d-flex align-items-start gap-3 mb-3">
+        <Alert
+          variant="warning"
+          className="d-flex align-items-start gap-3 mb-3"
+        >
           <div className="flex-grow-1">
-            <strong>This is taking a while.</strong>
+            <strong>{translate('This is taking a while.')}</strong>
             <div className="small mt-1">
-              To speed things up: use a specific year/month filter, or search for fewer projects when loading.
-              Large datasets with many users and projects take longer to process.
+              {translate(
+                'To speed things up: use a specific year/month filter, or search for fewer projects when loading. Large datasets with many users and projects take longer to process.',
+              )}
             </div>
           </div>
-          <button
-            type="button"
-            className="btn btn-warning btn-sm flex-shrink-0"
+          <Button
+            variant="warning"
+            size="sm"
+            className="flex-shrink-0"
             onClick={() => window.location.reload()}
           >
-            Cancel &amp; reload
-          </button>
-        </div>
+            {translate('Cancel & reload')}
+          </Button>
+        </Alert>
       )}
 
       {/* ── Errors ───────────────────────────────────────────────────── */}
       {projectsError && (
-        <LoadingErred message="Failed to load projects" loadData={refetchProjects} />
+        <LoadingErred
+          message={translate('Failed to load projects')}
+          loadData={refetchProjects}
+        />
       )}
       {reportsError && (
-        <LoadingErred message="Failed to load reports" loadData={refetchReports} />
+        <LoadingErred
+          message={translate('Failed to load reports')}
+          loadData={refetchReports}
+        />
       )}
 
       {loadTriggered &&
@@ -867,51 +1032,80 @@ export const OrganisationReportsTab: FC = () => {
         allStorage.length === 0 &&
         selectedUuids.length > 0 && (
           <p className="text-muted">
-            No OpenPortal reports found for the selected projects.
+            {translate(
+              'No OpenPortal reports found for the selected projects.',
+            )}
           </p>
         )}
 
       {/* ── Truncated user mapping notice ────────────────────────────── */}
       {usersTruncatedCount > 0 && nameMaps !== undefined && (
-        <div className="alert alert-info d-flex align-items-center gap-2 mb-3 py-2">
+        <Alert
+          variant="info"
+          className="d-flex align-items-center gap-2 mb-3 py-2"
+        >
           <small>
-            User names shown for top {MAX_USER_MAPPINGS} users by usage only.{' '}
-            {usersTruncatedCount} more user{usersTruncatedCount !== 1 ? 's' : ''} not mapped.
+            {translate(
+              'User names shown for top {max} users by usage only. {count} more {user} not mapped.',
+              {
+                max: MAX_USER_MAPPINGS,
+                count: usersTruncatedCount,
+                user:
+                  usersTruncatedCount !== 1
+                    ? translate('users')
+                    : translate('user'),
+              },
+            )}
           </small>
-          <button
-            type="button"
-            className="btn btn-sm btn-outline-primary ms-auto"
+          <Button
+            variant="tertiary"
+            size="sm"
+            className="ms-auto"
             onClick={() => {
               setLoadAllUserMappings(true);
             }}
           >
-            Load all user names
-          </button>
-        </div>
+            {translate('Load all user names')}
+          </Button>
+        </Alert>
       )}
 
       {/* ── Charts ───────────────────────────────────────────────────── */}
       {activeUsage.length > 0 && nameMaps !== undefined && !showLoadPrompt && (
-        <div className="card mb-4">
-          <div className="card-header fw-semibold">Usage</div>
-          <div className="card-body">
-            <UsageReportVis reports={activeUsage} height="400px" nameMaps={nameMaps} />
-          </div>
-        </div>
+        <Card className="mb-4">
+          <Card.Header className="fw-semibold">
+            {translate('Usage')}
+          </Card.Header>
+          <Card.Body>
+            <UsageReportVis
+              reports={activeUsage}
+              height="400px"
+              nameMaps={nameMaps}
+            />
+          </Card.Body>
+        </Card>
       )}
 
-      {activeStorage.length > 0 && nameMaps !== undefined && !showLoadPrompt && (
-        <div className="card mb-4">
-          <div className="card-header fw-semibold">Storage</div>
-          <div className="card-body">
-            <StorageReportVis reports={activeStorage} height="360px" nameMaps={nameMaps} />
-          </div>
-        </div>
-      )}
+      {activeStorage.length > 0 &&
+        nameMaps !== undefined &&
+        !showLoadPrompt && (
+          <Card className="mb-4">
+            <Card.Header className="fw-semibold">
+              {translate('Storage')}
+            </Card.Header>
+            <Card.Body>
+              <StorageReportVis
+                reports={activeStorage}
+                height="360px"
+                nameMaps={nameMaps}
+              />
+            </Card.Body>
+          </Card>
+        )}
 
       {/* ── Project filter dialog ─────────────────────────────────────── */}
       {dialogOpen && projects && (
-        <ProjectFilterDialog
+        <ProjectAutocompleteDialog
           projects={projects}
           selected={effectiveSelected}
           onConfirm={(next) => {
@@ -922,6 +1116,6 @@ export const OrganisationReportsTab: FC = () => {
           onClose={() => setDialogOpen(false)}
         />
       )}
-    </div>
+    </Container>
   );
 };

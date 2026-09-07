@@ -1,107 +1,58 @@
-import { useCallback, useState } from 'react';
-import { useDispatch } from 'react-redux';
+import { useMutation } from '@tanstack/react-query';
+import { useCallback } from 'react';
 import {
-  proposalProposalsAttachDocument,
-  proposalProposalsDetachDocument,
+  proposalProposalsDetachDocuments,
   ProposalDocumentation,
 } from 'waldur-js-client';
 
-import { formDataOptions } from '@waldur/core/api';
-import { ACCEPTED_FILE_TYPES } from '@waldur/core/constants';
-import { UploadContainer } from '@waldur/form/upload/UploadContainer';
-import { translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { ACCEPTED_FILE_TYPES } from '@/core/constants';
+import { UploadContainer } from '@/form/upload/UploadContainer';
+import { translate } from '@/i18n';
+import { useNotify } from '@/store/notify';
 
 import { DocumentationFiles } from './DocumentationFiles';
 
 export const UploadDocumentationFiles = (props) => {
-  const dispatch = useDispatch();
-  const [deletingFileUrl, setDeletingFileUrl] = useState<string | null>(null);
+  const { showErrorResponse, showSuccess } = useNotify();
 
-  const handleFileDrop = useCallback(
-    async (files: File[]) => {
-      // Update the form field to show the files as pending
-      props.input.onChange(files);
+  const handleDrop = (newFiles: File[]) => {
+    // Combine existing pending files with new files
+    const existingFiles = props.input.value
+      ? Array.from(props.input.value as FileList)
+      : [];
+    const combinedFiles = [...existingFiles, ...newFiles];
+    props.input.onChange(combinedFiles);
+  };
 
-      // Automatically upload each file
-      try {
-        await Promise.all(
-          Array.from(files).map((file) =>
-            proposalProposalsAttachDocument({
-              path: { uuid: props.proposal.uuid },
-              body: { file },
-              ...formDataOptions,
-            }),
-          ),
-        );
-
-        // Clear the pending files after successful upload
-        props.input.onChange({});
-
-        // Refresh the proposal data to show newly uploaded files
-        if (props.refetch) {
-          await props.refetch();
-        }
-
-        dispatch(
-          showSuccess(translate('File(s) uploaded successfully')),
-        );
-      } catch (error) {
-        // Clear pending files on error
-        props.input.onChange({});
-        dispatch(
-          showErrorResponse(error, translate('Failed to upload file(s)')),
-        );
+  const { mutate: deleteDocument } = useMutation({
+    mutationFn: async (docUuid: string) => {
+      await proposalProposalsDetachDocuments({
+        path: { uuid: props.proposal.uuid },
+        body: { documents: [docUuid] },
+      });
+    },
+    onSuccess: () => {
+      showSuccess(translate('Document removed successfully'));
+      if (props.refetch) {
+        props.refetch();
       }
     },
-    [props.proposal.uuid, props.input, props.refetch, dispatch],
-  );
-
-  const handleDeleteFile = useCallback(
-    async (file: ProposalDocumentation) => {
-      // Show confirmation dialog
-      try {
-        await waitForConfirmation(
-          dispatch,
-          translate('Delete file'),
-          translate('Are you sure you want to delete {fileName}?', {
-            fileName: file.file_name,
-          }),
-        );
-      } catch {
-        return; // User cancelled
-      }
-
-      setDeletingFileUrl(file.file);
-
-      try {
-        await proposalProposalsDetachDocument({
-          path: { uuid: props.proposal.uuid },
-          body: { file: file.file },
-        });
-
-        // Refresh the proposal data to show the updated file list
-        if (props.refetch) {
-          await props.refetch();
-        }
-
-        dispatch(showSuccess(translate('File deleted successfully')));
-      } catch (error) {
-        dispatch(
-          showErrorResponse(error, translate('Failed to delete file')),
-        );
-      } finally {
-        setDeletingFileUrl(null);
-      }
+    onError: (error: any) => {
+      showErrorResponse(error, translate('Failed to remove document'));
     },
-    [props.proposal.uuid, props.refetch, dispatch],
+  });
+
+  const handleDeleteExisting = useCallback(
+    (file: ProposalDocumentation) => {
+      deleteDocument(file.uuid);
+    },
+    [deleteDocument],
   );
 
   return (
     <>
       <UploadContainer
-        onDrop={handleFileDrop}
+        onDrop={handleDrop}
         message={translate('PDF, PNG/JPG/JPEG, DOC/DOCX/ODT (max. 25 MB)')}
         multiple={true}
         maxSize={25 * 1024 * 1024} // 25MB
@@ -112,9 +63,7 @@ export const UploadDocumentationFiles = (props) => {
         files={props.proposal.supporting_documentation}
         pending={props.input.value}
         onChange={props.input.onChange}
-        onDelete={handleDeleteFile}
-        isDraft={props.proposal.state === 'draft'}
-        deletingFileUrl={deletingFileUrl}
+        onDeleteExisting={handleDeleteExisting}
       />
     </>
   );

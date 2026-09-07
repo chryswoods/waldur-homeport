@@ -3,21 +3,41 @@ import {
   DotsThreeVerticalIcon,
   SpinnerIcon,
 } from '@phosphor-icons/react';
-import { FunctionComponent, PropsWithChildren, ReactNode } from 'react';
+import classNames from 'classnames';
 import {
-  Dropdown,
-  DropdownProps,
-  OverlayTrigger,
-  Tooltip,
-} from 'react-bootstrap';
+  FunctionComponent,
+  PropsWithChildren,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useState,
+} from 'react';
+import { Dropdown, DropdownProps } from 'react-bootstrap';
 import { Variant } from 'react-bootstrap/esm/types';
 import { createPortal } from 'react-dom';
 
-import { translate } from '@waldur/i18n';
+import { Tip } from '@/core/Tooltip';
+import { translate } from '@/i18n';
 
 import { DropdownActionItemType } from './types';
 
-interface ActionsDropdownProps {
+// Module-level coordinator so opening one ActionsDropdownComponent closes
+// any other that's currently open. Plain pub/sub avoids DOM custom events
+// and the global namespace they require. A counter (instead of useId) is
+// used so the React useId sequence is left untouched — useId here would
+// shift downstream nested-component ids and break unrelated snapshot tests.
+type Listener = (openId: number) => void;
+const listeners = new Set<Listener>();
+const announceOpen = (id: number) => listeners.forEach((fn) => fn(id));
+const subscribe = (fn: Listener) => {
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+  };
+};
+let nextInstanceId = 0;
+
+interface ActionsDropdownProps extends Partial<DropdownProps> {
   onToggle?: (isOpen: boolean) => void;
   disabled?: boolean;
   open?: boolean;
@@ -28,6 +48,8 @@ interface ActionsDropdownProps {
   row?: any;
   refetch?(): void;
   data?: Record<string, any>;
+  variant?: Variant;
+  size?: 'sm' | 'lg';
   tooltip?: string | boolean;
 }
 
@@ -37,7 +59,7 @@ interface TableDropdownToggleProps {
   labeled?: boolean;
   variant?: Variant;
   className?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'lg';
   tooltip?: string | boolean;
 }
 
@@ -47,7 +69,7 @@ export const TableDropdownToggle = ({
   labeled = false,
   variant = 'tertiary',
   className = 'min-w-100px w-100',
-  size = 'sm',
+  size = 'lg',
   tooltip,
 }: TableDropdownToggleProps) => {
   const getTooltipMessage = () => {
@@ -63,8 +85,8 @@ export const TableDropdownToggle = ({
     labeled ? (
       <Dropdown.Toggle
         variant={variant}
-        size={size === 'md' ? undefined : size}
-        className={className + ' btn-icon-right no-arrow'}
+        size={size}
+        className={classNames('btn-icon-right no-arrow', className)}
         disabled={disabled}
       >
         {label || translate('Actions')}
@@ -79,7 +101,7 @@ export const TableDropdownToggle = ({
         variant="text-secondary"
         className="btn-icon no-arrow"
         disabled={disabled}
-        size={size === 'md' ? undefined : size}
+        size={size}
       >
         <DotsThreeVerticalIcon size={22} weight="bold" />
       </Dropdown.Toggle>
@@ -87,12 +109,9 @@ export const TableDropdownToggle = ({
 
   if (tooltipMessage && disabled) {
     return (
-      <OverlayTrigger
-        placement="top"
-        overlay={<Tooltip>{tooltipMessage}</Tooltip>}
-      >
+      <Tip label={tooltipMessage} id="actions-dropdown-tip">
         <span className="d-inline-block">{renderToggle()}</span>
-      </OverlayTrigger>
+      </Tip>
     );
   }
 
@@ -121,42 +140,64 @@ export const ActionsDropdownComponent: FunctionComponent<
   size,
   tooltip,
   ...rest
-}) => (
-  <Dropdown onToggle={onToggle} drop="start" align="end" {...rest}>
-    <TableDropdownToggle
-      label={label}
-      labeled={labeled}
-      disabled={disabled}
-      variant={variant}
-      className={className}
-      size={size}
-      tooltip={tooltip}
-    />
+}) => {
+  const [id] = useState(() => ++nextInstanceId);
+  const [show, setShow] = useState(false);
 
-    <PortalDropdown>
-      <Dropdown.Menu
-        popperConfig={
-          rest.drop
-            ? undefined
-            : {
-                modifiers: [
-                  {
-                    name: 'flip',
-                    options: {
-                      fallbackPlacements: ['top', 'left', 'bottom'],
+  useEffect(
+    () =>
+      subscribe((openId) => {
+        if (openId !== id) setShow(false);
+      }),
+    [id],
+  );
+
+  const handleToggle = useCallback<NonNullable<DropdownProps['onToggle']>>(
+    (nextShow, meta) => {
+      if (nextShow) announceOpen(id);
+      setShow(nextShow);
+      onToggle?.(nextShow, meta);
+    },
+    [id, onToggle],
+  );
+
+  return (
+    <Dropdown drop="start" {...rest} show={show} onToggle={handleToggle}>
+      <TableDropdownToggle
+        label={label}
+        labeled={labeled}
+        disabled={disabled}
+        variant={variant}
+        className={className}
+        size={size}
+        tooltip={tooltip}
+      />
+
+      <PortalDropdown>
+        <Dropdown.Menu
+          popperConfig={
+            rest.drop
+              ? undefined
+              : {
+                  modifiers: [
+                    {
+                      name: 'flip',
+                      options: {
+                        fallbackPlacements: ['top', 'left', 'bottom'],
+                      },
                     },
-                  },
-                ],
-              }
-        }
-        style={menuStyle}
-        className={menuClassName}
-      >
-        {children}
-      </Dropdown.Menu>
-    </PortalDropdown>
-  </Dropdown>
-);
+                  ],
+                }
+          }
+          style={menuStyle}
+          className={menuClassName}
+        >
+          {children}
+        </Dropdown.Menu>
+      </PortalDropdown>
+    </Dropdown>
+  );
+};
 
 export const ActionsDropdown: FunctionComponent<
   PropsWithChildren<ActionsDropdownProps>
@@ -176,7 +217,11 @@ export const ActionsDropdown: FunctionComponent<
     {open ? (
       loading ? (
         <Dropdown.Item eventKey="1">
-          <SpinnerIcon size={20} className="animation-spin me-2" />
+          <SpinnerIcon
+            size={20}
+            className="animation-spin me-2"
+            weight="bold"
+          />
           {translate('Loading actions')}
         </Dropdown.Item>
       ) : error ? (

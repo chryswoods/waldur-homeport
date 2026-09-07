@@ -1,16 +1,17 @@
 import { PlusCircleIcon, TrashIcon } from '@phosphor-icons/react';
-import { Fragment } from 'react';
-import { Button, Form } from 'react-bootstrap';
+import { Fragment, useMemo } from 'react';
+import { Form } from 'react-bootstrap';
 import { Field } from 'react-final-form';
 import { FieldArray, FieldArrayRenderProps } from 'react-final-form-arrays';
 
-import { usePagination } from '@waldur/core/usePagination';
-import { required, requiredArray } from '@waldur/core/validators';
-import { SelectField } from '@waldur/form';
-import { AsyncPaginate } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { categoryAutocomplete } from '@waldur/marketplace/common/autocompletes';
-import { TablePagination } from '@waldur/table/TablePagination';
+import { usePagination } from '@/core/usePagination';
+import { required, requiredArray } from '@/core/validators';
+import { SelectField } from '@/form';
+import { AsyncSelect } from '@/form/select';
+import { translate } from '@/i18n';
+import { categoryAutocomplete } from '@/marketplace/common/autocompletes';
+import { ActionButton } from '@/table/ActionButton';
+import { TablePagination } from '@/table/TablePagination';
 
 interface FieldValue {
   remote_category?;
@@ -67,6 +68,8 @@ const FieldsListGroup = ({
     }
   };
 
+  const loadCategories = useMemo(() => categoryAutocomplete(), []);
+
   return (
     <div id="category-mapping-rules">
       <Form.Group>
@@ -84,24 +87,31 @@ const FieldsListGroup = ({
               return component ? (
                 <Fragment key={`${page}-${i}-${fields.length}`}>
                   <tr>
-                    <td>
+                    <td data-testid="remote-category-col">
                       <Field
-                        component={SelectField}
                         name={`${fields.name}[${actualIndex}].remote_category`}
-                        options={remoteCategories}
-                        getOptionValue={(option) => option.uuid}
-                        getOptionLabel={(option) => option.title}
                         validate={required}
-                      />
+                      >
+                        {({ input, meta }) => (
+                          <SelectField
+                            input={input}
+                            meta={meta}
+                            options={remoteCategories}
+                            getOptionValue={(option) => option.uuid}
+                            getOptionLabel={(option) => option.title}
+                          />
+                        )}
+                      </Field>
                     </td>
-                    <td>
+                    <td data-testid="local-category-col">
                       <Field
                         name={`${fields.name}[${actualIndex}].local_category`}
                         validate={required}
                       >
                         {(fieldProps) => (
-                          <AsyncPaginate
-                            loadOptions={categoryAutocomplete}
+                          <AsyncSelect
+                            inputId={fieldProps.input.name}
+                            loadOptions={loadCategories}
                             defaultOptions
                             getOptionValue={(option) => option.url}
                             getOptionLabel={(option) => option.title}
@@ -110,23 +120,20 @@ const FieldsListGroup = ({
                               fieldProps.input.onChange(value)
                             }
                             noOptionsMessage={() => translate('No categories')}
-                            className="metronic-select-container"
-                            classNamePrefix="metronic-select"
                           />
                         )}
                       </Field>
                     </td>
                     <td>
-                      <Button
+                      <ActionButton
                         variant="text-danger"
-                        className="btn-icon"
-                        onClick={() => removeRow(actualIndex)}
+                        action={() => removeRow(actualIndex)}
                         disabled={fields.length < 2}
-                      >
-                        <span className="svg-icon svg-icon-1">
-                          <TrashIcon weight="bold" />
-                        </span>
-                      </Button>
+                        disabledReason={translate(
+                          'At least one mapping is required',
+                        )}
+                        iconNode={<TrashIcon weight="bold" />}
+                      />
                     </td>
                   </tr>
                 </Fragment>
@@ -136,12 +143,14 @@ const FieldsListGroup = ({
         </table>
       </Form.Group>
       <div>
-        <Button variant="text-primary" onClick={addRow} disabled={addDisabled}>
-          <span className="svg-icon svg-icon-2">
-            <PlusCircleIcon weight="bold" />
-          </span>{' '}
-          {translate('Add new')}
-        </Button>
+        <ActionButton
+          variant="text-primary"
+          action={addRow}
+          disabled={addDisabled}
+          disabledReason={translate('Complete existing mappings first')}
+          iconNode={<PlusCircleIcon weight="bold" />}
+          title={translate('Add new')}
+        />
       </div>
 
       <TablePagination

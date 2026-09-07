@@ -3,13 +3,13 @@ import classNames from 'classnames';
 import { FC, useMemo, useState } from 'react';
 import { Table } from 'react-bootstrap';
 
-import { Tip } from '@waldur/core/Tooltip';
+import { Tip } from '@/core/Tooltip';
 import {
   CustomComponentInputProps,
   FilterOptions,
   SelectDialogFieldChoice,
   SelectDialogFieldColumn,
-} from '@waldur/form/types';
+} from '@/form/types';
 
 import './ChoicesTable.scss';
 import { ChoicesTableFilter } from './ChoicesTableFilter';
@@ -61,7 +61,7 @@ const PureChoicesTable: FC<ChoicesTableProps> = ({
               <td>
                 {choice.disabled ? (
                   <Tip id={choice.uuid} label={choice.disabledReason}>
-                    <ProhibitIcon />
+                    <ProhibitIcon weight="bold" />
                   </Tip>
                 ) : (
                   <input

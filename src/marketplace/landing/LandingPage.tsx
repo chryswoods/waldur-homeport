@@ -1,31 +1,27 @@
-import { FC } from 'react';
-import { useSelector } from 'react-redux';
+import { FC, Suspense, useCallback, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { NestedTag } from 'waldur-js-client';
 
-import { getIconUrl } from '@waldur/core/api';
-import { ENV } from '@waldur/core/config';
-import { LandingHeroSection } from '@waldur/dashboard/hero/LandingHeroSection';
-import { NewbiesGuideNotification } from '@waldur/dashboard/hero/NewbiesGuideNotification';
-import DefaultDarkImage from '@waldur/dashboard/hero/servers-room-dark.png';
-import DefaultLightImage from '@waldur/dashboard/hero/servers-room-light.png';
-import { translate } from '@waldur/i18n';
-import {
-  isExperimentalUiComponentsVisible,
-  useMarketplacePublicTabs,
-} from '@waldur/marketplace/utils';
+import { ENV } from '@/core/config';
+import { syncFiltersToURL } from '@/core/filters';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { useMarketplacePublicTabs } from '@/marketplace/utils';
 import {
   useExtraToolbar,
   useFullPage,
   useToolbarActions,
-} from '@waldur/navigation/context';
-import { useTitle } from '@waldur/navigation/title';
-import { useTheme } from '@waldur/theme/useTheme';
+} from '@/navigation/context';
+import { useTitle } from '@/navigation/title';
 
-import { CategoriesList } from './CategoriesList';
+import { CardStyleType } from '../common/cards/index';
+
+import { CardStyleProvider } from './CardStyleContext';
 import { PageBarFilters } from './filter/PageBarFilters';
+import { setMarketplaceFilter } from './filter/store/actions';
 import { getMarketplaceFilters } from './filter/store/selectors';
+import { LAYOUTS, MarketplaceLayoutType } from './layouts';
 import { MarketplaceLandingFilter } from './MarketplaceLandingFilter';
-import { OfferingsGroup } from './OfferingsGroup';
-import { OfferingsSearchBox } from './OfferingsSearchBox';
 
 export const LandingPage: FC<{}> = () => {
   useTitle(
@@ -34,47 +30,50 @@ export const LandingPage: FC<{}> = () => {
   );
   useFullPage();
 
-  const showExperimentalUiComponents = isExperimentalUiComponentsVisible();
-  const { theme } = useTheme();
-
   useMarketplacePublicTabs();
 
+  const layout: MarketplaceLayoutType =
+    (ENV.plugins.WALDUR_CORE
+      .MARKETPLACE_LAYOUT_MODE as MarketplaceLayoutType) || 'classic';
+  const cardStyle: CardStyleType =
+    (ENV.plugins.WALDUR_CORE.MARKETPLACE_CARD_STYLE as CardStyleType) ||
+    'detailed';
+
+  const dispatch = useDispatch();
   const filters = useSelector(getMarketplaceFilters);
-  useToolbarActions(<MarketplaceLandingFilter />);
+
+  const formValues = useMemo(() => {
+    const org = filters?.find((f) => f.name === 'organization')?.value;
+    const proj = filters?.find((f) => f.name === 'project')?.value;
+    const tag = filters?.find((f) => f.name === 'tag')?.value;
+    return { organization: org, project: proj, tag };
+  }, [filters]);
+
+  const handleTagClick = useCallback(
+    (tag: NestedTag) => {
+      dispatch(
+        setMarketplaceFilter({
+          label: translate('Tag'),
+          name: 'tag',
+          value: tag,
+          getValueLabel: (v) => v?.name,
+        }),
+      );
+      syncFiltersToURL({ ...formValues, tag });
+    },
+    [dispatch, formValues],
+  );
+
+  useToolbarActions(<MarketplaceLandingFilter />, []);
   useExtraToolbar(filters.length ? <PageBarFilters /> : null, [filters]);
 
-  const backendImage = getIconUrl('marketplace_hero_image');
-  const defaultImage = theme === 'dark' ? DefaultDarkImage : DefaultLightImage;
+  const LayoutComponent = LAYOUTS[layout];
 
   return (
-    <div className="marketplace-landing-page">
-      {showExperimentalUiComponents && (
-        <NewbiesGuideNotification
-          guideState="public.marketplace-landing"
-          message={translate('New to {org} marketplace?', {
-            org: ENV.plugins.WALDUR_CORE.SHORT_PAGE_TITLE,
-          })}
-        />
-      )}
-      <LandingHeroSection
-        header={translate('Welcome to')}
-        title={
-          ENV.plugins.WALDUR_CORE.MARKETPLACE_LANDING_PAGE ||
-          translate('Marketplace')
-        }
-        context="marketplace"
-        backgroundImage={`url(${backendImage}), url(${defaultImage})`}
-      >
-        <div className="d-flex justify-content-center">
-          <OfferingsSearchBox />
-        </div>
-      </LandingHeroSection>
-      <div className="container-fluid">
-        <CategoriesList />
-      </div>
-      <div className="container-fluid mb-10">
-        <OfferingsGroup />
-      </div>
-    </div>
+    <CardStyleProvider cardStyle={cardStyle}>
+      <Suspense fallback={<LoadingSpinner />}>
+        <LayoutComponent onTagClick={handleTagClick} />
+      </Suspense>
+    </CardStyleProvider>
   );
 };

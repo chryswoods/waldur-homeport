@@ -1,22 +1,25 @@
 import { FunctionComponent, useMemo } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
 import {
   BroadcastMessage,
   broadcastMessagesList,
   BroadcastMessagesListData,
 } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { StateIndicator } from '@waldur/core/StateIndicator';
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { formatDateTime } from '@/core/dateUtils';
+import { StateIndicator } from '@/core/StateIndicator';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import {
+  BroadcastMessagesFilter,
+  selectBroadcastMessagesFilter,
+  BroadcastMessagesFilterFormId,
+} from '@/table/generated/BroadcastMessagesFilter';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
 
 import { BroadcastCreateButton } from './BroadcastCreateButton';
 import { BroadcastExpandableRow } from './BroadcastExpandableRow';
-import { BroadcastFilter } from './BroadcastFilter';
 import { BroadcastsRowActions } from './BroadcastsRowActions';
 
 const mandatoryFields: BroadcastMessagesListData['query']['field'] = [
@@ -35,16 +38,20 @@ const broadcastState = {
   SENT: { label: translate('Sent'), color: 'success' },
 };
 
-export const BroadcastList: FunctionComponent<{}> = () => {
-  const filterForm: any = useSelector(getFormValues('BroadcastsFilter'));
-  const filter = useMemo(
-    (): BroadcastMessagesListData['query'] => ({
-      state: filterForm?.state?.value,
-    }),
-    [filterForm],
-  );
+interface BroadcastListProps {
+  standalone?: boolean;
+}
+
+export const BroadcastList: FunctionComponent<BroadcastListProps> = ({
+  standalone = false,
+}) => {
+  const values = useFilterValues('broadcast');
+
+  const filter = useMemo(() => selectBroadcastMessagesFilter(values), [values]);
+
   const props = useTable({
     table: 'broadcast',
+    syncFiltersToURL: true,
     fetchData: createFetcher(broadcastMessagesList),
     queryField: 'subject',
     mandatoryFields,
@@ -84,14 +91,15 @@ export const BroadcastList: FunctionComponent<{}> = () => {
       ]}
       verboseName={translate('broadcasts')}
       tableActions={<BroadcastCreateButton refetch={props.fetch} />}
-      filters={<BroadcastFilter />}
+      filters={<BroadcastMessagesFilter />}
       expandableRow={BroadcastExpandableRow}
       initialPageSize={10}
       showPageSizeSelector={true}
       rowActions={BroadcastsRowActions}
       hasQuery={true}
       title={translate('Broadcasts')}
-      standalone
+      standalone={standalone}
+      formId={BroadcastMessagesFilterFormId}
     />
   );
 };

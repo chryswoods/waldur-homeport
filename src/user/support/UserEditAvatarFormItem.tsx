@@ -1,27 +1,28 @@
 import { UploadSimpleIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
-import { Button } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
 import { User } from 'waldur-js-client';
 
-import FormTable from '@waldur/form/FormTable';
-import { WideImageField } from '@waldur/form/WideImageField';
-import { translate } from '@waldur/i18n';
-import { getItemAbbreviation } from '@waldur/navigation/workspace/context-selector/utils';
-import { getUser } from '@waldur/workspace/selectors';
+import FormTable from '@/form/FormTable';
+import { WideImageField } from '@/form/WideImageField';
+import { translate } from '@/i18n';
+import { getItemAbbreviation } from '@/navigation/workspace/context-selector/utils';
+import { CompactActionButton } from '@/table/CompactActionButton';
+import { useUser } from '@/workspace/hooks';
 
 import { useUpdateUser } from './useUpdateUser';
 
 interface OwnProps {
   user: User;
   disabled?: boolean;
+  disabledReason?: string;
 }
 
 export const UserEditAvatarFormItem: React.FC<OwnProps> = ({
   user,
   disabled,
+  disabledReason,
 }) => {
-  const currentUser = useSelector(getUser);
+  const currentUser = useUser();
   const [image, setImage] = useState(user.image);
   const { callback, isLoading } = useUpdateUser(user);
 
@@ -40,6 +41,7 @@ export const UserEditAvatarFormItem: React.FC<OwnProps> = ({
         <WideImageField
           name="image"
           disabled={disabled}
+          disabledReason={disabledReason}
           alt={getItemAbbreviation(user, 'full_name')}
           initialValue={user.image}
           max={2 * 1024 * 1024} // 2MB
@@ -47,18 +49,20 @@ export const UserEditAvatarFormItem: React.FC<OwnProps> = ({
           input={{ value: image, onChange: (value) => setImage(value) } as any}
           extraActions={({ isChanged, isTooLarge }) =>
             isChanged || isLoading ? (
-              <Button
+              <CompactActionButton
                 variant="primary"
-                size="sm"
-                className="btn-icon-right"
-                disabled={isLoading || isTooLarge || disabled}
-                onClick={() => callback({ image })}
-              >
-                {translate('Save')}
-                <span className="svg-icon svg-icon-5">
-                  <UploadSimpleIcon />
-                </span>
-              </Button>
+                iconRight
+                disabled={isTooLarge || disabled}
+                disabledReason={
+                  isTooLarge
+                    ? translate('File exceeds 2 MB size limit')
+                    : disabledReason
+                }
+                pending={isLoading}
+                action={() => callback({ image })}
+                title={translate('Save')}
+                iconNode={<UploadSimpleIcon weight="bold" />}
+              />
             ) : null
           }
         />

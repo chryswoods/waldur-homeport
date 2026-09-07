@@ -1,47 +1,42 @@
 import { FC } from 'react';
-import { useDispatch } from 'react-redux';
 import { marketplaceResourcesTerminate } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { DestroyInstanceParams } from '@waldur/openstack/api';
-import { ResourceActionDialog } from '@waldur/resource/actions/ResourceActionDialog';
-import { ActionDialogProps } from '@waldur/resource/actions/types';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
+import { translate } from '@/i18n';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { DestroyInstanceParams } from '@/openstack/api';
+import { ResourceActionDialog } from '@/resource/actions/ResourceActionDialog';
+import { ActionDialogProps } from '@/resource/actions/types';
 
 import { getDeleteField } from './utils';
 
 export const ForceDestroyDialog: FC<ActionDialogProps> = ({
   resolve: { resource, refetch },
 }) => {
-  const dispatch = useDispatch();
+  const mutation = useManagedMutation<any, any, DestroyInstanceParams>({
+    mutationFn: (formData) =>
+      marketplaceResourcesTerminate({
+        path: { uuid: resource.marketplace_resource_uuid },
+        body: {
+          attributes: { action: 'force_destroy', ...formData },
+        },
+      }),
+    successMessage: translate('Instance deletion has been scheduled.'),
+    errorMessage: translate('Unable to destroy instance.'),
+    refetch,
+  });
+
   return (
     <ResourceActionDialog
-      dialogTitle={translate('Force destroy {name} instance', {
-        name: resource.name,
-      })}
+      dialogTitle={translate('Force destroy instance')}
+      dialogSubtitle={
+        <ScopeSubtitle
+          label={translate('Instance name')}
+          name={resource.name}
+        />
+      }
       {...getDeleteField()}
-      submitForm={async (formData: DestroyInstanceParams) => {
-        try {
-          await marketplaceResourcesTerminate({
-            path: { uuid: resource.marketplace_resource_uuid },
-            body: {
-              attributes: { action: 'force_destroy', ...formData },
-            },
-          });
-          dispatch(
-            showSuccess(translate('Instance deletion has been scheduled.')),
-          );
-          dispatch(closeModalDialog());
-          if (refetch) {
-            await refetch();
-          }
-        } catch (e) {
-          dispatch(
-            showErrorResponse(e, translate('Unable to destroy instance.')),
-          );
-        }
-      }}
+      submitForm={mutation.mutateAsync}
     />
   );
 };

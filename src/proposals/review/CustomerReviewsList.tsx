@@ -1,48 +1,44 @@
-import { FC } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
+import { FC, useMemo } from 'react';
 import { proposalReviewsList, ProposalReviewsListData } from 'waldur-js-client';
 
-import { Link } from '@waldur/core/Link';
-import { translate } from '@waldur/i18n';
-import { EndingField } from '@waldur/proposals/EndingField';
-import { ReviewsTableFilter } from '@waldur/proposals/review/ReviewsTableFilter';
-import { ProposalReview } from '@waldur/proposals/types';
-import { getReviewStateOptions } from '@waldur/proposals/utils';
-import { router } from '@waldur/router';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { USER_REVIEWS_FILTER_FORM_ID } from '@waldur/user/constants';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { Link } from '@/core/Link';
+import { translate } from '@/i18n';
+import { EndingField } from '@/proposals/EndingField';
+import { ProposalReview } from '@/proposals/types';
+import { getReviewStateOptions } from '@/proposals/utils';
+import { createFetcher } from '@/table/api';
+import {
+  ProposalReviewsFilter,
+  ProposalReviewsFilterFormId,
+  selectProposalReviewsFilter,
+} from '@/table/generated/ProposalReviewsFilter';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { useCustomer } from '@/workspace/hooks';
 
 import { ReviewsRowActions } from './ReviewsRowActons';
 import { ReviewStateRenderer } from './ReviewStateRenderer';
 
-const filtersSelector = createSelector(
-  getCustomer,
-  getFormValues(USER_REVIEWS_FILTER_FORM_ID),
-  (customer, filters: any) => {
-    const result: ProposalReviewsListData['query'] = {};
+export const CustomerReviewsList: FC = () => {
+  const customer = useCustomer();
+  const values = useFilterValues('ReviewsList');
+  const filterValues = useMemo(
+    () => selectProposalReviewsFilter(values),
+    [values],
+  );
+
+  const filter = useMemo(() => {
+    const result: ProposalReviewsListData['query'] = { ...filterValues };
     if (customer) {
       result.organization_uuid = customer.uuid;
     }
-    if (filters?.state) {
-      result.state = filters.state.map((option) => option.value);
-    }
-    if (filters?.call) {
-      result.call_uuid = filters.call.uuid;
-    }
     return result;
-  },
-);
-
-export const CustomerReviewsList: FC<{}> = () => {
-  const filter = useSelector(filtersSelector);
+  }, [customer, filterValues]);
 
   const tableProps = useTable({
     table: 'ReviewsList',
+    syncFiltersToURL: true,
     fetchData: createFetcher(proposalReviewsList),
     queryField: 'proposal_name',
     filter,
@@ -51,6 +47,7 @@ export const CustomerReviewsList: FC<{}> = () => {
   return (
     <Table<ProposalReview>
       {...tableProps}
+      formId={ProposalReviewsFilterFormId}
       columns={[
         {
           title: translate('UUID'),
@@ -61,17 +58,7 @@ export const CustomerReviewsList: FC<{}> = () => {
         },
         {
           title: translate('Proposal'),
-          render: ({ row }) => (
-            <a
-              onClick={() =>
-                router.stateService.go('proposal-review-view', {
-                  review_uuid: row.uuid,
-                })
-              }
-            >
-              {row.proposal_name}
-            </a>
-          ),
+          render: ({ row }) => <>{row.proposal_name}</>,
           keys: ['proposal_name'],
           id: 'proposal',
         },
@@ -123,7 +110,7 @@ export const CustomerReviewsList: FC<{}> = () => {
       title={translate('Reviews')}
       verboseName={translate('Reviews')}
       hasQuery={true}
-      filters={<ReviewsTableFilter />}
+      filters={<ProposalReviewsFilter />}
       rowActions={ReviewsRowActions}
       hasOptionalColumns
     />

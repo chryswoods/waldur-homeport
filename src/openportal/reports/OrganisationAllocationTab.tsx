@@ -6,10 +6,6 @@
  *
  * Features:
  *   - Project filter dialog  — same look as OrganisationReportsTab
- *   - Offering filter dialog — restricts to projects with a matching active
- *                              offering (offering_names, from
- *                              include_offering_names=true); credit totals
- *                              stay per-project, not split out per offering
  *   - Summary statistics     — total credits awarded / spent / remaining
  *   - Stacked bar chart      — predicted daily credits-remaining per project,
  *                              assuming linear burn from today → end date
@@ -19,34 +15,49 @@
  * Visible to staff and support users only (via route permissions).
  */
 
+/* eslint-disable waldur-custom/no-direct-bootstrap-button */
+import { FileXlsIcon, WarningCircleIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
+import { DateTime } from 'luxon';
+import { ChangeEvent, FC, useEffect, useMemo, useState } from 'react';
+import {
+  Alert,
+  Button,
+  ButtonGroup,
+  Card,
+  Col,
+  Container,
+  Form,
+  Modal,
+  Row,
+  Tab,
+  Tabs,
+} from 'react-bootstrap';
+import type { ProjectAccountingSummary } from 'waldur-js-client';
 import {
   openportalAccountingSummaryList,
-  Project,
   projectsList,
-  ProjectAccountingSummary,
 } from 'waldur-js-client';
-import React, { FC, useEffect, useMemo, useState } from 'react';
-import { useSelector } from 'react-redux';
 
-import { FileXlsIcon, WarningCircleIcon } from '@phosphor-icons/react';
+import { getNextPageUrl } from '@/core/api';
+import { Badge } from '@/core/Badge';
+import { ENV } from '@/core/config';
+import { EChart } from '@/core/EChart';
+import { LoadingErred } from '@/core/LoadingErred';
+import { Tip } from '@/core/Tooltip';
+import { formatJsxTemplate, translate } from '@/i18n';
+import { useCustomer } from '@/workspace/hooks';
 
-import { getNextPageUrl } from '@waldur/core/api';
-import { ENV } from '@waldur/core/config';
-import { EChart } from '@waldur/core/EChart';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { Tip } from '@waldur/core/Tooltip';
-import { getCustomer } from '@waldur/workspace/selectors';
-
-import { downloadAllocationExcel } from './reportExcel';
+import type { OpenPortalProject } from './api';
 import {
+  clearCached,
+  formatCacheAge,
+  getCacheAge,
   getCached,
   setCached,
-  clearCached,
-  getCacheAge,
-  formatCacheAge,
   TTL,
 } from './localStorageCache';
+import { downloadAllocationExcel } from './reportExcel';
 import { StageProgress } from './StageProgress';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -56,33 +67,19 @@ const parseCredits = (v: string): number => parseFloat(v) || 0;
 
 /** Format a credit value for display (2 d.p., thousands separators). */
 const fmtCredits = (v: number): string =>
-  v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-/** Add `days` calendar days to a Date, returning a new Date. */
-const addDays = (d: Date, days: number): Date => {
-  const out = new Date(d);
-  out.setDate(out.getDate() + days);
-  return out;
-};
-
-/** Format a Date as YYYY-MM-DD. */
-const toDateStr = (d: Date): string => d.toISOString().slice(0, 10);
+  v.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 /** Number of whole calendar days between two dates (b − a). */
-const daysBetween = (a: Date, b: Date): number =>
-  Math.round((b.getTime() - a.getTime()) / 86_400_000);
+const daysBetween = (a: DateTime, b: DateTime): number =>
+  Math.round(b.diff(a, 'days').days);
 
 // ── Chart builder ─────────────────────────────────────────────────────────────
 
 type ChartType = 'bar' | 'line';
 type GroupBy = 'day' | 'month';
-
-/** Last calendar day of the month containing `d`. */
-const lastDayOfMonth = (d: Date): Date => {
-  const out = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-  out.setHours(0, 0, 0, 0);
-  return out;
-};
 
 /**
  * Compute remaining credits for a project at a given reference date.
@@ -91,9 +88,9 @@ const lastDayOfMonth = (d: Date): Date => {
 const remainingAtDate = (
   remaining: number,
   totalDays: number,
-  today: Date,
-  refDate: Date,
-  endDate: Date,
+  today: DateTime,
+  refDate: DateTime,
+  endDate: DateTime,
 ): number => {
   if (refDate >= endDate) return 0;
   const daysFromToday = daysBetween(today, refDate);
@@ -107,54 +104,49 @@ const buildChartOptions = (
   groupBy: GroupBy,
   currencyName: string,
 ): object | null => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = DateTime.now().startOf('day');
 
   // Only projects with a future end date
   const eligible = summaries.filter((s) => {
     if (!s.end_date) return false;
-    const end = new Date(s.end_date);
-    end.setHours(0, 0, 0, 0);
+    const end = DateTime.fromISO(s.end_date).startOf('day');
     return end > today;
   });
 
   if (eligible.length === 0) return null;
 
-  const endDates = eligible.map((s) => {
-    const d = new Date(s.end_date!);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  });
-  const maxEnd = new Date(Math.max(...endDates.map((d) => d.getTime())));
+  const endDates = eligible.map((s) =>
+    DateTime.fromISO(s.end_date!).startOf('day').toMillis(),
+  );
+  const maxEnd = DateTime.fromMillis(Math.max(...endDates));
 
   const isLine = chartType === 'line';
 
   let xLabels: string[];
-  let refDates: Date[]; // the date used to sample remaining credits for each x point
+  let refDates: DateTime[]; // the date used to sample remaining credits for each x point
 
   if (groupBy === 'month') {
     // One point per month: sample remaining credits at the last day of each month
     // (capped to the day before maxEnd)
     xLabels = [];
     refDates = [];
-    const cursor = new Date(today.getFullYear(), today.getMonth(), 1);
-    cursor.setHours(0, 0, 0, 0);
+    let cursor = today.startOf('month');
     while (cursor < maxEnd) {
-      const monthEnd = lastDayOfMonth(cursor);
-      const refDate = monthEnd < maxEnd ? monthEnd : addDays(maxEnd, -1);
-      xLabels.push(toDateStr(cursor).slice(0, 7)); // YYYY-MM
+      const monthEnd = cursor.endOf('month').startOf('day');
+      const refDate = monthEnd < maxEnd ? monthEnd : maxEnd.minus({ days: 1 });
+      xLabels.push(cursor.toFormat('yyyy-MM'));
       refDates.push(refDate);
-      cursor.setMonth(cursor.getMonth() + 1);
+      cursor = cursor.plus({ months: 1 });
     }
   } else {
     // One point per day: today → day before maxEnd
     xLabels = [];
     refDates = [];
-    for (let i = 0; ; i++) {
-      const d = addDays(today, i);
-      if (d >= maxEnd) break;
-      xLabels.push(toDateStr(d));
-      refDates.push(d);
+    let cursor = today;
+    while (cursor < maxEnd) {
+      xLabels.push(cursor.toFormat('yyyy-MM-dd'));
+      refDates.push(cursor);
+      cursor = cursor.plus({ days: 1 });
     }
   }
 
@@ -166,8 +158,7 @@ const buildChartOptions = (
       parseCredits(s.total_spend) -
       parseCredits(s.current_month_spend);
 
-    const end = new Date(s.end_date!);
-    end.setHours(0, 0, 0, 0);
+    const end = DateTime.fromISO(s.end_date!).startOf('day');
     const totalDays = Math.max(1, daysBetween(today, end));
 
     return {
@@ -219,7 +210,7 @@ const buildChartOptions = (
     },
     yAxis: {
       type: 'value',
-      name: `${currencyName} remaining`,
+      name: translate('{currencyName} remaining', { currencyName }),
     },
     dataZoom: [{ type: 'slider', bottom: 35 }],
     series,
@@ -239,24 +230,20 @@ const buildConsumptionChartOptions = (
   groupBy: GroupBy,
   currencyName: string,
 ): object | null => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = DateTime.now().startOf('day');
 
   const eligible = summaries.filter((s) => {
     if (!s.end_date) return false;
-    const end = new Date(s.end_date);
-    end.setHours(0, 0, 0, 0);
+    const end = DateTime.fromISO(s.end_date).startOf('day');
     return end > today;
   });
 
   if (eligible.length === 0) return null;
 
-  const endDates = eligible.map((s) => {
-    const d = new Date(s.end_date!);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  });
-  const maxEnd = new Date(Math.max(...endDates.map((d) => d.getTime())));
+  const endDates = eligible.map((s) =>
+    DateTime.fromISO(s.end_date!).startOf('day').toMillis(),
+  );
+  const maxEnd = DateTime.fromMillis(Math.max(...endDates));
 
   const isLine = chartType === 'line';
 
@@ -266,8 +253,7 @@ const buildConsumptionChartOptions = (
       parseCredits(s.total_credits) -
       parseCredits(s.total_spend) -
       parseCredits(s.current_month_spend);
-    const end = new Date(s.end_date!);
-    end.setHours(0, 0, 0, 0);
+    const end = DateTime.fromISO(s.end_date!).startOf('day');
     const totalDays = Math.max(1, daysBetween(today, end));
     return {
       name: s.project_name,
@@ -283,10 +269,10 @@ const buildConsumptionChartOptions = (
 
   if (groupBy === 'day') {
     xLabels = [];
-    for (let i = 0; ; i++) {
-      const d = addDays(today, i);
-      if (d >= maxEnd) break;
-      xLabels.push(toDateStr(d));
+    let cursor = today;
+    while (cursor < maxEnd) {
+      xLabels.push(cursor.toFormat('yyyy-MM-dd'));
+      cursor = cursor.plus({ days: 1 });
     }
     series = projectData.map(({ name, dailyRate, end }) => ({
       name,
@@ -294,20 +280,19 @@ const buildConsumptionChartOptions = (
       stack: 'consumption',
       ...(isLine ? { areaStyle: { opacity: 0.4 } } : {}),
       data: xLabels.map((dateStr) => {
-        const d = new Date(dateStr);
+        const d = DateTime.fromISO(dateStr);
         return d < end ? round2(dailyRate) : 0;
       }),
     }));
   } else {
     // Monthly: sum dailyRate × active days in that month
     xLabels = [];
-    const monthStarts: Date[] = [];
-    const cursor = new Date(today.getFullYear(), today.getMonth(), 1);
-    cursor.setHours(0, 0, 0, 0);
+    const monthStarts: DateTime[] = [];
+    let cursor = today.startOf('month');
     while (cursor < maxEnd) {
-      xLabels.push(toDateStr(cursor).slice(0, 7));
-      monthStarts.push(new Date(cursor));
-      cursor.setMonth(cursor.getMonth() + 1);
+      xLabels.push(cursor.toFormat('yyyy-MM'));
+      monthStarts.push(cursor);
+      cursor = cursor.plus({ months: 1 });
     }
     series = projectData.map(({ name, dailyRate, end }) => ({
       name,
@@ -315,11 +300,12 @@ const buildConsumptionChartOptions = (
       stack: 'consumption',
       ...(isLine ? { areaStyle: { opacity: 0.4 } } : {}),
       data: monthStarts.map((monthStart) => {
-        const monthEnd = lastDayOfMonth(monthStart);
+        const monthEnd = monthStart.endOf('month').startOf('day');
         // Active window: [max(today, monthStart), min(end-1, monthEnd)]
         const activeStart = monthStart >= today ? monthStart : today;
-        const projectLastDay = addDays(end, -1);
-        const activeEnd = projectLastDay <= monthEnd ? projectLastDay : monthEnd;
+        const projectLastDay = end.minus({ days: 1 });
+        const activeEnd =
+          projectLastDay <= monthEnd ? projectLastDay : monthEnd;
         const activeDays =
           activeEnd >= activeStart
             ? daysBetween(activeStart, activeEnd) + 1
@@ -368,8 +354,8 @@ const buildConsumptionChartOptions = (
       type: 'value',
       name:
         groupBy === 'day'
-          ? `${currencyName} / day`
-          : `${currencyName} / month`,
+          ? translate('{currencyName} / day', { currencyName })
+          : translate('{currencyName} / month', { currencyName }),
     },
     dataZoom: [{ type: 'slider', bottom: 35 }],
     series,
@@ -378,14 +364,14 @@ const buildConsumptionChartOptions = (
 
 // ── Project filter dialog ─────────────────────────────────────────────────────
 
-interface ProjectFilterDialogProps {
-  projects: Project[];
+interface ProjectAutocompleteDialogProps {
+  projects: OpenPortalProject[];
   selected: Set<string>;
   onConfirm: (next: Set<string>) => void;
   onClose: () => void;
 }
 
-const ProjectFilterDialog: FC<ProjectFilterDialogProps> = ({
+const ProjectAutocompleteDialog: FC<ProjectAutocompleteDialogProps> = ({
   projects,
   selected,
   onConfirm,
@@ -395,6 +381,7 @@ const ProjectFilterDialog: FC<ProjectFilterDialogProps> = ({
   const [nameFilter, setNameFilter] = useState('');
   const [startAfter, setStartAfter] = useState('');
   const [endBefore, setEndBefore] = useState('');
+
   const visible = useMemo(
     () =>
       projects.filter((p) => {
@@ -403,9 +390,18 @@ const ProjectFilterDialog: FC<ProjectFilterDialogProps> = ({
           !p.name.toLowerCase().includes(nameFilter.toLowerCase())
         )
           return false;
-        if (startAfter && p.start_date && p.start_date < startAfter)
+        if (
+          startAfter &&
+          p.start_date &&
+          DateTime.fromISO(p.start_date) < DateTime.fromISO(startAfter)
+        )
           return false;
-        if (endBefore && p.end_date && p.end_date > endBefore) return false;
+        if (
+          endBefore &&
+          p.end_date &&
+          DateTime.fromISO(p.end_date) > DateTime.fromISO(endBefore)
+        )
+          return false;
         return true;
       }),
     [projects, nameFilter, startAfter, endBefore],
@@ -428,259 +424,146 @@ const ProjectFilterDialog: FC<ProjectFilterDialogProps> = ({
   };
 
   return (
-    <div
-      className="modal fade show"
-      style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="modal-dialog modal-lg modal-dialog-scrollable">
-        <div className="modal-content">
-          <div className="modal-header">
-            <h5 className="modal-title">Select projects</h5>
-            <button type="button" className="btn-close" onClick={onClose} />
-          </div>
-          <div className="modal-body">
-            <div className="row g-2 mb-3">
-              <div className="col-12 col-md-4">
-                <label className="form-label small mb-1">Search</label>
-                <input
-                  type="text"
-                  className="form-control form-control-sm"
-                  placeholder="Filter by name…"
-                  value={nameFilter}
-                  onChange={(e) => setNameFilter(e.target.value)}
-                />
-              </div>
-              <div className="col-6 col-md-4">
-                <label className="form-label small mb-1">
-                  Start date — after
-                </label>
-                <input
-                  type="date"
-                  className="form-control form-control-sm"
-                  value={startAfter}
-                  onChange={(e) => setStartAfter(e.target.value)}
-                />
-              </div>
-              <div className="col-6 col-md-4">
-                <label className="form-label small mb-1">
-                  End date — before
-                </label>
-                <input
-                  type="date"
-                  className="form-control form-control-sm"
-                  value={endBefore}
-                  onChange={(e) => setEndBefore(e.target.value)}
-                />
-              </div>
-            </div>
+    <Modal show onHide={onClose} size="lg" scrollable>
+      <Modal.Header closeButton>
+        <Modal.Title>{translate('Select projects')}</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <Row className="g-2 mb-3">
+          <Col xs={12} md={4}>
+            <Form.Label className="small mb-1">
+              {translate('Search')}
+            </Form.Label>
+            <Form.Control
+              size="sm"
+              type="text"
+              placeholder={translate('Filter by name…')}
+              value={nameFilter}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setNameFilter(e.target.value)
+              }
+            />
+          </Col>
+          <Col xs={6} md={4}>
+            <Form.Label className="small mb-1">
+              {translate('Start date — after')}
+            </Form.Label>
+            <Form.Control
+              size="sm"
+              type="date"
+              value={startAfter}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setStartAfter(e.target.value)
+              }
+            />
+          </Col>
+          <Col xs={6} md={4}>
+            <Form.Label className="small mb-1">
+              {translate('End date — before')}
+            </Form.Label>
+            <Form.Control
+              size="sm"
+              type="date"
+              value={endBefore}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setEndBefore(e.target.value)
+              }
+            />
+          </Col>
+        </Row>
 
-            <div className="d-flex align-items-center gap-2 mb-2">
-              <input
-                type="checkbox"
-                className="form-check-input"
-                checked={allVisibleSelected && visible.length > 0}
-                onChange={toggleAll}
-                id="alloc-select-all"
-              />
-              <label
-                htmlFor="alloc-select-all"
-                className="form-check-label small"
-              >
-                {allVisibleSelected ? 'Deselect' : 'Select'} all visible (
-                {visible.length})
-              </label>
-              <span className="ms-auto text-muted small">
-                {draft.size} of {projects.length} selected
+        <div className="d-flex align-items-center gap-2 mb-2">
+          <Form.Check
+            id="alloc-select-all"
+            checked={allVisibleSelected && visible.length > 0}
+            onChange={toggleAll}
+            className="mb-0"
+            label={
+              <span className="small">
+                {allVisibleSelected
+                  ? translate('Deselect all visible')
+                  : translate('Select all visible')}
+                ({visible.length})
               </span>
-            </div>
-
-            <div
-              style={{ maxHeight: 320, overflowY: 'auto' }}
-              className="border rounded p-2"
-            >
-              {visible.length === 0 && (
-                <p className="text-muted small mb-0 p-2">
-                  No projects match the filters.
-                </p>
-              )}
-              {visible.map((p) => (
-                <div
-                  key={p.uuid}
-                  className="d-flex align-items-start gap-2 py-1"
-                >
-                  <input
-                    type="checkbox"
-                    className="form-check-input mt-1"
-                    checked={draft.has(p.uuid)}
-                    onChange={() => toggle(p.uuid)}
-                    id={`alloc-proj-${p.uuid}`}
-                  />
-                  <label
-                    htmlFor={`alloc-proj-${p.uuid}`}
-                    className="form-check-label flex-grow-1"
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <span className="fw-semibold">{p.name}</span>
-                    {(p.start_date || p.end_date) && (
-                      <span className="text-muted small ms-2">
-                        {p.start_date ?? '?'} → {p.end_date ?? 'ongoing'}
-                      </span>
-                    )}
-                    {p.is_in_grace_period && (
-                      <span className="badge bg-warning text-dark ms-2" style={{ fontSize: '0.7em' }}>In grace</span>
-                    )}
-                    {p.is_expired && !p.is_in_grace_period && (
-                      <span className="badge bg-secondary ms-2" style={{ fontSize: '0.7em' }}>Finished</span>
-                    )}
-                  </label>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="modal-footer">
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={onClose}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={() => onConfirm(draft)}
-            >
-              Apply ({draft.size} project{draft.size !== 1 ? 's' : ''})
-            </button>
-          </div>
+            }
+          />
+          <span className="ms-auto text-muted small">
+            {translate('{count} of {total} selected', {
+              count: draft.size,
+              total: projects.length,
+            })}
+          </span>
         </div>
-      </div>
-    </div>
-  );
-};
 
-// ── Offering filter dialog ────────────────────────────────────────────────────
-
-interface OfferingFilterDialogProps {
-  offeringNames: string[];
-  selected: Set<string>;
-  onConfirm: (next: Set<string>) => void;
-  onClose: () => void;
-}
-
-const OfferingFilterDialog: FC<OfferingFilterDialogProps> = ({
-  offeringNames,
-  selected,
-  onConfirm,
-  onClose,
-}) => {
-  const [draft, setDraft] = useState(() => new Set(selected));
-
-  const allSelected =
-    offeringNames.length > 0 && offeringNames.every((o) => draft.has(o));
-
-  const toggleAll = () => {
-    setDraft(allSelected ? new Set() : new Set(offeringNames));
-  };
-
-  const toggle = (name: string) => {
-    const next = new Set(draft);
-    if (next.has(name)) next.delete(name);
-    else next.add(name);
-    setDraft(next);
-  };
-
-  return (
-    <div
-      className="modal fade show"
-      style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="modal-dialog modal-dialog-scrollable">
-        <div className="modal-content">
-          <div className="modal-header">
-            <h5 className="modal-title">Filter by offering</h5>
-            <button type="button" className="btn-close" onClick={onClose} />
-          </div>
-          <div className="modal-body">
-            <p className="text-muted small">
-              Show only projects with at least one active offering matching
-              the selection below. Leave nothing selected to show all
-              projects. Note: credit totals are per-project and are not split
-              out by offering.
+        <div
+          style={{ maxHeight: 320, overflowY: 'auto' }}
+          className="border rounded p-2"
+        >
+          {visible.length === 0 && (
+            <p className="text-muted small mb-0 p-2">
+              {translate('No projects match the filters.')}
             </p>
-
-            <div className="d-flex align-items-center gap-2 mb-2">
-              <input
-                type="checkbox"
-                className="form-check-input"
-                checked={allSelected}
-                onChange={toggleAll}
-                id="alloc-offering-select-all"
-              />
-              <label
-                htmlFor="alloc-offering-select-all"
-                className="form-check-label small"
-              >
-                {allSelected ? 'Deselect' : 'Select'} all (
-                {offeringNames.length})
-              </label>
-              <span className="ms-auto text-muted small">
-                {draft.size === 0 ? 'All shown' : `${draft.size} selected`}
-              </span>
+          )}
+          {visible.map((p) => (
+            <div key={p.uuid} className="py-1">
+              <Form.Check className="d-flex align-items-start gap-2 mb-0">
+                <Form.Check.Input
+                  id={`alloc-proj-${p.uuid}`}
+                  className="mt-1 m-0"
+                  checked={draft.has(p.uuid)}
+                  onChange={() => toggle(p.uuid)}
+                />
+                <Form.Check.Label
+                  htmlFor={`alloc-proj-${p.uuid}`}
+                  className="flex-grow-1"
+                  style={{ cursor: 'pointer' }}
+                >
+                  <span className="fw-semibold">{p.name}</span>
+                  {(p.start_date || p.end_date) && (
+                    <span className="text-muted small ms-2">
+                      {p.start_date ?? '?'} →{' '}
+                      {p.end_date ?? translate('ongoing')}
+                    </span>
+                  )}
+                  {p.is_in_grace_period && (
+                    <Badge
+                      variant="warning"
+                      outline
+                      className="ms-2"
+                      style={{ fontSize: '0.7em' }}
+                    >
+                      {translate('In grace')}
+                    </Badge>
+                  )}
+                  {p.is_expired && !p.is_in_grace_period && (
+                    <Badge
+                      variant="default"
+                      outline
+                      className="ms-2"
+                      style={{ fontSize: '0.7em' }}
+                    >
+                      {translate('Finished')}
+                    </Badge>
+                  )}
+                </Form.Check.Label>
+              </Form.Check>
             </div>
-
-            <div
-              style={{ maxHeight: 320, overflowY: 'auto' }}
-              className="border rounded p-2"
-            >
-              {offeringNames.length === 0 && (
-                <p className="text-muted small mb-0 p-2">
-                  No offerings found.
-                </p>
-              )}
-              {offeringNames.map((name, idx) => (
-                <div key={name} className="d-flex align-items-start gap-2 py-1">
-                  <input
-                    type="checkbox"
-                    className="form-check-input mt-1"
-                    checked={draft.has(name)}
-                    onChange={() => toggle(name)}
-                    id={`alloc-offering-${idx}`}
-                  />
-                  <label
-                    htmlFor={`alloc-offering-${idx}`}
-                    className="form-check-label flex-grow-1"
-                    style={{ cursor: 'pointer' }}
-                  >
-                    {name}
-                  </label>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="modal-footer">
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={onClose}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={() => onConfirm(draft)}
-            >
-              Apply {draft.size > 0 ? `(${draft.size})` : '(all)'}
-            </button>
-          </div>
+          ))}
         </div>
-      </div>
-    </div>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" size="sm" onClick={onClose}>
+          {translate('Cancel')}
+        </Button>
+        <Button variant="primary" size="sm" onClick={() => onConfirm(draft)}>
+          {draft.size === 1
+            ? translate('Apply')
+            : translate('Apply ({count} projects)', {
+                count: draft.size,
+              })}
+        </Button>
+      </Modal.Footer>
+    </Modal>
   );
 };
 
@@ -693,14 +576,6 @@ interface StatCardProps {
 }
 
 const StatCard: FC<StatCardProps> = ({ label, value, variant = 'default' }) => {
-  const borderClass =
-    variant === 'success'
-      ? 'border-success'
-      : variant === 'warning'
-        ? 'border-warning'
-        : variant === 'danger'
-          ? 'border-danger'
-          : '';
   const textClass =
     variant === 'success'
       ? 'text-success'
@@ -709,9 +584,14 @@ const StatCard: FC<StatCardProps> = ({ label, value, variant = 'default' }) => {
         : variant === 'danger'
           ? 'text-danger'
           : '';
+
   return (
-    <div className={`card flex-fill ${borderClass}`} style={{ minWidth: 180 }}>
-      <div className="card-body py-3">
+    <Card
+      className="flex-fill"
+      border={variant !== 'default' ? variant : undefined}
+      style={{ minWidth: 180 }}
+    >
+      <Card.Body className="py-3">
         <div className="text-muted small mb-1">{label}</div>
         <div className={`fs-5 fw-bold ${textClass}`}>
           {(variant === 'warning' || variant === 'danger') && (
@@ -719,15 +599,15 @@ const StatCard: FC<StatCardProps> = ({ label, value, variant = 'default' }) => {
           )}
           {value}
         </div>
-      </div>
-    </div>
+      </Card.Body>
+    </Card>
   );
 };
 
 // ── Main tab ──────────────────────────────────────────────────────────────────
 
 export const OrganisationAllocationTab: FC = () => {
-  const customer = useSelector(getCustomer);
+  const customer = useCustomer();
 
   // ── Lazy-load — don't fire until user clicks "Load data" ─────────────────
   const [loadTriggered, setLoadTriggered] = useState(false);
@@ -736,9 +616,12 @@ export const OrganisationAllocationTab: FC = () => {
   const [projectStartAfter, setProjectStartAfter] = useState('');
   const [projectEndBefore, setProjectEndBefore] = useState('');
 
-
   // ── Fetch all projects in the organisation ──────────────────────────────
-  const [projectProgress, setProjectProgress] = useState({ done: 0, total: 0, statusMsg: '' });
+  const [projectProgress, setProjectProgress] = useState({
+    done: 0,
+    total: 0,
+    statusMsg: '',
+  });
 
   const {
     data: projects,
@@ -746,28 +629,40 @@ export const OrganisationAllocationTab: FC = () => {
     error: projectsError,
     refetch: refetchProjects,
   } = useQuery({
-    queryKey: ['openportal-alloc-projects', customer?.uuid, projectSearch, projectStartAfter, projectEndBefore, 'terminated'],
+    queryKey: [
+      'openportal-alloc-projects',
+      customer?.uuid,
+      projectSearch,
+      projectStartAfter,
+      projectEndBefore,
+      'terminated',
+    ],
     queryFn: async () => {
       const cacheKey = `alloc-projects-${customer!.uuid}-${projectSearch}-${projectStartAfter}-${projectEndBefore}-include_terminated`;
-      const cached = getCached<Project[]>(cacheKey, TTL.LISTS);
+      const cached = getCached<OpenPortalProject[]>(cacheKey, TTL.LISTS);
       if (cached) return cached;
-      let allProjects: Project[] = [];
+      let allProjects: OpenPortalProject[] = [];
       let page = 1;
       let totalPages: number | undefined;
-      setProjectProgress({ done: 0, total: 0, statusMsg: 'Starting…' });
+      setProjectProgress({
+        done: 0,
+        total: 0,
+        statusMsg: translate('Starting…'),
+      });
       while (true) {
         const result = await projectsList({
           query: {
-            customer: customer!.uuid,
+            customer: [customer!.uuid],
             page_size: 25,
             o: ['name'],
             page,
             include_terminated: true,
             ...(projectSearch ? { query: projectSearch } : {}),
-            ...(projectStartAfter ? { start_date_after: projectStartAfter } : {}),
+            ...(projectStartAfter
+              ? { start_date_after: projectStartAfter }
+              : {}),
             ...(projectEndBefore ? { end_date_before: projectEndBefore } : {}),
-            ended: false,
-          } as any,
+          },
         });
         allProjects = allProjects.concat(result.data);
         if (page === 1) {
@@ -778,8 +673,11 @@ export const OrganisationAllocationTab: FC = () => {
           done: page,
           total: totalPages ?? 0,
           statusMsg: totalPages
-            ? `Downloading page ${page} of ${totalPages}`
-            : `Downloading page ${page}…`,
+            ? translate('Downloading page {page} of {totalPages}', {
+                page,
+                totalPages,
+              })
+            : translate('Downloading page {page}…', { page }),
         });
         if (!getNextPageUrl(result.response)) break;
         page++;
@@ -806,7 +704,11 @@ export const OrganisationAllocationTab: FC = () => {
     selectedProjects.size > 0 ? selectedProjects : allProjectUuids;
 
   // ── Fetch accounting summaries for the organisation ─────────────────────
-  const [summariesProgress, setSummariesProgress] = useState({ done: 0, total: 0, statusMsg: '' });
+  const [summariesProgress, setSummariesProgress] = useState({
+    done: 0,
+    total: 0,
+    statusMsg: '',
+  });
 
   const {
     data: allSummaries,
@@ -814,23 +716,22 @@ export const OrganisationAllocationTab: FC = () => {
     error: summariesError,
     refetch: refetchSummaries,
   } = useQuery({
-    queryKey: ['openportal-accounting-summary', customer?.uuid, 'offering_names'],
+    queryKey: ['openportal-accounting-summary', customer?.uuid],
     queryFn: async () => {
-      const cacheKey = `alloc-summaries-v2-${customer!.uuid}`;
+      const cacheKey = `alloc-summaries-${customer!.uuid}`;
       const cached = getCached<ProjectAccountingSummary[]>(cacheKey, TTL.LISTS);
       if (cached) return cached;
       let allItems: ProjectAccountingSummary[] = [];
       let page = 1;
       let totalPages: number | undefined;
-      setSummariesProgress({ done: 0, total: 0, statusMsg: 'Starting…' });
+      setSummariesProgress({
+        done: 0,
+        total: 0,
+        statusMsg: translate('Starting…'),
+      });
       while (true) {
         const result = await openportalAccountingSummaryList({
-          query: {
-            customer_uuid: customer!.uuid,
-            page_size: 100,
-            page,
-            include_offering_names: true,
-          },
+          query: { customer_uuid: customer!.uuid, page_size: 100, page },
         });
         allItems = allItems.concat(result.data);
         if (page === 1) {
@@ -841,8 +742,11 @@ export const OrganisationAllocationTab: FC = () => {
           done: page,
           total: totalPages ?? 0,
           statusMsg: totalPages
-            ? `Downloading page ${page} of ${totalPages}`
-            : `Downloading page ${page}…`,
+            ? translate('Downloading page {page} of {totalPages}', {
+                page,
+                totalPages,
+              })
+            : translate('Downloading page {page}…', { page }),
         });
         if (!getNextPageUrl(result.response)) break;
         page++;
@@ -855,37 +759,16 @@ export const OrganisationAllocationTab: FC = () => {
     staleTime: Infinity,
   });
 
-  // ── Offering (resource) selection ───────────────────────────────────────
-  const allOfferingNames = useMemo(() => {
-    const names = new Set<string>();
-    (allSummaries ?? []).forEach((s) =>
-      (s.offering_names ?? []).forEach((o) => names.add(o)),
-    );
-    return [...names].sort();
-  }, [allSummaries]);
-  const [selectedOfferings, setSelectedOfferings] = useState<Set<string>>(
-    new Set(),
-  );
-  const [offeringDialogOpen, setOfferingDialogOpen] = useState(false);
-
-  // ── Filter summaries to selected projects and offerings ─────────────────
-  // An empty selectedOfferings means "no offering filter applied" — projects
-  // with no active offerings must still show up by default.
+  // ── Filter summaries to selected projects ───────────────────────────────
   const summaries = useMemo(
     () =>
-      (allSummaries ?? []).filter(
-        (s) =>
-          effectiveSelected.has(s.project_uuid) &&
-          (selectedOfferings.size === 0 ||
-            (s.offering_names ?? []).some((o) => selectedOfferings.has(o))),
-      ),
-    [allSummaries, effectiveSelected, selectedOfferings],
+      (allSummaries ?? []).filter((s) => effectiveSelected.has(s.project_uuid)),
+    [allSummaries, effectiveSelected],
   );
 
   // ── Aggregate stats ─────────────────────────────────────────────────────
   const stats = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = DateTime.now().startOf('day');
     let totalCredits = 0;
     let totalSpent = 0;
     let totalSpentThisMonth = 0;
@@ -896,8 +779,7 @@ export const OrganisationAllocationTab: FC = () => {
         parseCredits(s.total_spend) + parseCredits(s.current_month_spend);
       totalSpentThisMonth += parseCredits(s.current_month_spend);
       if (s.end_date) {
-        const end = new Date(s.end_date);
-        end.setHours(0, 0, 0, 0);
+        const end = DateTime.fromISO(s.end_date).startOf('day');
         if (end > today) {
           const remaining = Math.max(
             0,
@@ -905,11 +787,12 @@ export const OrganisationAllocationTab: FC = () => {
               parseCredits(s.total_spend) -
               parseCredits(s.current_month_spend),
           );
-          predictedDailyToday += remaining / Math.max(1, daysBetween(today, end));
+          predictedDailyToday +=
+            remaining / Math.max(1, daysBetween(today, end));
         }
       }
     }
-    const actualDailyAvg = totalSpentThisMonth / Math.max(1, today.getDate());
+    const actualDailyAvg = totalSpentThisMonth / Math.max(1, today.day);
     return {
       totalCredits,
       totalSpent,
@@ -945,7 +828,10 @@ export const OrganisationAllocationTab: FC = () => {
   }, [projectsLoading, summariesLoading]);
 
   // ── Excel download progress ─────────────────────────────────────────────
-  const [excelProgress, setExcelProgress] = useState<{current: number; total: number} | null>(null);
+  const [excelProgress, setExcelProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
 
   const currencyName = ENV.plugins.WALDUR_CORE.CURRENCY_NAME;
 
@@ -978,12 +864,12 @@ export const OrganisationAllocationTab: FC = () => {
     offTrackPercent: 40,
     offTrackDayOfMonth: 5,
   });
-  const setThreshold = (
-    key: keyof typeof thresholds,
-    raw: string,
-  ) => {
+  const setThreshold = (key: keyof typeof thresholds, raw: string) => {
     const v = parseFloat(raw);
-    setThresholds((prev: typeof thresholds) => ({ ...prev, [key]: isNaN(v) || v < 0 ? 0 : v }));
+    setThresholds((prev: typeof thresholds) => ({
+      ...prev,
+      [key]: isNaN(v) || v < 0 ? 0 : v,
+    }));
   };
   const [showThresholds, setShowThresholds] = useState(false);
   const [concerningTab, setConcerningTab] = useState<
@@ -991,45 +877,54 @@ export const OrganisationAllocationTab: FC = () => {
   >('slowStart');
 
   const { slowStart, inactive, depleted, offTrack } = useMemo(() => {
-    const now = new Date();
+    const now = DateTime.now();
     const monthsElapsed = (dateStr: string) => {
-      const s = new Date(dateStr);
-      return (
-        (now.getFullYear() - s.getFullYear()) * 12 +
-        (now.getMonth() - s.getMonth())
-      );
+      const s = DateTime.fromISO(dateStr);
+      return (now.year - s.year) * 12 + (now.month - s.month);
     };
     const daysUntil = (dateStr: string) => {
-      const end = new Date(dateStr);
-      end.setHours(0, 0, 0, 0);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const end = DateTime.fromISO(dateStr).startOf('day');
+      const today = DateTime.now().startOf('day');
       return daysBetween(today, end);
     };
 
     const slowStart = summaries.filter((s: ProjectAccountingSummary) => {
-      if (s.start_date && monthsElapsed(s.start_date) < thresholds.slowStartMonths) return false;
-      const spent = parseCredits(s.total_spend) + parseCredits(s.current_month_spend);
+      if (
+        s.start_date &&
+        monthsElapsed(s.start_date) < thresholds.slowStartMonths
+      )
+        return false;
+      const spent =
+        parseCredits(s.total_spend) + parseCredits(s.current_month_spend);
       const totalAlloc = parseCredits(s.total_credits);
       if (totalAlloc === 0) return false;
       return (spent / totalAlloc) * 100 < thresholds.slowStartPercent;
     });
 
     const inactive = summaries.filter((s: ProjectAccountingSummary) => {
-      if (now.getDate() < thresholds.inactiveDayOfMonth) return false;
-      if (s.start_date && monthsElapsed(s.start_date) < thresholds.inactiveMonths) return false;
+      if (now.day < thresholds.inactiveDayOfMonth) return false;
+      if (
+        s.start_date &&
+        monthsElapsed(s.start_date) < thresholds.inactiveMonths
+      )
+        return false;
       if (parseCredits(s.current_month_spend) >= 0.01) return false;
-      const spent = parseCredits(s.total_spend) + parseCredits(s.current_month_spend);
+      const spent =
+        parseCredits(s.total_spend) + parseCredits(s.current_month_spend);
       const totalAlloc = parseCredits(s.total_credits);
       const remaining = totalAlloc - spent;
       if (totalAlloc === 0) return false;
-      return (remaining / totalAlloc) * 100 > thresholds.inactiveRemainingPercent;
+      return (
+        (remaining / totalAlloc) * 100 > thresholds.inactiveRemainingPercent
+      );
     });
 
     const depleted = summaries.filter((s: ProjectAccountingSummary) => {
       if (!s.end_date) return false;
-      if (daysUntil(s.end_date) < thresholds.depletedDaysRemaining) return false;
-      const spent = parseCredits(s.total_spend) + parseCredits(s.current_month_spend);
+      if (daysUntil(s.end_date) < thresholds.depletedDaysRemaining)
+        return false;
+      const spent =
+        parseCredits(s.total_spend) + parseCredits(s.current_month_spend);
       const totalAlloc = parseCredits(s.total_credits);
       if (totalAlloc === 0) return false;
       return (spent / totalAlloc) * 100 >= thresholds.depletedSpentPercent;
@@ -1037,20 +932,20 @@ export const OrganisationAllocationTab: FC = () => {
 
     const offTrack = summaries.filter((s: ProjectAccountingSummary) => {
       if (!s.end_date) return false;
-      const end = new Date(s.end_date);
-      end.setHours(0, 0, 0, 0);
-      if (end <= now) return false;
-      if (now.getDate() < thresholds.offTrackDayOfMonth) return false;
+      const end = DateTime.fromISO(s.end_date).startOf('day');
+      if (end <= now.startOf('day')) return false;
+      if (now.day < thresholds.offTrackDayOfMonth) return false;
       const remaining = Math.max(
         0,
         parseCredits(s.total_credits) -
           parseCredits(s.total_spend) -
           parseCredits(s.current_month_spend),
       );
-      const predictedDaily = remaining / Math.max(1, daysBetween(now, end));
+      const predictedDaily =
+        remaining / Math.max(1, daysBetween(now.startOf('day'), end));
       if (predictedDaily === 0) return false;
       const actualDaily =
-        parseCredits(s.current_month_spend) / Math.max(1, now.getDate());
+        parseCredits(s.current_month_spend) / Math.max(1, now.day);
       const ratio = actualDaily / predictedDaily;
       const deviation = thresholds.offTrackPercent / 100;
       return ratio < 1 - deviation || ratio > 1 + deviation;
@@ -1081,79 +976,74 @@ export const OrganisationAllocationTab: FC = () => {
     [noEndDateSummaries],
   );
 
-
   return (
-    <div className="container-fluid py-4">
+    <Container fluid className="py-4">
       {/* ── Toolbar ────────────────────────────────────────────────────── */}
       <div className="d-flex align-items-center gap-3 mb-4 flex-wrap">
-        <h4 className="mb-0">Allocation Summary</h4>
+        <h4 className="mb-0">{translate('Allocation Summary')}</h4>
 
         {projects && projects.length > 0 && (
           <div className="d-flex align-items-center gap-2">
             <span className="text-muted small">
-              {effectiveSelected.size} of {projects.length} project
-              {projects.length !== 1 ? 's' : ''} selected
+              {translate('{count} of {total} {project} selected', {
+                count: effectiveSelected.size,
+                total: projects.length,
+                project:
+                  projects.length !== 1
+                    ? translate('projects')
+                    : translate('project'),
+              })}
             </span>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
+            <Button
+              variant="primary"
+              size="sm"
               onClick={() => setDialogOpen(true)}
             >
-              Filter selected projects
-            </button>
+              {translate('Filter selected projects')}
+            </Button>
           </div>
         )}
 
-        {allOfferingNames.length > 0 && (
-          <div className="d-flex align-items-center gap-2">
-            <span className="text-muted small">
-              {selectedOfferings.size === 0
-                ? 'All'
-                : selectedOfferings.size}{' '}
-              of {allOfferingNames.length} offering
-              {allOfferingNames.length !== 1 ? 's' : ''} selected
-            </span>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={() => setOfferingDialogOpen(true)}
+        {loadTriggered && (
+          <div className="ms-auto d-flex align-items-center gap-2">
+            {(() => {
+              const age = customer
+                ? getCacheAge(`alloc-summaries-${customer.uuid}`)
+                : null;
+              return age ? (
+                <span className="text-muted small">
+                  {translate('Cached {age}', { age: formatCacheAge(age) })}
+                </span>
+              ) : null;
+            })()}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                if (customer) {
+                  clearCached(
+                    `alloc-projects-${customer.uuid}`,
+                    `alloc-summaries-${customer.uuid}`,
+                  );
+                }
+                refetchProjects();
+                if (loadTriggered) refetchSummaries();
+              }}
             >
-              Filter by offering
-            </button>
+              {translate('Refresh')}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setShowLoadPrompt(true);
+                setLoadTriggered(false);
+              }}
+            >
+              {translate('Load new data…')}
+            </Button>
           </div>
         )}
-
-        {loadTriggered && <div className="ms-auto d-flex align-items-center gap-2">
-          {(() => {
-            const age = customer ? getCacheAge(`alloc-summaries-v2-${customer.uuid}`) : null;
-            return age ? (
-              <span className="text-muted small">Cached {formatCacheAge(age)}</span>
-            ) : null;
-          })()}
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => {
-              if (customer) {
-                clearCached(
-                  `alloc-projects-${customer.uuid}`,
-                  `alloc-summaries-v2-${customer.uuid}`,
-                );
-              }
-              refetchProjects();
-              if (loadTriggered) refetchSummaries();
-            }}
-          >
-            Refresh
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => { setShowLoadPrompt(true); setLoadTriggered(false); }}
-          >
-            Load new data…
-          </button>
-        </div>}
       </div>
 
       {/* ── Status ─────────────────────────────────────────────────────── */}
@@ -1161,7 +1051,7 @@ export const OrganisationAllocationTab: FC = () => {
         <StageProgress
           stage={1}
           total={2}
-          label="Loading project list"
+          label={translate('Loading project list')}
           done={projectProgress.done}
           max={projectProgress.total}
           statusMsg={projectProgress.statusMsg || undefined}
@@ -1170,70 +1060,87 @@ export const OrganisationAllocationTab: FC = () => {
 
       {projectsError && (
         <LoadingErred
-          message="Failed to load projects"
+          message={translate('Failed to load projects')}
           loadData={refetchProjects}
         />
       )}
 
       {summariesError && (
         <LoadingErred
-          message="Failed to load accounting summaries"
+          message={translate('Failed to load accounting summaries')}
           loadData={refetchSummaries}
         />
       )}
 
       {/* Load prompt — shown before the user triggers the fetch */}
       {showLoadPrompt && !loadTriggered && (
-        <div className="card mb-4">
-          <div className="card-body">
-            <p className="mb-1 fw-semibold">Allocation data not yet loaded</p>
+        <Card className="mb-4">
+          <Card.Body>
+            <p className="mb-1 fw-semibold">
+              {translate('Allocation data not yet loaded')}
+            </p>
             <p className="mb-3 text-muted small">
-              Loading computes summaries for every project in this
-              organisation and may take 10–15 seconds. You can optionally
-              filter to a subset of projects first to speed things up.
+              {translate(
+                'Loading computes summaries for every project in this organisation and may take 10–15 seconds. You can optionally filter to a subset of projects first to speed things up.',
+              )}
             </p>
 
             {/* Project pre-filters */}
-            <div className="row g-2 mb-3">
-              <div className="col-12 col-md-4">
-                <label className="form-label small mb-1">Project search</label>
-                <input
+            <Row className="g-2 mb-3">
+              <Col xs={12} md={4}>
+                <Form.Label className="small mb-1">
+                  {translate('Project search')}
+                </Form.Label>
+                <Form.Control
+                  size="sm"
                   type="text"
-                  className="form-control form-control-sm"
-                  placeholder="Name search (applied at load time)…"
+                  placeholder={translate('Name search (applied at load time)…')}
                   value={projectSearch}
-                  onChange={(e) => setProjectSearch(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    setProjectSearch(e.target.value)
+                  }
                 />
-              </div>
-              <div className="col-6 col-md-4">
-                <label className="form-label small mb-1">Started after</label>
-                <input
+              </Col>
+              <Col xs={6} md={4}>
+                <Form.Label className="small mb-1">
+                  {translate('Started after')}
+                </Form.Label>
+                <Form.Control
+                  size="sm"
                   type="date"
-                  className="form-control form-control-sm"
                   value={projectStartAfter}
-                  onChange={(e) => setProjectStartAfter(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    setProjectStartAfter(e.target.value)
+                  }
                 />
-              </div>
-              <div className="col-6 col-md-4">
-                <label className="form-label small mb-1">Ended before</label>
-                <input
+              </Col>
+              <Col xs={6} md={4}>
+                <Form.Label className="small mb-1">
+                  {translate('Ended before')}
+                </Form.Label>
+                <Form.Control
+                  size="sm"
                   type="date"
-                  className="form-control form-control-sm"
                   value={projectEndBefore}
-                  onChange={(e) => setProjectEndBefore(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    setProjectEndBefore(e.target.value)
+                  }
                 />
-              </div>
-            </div>
+              </Col>
+            </Row>
 
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={() => { setLoadTriggered(true); setShowLoadPrompt(false); }}
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                setLoadTriggered(true);
+                setShowLoadPrompt(false);
+              }}
             >
-              Load data
-            </button>
-          </div>
-        </div>
+              {translate('Load data')}
+            </Button>
+          </Card.Body>
+        </Card>
       )}
 
       {/* Progress bar while summaries are being fetched */}
@@ -1241,7 +1148,7 @@ export const OrganisationAllocationTab: FC = () => {
         <StageProgress
           stage={2}
           total={2}
-          label="Loading allocation summaries"
+          label={translate('Loading allocation summaries')}
           done={summariesProgress.done}
           max={summariesProgress.total}
           statusMsg={summariesProgress.statusMsg || undefined}
@@ -1249,55 +1156,71 @@ export const OrganisationAllocationTab: FC = () => {
       )}
 
       {showSlowWarning && (
-        <div className="alert alert-warning d-flex align-items-start gap-3 mb-3">
+        <Alert
+          variant="warning"
+          className="d-flex align-items-start gap-3 mb-3"
+        >
           <div className="flex-grow-1">
-            <strong>This is taking a while.</strong>
+            <strong>{translate('This is taking a while.')}</strong>
             <div className="small mt-1">
-              To speed things up: use the project search or date filters to load fewer projects.
+              {translate(
+                'To speed things up: use the project search or date filters to load fewer projects.',
+              )}
             </div>
           </div>
-          <button
-            type="button"
-            className="btn btn-warning btn-sm flex-shrink-0"
+          <Button
+            variant="warning"
+            size="sm"
+            className="flex-shrink-0"
             onClick={() => window.location.reload()}
           >
-            Cancel &amp; reload
-          </button>
-        </div>
+            {translate('Cancel & reload')}
+          </Button>
+        </Alert>
       )}
 
-      {loadTriggered && !summariesLoading && !summariesError && summaries.length === 0 && (
-        <p className="text-muted">
-          No accounting summaries found for the selected projects.
-        </p>
-      )}
+      {loadTriggered &&
+        !summariesLoading &&
+        !summariesError &&
+        summaries.length === 0 && (
+          <p className="text-muted p-4">
+            {translate(
+              'No accounting summaries found for the selected projects.',
+            )}
+          </p>
+        )}
 
       {/* ── Summary stats ───────────────────────────────────────────────── */}
       {summaries.length > 0 && (
         <div className="d-flex flex-wrap gap-3 mb-4">
           <StatCard
-            label={`Total ${currencyName} awarded`}
+            label={translate('Total {currencyName} awarded', { currencyName })}
             value={fmtCredits(stats.totalCredits)}
           />
           <StatCard
-            label={`Total ${currencyName} spent (all time)`}
+            label={translate('Total {currencyName} spent (all time)', {
+              currencyName,
+            })}
             value={fmtCredits(stats.totalSpent)}
           />
           <StatCard
-            label={`Total ${currencyName} spent (this month)`}
+            label={translate('Total {currencyName} spent (this month)', {
+              currencyName,
+            })}
             value={fmtCredits(stats.totalSpentThisMonth)}
           />
           <StatCard
-            label={`Predicted daily spend (today)`}
+            label={translate('Predicted daily spend (today)')}
             value={fmtCredits(stats.predictedDailyToday)}
           />
           <StatCard
-            label={`Actual daily avg (this month)`}
+            label={translate('Actual daily avg (this month)')}
             value={fmtCredits(stats.actualDailyAvg)}
             variant={
               stats.predictedDailyToday > 0
                 ? (() => {
-                    const ratio = stats.actualDailyAvg / stats.predictedDailyToday;
+                    const ratio =
+                      stats.actualDailyAvg / stats.predictedDailyToday;
                     if (ratio >= 0.8 && ratio <= 1.2) return 'success';
                     if (ratio >= 0.6 && ratio <= 1.4) return 'warning';
                     return 'danger';
@@ -1306,7 +1229,7 @@ export const OrganisationAllocationTab: FC = () => {
             }
           />
           <StatCard
-            label={`Remaining ${currencyName}`}
+            label={translate('Remaining {currencyName}', { currencyName })}
             value={fmtCredits(stats.remaining)}
           />
         </div>
@@ -1314,49 +1237,45 @@ export const OrganisationAllocationTab: FC = () => {
 
       {/* ── Burn-down chart ─────────────────────────────────────────────── */}
       {summaries.length > 0 && (
-        <div className="card mb-4">
-          <div className="card-header fw-semibold d-flex align-items-center gap-3">
-            <span>Predicted allocation burn-down</span>
+        <Card className="mb-4">
+          <Card.Header className="fw-semibold d-flex align-items-center gap-3">
+            <span>{translate('Predicted allocation burn-down')}</span>
 
             {chartOptions && (
               <>
-                <div className="btn-group btn-group-sm ms-auto" role="group">
-                  <button
-                    type="button"
-                    className={`btn btn-${groupBy === 'day' ? 'primary' : 'secondary'}`}
+                <ButtonGroup size="sm" className="ms-auto">
+                  <Button
+                    variant={groupBy === 'day' ? 'primary' : 'secondary'}
                     onClick={() => setGroupBy('day')}
                   >
-                    Day
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn btn-${groupBy === 'month' ? 'primary' : 'secondary'}`}
+                    {translate('Day')}
+                  </Button>
+                  <Button
+                    variant={groupBy === 'month' ? 'primary' : 'secondary'}
                     onClick={() => setGroupBy('month')}
                   >
-                    Month
-                  </button>
-                </div>
+                    {translate('Month')}
+                  </Button>
+                </ButtonGroup>
 
-                <div className="btn-group btn-group-sm" role="group">
-                  <button
-                    type="button"
-                    className={`btn btn-${chartType === 'bar' ? 'primary' : 'secondary'}`}
+                <ButtonGroup size="sm">
+                  <Button
+                    variant={chartType === 'bar' ? 'primary' : 'secondary'}
                     onClick={() => setChartType('bar')}
                   >
-                    Bar
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn btn-${chartType === 'line' ? 'primary' : 'secondary'}`}
+                    {translate('Bar')}
+                  </Button>
+                  <Button
+                    variant={chartType === 'line' ? 'primary' : 'secondary'}
                     onClick={() => setChartType('line')}
                   >
-                    Line
-                  </button>
-                </div>
+                    {translate('Line')}
+                  </Button>
+                </ButtonGroup>
               </>
             )}
 
-            <Tip id="tip-alloc-excel" label="Download Excel">
+            <Tip id="tip-alloc-excel" label={translate('Download Excel')}>
               <button
                 type="button"
                 className="text-btn text-hover-primary"
@@ -1371,72 +1290,81 @@ export const OrganisationAllocationTab: FC = () => {
                   setExcelProgress(null);
                 }}
               >
-                <FileXlsIcon size={20} />
+                <FileXlsIcon size={20} weight="bold" />
               </button>
             </Tip>
             {excelProgress && (
               <span className="text-muted small ms-2">
-                Preparing Excel — sheet {excelProgress.current} of {excelProgress.total}…
+                {translate('Preparing Excel — sheet {current} of {total}…', {
+                  current: excelProgress.current,
+                  total: excelProgress.total,
+                })}
               </span>
             )}
-          </div>
-          <div className="card-body">
+          </Card.Header>
+          <Card.Body>
             {chartOptions ? (
               <EChart options={chartOptions} height="420px" />
             ) : (
               <p className="text-muted mb-0">
-                No projects with future end dates — nothing to plot.
+                {translate(
+                  'No projects with future end dates — nothing to plot.',
+                )}
               </p>
             )}
-          </div>
-        </div>
+          </Card.Body>
+        </Card>
       )}
 
       {/* ── Consumption chart ───────────────────────────────────────────── */}
       {summaries.length > 0 && (
-        <div className="card mb-4">
-          <div className="card-header fw-semibold d-flex align-items-center gap-3">
-            <span>Predicted daily consumption</span>
+        <Card className="mb-4">
+          <Card.Header className="fw-semibold d-flex align-items-center gap-3">
+            <span>{translate('Predicted daily consumption')}</span>
 
             {consumptionOptions && (
               <>
-                <div className="btn-group btn-group-sm ms-auto" role="group">
-                  <button
-                    type="button"
-                    className={`btn btn-${consumptionGroupBy === 'day' ? 'primary' : 'secondary'}`}
+                <ButtonGroup size="sm" className="ms-auto">
+                  <Button
+                    variant={
+                      consumptionGroupBy === 'day' ? 'primary' : 'secondary'
+                    }
                     onClick={() => setConsumptionGroupBy('day')}
                   >
-                    Day
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn btn-${consumptionGroupBy === 'month' ? 'primary' : 'secondary'}`}
+                    {translate('Day')}
+                  </Button>
+                  <Button
+                    variant={
+                      consumptionGroupBy === 'month' ? 'primary' : 'secondary'
+                    }
                     onClick={() => setConsumptionGroupBy('month')}
                   >
-                    Month
-                  </button>
-                </div>
+                    {translate('Month')}
+                  </Button>
+                </ButtonGroup>
 
-                <div className="btn-group btn-group-sm" role="group">
-                  <button
-                    type="button"
-                    className={`btn btn-${consumptionChartType === 'bar' ? 'primary' : 'secondary'}`}
+                <ButtonGroup size="sm">
+                  <Button
+                    variant={
+                      consumptionChartType === 'bar' ? 'primary' : 'secondary'
+                    }
                     onClick={() => setConsumptionChartType('bar')}
                   >
-                    Bar
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn btn-${consumptionChartType === 'line' ? 'primary' : 'secondary'}`}
+                    {translate('Bar')}
+                  </Button>
+                  <Button
+                    variant={
+                      consumptionChartType === 'line' ? 'primary' : 'secondary'
+                    }
                     onClick={() => setConsumptionChartType('line')}
                   >
-                    Line
-                  </button>
-                </div>
+                    {translate('Line')}
+                  </Button>
+                </ButtonGroup>
               </>
             )}
 
-            <Tip id="tip-consumption-excel" label="Download Excel">
+            <Tip id="tip-consumption-excel" label={translate('Download Excel')}>
               <button
                 type="button"
                 className="text-btn text-hover-primary"
@@ -1451,48 +1379,63 @@ export const OrganisationAllocationTab: FC = () => {
                   setExcelProgress(null);
                 }}
               >
-                <FileXlsIcon size={20} />
+                <FileXlsIcon size={20} weight="bold" />
               </button>
             </Tip>
             {excelProgress && (
               <span className="text-muted small ms-2">
-                Preparing Excel — sheet {excelProgress.current} of {excelProgress.total}…
+                {translate('Preparing Excel — sheet {current} of {total}…', {
+                  current: excelProgress.current,
+                  total: excelProgress.total,
+                })}
               </span>
             )}
-          </div>
-          <div className="card-body">
+          </Card.Header>
+          <Card.Body>
             {consumptionOptions ? (
               <EChart options={consumptionOptions} height="420px" />
             ) : (
               <p className="text-muted mb-0">
-                No projects with future end dates — nothing to plot.
+                {translate(
+                  'No projects with future end dates — nothing to plot.',
+                )}
               </p>
             )}
-          </div>
-        </div>
+          </Card.Body>
+        </Card>
       )}
 
       {/* ── Warning: projects without end dates ─────────────────────────── */}
       {noEndDateSummaries.length > 0 && (
-        <div className="alert alert-warning">
+        <Alert variant="warning">
           <div className="d-flex align-items-start gap-2 mb-2">
-            <span>⚠</span>
+            <WarningCircleIcon
+              size={20}
+              className="text-warning"
+              weight="bold"
+            />
             <span>
-              <strong>
-                {noEndDateSummaries.length} project
-                {noEndDateSummaries.length !== 1 ? 's have' : ' has'} no end
-                date
-              </strong>{' '}
-              and{' '}
-              {noEndDateSummaries.length !== 1 ? 'are' : 'is'} not shown in the
-              burn-down chart. Together{' '}
-              {noEndDateSummaries.length !== 1
-                ? 'they represent'
-                : 'it represents'}{' '}
-              <strong>
-                {fmtCredits(noEndDateUnspent)} {currencyName}
-              </strong>{' '}
-              of unspent allocation.
+              {noEndDateSummaries.length === 1
+                ? translate(
+                    '{count} project has no end date and is not shown in the burn-down chart. Together it represents <strong>{amount} {currencyName}</strong> of unspent allocation.',
+                    {
+                      count: noEndDateSummaries.length,
+                      amount: fmtCredits(noEndDateUnspent),
+                      currencyName,
+                      strong: (text) => <strong>{text}</strong>,
+                    },
+                    formatJsxTemplate,
+                  )
+                : translate(
+                    '{count} projects have no end date and are not shown in the burn-down chart. Together they represent <strong>{amount} {currencyName}</strong> of unspent allocation.',
+                    {
+                      count: noEndDateSummaries.length,
+                      amount: fmtCredits(noEndDateUnspent),
+                      currencyName,
+                      strong: (text) => <strong>{text}</strong>,
+                    },
+                    formatJsxTemplate,
+                  )}
             </span>
           </div>
           <ul className="mb-0 ps-4">
@@ -1512,147 +1455,226 @@ export const OrganisationAllocationTab: FC = () => {
                   >
                     {s.project_name}
                   </a>
-                  {' — '}
-                  {fmtCredits(unspent)} {currencyName} unspent
+                  {translate(' — {unspent} {currency} unspent', {
+                    unspent: fmtCredits(unspent),
+                    currency: currencyName,
+                  })}
                 </li>
               );
             })}
           </ul>
-        </div>
+        </Alert>
       )}
 
       {/* ── Concerning projects ─────────────────────────────────────────── */}
       {summaries.length > 0 && (
-        <div className="card mb-4">
-          <div className="card-header fw-semibold d-flex align-items-center gap-2">
-            <span>Concerning Projects</span>
-            {slowStart.length + inactive.length + depleted.length + offTrack.length > 0 && (
-              <span className="badge bg-warning text-dark">
-                {new Set<string>([
-                  ...slowStart.map((s: ProjectAccountingSummary) => s.project_uuid),
-                  ...inactive.map((s: ProjectAccountingSummary) => s.project_uuid),
-                  ...depleted.map((s: ProjectAccountingSummary) => s.project_uuid),
-                  ...offTrack.map((s: ProjectAccountingSummary) => s.project_uuid),
-                ]).size}
-              </span>
+        <Card className="mb-4">
+          <Card.Header className="fw-semibold d-flex align-items-center gap-2">
+            <span>{translate('Concerning Projects')}</span>
+            {slowStart.length +
+              inactive.length +
+              depleted.length +
+              offTrack.length >
+              0 && (
+              <Badge variant="warning" outline>
+                {
+                  new Set<string>([
+                    ...slowStart.map(
+                      (s: ProjectAccountingSummary) => s.project_uuid,
+                    ),
+                    ...inactive.map(
+                      (s: ProjectAccountingSummary) => s.project_uuid,
+                    ),
+                    ...depleted.map(
+                      (s: ProjectAccountingSummary) => s.project_uuid,
+                    ),
+                    ...offTrack.map(
+                      (s: ProjectAccountingSummary) => s.project_uuid,
+                    ),
+                  ]).size
+                }
+              </Badge>
             )}
-            <button
-              type="button"
-              className={`btn btn-sm ms-auto btn-${showThresholds ? 'primary' : 'secondary'}`}
+            <Button
+              variant={showThresholds ? 'primary' : 'secondary'}
+              size="sm"
+              className="ms-auto"
               onClick={() => setShowThresholds((v: boolean) => !v)}
             >
-              Thresholds
-            </button>
-          </div>
+              {translate('Thresholds')}
+            </Button>
+          </Card.Header>
 
-          <div className="card-body">
+          <Card.Body>
             {/* ── Threshold controls ──────────────────────────────────── */}
             {showThresholds && (
               <div className="p-3 mb-3 bg-light rounded small">
-                <div className="row g-2">
-                  <div className="col-12 d-flex align-items-center gap-2 flex-wrap">
+                <Row className="g-2">
+                  <Col
+                    xs={12}
+                    className="d-flex align-items-center gap-2 flex-wrap"
+                  >
                     <span className="fw-semibold" style={{ minWidth: 120 }}>
-                      Slow start:
+                      {translate('Slow start')}:
                     </span>
-                    <span>started ≥</span>
-                    <input
-                      type="number"
-                      className="form-control form-control-sm"
-                      style={{ width: 60 }}
-                      value={thresholds.slowStartMonths}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setThreshold('slowStartMonths', e.target.value)}
-                    />
-                    <span>months ago with &lt;</span>
-                    <input
-                      type="number"
-                      className="form-control form-control-sm"
-                      style={{ width: 60 }}
-                      value={thresholds.slowStartPercent}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setThreshold('slowStartPercent', e.target.value)}
-                    />
-                    <span>% of allocation spent</span>
-                  </div>
-                  <div className="col-12 d-flex align-items-center gap-2 flex-wrap">
+                    {translate(
+                      'started ≥ {input1} months ago with < {input2} % of allocation spent',
+                      {
+                        input1: (
+                          <Form.Control
+                            type="number"
+                            size="sm"
+                            style={{ width: 60 }}
+                            value={thresholds.slowStartMonths}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                              setThreshold('slowStartMonths', e.target.value)
+                            }
+                          />
+                        ),
+                        input2: (
+                          <Form.Control
+                            type="number"
+                            size="sm"
+                            style={{ width: 60 }}
+                            value={thresholds.slowStartPercent}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                              setThreshold('slowStartPercent', e.target.value)
+                            }
+                          />
+                        ),
+                      },
+                      formatJsxTemplate,
+                    )}
+                  </Col>
+                  <Col
+                    xs={12}
+                    className="d-flex align-items-center gap-2 flex-wrap"
+                  >
                     <span className="fw-semibold" style={{ minWidth: 120 }}>
-                      Inactive:
+                      {translate('Inactive')}:
                     </span>
-                    <span>started ≥</span>
-                    <input
-                      type="number"
-                      className="form-control form-control-sm"
-                      style={{ width: 60 }}
-                      value={thresholds.inactiveMonths}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setThreshold('inactiveMonths', e.target.value)}
-                    />
-                    <span>months ago, after the</span>
-                    <input
-                      type="number"
-                      className="form-control form-control-sm"
-                      style={{ width: 60 }}
-                      value={thresholds.inactiveDayOfMonth}
-                      onChange={(e) => setThreshold('inactiveDayOfMonth', e.target.value)}
-                    />
-                    <span>th of the month, no spend this month, &gt;</span>
-                    <input
-                      type="number"
-                      className="form-control form-control-sm"
-                      style={{ width: 60 }}
-                      value={thresholds.inactiveRemainingPercent}
-                      onChange={(e) =>
-                        setThreshold('inactiveRemainingPercent', e.target.value)
-                      }
-                    />
-                    <span>% remaining</span>
-                  </div>
-                  <div className="col-12 d-flex align-items-center gap-2 flex-wrap">
+                    {translate(
+                      'started ≥ {input1} months ago, after the {input2} th of the month, no spend this month, > {input3} % remaining',
+                      {
+                        input1: (
+                          <Form.Control
+                            type="number"
+                            size="sm"
+                            style={{ width: 60 }}
+                            value={thresholds.inactiveMonths}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                              setThreshold('inactiveMonths', e.target.value)
+                            }
+                          />
+                        ),
+                        input2: (
+                          <Form.Control
+                            type="number"
+                            size="sm"
+                            style={{ width: 60 }}
+                            value={thresholds.inactiveDayOfMonth}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                              setThreshold('inactiveDayOfMonth', e.target.value)
+                            }
+                          />
+                        ),
+                        input3: (
+                          <Form.Control
+                            type="number"
+                            size="sm"
+                            style={{ width: 60 }}
+                            value={thresholds.inactiveRemainingPercent}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                              setThreshold(
+                                'inactiveRemainingPercent',
+                                e.target.value,
+                              )
+                            }
+                          />
+                        ),
+                      },
+                      formatJsxTemplate,
+                    )}
+                  </Col>
+                  <Col
+                    xs={12}
+                    className="d-flex align-items-center gap-2 flex-wrap"
+                  >
                     <span className="fw-semibold" style={{ minWidth: 120 }}>
-                      Off track:
+                      {translate('Nearly depleted')}:
                     </span>
-                    <span>after the</span>
-                    <input
-                      type="number"
-                      className="form-control form-control-sm"
-                      style={{ width: 60 }}
-                      value={thresholds.offTrackDayOfMonth}
-                      onChange={(e) => setThreshold('offTrackDayOfMonth', e.target.value)}
-                    />
-                    <span>th of the month, actual daily avg differs from predicted by &gt;</span>
-                    <input
-                      type="number"
-                      className="form-control form-control-sm"
-                      style={{ width: 60 }}
-                      value={thresholds.offTrackPercent}
-                      onChange={(e) => setThreshold('offTrackPercent', e.target.value)}
-                    />
-                    <span>%</span>
-                  </div>
-                  <div className="col-12 d-flex align-items-center gap-2 flex-wrap">
+                    {translate(
+                      '≥ {input1} % spent with ≥ {input2} days still remaining',
+                      {
+                        input1: (
+                          <Form.Control
+                            type="number"
+                            size="sm"
+                            style={{ width: 60 }}
+                            value={thresholds.depletedSpentPercent}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                              setThreshold(
+                                'depletedSpentPercent',
+                                e.target.value,
+                              )
+                            }
+                          />
+                        ),
+                        input2: (
+                          <Form.Control
+                            type="number"
+                            size="sm"
+                            style={{ width: 70 }}
+                            value={thresholds.depletedDaysRemaining}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                              setThreshold(
+                                'depletedDaysRemaining',
+                                e.target.value,
+                              )
+                            }
+                          />
+                        ),
+                      },
+                      formatJsxTemplate,
+                    )}
+                  </Col>
+                  <Col
+                    xs={12}
+                    className="d-flex align-items-center gap-2 flex-wrap"
+                  >
                     <span className="fw-semibold" style={{ minWidth: 120 }}>
-                      Nearly depleted:
+                      {translate('Off track')}:
                     </span>
-                    <span>≥</span>
-                    <input
-                      type="number"
-                      className="form-control form-control-sm"
-                      style={{ width: 60 }}
-                      value={thresholds.depletedSpentPercent}
-                      onChange={(e) =>
-                        setThreshold('depletedSpentPercent', e.target.value)
-                      }
-                    />
-                    <span>% spent with ≥</span>
-                    <input
-                      type="number"
-                      className="form-control form-control-sm"
-                      style={{ width: 70 }}
-                      value={thresholds.depletedDaysRemaining}
-                      onChange={(e) =>
-                        setThreshold('depletedDaysRemaining', e.target.value)
-                      }
-                    />
-                    <span>days still remaining</span>
-                  </div>
-                </div>
+                    {translate(
+                      'after the {input1} th of the month, actual daily avg differs from predicted by > {input2} %',
+                      {
+                        input1: (
+                          <Form.Control
+                            type="number"
+                            size="sm"
+                            style={{ width: 60 }}
+                            value={thresholds.offTrackDayOfMonth}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                              setThreshold('offTrackDayOfMonth', e.target.value)
+                            }
+                          />
+                        ),
+                        input2: (
+                          <Form.Control
+                            type="number"
+                            size="sm"
+                            style={{ width: 60 }}
+                            value={thresholds.offTrackPercent}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                              setThreshold('offTrackPercent', e.target.value)
+                            }
+                          />
+                        ),
+                      },
+                      formatJsxTemplate,
+                    )}
+                  </Col>
+                </Row>
               </div>
             )}
 
@@ -1662,7 +1684,9 @@ export const OrganisationAllocationTab: FC = () => {
               depleted.length === 0 &&
               offTrack.length === 0 && (
                 <p className="text-muted mb-0">
-                  ✓ No concerning projects found with the current thresholds.
+                  {translate(
+                    '✓ No concerning projects found with the current thresholds.',
+                  )}
                 </p>
               )}
 
@@ -1671,72 +1695,40 @@ export const OrganisationAllocationTab: FC = () => {
               inactive.length > 0 ||
               depleted.length > 0 ||
               offTrack.length > 0) && (
-              <>
-                <ul className="nav nav-tabs mb-3">
-                  <li className="nav-item">
-                    <button
-                      className={`nav-link ${concerningTab === 'slowStart' ? 'active' : ''}`}
-                      onClick={() => setConcerningTab('slowStart')}
-                    >
-                      Slow start
+              <Tabs
+                activeKey={concerningTab}
+                onSelect={(k) => setConcerningTab(k as any)}
+                className="mb-3"
+              >
+                <Tab
+                  eventKey="slowStart"
+                  title={
+                    <>
+                      {translate('Slow start')}
                       {slowStart.length > 0 && (
-                        <span className="badge bg-warning text-dark ms-2">
+                        <Badge variant="warning" outline className="ms-2">
                           {slowStart.length}
-                        </span>
+                        </Badge>
                       )}
-                    </button>
-                  </li>
-                  <li className="nav-item">
-                    <button
-                      className={`nav-link ${concerningTab === 'inactive' ? 'active' : ''}`}
-                      onClick={() => setConcerningTab('inactive')}
-                    >
-                      Inactive
-                      {inactive.length > 0 && (
-                        <span className="badge bg-warning text-dark ms-2">
-                          {inactive.length}
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                  <li className="nav-item">
-                    <button
-                      className={`nav-link ${concerningTab === 'depleted' ? 'active' : ''}`}
-                      onClick={() => setConcerningTab('depleted')}
-                    >
-                      Nearly depleted
-                      {depleted.length > 0 && (
-                        <span className="badge bg-danger ms-2">
-                          {depleted.length}
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                  <li className="nav-item">
-                    <button
-                      className={`nav-link ${concerningTab === 'offTrack' ? 'active' : ''}`}
-                      onClick={() => setConcerningTab('offTrack')}
-                    >
-                      Off track
-                      {offTrack.length > 0 && (
-                        <span className="badge bg-warning text-dark ms-2">
-                          {offTrack.length}
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                </ul>
-
-                {concerningTab === 'slowStart' && (
+                    </>
+                  }
+                >
                   <div>
                     <p className="text-muted small mb-2">
-                      Started ≥ {thresholds.slowStartMonths} month
-                      {thresholds.slowStartMonths !== 1 ? 's' : ''} ago but
-                      spent less than {thresholds.slowStartPercent}% of their
-                      allocation — may not have got going yet.
+                      {translate(
+                        'Started ≥ {months} {month} ago but spent less than {percent}% of their allocation — may not have got going yet.',
+                        {
+                          months: thresholds.slowStartMonths,
+                          month:
+                            thresholds.slowStartMonths !== 1
+                              ? translate('months')
+                              : translate('month'),
+                          percent: thresholds.slowStartPercent,
+                        },
+                      )}
                     </p>
                     {slowStart.length === 0 ? (
-                      <p className="text-muted mb-0">None.</p>
+                      <p className="text-muted mb-0">{translate('None.')}</p>
                     ) : (
                       <ul className="mb-0">
                         {slowStart.map((s: ProjectAccountingSummary) => {
@@ -1757,31 +1749,53 @@ export const OrganisationAllocationTab: FC = () => {
                               >
                                 {s.project_name}
                               </a>
-                              {' — started '}
-                              {s.start_date}
-                              {', '}
-                              {pct}% spent ({fmtCredits(spent)} /{' '}
-                              {fmtCredits(totalAlloc)} {currencyName})
+                              {translate(
+                                ' — started {date}, {pct}% spent ({spent} / {total} {currency})',
+                                {
+                                  date: s.start_date,
+                                  pct,
+                                  spent: fmtCredits(spent),
+                                  total: fmtCredits(totalAlloc),
+                                  currency: currencyName,
+                                },
+                              )}
                             </li>
                           );
                         })}
                       </ul>
                     )}
                   </div>
-                )}
+                </Tab>
 
-                {concerningTab === 'inactive' && (
+                <Tab
+                  eventKey="inactive"
+                  title={
+                    <>
+                      {translate('Inactive')}
+                      {inactive.length > 0 && (
+                        <Badge variant="warning" outline className="ms-2">
+                          {inactive.length}
+                        </Badge>
+                      )}
+                    </>
+                  }
+                >
                   <div>
                     <p className="text-muted small mb-2">
-                      Started ≥ {thresholds.inactiveMonths} month
-                      {thresholds.inactiveMonths !== 1 ? 's' : ''} ago, no
-                      spend recorded this month, and more than{' '}
-                      {thresholds.inactiveRemainingPercent}% of allocation
-                      still remaining. Note: only the current month's activity
-                      is visible here.
+                      {translate(
+                        "Started ≥ {months} {month} ago, no spend recorded this month, and more than {percent}% of allocation still remaining. Note: only the current month's activity is visible here.",
+                        {
+                          months: thresholds.inactiveMonths,
+                          month:
+                            thresholds.inactiveMonths !== 1
+                              ? translate('months')
+                              : translate('month'),
+                          percent: thresholds.inactiveRemainingPercent,
+                        },
+                      )}
                     </p>
                     {inactive.length === 0 ? (
-                      <p className="text-muted mb-0">None.</p>
+                      <p className="text-muted mb-0">{translate('None.')}</p>
                     ) : (
                       <ul className="mb-0">
                         {inactive.map((s: ProjectAccountingSummary) => {
@@ -1803,28 +1817,50 @@ export const OrganisationAllocationTab: FC = () => {
                               >
                                 {s.project_name}
                               </a>
-                              {' — started '}
-                              {s.start_date}
-                              {', no spend this month, '}
-                              {pct}% remaining ({fmtCredits(remaining)} /{' '}
-                              {fmtCredits(totalAlloc)} {currencyName})
+                              {translate(
+                                ' — started {date}, {noSpend}, {pct}% remaining ({remaining} / {total} {currency})',
+                                {
+                                  date: s.start_date,
+                                  noSpend: translate('no spend this month'),
+                                  pct,
+                                  remaining: fmtCredits(remaining),
+                                  total: fmtCredits(totalAlloc),
+                                  currency: currencyName,
+                                },
+                              )}
                             </li>
                           );
                         })}
                       </ul>
                     )}
                   </div>
-                )}
+                </Tab>
 
-                {concerningTab === 'depleted' && (
+                <Tab
+                  eventKey="depleted"
+                  title={
+                    <>
+                      {translate('Nearly depleted')}
+                      {depleted.length > 0 && (
+                        <Badge variant="danger" outline className="ms-2">
+                          {depleted.length}
+                        </Badge>
+                      )}
+                    </>
+                  }
+                >
                   <div>
                     <p className="text-muted small mb-2">
-                      At least {thresholds.depletedSpentPercent}% of allocation
-                      spent, but still ≥ {thresholds.depletedDaysRemaining}{' '}
-                      days until the project ends — may need a top-up.
+                      {translate(
+                        'At least {percent}% of allocation spent, but still ≥ {days} days until the project ends — may need a top-up.',
+                        {
+                          percent: thresholds.depletedSpentPercent,
+                          days: thresholds.depletedDaysRemaining,
+                        },
+                      )}
                     </p>
                     {depleted.length === 0 ? (
-                      <p className="text-muted mb-0">None.</p>
+                      <p className="text-muted mb-0">{translate('None.')}</p>
                     ) : (
                       <ul className="mb-0">
                         {depleted.map((s: ProjectAccountingSummary) => {
@@ -1836,10 +1872,10 @@ export const OrganisationAllocationTab: FC = () => {
                             (spent / (totalAlloc || 1)) *
                             100
                           ).toFixed(1);
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          const end = new Date(s.end_date!);
-                          end.setHours(0, 0, 0, 0);
+                          const today = DateTime.now().startOf('day');
+                          const end = DateTime.fromISO(s.end_date!).startOf(
+                            'day',
+                          );
                           const days = daysBetween(today, end);
                           return (
                             <li key={s.project_uuid} className="mb-1">
@@ -1850,34 +1886,57 @@ export const OrganisationAllocationTab: FC = () => {
                               >
                                 {s.project_name}
                               </a>
-                              {' — '}
-                              {spentPct}% spent ({fmtCredits(spent)} /{' '}
-                              {fmtCredits(totalAlloc)} {currencyName}), ends{' '}
-                              {s.end_date} ({days} days remaining)
+                              {translate(
+                                ' — {spentPct}% spent ({spent} / {total} {currency}), ends {date} ({days} days remaining)',
+                                {
+                                  spentPct,
+                                  spent: fmtCredits(spent),
+                                  total: fmtCredits(totalAlloc),
+                                  currency: currencyName,
+                                  date: s.end_date,
+                                  days,
+                                },
+                              )}
                             </li>
                           );
                         })}
                       </ul>
                     )}
                   </div>
-                )}
+                </Tab>
 
-                {concerningTab === 'offTrack' && (
+                <Tab
+                  eventKey="offTrack"
+                  title={
+                    <>
+                      {translate('Off track')}
+                      {offTrack.length > 0 && (
+                        <Badge variant="warning" outline className="ms-2">
+                          {offTrack.length}
+                        </Badge>
+                      )}
+                    </>
+                  }
+                >
                   <div>
                     <p className="text-muted small mb-2">
-                      After the {thresholds.offTrackDayOfMonth}th of the month,
-                      actual daily average spend differs from predicted by more
-                      than {thresholds.offTrackPercent}%.
+                      {translate(
+                        'After the {day}th of the month, actual daily average spend differs from predicted by more than {percent}%.',
+                        {
+                          day: thresholds.offTrackDayOfMonth,
+                          percent: thresholds.offTrackPercent,
+                        },
+                      )}
                     </p>
                     {offTrack.length === 0 ? (
-                      <p className="text-muted mb-0">None.</p>
+                      <p className="text-muted mb-0">{translate('None.')}</p>
                     ) : (
                       <ul className="mb-0">
                         {offTrack.map((s: ProjectAccountingSummary) => {
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          const end = new Date(s.end_date!);
-                          end.setHours(0, 0, 0, 0);
+                          const today = DateTime.now().startOf('day');
+                          const end = DateTime.fromISO(s.end_date!).startOf(
+                            'day',
+                          );
                           const remaining = Math.max(
                             0,
                             parseCredits(s.total_credits) -
@@ -1888,7 +1947,7 @@ export const OrganisationAllocationTab: FC = () => {
                             remaining / Math.max(1, daysBetween(today, end));
                           const actualDaily =
                             parseCredits(s.current_month_spend) /
-                            Math.max(1, today.getDate());
+                            Math.max(1, today.day);
                           const pct = (
                             ((actualDaily - predictedDaily) /
                               (predictedDaily || 1)) *
@@ -1905,27 +1964,34 @@ export const OrganisationAllocationTab: FC = () => {
                               >
                                 {s.project_name}
                               </a>
-                              {' — '}
-                              {Math.abs(parseFloat(pct)).toFixed(1)}%{' '}
-                              {direction} (actual{' '}
-                              {fmtCredits(actualDaily)} vs predicted{' '}
-                              {fmtCredits(predictedDaily)} {currencyName}/day)
+                              {translate(
+                                ' — {percentage}% {direction} (actual {actual} vs {predicted} {currency}/day',
+                                {
+                                  direction,
+                                  percentage: Math.abs(parseFloat(pct)).toFixed(
+                                    1,
+                                  ),
+                                  actual: fmtCredits(actualDaily),
+                                  predicted: fmtCredits(predictedDaily),
+                                  currency: currencyName,
+                                },
+                              )}
                             </li>
                           );
                         })}
                       </ul>
                     )}
                   </div>
-                )}
-              </>
+                </Tab>
+              </Tabs>
             )}
-          </div>
-        </div>
+          </Card.Body>
+        </Card>
       )}
 
       {/* ── Project filter dialog ────────────────────────────────────────── */}
       {dialogOpen && projects && (
-        <ProjectFilterDialog
+        <ProjectAutocompleteDialog
           projects={projects}
           selected={effectiveSelected}
           onConfirm={(next) => {
@@ -1935,19 +2001,6 @@ export const OrganisationAllocationTab: FC = () => {
           onClose={() => setDialogOpen(false)}
         />
       )}
-
-      {/* ── Offering filter dialog ───────────────────────────────────────── */}
-      {offeringDialogOpen && (
-        <OfferingFilterDialog
-          offeringNames={allOfferingNames}
-          selected={selectedOfferings}
-          onConfirm={(next) => {
-            setSelectedOfferings(next);
-            setOfferingDialogOpen(false);
-          }}
-          onClose={() => setOfferingDialogOpen(false)}
-        />
-      )}
-    </div>
+    </Container>
   );
 };

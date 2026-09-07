@@ -1,23 +1,23 @@
 import { FunctionComponent, useMemo } from 'react';
-import { ButtonGroup } from 'react-bootstrap';
 import {
   OpenStackSecurityGroup,
   openstackSecurityGroupsList,
   OpenstackSecurityGroupsListData,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { ActionButtonResource } from '@waldur/resource/actions/ActionButtonResource';
-import { ResourceState } from '@waldur/resource/state/ResourceState';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { translate } from '@/i18n';
+import { ActionButtonResource } from '@/resource/actions/ActionButtonResource';
+import { ResourceState } from '@/resource/state/ResourceState';
+import { createFetcher } from '@/table/api';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
 
 import { CreateSecurityGroupAction } from '../openstack-tenant/actions/CreateSecurityGroupAction';
 import { PullSecurityGroupsAction } from '../openstack-tenant/actions/PullSecurityGroupsAction';
 
 import { DestroyBulkSecurityGroupsAction } from './DestroyBulkSecurityGroupsAction';
-import { SecurityGroupRulesList } from './SecurityGroupRulesList';
+import { SecurityGroupExpandableRow } from './SecurityGroupExpandableRow';
 
 export const SecurityGroupsList: FunctionComponent<{ resourceScope }> = ({
   resourceScope,
@@ -36,6 +36,7 @@ export const SecurityGroupsList: FunctionComponent<{ resourceScope }> = ({
         'backend_id',
         'rules',
         'resource_type',
+        'instance_count',
       ],
     }),
     [resourceScope],
@@ -75,6 +76,11 @@ export const SecurityGroupsList: FunctionComponent<{ resourceScope }> = ({
           export: false,
         },
         {
+          title: translate('Instances'),
+          render: ({ row }) => <>{row.instance_count ?? DASH_ESCAPE_CODE}</>,
+          export: false,
+        },
+        {
           title: translate('State'),
           render: ({ row }) => <ResourceState resource={row} />,
           className: 'col-sm-2',
@@ -82,7 +88,7 @@ export const SecurityGroupsList: FunctionComponent<{ resourceScope }> = ({
         },
       ]}
       title={translate('Security groups')}
-      expandableRow={SecurityGroupRulesList}
+      expandableRow={SecurityGroupExpandableRow}
       enableExport={true}
       rowActions={({ row }) => (
         <ActionButtonResource url={row.url} refetch={props.fetch} />
@@ -94,14 +100,14 @@ export const SecurityGroupsList: FunctionComponent<{ resourceScope }> = ({
       showPageSizeSelector={true}
       hasQuery={true}
       tableActions={
-        <ButtonGroup>
+        <div className="d-flex gap-2">
           <CreateSecurityGroupAction
             resource={resourceScope}
             refetch={props.fetch}
           />
 
           <PullSecurityGroupsAction resource={resourceScope} />
-        </ButtonGroup>
+        </div>
       }
     />
   );

@@ -1,13 +1,12 @@
 import { useMemo } from 'react';
-import { PublicOfferingDetails } from 'waldur-js-client';
+import { PublicOfferingDetails, OfferingComponent } from 'waldur-js-client';
 
 import {
   filterOfferingComponents,
   getFormLimitParser,
-} from '@waldur/marketplace/common/registry';
-import { Limits } from '@waldur/marketplace/common/types';
-import { maxAmount, minAmount } from '@waldur/marketplace/common/utils';
-import { OfferingComponent } from '@waldur/marketplace/types';
+} from '@/marketplace/common/registry';
+import { Limits } from '@/marketplace/common/types';
+import { maxAmount, minAmount } from '@/marketplace/common/utils';
 
 import { OfferingLimits } from './types';
 
@@ -47,24 +46,23 @@ const parseComponentLimits = (
   );
 
 export const parseOfferingLimits = (
-  offering: PublicOfferingDetails,
+  offering: Pick<PublicOfferingDetails, 'type' | 'components'>,
 ): OfferingLimits => {
   const components = filterOfferingComponents(offering);
   const rawLimits = parseComponentLimits(components);
   return parseLimitValues(offering.type, rawLimits);
 };
 
-export const getOfferingComponentValidator = (component: OfferingComponent) =>
-  useMemo(() => {
-    const validators = [];
-    if (component.min_value) {
-      validators.push(minAmount(component.min_value));
-    }
-    if (component.max_value) {
-      validators.push(maxAmount(component.max_value));
-    }
-    return validators;
-  }, [component.min_value, component.max_value]);
+export const getOfferingComponentValidator = (component: OfferingComponent) => {
+  const validators = [];
+  if (component.min_value) {
+    validators.push(minAmount(component.min_value));
+  }
+  if (component.max_value) {
+    validators.push(maxAmount(component.max_value));
+  }
+  return validators;
+};
 
 export const getResourceComponentValidator = (limits: Limits) =>
   useMemo(() => {

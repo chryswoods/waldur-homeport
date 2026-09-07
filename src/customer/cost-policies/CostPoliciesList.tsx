@@ -1,32 +1,25 @@
-import { FC } from 'react';
-import { useSelector } from 'react-redux';
-import { createSelector } from 'reselect';
+import { QuestionIcon } from '@phosphor-icons/react';
+import { FC, useMemo } from 'react';
 import {
   marketplaceProjectEstimatedCostPoliciesList,
   MarketplaceProjectEstimatedCostPoliciesListData,
 } from 'waldur-js-client';
 
-import { BooleanBadge } from '@waldur/core/BooleanBadge';
-import { defaultCurrency } from '@waldur/core/formatCurrency';
-import { translate } from '@waldur/i18n';
-import { ProjectLink } from '@waldur/project/ProjectLink';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { TableProps } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { BooleanBadge } from '@/core/BooleanBadge';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { Tip } from '@/core/Tooltip';
+import { translate } from '@/i18n';
+import { ProjectLink } from '@/project/ProjectLink';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { TableProps } from '@/table/types';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
+import { useCustomer } from '@/workspace/hooks';
 
 import { CostPolicyActions } from './CostPolicyActions';
 import { CostPolicyCreateButton } from './CostPolicyCreateButton';
 import { getCostPolicyActionOptions, policyPeriodOptions } from './utils';
-
-const filtersSelector = createSelector(getCustomer, (customer) => {
-  const result: MarketplaceProjectEstimatedCostPoliciesListData['query'] = {};
-  if (customer) {
-    result.customer_uuid = customer.uuid;
-  }
-  return result;
-});
 
 interface CostPoliciesListTableProps extends Partial<TableProps> {
   table: string;
@@ -75,18 +68,57 @@ export const CostPoliciesListTable: FC<CostPoliciesListTableProps> = ({
           ),
         },
         {
-          title: translate('Has fired'),
-          render: ({ row }) => <BooleanBadge value={row.has_fired} />,
+          title: translate('Resource'),
+          render: ({ row }) => <>{renderFieldOrDash(row.resource_name)}</>,
+        },
+        {
+          title: (
+            <>
+              {translate('Action triggered')}{' '}
+              <Tip
+                id="action-triggered-tooltip"
+                label={translate(
+                  "Shows whether this policy's action has been executed (for example, pausing or downscaling) after exceeding the limit.",
+                )}
+              >
+                <QuestionIcon size={18} weight="bold" />
+              </Tip>
+            </>
+          ),
+          render: ({ row }) => (
+            <div className="d-flex align-items-center gap-2">
+              <BooleanBadge value={row.has_fired} />
+              {row.has_fired && row.affected_resources_count > 0 && (
+                <span className="text-muted fs-7">
+                  {translate('{count} resources', {
+                    count: row.affected_resources_count,
+                  })}
+                </span>
+              )}
+            </div>
+          ),
         },
         {
           title: translate('Organization credit'),
-          render: ({ row }) =>
-            row.customer_credit ? defaultCurrency(row.customer_credit) : 'N/A',
+          render: ({ row }) => (
+            <>
+              {renderFieldOrDash(
+                row.customer_credit
+                  ? defaultCurrency(row.customer_credit)
+                  : null,
+              )}
+            </>
+          ),
         },
         {
           title: translate('Project credit'),
-          render: ({ row }) =>
-            row.project_credit ? defaultCurrency(row.project_credit) : 'N/A',
+          render: ({ row }) => (
+            <>
+              {renderFieldOrDash(
+                row.project_credit ? defaultCurrency(row.project_credit) : null,
+              )}
+            </>
+          ),
         },
         {
           title: translate('Period'),
@@ -114,7 +146,7 @@ export const CostPoliciesListTable: FC<CostPoliciesListTableProps> = ({
             </>
           ),
         },
-      ].filter(Boolean)}
+      ]}
       verboseName={translate('Cost policies')}
       initialSorting={{ field: 'created', mode: 'desc' }}
       rowActions={({ row }) => (
@@ -135,7 +167,14 @@ export const CostPoliciesListTable: FC<CostPoliciesListTableProps> = ({
 };
 
 export const CostPoliciesList = () => {
-  const filter = useSelector(filtersSelector);
+  const customer = useCustomer();
+  const filter = useMemo(() => {
+    const result: MarketplaceProjectEstimatedCostPoliciesListData['query'] = {};
+    if (customer) {
+      result.customer_uuid = customer.uuid;
+    }
+    return result;
+  }, [customer]);
 
   return <CostPoliciesListTable table="CostPoliciesList" filter={filter} />;
 };

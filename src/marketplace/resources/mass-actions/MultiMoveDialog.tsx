@@ -1,67 +1,55 @@
-import { useDispatch } from 'react-redux';
-import { reduxForm } from 'redux-form';
+import { FC } from 'react';
+import { Form } from 'react-final-form';
 import { marketplaceResourcesMoveResource, Resource } from 'waldur-js-client';
 
-import { FormContainer, SubmitButton } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
+import { FormFooter } from '@/form';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useBatchMutation } from '@/modal/useBatchMutation';
 
 import { MoveToProjectAutocomplete } from '../actions/MoveToProjectAutocomplete';
 
-interface MultiMoveDialogOwnProps {
+interface FormData {
+  project: { name: string; customer_name: string; url: string };
+}
+
+interface MultiMoveDialogProps {
   resolve: {
     rows: Resource[];
     refetch?(): void;
   };
 }
 
-interface FormData {
-  project: { name: string; customer_name: string; url: string };
-}
-
-export const MultiMoveDialog = reduxForm<FormData, MultiMoveDialogOwnProps>({
-  form: 'MultiMoveDialog',
-})((props) => {
-  const dispatch = useDispatch();
-  const submitRequest = (formData: FormData) => {
-    Promise.all(
-      props.resolve.rows.map((row) =>
-        marketplaceResourcesMoveResource({
-          path: { uuid: row.uuid },
-          body: {
-            project: {
-              url: formData.project.url,
-            },
+export const MultiMoveDialog: FC<MultiMoveDialogProps> = (props) => {
+  const moveMutation = useBatchMutation<Resource, FormData>({
+    rows: props.resolve.rows,
+    mutationFn: (resource, variables) =>
+      marketplaceResourcesMoveResource({
+        path: { uuid: resource.uuid },
+        body: {
+          project: {
+            url: variables.project.url,
           },
-        }),
-      ),
-    ).then(() => {
-      props.resolve.refetch();
-      dispatch(closeModalDialog());
-    });
-  };
+        },
+      }),
+    successMessage: translate('Resources are moved.'),
+    errorMessage: translate('Unable to move resources.'),
+    refetch: props.resolve.refetch,
+  });
 
   return (
-    <form onSubmit={props.handleSubmit(submitRequest)}>
-      <ModalDialog
-        title={translate('Mass move resources')}
-        footer={
-          <>
-            <CloseDialogButton />
-            <SubmitButton
-              submitting={props.submitting}
-              label={translate('Save')}
-              disabled={props.invalid}
-            />
-          </>
-        }
-      >
-        <FormContainer submitting={props.submitting}>
-          <MoveToProjectAutocomplete isDisabled={props.submitting} />
-        </FormContainer>
-      </ModalDialog>
-    </form>
+    <Form<FormData>
+      onSubmit={(formData) => moveMutation.mutate(formData)}
+      render={({ handleSubmit }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate('Mass move resources')}
+            footer={<FormFooter submitLabel={translate('Save')} />}
+          >
+            <MoveToProjectAutocomplete />
+          </ModalDialog>
+        </form>
+      )}
+    />
   );
-});
+};

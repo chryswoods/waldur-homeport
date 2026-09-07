@@ -1,11 +1,10 @@
 import { FunctionComponent } from 'react';
-import { useSelector } from 'react-redux';
 
-import { translate } from '@waldur/i18n';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { translate } from '@/i18n';
+import { useCustomer } from '@/workspace/hooks';
 
 export const PaymentProfileDetails: FunctionComponent = () => {
-  const customer = useSelector(getCustomer);
+  const customer = useCustomer();
   if (!customer) {
     return null;
   }

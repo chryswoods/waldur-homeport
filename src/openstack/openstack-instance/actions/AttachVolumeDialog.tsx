@@ -1,15 +1,14 @@
 import { FC } from 'react';
-import { useDispatch } from 'react-redux';
 import { openstackVolumesAttach, openstackVolumesList } from 'waldur-js-client';
 import { OpenStackVolume } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { formatFilesize } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ResourceActionDialog } from '@waldur/resource/actions/ResourceActionDialog';
-import { ActionDialogProps } from '@waldur/resource/actions/types';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
+import { getAllPages } from '@/core/api';
+import { formatFilesize } from '@/core/utils';
+import { translate } from '@/i18n';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ResourceActionDialog } from '@/resource/actions/ResourceActionDialog';
+import { ActionDialogProps } from '@/resource/actions/types';
 
 const getAttachableVolumes = (instanceId, query) =>
   getAllPages((page) =>
@@ -35,10 +34,27 @@ const getOptionLabel = (option: OpenStackVolume) =>
 export const AttachVolumeDialog: FC<ActionDialogProps> = ({
   resolve: { resource, refetch },
 }) => {
-  const dispatch = useDispatch();
+  const mutation = useManagedMutation<any, any, { volume: { uuid: string } }>({
+    mutationFn: (formData) =>
+      openstackVolumesAttach({
+        path: { uuid: formData.volume.uuid },
+        body: { instance: resource.url },
+      }),
+
+    successMessage: translate('Attach has been scheduled.'),
+    errorMessage: translate('Unable to attach volume.'),
+    refetch: refetch,
+  });
+
   return (
     <ResourceActionDialog
       dialogTitle={translate('Attach volume')}
+      dialogSubtitle={
+        <ScopeSubtitle
+          label={translate('Instance name')}
+          name={resource.name}
+        />
+      }
       formFields={[
         {
           name: 'volume',
@@ -48,21 +64,7 @@ export const AttachVolumeDialog: FC<ActionDialogProps> = ({
           getOptionLabel,
         },
       ]}
-      submitForm={async (formData) => {
-        try {
-          await openstackVolumesAttach({
-            path: { uuid: formData.volume.uuid },
-            body: { instance: resource.url },
-          });
-          dispatch(showSuccess(translate('Attach has been scheduled.')));
-          dispatch(closeModalDialog());
-          if (refetch) {
-            await refetch();
-          }
-        } catch (e) {
-          dispatch(showErrorResponse(e, translate('Unable to attach volume.')));
-        }
-      }}
+      submitForm={mutation.mutateAsync}
     />
   );
 };

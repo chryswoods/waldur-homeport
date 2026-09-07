@@ -1,15 +1,36 @@
+import { PuzzlePieceIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
-import { Offering, SoftwarePackage } from 'waldur-js-client';
+import {
+  NestedParentSoftware,
+  Offering,
+  SoftwarePackage,
+} from 'waldur-js-client';
 
-import { CopyToClipboardContainer } from '@waldur/core/CopyToClipboardContainer';
-import { SafeMarkdown } from '@waldur/core/SafeMarkdown';
-import { translate } from '@waldur/i18n';
-import { Field } from '@waldur/resource/summary';
-import { ExpandableContainer } from '@waldur/table/ExpandableContainer';
+import { Badge } from '@/core/Badge';
+import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
+import { translate } from '@/i18n';
+import { Field } from '@/resource/summary';
+import { ExpandableContainer } from '@/table/ExpandableContainer';
+
+const SoftwarePackageList: FC<{ packages: NestedParentSoftware[] }> = ({
+  packages,
+}) => (
+  <>
+    {packages.map((pkg, idx) => (
+      <span key={pkg.uuid}>
+        {idx > 0 && ', '}
+        {pkg.name}
+        {pkg.versions?.length > 0 && (
+          <span className="text-muted"> ({pkg.versions.join(', ')})</span>
+        )}
+      </span>
+    ))}
+  </>
+);
 
 interface OwnProps {
   row: SoftwarePackage;
-  offering?: Offering; // Offering to get enabled cpu family/microarchitectures
+  offering?: Offering;
 }
 
 export const SoftwarePackageExpandableRow: FC<OwnProps> = ({
@@ -24,64 +45,87 @@ export const SoftwarePackageExpandableRow: FC<OwnProps> = ({
       (sc) => sc.enabled_cpu_microarchitectures || [],
     ) || [];
 
-  // Filter and sort versions - latest to oldest
   const filteredVersions =
     row.versions
       ?.filter((version) => {
         if (!version.targets || version.targets.length === 0) return false;
-
-        // Check if version has targets matching enabled cpu family/microarchitectures
-        return version.targets.some(
-          (target) =>
+        return version.targets.some((target) => {
+          const [cpuFamily, microArch] = target.target_name?.split('/') || [];
+          return (
             (enabledCpuFamily.length === 0 ||
-              enabledCpuFamily.includes(target.cpu_family)) &&
+              enabledCpuFamily.includes(cpuFamily)) &&
             (enabledCpuMicroarchitectures.length === 0 ||
-              enabledCpuMicroarchitectures.includes(
-                target.cpu_microarchitecture,
-              )),
-        );
+              enabledCpuMicroarchitectures.includes(microArch))
+          );
+        });
       })
-      .sort((a, b) => {
-        // Sort by version string (latest to oldest)
-        return b.version.localeCompare(a.version, undefined, {
+      .sort((a, b) =>
+        b.version.localeCompare(a.version, undefined, {
           numeric: true,
           sensitivity: 'base',
-        });
-      }) || [];
+        }),
+      ) || [];
+
+  const categories = row.categories as string[] | undefined;
 
   return (
-    <ExpandableContainer hasMultiSelect asTable>
-      <Field
-        label={translate('Description')}
-        value={
-          row.description ? (
-            <SafeMarkdown text={row.description} />
-          ) : (
-            <span className="text-muted">
-              {translate('No description available')}
-            </span>
-          )
-        }
-      />
+    <ExpandableContainer asTable style={{ marginLeft: 46 }}>
+      {categories?.length > 0 && (
+        <Field label={translate('Categories')} labelWidth={140}>
+          <div className="d-flex flex-wrap gap-1">
+            {categories.map((cat) => (
+              <Badge key={cat} variant="info" light>
+                {cat}
+              </Badge>
+            ))}
+          </div>
+        </Field>
+      )}
+
+      {row.parent_softwares?.length > 0 && (
+        <Field label={translate('Extends')} labelWidth={140}>
+          <SoftwarePackageList packages={row.parent_softwares} />
+        </Field>
+      )}
 
       {filteredVersions.length > 0 && (
-        <Field
-          label={translate('Available Versions')}
-          value={
-            <div className="mt-2">
-              {filteredVersions.map((version) => (
-                <div key={version.uuid} className="mb-2 p-2 border rounded">
-                  <div className="fw-bold">
-                    <CopyToClipboardContainer
-                      value={`module load ${version.version}`}
-                      maxWidth="none"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          }
-        />
+        <Field label={translate('Versions')} labelWidth={140}>
+          {filteredVersions.map((version) => version.version).join(', ')}
+        </Field>
+      )}
+
+      {filteredVersions.length > 0 && (
+        <Field label={translate('Load command')} labelWidth={140}>
+          {filteredVersions.map((version, idx) => {
+            const cmd = `module load ${row.name}/${version.version}`;
+            return (
+              <span key={version.uuid}>
+                {idx > 0 && ', '}
+                {cmd}
+                <CopyToClipboardButton
+                  value={cmd}
+                  onlyButton
+                  className="ms-1"
+                />
+              </span>
+            );
+          })}
+        </Field>
+      )}
+
+      {row.extension_count > 0 && (
+        <Field label={translate('Extensions available')} labelWidth={140}>
+          <span className="text-info">
+            <PuzzlePieceIcon className="me-1" weight="bold" />
+            {row.extension_count}
+          </span>
+        </Field>
+      )}
+
+      {row.extensions?.length > 0 && (
+        <Field label={translate('Extensions')} labelWidth={140}>
+          <SoftwarePackageList packages={row.extensions} />
+        </Field>
       )}
     </ExpandableContainer>
   );

@@ -1,52 +1,81 @@
-import React from 'react';
-import { useSelector } from 'react-redux';
+import { Card } from 'react-bootstrap';
 import { User } from 'waldur-js-client';
 
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
-import { getUser } from '@waldur/workspace/selectors';
+import { LOCAL_IDP } from '@/auth/providers/constants';
+import { ExternalLink } from '@/core/ExternalLink';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import { useUser } from '@/workspace/hooks';
 
 import { AcceptTosWarning } from './AcceptTosWarning';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { UserFeatures } from '@waldur/FeaturesEnums';
-import { IdentityProviderCard } from './IdentityProviderCard';
+import { IdentityProviderIndicator } from './IdentityProviderIndicator';
 import { TermsOfServiceCheckbox } from './TermsOfServiceCheckbox';
-import { UserEditAvatarFormItem } from './UserEditAvatarFormItem';
-import { UserEditRows } from './UserEditRows';
+import { UserProfileTabs } from './UserProfileTabs';
 
 interface UserEditTabProps {
   user: User;
 }
 
 export const UserEditTab: React.FC<UserEditTabProps> = ({ user }) => {
-  const currentUser = useSelector(getUser);
+  const currentUser = useUser();
 
   const isSelf = currentUser.uuid === user.uuid;
-  const isDisabled = !currentUser.agreement_date;
-  const minimalProfile = isFeatureVisible(UserFeatures.minimal_user_profile);
+  // Disable editing if viewing own profile and haven't accepted ToS
+  const isDisabled = isSelf && !currentUser.agreement_date;
+  // Show warning if the viewed user hasn't accepted ToS
+  const showTosWarning = !user.agreement_date;
 
   return (
     <>
-      {!minimalProfile && (
-        <IdentityProviderCard user={user} />
+      {showTosWarning && (
+        <AcceptTosWarning isSelf={isSelf} userName={user.full_name} />
       )}
-      <FormTable.Card
-        title={
-          isSelf
-            ? translate('Personal information')
-            : translate('Profile settings')
-        }
-        className="card-bordered mb-7"
-      >
-        {!currentUser.agreement_date && <AcceptTosWarning />}
-        <FormTable>
-          {currentUser.uuid === user.uuid && (
-            <FormTable.Item value={<TermsOfServiceCheckbox user={user} />} />
-          )}
-          <UserEditAvatarFormItem user={user} disabled={isDisabled} />
-          <UserEditRows user={user} disabled={isDisabled} />
-        </FormTable>
-      </FormTable.Card>
+      {isSelf && !user.agreement_date && (
+        <Card className="card-bordered mb-7">
+          <Card.Body>
+            <FormTable>
+              <FormTable.Item value={<TermsOfServiceCheckbox user={user} />} />
+            </FormTable>
+          </Card.Body>
+        </Card>
+      )}
+      <Card className="card-bordered mb-7">
+        <Card.Header>
+          <Card.Title>
+            <h3 className="mb-0">
+              {isSelf
+                ? translate('Personal information')
+                : translate('Profile settings')}
+            </h3>
+          </Card.Title>
+          <div className="card-toolbar gap-4">
+            {/* Users signed in against the local database have no external
+                identity provider to point at, so the logo and backend name
+                are noise on their own profile. */}
+            {user.registration_method &&
+              user.registration_method !== LOCAL_IDP && (
+                <IdentityProviderIndicator
+                  user={user}
+                  showManagementLink={false}
+                />
+              )}
+            {user.identity_provider_management_url && (
+              <ExternalLink
+                label={translate('Manage profile')}
+                url={user.identity_provider_management_url}
+                className="btn btn-light-primary"
+              />
+            )}
+          </div>
+        </Card.Header>
+        <Card.Body>
+          <UserProfileTabs
+            user={user}
+            disabled={isDisabled}
+            disabledReason={translate('Terms of service not accepted')}
+          />
+        </Card.Body>
+      </Card>
     </>
   );
 };

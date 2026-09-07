@@ -1,11 +1,10 @@
 import { FunctionComponent, useMemo } from 'react';
-import { useSelector } from 'react-redux';
 
-import { IssuesList } from '@waldur/issues/list/IssuesList';
-import { getProject } from '@waldur/workspace/selectors';
+import { IssuesList } from '@/issues/list/IssuesList';
+import { useProject } from '@/workspace/hooks';
 
 export const ProjectIssuesList: FunctionComponent = () => {
-  const project = useSelector(getProject);
+  const project = useProject();
 
   const filter = useMemo(
     () => ({ project: project && project.url }),
@@ -18,6 +17,7 @@ export const ProjectIssuesList: FunctionComponent = () => {
       scope={project}
       scopeType="project"
       filter={filter}
+      standalone={false}
     />
   );
 };

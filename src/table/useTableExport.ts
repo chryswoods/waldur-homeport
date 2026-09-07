@@ -1,21 +1,24 @@
 import { isEqual } from 'lodash-es';
-import { useDispatch, useSelector } from 'react-redux';
+import { useMemo } from 'react';
+import { useSelector } from 'react-redux';
 
-import { isEmpty, orderByFilter } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
-import { type RootState } from '@waldur/store/reducers';
-import { fetchAll } from '@waldur/table/api';
+import { isEmpty, orderByFilter } from '@/core/utils';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { useNotify } from '@/store/notify';
+import { type RootState } from '@/store/reducers';
+import { fetchAll } from '@/table/api';
 
 import { DASH_ESCAPE_CODE } from './constants';
 import exportAs from './exporters';
 import { ExportConfig } from './exporters/types';
 import { getTableOptions } from './registry';
-import { selectTableRows, getTableState } from './selectors';
+import { makeSelectTableRows, getTableState } from './selectors';
 import { TableRequest } from './types';
 
 export function useTableExport(table, props?) {
+  const { closeDialog } = useModal();
+  const { showSuccess, showErrorResponse } = useNotify();
   const {
     exportFields,
     exportKeys,
@@ -26,7 +29,8 @@ export function useTableExport(table, props?) {
   } = getTableOptions(table);
 
   const tableState = useSelector(getTableState(table));
-  let rows = useSelector((state: RootState) => selectTableRows(state, table));
+  const selectRows = useMemo(() => makeSelectTableRows(), []);
+  let rows = useSelector((state: RootState) => selectRows(state, table));
   const customExport = Boolean(exportFields || exportRow);
 
   async function fetchRows(config) {
@@ -61,11 +65,16 @@ export function useTableExport(table, props?) {
     }
 
     if (config.allPages) {
+      // Use current filter from props (passed from Table component) instead of
+      // stale filter from registry, as the registry filter is captured only once
+      // when the table is first registered. Also check tableExtraFilters for
+      // cases where filter was set via Redux action.
+      const currentFilter = props?.filter ?? options.filter;
       const request: TableRequest = {
         tableKey: table,
         pageSize: Math.max(tableState.pagination.resultCount, 200),
         currentPage: 1,
-        filter: config.withFilters ? { ...options.filter } : {},
+        filter: config.withFilters ? { ...currentFilter } : {},
       };
       if (config.withFilters && options.queryField && tableState.query) {
         request.filter[options.queryField] = tableState.query;
@@ -145,21 +154,18 @@ export function useTableExport(table, props?) {
     return data;
   }
 
-  const dispatch = useDispatch();
   return async (config: ExportConfig) => {
     try {
       const data = await fetchRows(config);
       await exportAs(config.format, table, data);
-      dispatch(
-        showSuccess(
-          translate('Table has been exported to {format}.', {
-            format: config.format,
-          }),
-        ),
+      showSuccess(
+        translate('Table has been exported to {format}.', {
+          format: config.format,
+        }),
       );
-      dispatch(closeModalDialog());
+      closeDialog();
     } catch (e) {
-      dispatch(showErrorResponse(e, translate('Unable to export table.')));
+      showErrorResponse(e, translate('Unable to export table.'));
     }
   };
 }

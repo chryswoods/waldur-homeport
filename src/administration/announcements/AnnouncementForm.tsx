@@ -1,133 +1,122 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { connect } from 'react-redux';
-import { reduxForm, SubmissionError } from 'redux-form';
+import { FC } from 'react';
+import { Row } from 'react-bootstrap';
+import { Form } from 'react-final-form';
 import {
   AdminAnnouncementRequest,
   adminAnnouncementsCreate,
   adminAnnouncementsUpdate,
 } from 'waldur-js-client';
 
-import { FormContainer, SelectField, SubmitButton } from '@waldur/form';
-import { DateTimeField } from '@waldur/form/DateTimeField';
-import MarkdownEditor from '@waldur/form/MarkdownEditor';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { ADMIN_ANNOUNCEMENTS_QUERY_KEY } from '@waldur/navigation/header/announcements/queryKeys';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import {
+  DateTimeGroup,
+  MarkdownGroup,
+  SelectGroup,
+  SubmitButton,
+} from '@/form';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ADMIN_ANNOUNCEMENTS_QUERY_KEY } from '@/navigation/header/announcements/queryKeys';
 
 import { AnnouncementTypeOptions } from '../utils';
 
-export const AnnouncementForm = connect<
-  {},
-  {},
-  { resolve: { announcement?; refetch } }
->((_, ownProps) => ({
-  initialValues: ownProps.resolve?.announcement
-    ? { ...ownProps.resolve.announcement }
-    : undefined,
-}))(
-  reduxForm<AdminAnnouncementRequest, { resolve: { announcement?; refetch } }>({
-    form: 'AdminAnnouncementForm',
-  })((props) => {
-    const isEdit = Boolean(props.resolve.announcement?.uuid);
-    const queryClient = useQueryClient();
+interface AnnouncementFormProps {
+  resolve: { announcement?; refetch };
+}
 
-    const processRequest = async (
-      values: AdminAnnouncementRequest,
-      dispatch,
-    ) => {
-      let action;
-      if (isEdit) {
-        action = adminAnnouncementsUpdate({
-          path: {
-            uuid: props.resolve.announcement.uuid,
-          },
-          body: values,
-        });
-      } else {
-        action = adminAnnouncementsCreate({ body: values });
-      }
+export const AnnouncementForm: FC<AnnouncementFormProps> = ({ resolve }) => {
+  const isEdit = Boolean(resolve.announcement?.uuid);
 
-      try {
-        await action;
-        props.resolve.refetch();
-        // Invalidate React Query cache to update announcements in header
-        queryClient.invalidateQueries({
-          queryKey: ADMIN_ANNOUNCEMENTS_QUERY_KEY,
-        });
-        dispatch(
-          showSuccess(
-            isEdit
-              ? translate('The announcement has been updated.')
-              : translate('New announcement has been created.'),
-          ),
-        );
-        dispatch(closeModalDialog());
-      } catch (e) {
-        dispatch(
-          showErrorResponse(
-            e,
-            isEdit
-              ? translate('Unable to update announcement.')
-              : translate('Unable to create announcement.'),
-          ),
-        );
-        if (e.response && e.response.status === 400) {
-          throw new SubmissionError(e.response.data);
-        }
-      }
-    };
+  const initialValues = resolve?.announcement
+    ? { ...resolve.announcement }
+    : undefined;
 
-    return (
-      <form onSubmit={props.handleSubmit(processRequest)}>
-        <ModalDialog
-          title={
-            isEdit
-              ? translate('Edit the announcement')
-              : translate('Create new announcement')
-          }
-          closeButton
-          footer={
-            <SubmitButton
-              disabled={props.invalid}
-              submitting={props.submitting}
-              label={isEdit ? translate('Edit') : translate('Create')}
-            />
-          }
-        >
-          <FormContainer submitting={props.submitting}>
-            <SelectField
-              label={translate('Type')}
-              name="type"
-              options={AnnouncementTypeOptions}
-              required
-              getOptionValue={(option) => option.value}
-              getOptionLabel={(option) => option.label}
-              simpleValue
-              className="col-md-6"
-            />
+  const onSubmitMutation = useManagedMutation<
+    any,
+    any,
+    AdminAnnouncementRequest
+  >({
+    mutationFn: (values) =>
+      isEdit
+        ? adminAnnouncementsUpdate({
+            path: { uuid: resolve.announcement.uuid },
+            body: values,
+          })
+        : adminAnnouncementsCreate({ body: values }),
 
-            <DateTimeField
-              label={translate('Active from')}
-              name="active_from"
-              required
-            />
+    successMessage: isEdit
+      ? translate('The announcement has been updated.')
+      : translate('New announcement has been created.'),
 
-            <DateTimeField
-              label={translate('Active to')}
-              name="active_to"
-              required
-            />
+    errorMessage: isEdit
+      ? translate('Unable to update announcement.')
+      : translate('Unable to create announcement.'),
 
-            <MarkdownEditor
-              label={translate('Announcement')}
+    refetch: resolve.refetch,
+
+    invalidateQueries: [
+      {
+        queryKey: ADMIN_ANNOUNCEMENTS_QUERY_KEY,
+      },
+    ],
+  });
+
+  return (
+    <Form<AdminAnnouncementRequest>
+      onSubmit={(values) => onSubmitMutation.mutateAsync(values)}
+      initialValues={initialValues}
+      render={({ handleSubmit, submitting, invalid }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={
+              isEdit
+                ? translate('Edit the announcement')
+                : translate('Create new announcement')
+            }
+            footer={
+              <SubmitButton
+                disabled={invalid}
+                submitting={submitting}
+                label={isEdit ? translate('Edit') : translate('Create')}
+              />
+            }
+          >
+            <Row>
+              <SelectGroup
+                name="type"
+                options={AnnouncementTypeOptions}
+                getOptionValue={(option) => option.value}
+                getOptionLabel={(option) => option.label}
+                simpleValue
+                label={translate('Type')}
+                required
+                className="col-md-6"
+              />
+            </Row>
+
+            <Row>
+              <DateTimeGroup
+                label={translate('Active from')}
+                required
+                className="col-md-6"
+                name="active_from"
+              />
+              <DateTimeGroup
+                label={translate('Active to')}
+                required
+                className="col-md-6"
+                name="active_to"
+              />
+            </Row>
+
+            <MarkdownGroup
               name="description"
+              label={translate('Announcement')}
               required
             />
-          </FormContainer>
-        </ModalDialog>
-      </form>
-    );
-  }),
-);
+          </ModalDialog>
+        </form>
+      )}
+    />
+  );
+};

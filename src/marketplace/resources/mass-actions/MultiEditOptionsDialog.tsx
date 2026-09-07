@@ -1,22 +1,22 @@
 import { PencilSimpleIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
-import { FC } from 'react';
+import { FC, useMemo } from 'react';
 import { Form } from 'react-final-form';
 import {
-  marketplacePublicOfferingsRetrieve,
+  marketplaceResourcesOfferingRetrieve,
   marketplaceResourcesUpdateOptions,
   Resource,
 } from 'waldur-js-client';
 
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { SubmitButton } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { OptionsForm } from '@waldur/marketplace/common/OptionsForm';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { useModal } from '@waldur/modal/hooks';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { useNotify } from '@waldur/store/hooks';
+import { UI_STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { OptionsForm } from '@/marketplace/common/OptionsForm';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
 interface MultiEditOptionsDialogOwnProps {
   resolve: {
@@ -28,47 +28,53 @@ interface MultiEditOptionsDialogOwnProps {
 export const MultiEditOptionsDialog: FC<MultiEditOptionsDialogOwnProps> = ({
   resolve,
 }) => {
-  const { showErrorResponse, showSuccess } = useNotify();
-  const { closeDialog } = useModal();
-  const submitRequest = (formData: { attributes }) => {
-    return Promise.all(
-      resolve.rows.map((row) =>
-        marketplaceResourcesUpdateOptions({
-          path: { uuid: row.uuid },
-          body: { options: formData.attributes },
-        }),
+  // react-final-form compares `initialValues` with shallowEqual and
+  // re-initializes the form whenever the reference changes. An inline object
+  // literal changes on every render of this dialog, which discards values the
+  // fields have already written (`keepDirtyOnReinitialize` is off).
+  const initialValues = useMemo(
+    () =>
+      resolve.rows.length === 1
+        ? { attributes: { ...(resolve.rows[0].options as object) } }
+        : null,
+    [resolve.rows],
+  );
+
+  const updateOptionsMutation = useManagedMutation<
+    any,
+    any,
+    { attributes: any }
+  >({
+    mutationFn: (formData) =>
+      Promise.all(
+        resolve.rows.map((row) =>
+          marketplaceResourcesUpdateOptions({
+            path: { uuid: row.uuid },
+            body: { options: formData.attributes },
+          }),
+        ),
       ),
-    )
-      .then(() => {
-        showSuccess(translate('Options have been updated'));
-        resolve.refetch();
-        closeDialog();
-      })
-      .catch((e) => {
-        showErrorResponse(e, translate('Unable to update options.'));
-        // Throw submit errors to the form ui
-        return { attributes: e.options };
-      });
-  };
+    successMessage: translate('Options have been updated'),
+    errorMessage: translate('Unable to update options.'),
+    refetch: resolve.refetch,
+  });
 
   // Fetch related offering
   const offeringQuery = useQuery({
-    queryKey: ['marketplaceCategories'],
+    queryKey: ['resource-offering-options', resolve.rows[0].uuid],
     queryFn: () =>
-      marketplacePublicOfferingsRetrieve({
-        path: { uuid: resolve.rows[0].offering_uuid },
+      marketplaceResourcesOfferingRetrieve({
+        path: { uuid: resolve.rows[0].uuid },
       }).then((response) => response.data),
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
 
   return (
     <Form
-      onSubmit={submitRequest}
-      initialValues={
-        resolve.rows.length === 1
-          ? { attributes: { ...(resolve.rows[0].options as object) } }
-          : null
+      onSubmit={(values: { attributes: any }) =>
+        updateOptionsMutation.mutateAsync(values)
       }
+      initialValues={initialValues}
     >
       {({
         handleSubmit,
@@ -104,10 +110,7 @@ export const MultiEditOptionsDialog: FC<MultiEditOptionsDialogOwnProps> = ({
             ) : offeringQuery.error ? (
               <LoadingErred loadData={offeringQuery.refetch} className="mb-4" />
             ) : offeringQuery.data.resource_options.order.length ? (
-              <OptionsForm
-                options={offeringQuery.data.resource_options}
-                finalForm
-              />
+              <OptionsForm options={offeringQuery.data.resource_options} />
             ) : (
               translate(
                 'There are no resource options defined in the offering.',

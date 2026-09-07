@@ -19,27 +19,31 @@ import {
   ComponentUserUsage,
   marketplaceComponentUserUsagesList,
   marketplaceOfferingUsersList,
-  type ResourcePlanPeriod,
+  ResourcePlanPeriod,
+  OfferingComponent,
 } from 'waldur-js-client';
 
-import { parseDate } from '@waldur/core/dateUtils';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { Tip } from '@waldur/core/Tooltip';
-import { required } from '@waldur/core/validators';
+import { AwesomeRadioButton } from '@/core/AwesomeRadioButton';
+import { UI_STALE_TIME } from '@/core/constants';
+import { parseDate } from '@/core/dateUtils';
+import { LoadingErred } from '@/core/LoadingErred';
+import { Tip } from '@/core/Tooltip';
+import { required } from '@/core/validators';
 import {
   FieldError,
   NumberField,
-  SelectField,
-  StringField,
   TextField,
-} from '@waldur/form';
-import { AwesomeCheckboxField } from '@waldur/form/AwesomeCheckboxField';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-import { OfferingComponent } from '@waldur/marketplace/types';
-import { HeaderButtonBullet } from '@waldur/navigation/header/HeaderButtonBullet';
+  SelectGroup,
+  StringGroup,
+} from '@/form';
+import { translate } from '@/i18n';
+import { HeaderButtonBullet } from '@/navigation/header/HeaderButtonBullet';
 
 import { getPeriodRange } from './api';
+import {
+  getMissingUsagePolicyChoices,
+  MISSING_USAGE_POLICY_DEFAULT,
+} from './missingUsagePolicy';
 import { UsageReportContext } from './types';
 import { getBillingTypeLabel } from './utils';
 
@@ -137,7 +141,7 @@ export const ResourceUsageForm: FunctionComponent<ResourceUsageFormProps> = (
           }).then((r) => r.data)
         : null,
 
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
 
   const { data: userUsages } = useQuery({
@@ -170,7 +174,10 @@ export const ResourceUsageForm: FunctionComponent<ResourceUsageFormProps> = (
     const usagesByComponentType: Record<string, number> = {};
 
     props.components.forEach((component) => {
-      let recentUserRecord: ComponentUserUsage;
+      let recentUserRecord: Pick<
+        ComponentUserUsage,
+        'usage' | 'component_type' | 'uuid' | 'modified' | 'user'
+      >;
       userUsages.forEach((record) => {
         if (
           record.user === user.url &&
@@ -228,35 +235,31 @@ export const ResourceUsageForm: FunctionComponent<ResourceUsageFormProps> = (
           </>
         )}
         {props.periods.length > 1 ? (
-          <FormGroup
+          <SelectGroup
+            name="period"
+            options={props.periods}
+            onChange={(value) => {
+              const period = value;
+              if (period?.value?.components) {
+                for (const component of period.value.components) {
+                  form.change(
+                    `components.${component.type}.amount`,
+                    component.usage,
+                  );
+                  form.change(
+                    `components.${component.type}.description`,
+                    component.description,
+                  );
+                }
+              }
+              return value;
+            }}
+            isClearable={false}
             label={translate('Plan')}
             help={translate(
               'Each usage report must be connected with a billing plan to assure correct calculation of accounting data.',
             )}
-          >
-            <Field
-              component={SelectField as any}
-              name="period"
-              options={props.periods}
-              onChange={(value) => {
-                const period = value;
-                if (period?.value?.components) {
-                  for (const component of period.value.components) {
-                    form.change(
-                      `components.${component.type}.amount`,
-                      component.usage,
-                    );
-                    form.change(
-                      `components.${component.type}.description`,
-                      component.description,
-                    );
-                  }
-                }
-                return value;
-              }}
-              isClearable={false}
-            />
-          </FormGroup>
+          />
         ) : (
           <StaticPlanField />
         )}
@@ -268,29 +271,26 @@ export const ResourceUsageForm: FunctionComponent<ResourceUsageFormProps> = (
             {teamError ? (
               <LoadingErred loadData={refetchTeam} />
             ) : (
-              <FormGroup label={translate('User')}>
-                <Field
-                  component={SelectField as any}
-                  name="user"
-                  options={team}
-                  getOptionValue={(option) => option.uuid}
-                  getOptionLabel={(option) => option.user_full_name}
-                  onChange={onChangeUser}
-                  isLoading={teamIsLoading}
-                  isClearable
-                  placeholder={translate('Select team member')}
-                />
-              </FormGroup>
-            )}
-            <FormGroup label={translate('Username')} required>
-              <Field
-                component={StringField as any}
-                name="username"
-                placeholder={translate('Enter username(s)')}
-                validate={required}
-                readOnly={Boolean(user)}
+              <SelectGroup
+                name="user"
+                options={team}
+                getOptionValue={(option) => option.uuid}
+                getOptionLabel={(option) => option.user_full_name}
+                onChange={onChangeUser}
+                isLoading={teamIsLoading}
+                isClearable
+                placeholder={translate('Select team member')}
+                label={translate('User')}
               />
-            </FormGroup>
+            )}
+            <StringGroup
+              name="username"
+              placeholder={translate('Enter username(s)')}
+              validate={required}
+              readOnly={Boolean(user)}
+              label={translate('Username')}
+              required
+            />
           </>
         )}
       </div>
@@ -400,7 +400,11 @@ export const ResourceUsageForm: FunctionComponent<ResourceUsageFormProps> = (
                                 component.billing_type,
                               )}
                             >
-                              <QuestionIcon size={18} className="ms-1" />
+                              <QuestionIcon
+                                size={18}
+                                className="ms-1"
+                                weight="bold"
+                              />
                             </Tip>
                           </Dropdown.Item>
                         ))}
@@ -427,44 +431,69 @@ export const ResourceUsageForm: FunctionComponent<ResourceUsageFormProps> = (
                       </div>
                     )}
                     <Field
-                      component={NumberField as any}
                       name={`components.${component.type}.amount`}
-                      unit={component.measured_unit}
-                      max={
-                        component.limit_period
-                          ? component.limit_amount
-                          : undefined
-                      }
                       validate={required}
-                      placeholder={translate('Amount *')}
-                      aria-label={translate('{amount} for {name}', {
-                        amount: translate('Amount'),
-                        name: component.name,
-                      })}
-                      aria-describedby={`${component.type}-description`}
-                    />
+                    >
+                      {({ input, meta }) => (
+                        <NumberField
+                          input={input}
+                          meta={meta}
+                          unit={component.measured_unit}
+                          max={
+                            component.limit_period
+                              ? component.limit_amount
+                              : undefined
+                          }
+                          placeholder={translate('Amount *')}
+                          aria-label={translate('{amount} for {name}', {
+                            amount: translate('Amount'),
+                            name: component.name,
+                          })}
+                          aria-describedby={`${component.type}-description`}
+                        />
+                      )}
+                    </Field>
                   </div>
 
                   <div className="mb-7">
-                    <Field
-                      component={TextField as any}
-                      name={`components.${component.type}.description`}
-                      placeholder={translate('Enter a description...')}
-                      rows={3}
-                      aria-label={translate('{description} for {name}', {
-                        description: translate('Description'),
-                        name: component.name,
-                      })}
-                    />
+                    <Field name={`components.${component.type}.description`}>
+                      {({ input, meta }) => (
+                        <TextField
+                          input={input}
+                          meta={meta}
+                          placeholder={translate('Enter a description...')}
+                          rows={3}
+                          aria-label={translate('{description} for {name}', {
+                            description: translate('Description'),
+                            name: component.name,
+                          })}
+                        />
+                      )}
+                    </Field>
                   </div>
 
-                  <Field
-                    component={AwesomeCheckboxField as any}
-                    name={`components.${component.type}.recurring`}
-                    label={translate(
-                      'Reported value is reused every month until changed.',
-                    )}
-                  />
+                  {/* The policy belongs to the total usage record; the
+                      per-user endpoint neither accepts nor stores it. */}
+                  {!isUserUsage && (
+                    <Field
+                      name={`components.${component.type}.missing_usage_policy`}
+                      // A component with no usage record for the period has no
+                      // entry in initialValues; without this the radio group
+                      // renders with nothing selected.
+                      defaultValue={MISSING_USAGE_POLICY_DEFAULT}
+                    >
+                      {({ input }) => (
+                        <AwesomeRadioButton
+                          input={input}
+                          label={translate(
+                            'When no usage is reported for the next month',
+                          )}
+                          choices={getMissingUsagePolicyChoices()}
+                          gap={2}
+                        />
+                      )}
+                    </Field>
+                  )}
                 </div>
               </Tab.Pane>
             ))}

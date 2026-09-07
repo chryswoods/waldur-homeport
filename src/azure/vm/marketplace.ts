@@ -1,10 +1,12 @@
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { OfferingConfiguration } from '@waldur/marketplace/common/types';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { OfferingConfiguration } from '@/marketplace/common/types';
 
-const AzureCredentialsForm = lazyComponent(() =>
-  import('../common/AzureCredentialsForm').then((module) => ({
-    default: module.AzureCredentialsForm,
+import { AZURE_VM_TYPE } from '../constants';
+
+const AzureCredentialsSection = lazyComponent(() =>
+  import('../common/AzureCredentialsSection').then((module) => ({
+    default: module.AzureCredentialsSection,
   })),
 );
 
@@ -19,20 +21,21 @@ const AzureVirtualMachineForm = lazyComponent(() =>
   })),
 );
 
-const serializer = ({ name, location, image, size }) => ({
+const serializer = ({ name, location, image, size, ssh_public_key }) => ({
   name,
   location: location ? location.url : undefined,
   size: size ? size.url : undefined,
   image: image ? image.url : undefined,
+  ssh_public_key: ssh_public_key ? ssh_public_key.url : undefined,
 });
 
 export const AzureVirtualMachineOffering: OfferingConfiguration = {
-  type: 'Azure.VirtualMachine',
+  type: AZURE_VM_TYPE,
   get label() {
     return translate('Azure Virtual Machine');
   },
   orderFormComponent: AzureVirtualMachineForm,
   detailsComponent: AzureDetailsComponent,
   serializer,
-  credentialsForm: AzureCredentialsForm,
+  credentialsSection: AzureCredentialsSection,
 };

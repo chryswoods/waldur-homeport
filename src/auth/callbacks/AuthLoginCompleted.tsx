@@ -1,19 +1,29 @@
-import { useCurrentStateAndParams, useRouter } from '@uirouter/react';
+import { useCurrentStateAndParams } from '@uirouter/react';
 import { FunctionComponent, useEffect } from 'react';
 
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { useRequestToAccessOrganization } from '@/invitations/join-organization/submission';
 
-import { loginUser } from '../AuthService';
+import { redirectOnSuccess } from '../authNavigation';
+import { loginUser, exchangeToken } from '../AuthService';
 
 export const AuthLoginCompleted: FunctionComponent = () => {
-  const router = useRouter();
   const { params } = useCurrentStateAndParams();
+  const { checkAndRequest } = useRequestToAccessOrganization();
   useEffect(() => {
-    loginUser(params.token, params.method).then(() =>
-      router.stateService.go('profile.details'),
-    );
-  }, [router, params]);
+    async function handleLogin() {
+      const token = await exchangeToken(params.code);
+      await loginUser(token, params.method);
+      // When a pending group invitation was submitted, checkAndRequest has
+      // already navigated to its destination — don't clobber it.
+      const handled = await checkAndRequest();
+      if (!handled) {
+        await redirectOnSuccess();
+      }
+    }
+    handleLogin();
+  }, [params]);
 
   return (
     <div className="middle-box text-center">

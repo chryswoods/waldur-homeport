@@ -1,42 +1,52 @@
+import { CheckCircleIcon, EnvelopeIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
-import { useCurrentStateAndParams } from '@uirouter/react';
+import { useCurrentStateAndParams, useRouter } from '@uirouter/react';
+import { useMemo } from 'react';
 import {
+  marketplaceOrdersOfferingRetrieve,
+  marketplaceOrdersResourceRetrieve,
   marketplaceOrdersRetrieve,
   marketplacePluginsList,
-  marketplacePublicOfferingsRetrieve,
 } from 'waldur-js-client';
 
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-
-import { Offering } from '../types';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { useExtraAnnouncementBar } from '@/navigation/context';
+import { AnnouncementBar } from '@/navigation/header/announcements/AnnouncementBar';
 
 import { OrderDetails } from './details/OrderDetails';
+import { hasFreshConsumerResponse } from './utils';
 
 async function loadOrder(order_uuid: string) {
-  const order = await marketplaceOrdersRetrieve({
-    path: { uuid: order_uuid },
-  }).then((response) => response.data);
+  // All four requests key off the order UUID from the route, so none of them
+  // depends on another's response — issue them together rather than in series.
+  const [order, resource, offering, plugins] = await Promise.all([
+    marketplaceOrdersRetrieve({ path: { uuid: order_uuid } }).then(
+      (response) => response.data,
+    ),
+    marketplaceOrdersResourceRetrieve({ path: { uuid: order_uuid } }).then(
+      (response) => response.data,
+    ),
+    marketplaceOrdersOfferingRetrieve({ path: { uuid: order_uuid } }).then(
+      (response) => response.data,
+    ),
+    marketplacePluginsList().then((response) => response.data),
+  ]);
 
-  const offering = (await marketplacePublicOfferingsRetrieve({
-    path: { uuid: order.offering_uuid },
-  }).then((response) => response.data)) as Offering;
-
-  const plugins = await marketplacePluginsList().then(
-    (response) => response.data,
-  );
-
-  const limits = plugins.find(
+  const pluginLimits = plugins.find(
     (plugin) => plugin.offering_type === offering.type,
-  )?.available_limits || [];
+  ).available_limits;
+  const limits = offering.effective_available_limits || pluginLimits;
   return {
     order,
     offering,
     limits,
+    resource,
   };
 }
 
 export const OrderDetailsContainer: React.FC<{}> = () => {
+  const router = useRouter();
   const {
     params: { order_uuid },
   } = useCurrentStateAndParams();
@@ -44,6 +54,51 @@ export const OrderDetailsContainer: React.FC<{}> = () => {
     queryKey: ['OrderDetails', order_uuid],
     queryFn: () => loadOrder(order_uuid),
   });
+
+  const messagingBar = useMemo(() => {
+    const order = data?.order;
+    if (order?.state !== 'pending-provider' || !order?.provider_message)
+      return null;
+
+    const goToProviderInfo = () =>
+      router.stateService.go('marketplace-orders.details', {
+        order_uuid,
+        tab: 'provider-info',
+      });
+    const plainMessage = order.provider_message.replace(/<[^>]*>/g, '');
+    const providerDescription = order.provider_message_url
+      ? `${plainMessage} — ${order.provider_message_url}`
+      : plainMessage;
+    return hasFreshConsumerResponse(order) ? (
+      <AnnouncementBar
+        icon={CheckCircleIcon}
+        variant="success"
+        label={translate('Customer responded')}
+        hasColon
+        description={
+          (order.consumer_message || '').replace(/<[^>]*>/g, '') ||
+          providerDescription
+        }
+        actionLabel={translate('View response')}
+        onAction={goToProviderInfo}
+        colored
+      />
+    ) : (
+      <AnnouncementBar
+        icon={EnvelopeIcon}
+        variant="warning"
+        label={translate('Information requested')}
+        hasColon
+        description={providerDescription}
+        actionLabel={translate('View and respond')}
+        onAction={goToProviderInfo}
+        colored
+      />
+    );
+  }, [data?.order, order_uuid, router]);
+
+  useExtraAnnouncementBar(messagingBar, [messagingBar]);
+
   return isLoading ? (
     <LoadingSpinner />
   ) : error ? (
@@ -52,10 +107,11 @@ export const OrderDetailsContainer: React.FC<{}> = () => {
     </h3>
   ) : data ? (
     <OrderDetails
-      data={data}
       refetch={refetch}
       order={data.order}
       offering={data.offering}
+      limits={data.limits}
+      resource={data.resource}
       isRefetching={isRefetching}
     />
   ) : null;

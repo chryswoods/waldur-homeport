@@ -1,9 +1,11 @@
 import { FunctionComponent } from 'react';
+import { Offering } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { Offering } from '@waldur/marketplace/types';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { translate } from '@/i18n';
+import { createClientPaginatedFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 interface PublicOfferingComponentsTableProps {
   offering: Offering;
@@ -16,7 +18,7 @@ export const PublicOfferingComponentsTable: FunctionComponent<
 > = ({ offering, hideActionBar, fullWidth }) => {
   const tableProps = useTable({
     table: 'OfferingComponents-' + offering.uuid,
-    fetchData: () => Promise.resolve({ rows: offering.components }),
+    fetchData: createClientPaginatedFetcher(offering.components),
   });
 
   return (
@@ -43,7 +45,7 @@ export const PublicOfferingComponentsTable: FunctionComponent<
         },
         {
           title: translate('Description'),
-          render: ({ row }) => <>{row.description || '—'}</>,
+          render: ({ row }) => <>{renderFieldOrDash(row.description)}</>,
         },
       ]}
       title={translate('Components')}

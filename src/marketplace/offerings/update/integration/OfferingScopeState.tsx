@@ -1,6 +1,6 @@
-import { Badge } from '@waldur/core/Badge';
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
+import { Badge } from '@/core/Badge';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
 
 const variant = {
   OK: 'success',
@@ -14,7 +14,12 @@ export const OfferingScopeState = ({ state }) => (
   <FormTable.Item
     label={translate('State')}
     value={
-      <Badge pill variant={variant[state] || 'secondary'}>
+      <Badge
+        variant={variant[state] || 'secondary'}
+        pill
+        outline
+        data-testid="offering-scope-state"
+      >
         {state.toLocaleUpperCase()}
       </Badge>
     }

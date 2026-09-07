@@ -2,8 +2,8 @@ import { InfoIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
 import { OfferingComponent, ProviderPlanDetails } from 'waldur-js-client';
 
-import { Tip } from '@waldur/core/Tooltip';
-import { translate } from '@waldur/i18n';
+import { Tip } from '@/core/Tooltip';
+import { translate } from '@/i18n';
 
 interface OwnProps {
   row: ProviderPlanDetails;
@@ -33,11 +33,12 @@ export const PlanComponentsTable: FC<OwnProps> = (props) => (
               <InfoIcon weight="bold" />
             </Tip>
           </td>
+          <td>{parseFloat(props.row.prices[component.type])}</td>
           <td>
-            {parseFloat(props.row.prices[component.type] as unknown as string)}
-          </td>
-          <td>
-            {props.row.future_prices[component.type] ?? translate('No update')}
+            {props.row.future_prices[component.type] !== null &&
+            props.row.future_prices[component.type] !== undefined
+              ? parseFloat(props.row.future_prices[component.type])
+              : translate('No update')}
           </td>
           <td>
             <div className="form-control-static">{component.measured_unit}</div>

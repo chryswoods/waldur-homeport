@@ -1,12 +1,12 @@
-import { useCallback, useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useMemo } from 'react';
+import { Resource } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { INSTANCE_TYPE } from '@waldur/openstack/constants';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { parseValidators } from '@waldur/resource/actions/utils';
-import { getUser } from '@waldur/workspace/selectors';
+import { translate } from '@/i18n';
+import { useBatchMutation } from '@/modal/useBatchMutation';
+import { INSTANCE_TYPE } from '@/openstack/constants';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { parseValidators } from '@/resource/actions/utils';
+import { useUser } from '@/workspace/hooks';
 
 export const VirtualMachineMultiAction = ({
   rows,
@@ -16,15 +16,14 @@ export const VirtualMachineMultiAction = ({
   iconNode,
   refetch,
 }: {
-  rows;
+  rows: Resource[];
   validators;
   apiMethod;
   title;
   iconNode;
   refetch;
 }) => {
-  const dispatch = useDispatch();
-  const user = useSelector(getUser);
+  const user = useUser();
 
   const vms = useMemo(
     () => rows.filter((resource) => resource.resource_type === INSTANCE_TYPE),
@@ -43,24 +42,27 @@ export const VirtualMachineMultiAction = ({
     [vms, user, validators],
   );
 
-  const callback = useCallback(async () => {
-    try {
-      await waitForConfirmation(
-        dispatch,
-        translate('Perform mass action'),
-        translate('Are you sure you want to {title} {count} resources?', {
-          title,
-          count: validVms.length,
-        }),
-      );
-    } catch {
-      return;
-    }
-
-    Promise.all(validVms.map((vm) => apiMethod(vm.resource_uuid))).then(() => {
-      refetch();
-    });
-  }, [dispatch, validVms, apiMethod, title, refetch]);
+  const { mutate, isPending } = useBatchMutation<Resource, void>({
+    rows: validVms,
+    refetch,
+    mutationFn: (vm) => apiMethod(vm.resource_uuid),
+    successMessage: translate('{title} action has been scheduled.', { title }),
+    renderPartialSuccessMessage: (n) =>
+      translate('Successfully scheduled {title} for {n} resources.', {
+        title,
+        n,
+      }),
+    errorMessage: translate('Unable to schedule {title} action.', { title }),
+    renderErrorMessage: (n) =>
+      translate('Unable to schedule {title} for {n} resources.', { title, n }),
+    confirmation: {
+      title: translate('Perform mass action'),
+      body: translate('Are you sure you want to {title} {count} resources?', {
+        title,
+        count: validVms.length,
+      }),
+    },
+  });
 
   if (vms.length === 0) {
     return null;
@@ -68,8 +70,8 @@ export const VirtualMachineMultiAction = ({
   return (
     <ActionItem
       title={title}
-      action={callback}
-      disabled={validVms.length === 0}
+      action={mutate}
+      disabled={validVms.length === 0 || isPending}
       iconNode={iconNode}
     />
   );

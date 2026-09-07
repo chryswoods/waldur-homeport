@@ -1,14 +1,14 @@
-import { Link } from '@waldur/core/Link';
-import { EventGroup } from '@waldur/events/types';
-import { getCallerContext } from '@waldur/events/utils';
-import { translate } from '@waldur/i18n';
+import { Link } from '@/core/Link';
+import { EventGroup } from '@/events/types';
+import { getCallerContext } from '@/events/utils';
+import { translate } from '@/i18n';
 
 import { SupportEnum } from '../EventsEnums';
 
 const getIssueContext = (event) => ({
   ...getCallerContext(event),
   issue_link: (
-    <Link state="support.detail" params={{ uuid: event.issue_uuid }}>
+    <Link state="support.detail" params={{ issue_uuid: event.issue_uuid }}>
       {event.issue_key}
     </Link>
   ),

@@ -1,19 +1,15 @@
 import { ComponentType, LazyExoticComponent } from 'react';
-import { InjectedFormProps } from 'redux-form';
 import {
   Project,
   Customer,
   ProviderPlanDetails as Plan,
+  Offering,
+  OfferingComponent,
 } from 'waldur-js-client';
 
 import { CheckoutSummaryProps } from '../deploy/types';
-import { OfferingEditPanelFormProps } from '../offerings/update/integration/types';
-import {
-  AttributesType,
-  Offering,
-  OfferingComponent,
-  OrderDetailsProps,
-} from '../types';
+import { OfferingEditPanelProps } from '../offerings/update/integration/types';
+import { AttributesType, OrderDetailsProps } from '../types';
 
 export type Limits = Record<string, number>;
 
@@ -27,17 +23,14 @@ export interface OfferingConfiguration<
   orderFormComponent?: LazyExoticComponent<
     ComponentType<OrderFormComponentProps>
   >;
-  pluginOptionsForm?: LazyExoticComponent<
-    ComponentType<OfferingEditPanelFormProps>
+  userManagementSection?: LazyExoticComponent<
+    ComponentType<OfferingEditPanelProps>
   >;
-  secretOptionsForm?: LazyExoticComponent<
-    ComponentType<OfferingEditPanelFormProps>
+  provisioningConfigSection?: LazyExoticComponent<
+    ComponentType<OfferingEditPanelProps>
   >;
-  provisioningConfigForm?: LazyExoticComponent<
-    ComponentType<OfferingEditPanelFormProps>
-  >;
-  credentialsForm?: LazyExoticComponent<
-    ComponentType<OfferingEditPanelFormProps>
+  credentialsSection?: LazyExoticComponent<
+    ComponentType<OfferingEditPanelProps>
   >;
   detailsComponent?: LazyExoticComponent<ComponentType<OrderDetailsProps>>;
   checkoutSummaryComponent?: LazyExoticComponent<
@@ -56,14 +49,14 @@ export interface OfferingConfiguration<
   onlyOnePlan?: boolean;
   disableOfferingCreation?: boolean;
   schedulable?: boolean;
-  showBackendId?: boolean;
+
   offeringComponentsFilter?: (
     formData: any,
     components: OfferingComponent[],
   ) => OfferingComponent[];
 }
 export interface DeployFormData {
-  project?: Pick<Project, 'uuid' | 'name' | 'end_date' | 'url'>;
+  project?: Pick<Project, 'uuid' | 'name' | 'start_date' | 'end_date' | 'url'>;
   customer?: Pick<
     Customer,
     | 'uuid'
@@ -77,10 +70,10 @@ export interface DeployFormData {
   limits?: Limits;
   plan?: Plan;
   start_date?: string;
+  attachment?: any;
 }
 
-export interface OrderFormComponentProps extends InjectedFormProps {
+export interface OrderFormComponentProps {
   offering: Offering;
-  formData: DeployFormData;
   selectedOffering: Offering;
 }

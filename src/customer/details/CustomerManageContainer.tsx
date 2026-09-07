@@ -1,15 +1,17 @@
 import { UIView } from '@uirouter/react';
 import { useMemo } from 'react';
-import { useSelector } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { canRegisterServiceProviderForCustomer } from '@waldur/marketplace/service-providers/selectors';
-import { PageBarTab } from '@waldur/navigation/types';
-import { usePageTabsTransmitter } from '@waldur/navigation/usePageTabsTransmitter';
-import { getCustomer, getUser, isStaff } from '@waldur/workspace/selectors';
+import { lazyComponent } from '@/core/lazyComponent';
+import { isFeatureVisible } from '@/features/connect';
+import { CustomerFeatures, MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { canRegisterServiceProviderForCustomer } from '@/marketplace/service-providers/selectors';
+import { PageBarTab } from '@/navigation/types';
+import { usePageTabsTransmitter } from '@/navigation/usePageTabsTransmitter';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { useUser, useCustomer } from '@/workspace/hooks';
+import { checkIsOwnerOrStaff } from '@/workspace/selectors';
 
 const CustomerDetailsPanel = lazyComponent(() =>
   import('./CustomerDetailsPanel').then((module) => ({
@@ -21,9 +23,14 @@ const CustomerContactPanel = lazyComponent(() =>
     default: module.CustomerContactPanel,
   })),
 );
-const CustomerAccessControlPanel = lazyComponent(() =>
-  import('./CustomerAccessControlPanel').then((module) => ({
-    default: module.CustomerAccessControlPanel,
+const AccessControlTabsContainer = lazyComponent(() =>
+  import('./AccessControlTabsContainer').then((module) => ({
+    default: module.AccessControlTabsContainer,
+  })),
+);
+const OrganizationRolesList = lazyComponent(() =>
+  import('../roles/OrganizationRolesList').then((module) => ({
+    default: module.OrganizationRolesList,
   })),
 );
 const CustomerBillingPanel = lazyComponent(() =>
@@ -51,13 +58,38 @@ const CustomerRemovePanel = lazyComponent(() =>
     default: module.CustomerRemovePanel,
   })),
 );
+const ProjectDigestConfigPage = lazyComponent(() =>
+  import('../project-digest/ProjectDigestConfigPage').then((module) => ({
+    default: module.ProjectDigestConfigPage,
+  })),
+);
 
 export const CustomerManageContainer = () => {
-  const user = useSelector(getUser);
-  const customer = useSelector(getCustomer);
-  const isUserStaff = useSelector(isStaff);
-  const canRegisterServiceProvider = useSelector(
-    canRegisterServiceProviderForCustomer,
+  const user = useUser();
+  const customer = useCustomer();
+  const isUserStaff = user?.is_staff;
+  const canRegisterServiceProvider = canRegisterServiceProviderForCustomer(
+    user,
+    customer,
+  );
+  const userIsOwnerOrStaff = useMemo(
+    () => checkIsOwnerOrStaff(customer, user),
+    [customer, user],
+  );
+  // Access control was previously shown to anyone who could reach this page,
+  // including users whose only management permission is unrelated (e.g.
+  // UPDATE_CUSTOMER). The backend rejects their writes, so this is disclosure
+  // rather than a hole, but the tab should follow the permissions it exposes.
+  const canManageAccessControl = useMemo(
+    () =>
+      [
+        PermissionEnum.CREATE_ACCESS_SUBNET,
+        PermissionEnum.UPDATE_ACCESS_SUBNET,
+        PermissionEnum.DELETE_ACCESS_SUBNET,
+      ].some((permission) =>
+        hasPermission(user, { permission, customerId: customer?.uuid }),
+      ),
+    [customer, user],
   );
 
   const tabs = useMemo<PageBarTab[]>(
@@ -73,11 +105,20 @@ export const CustomerManageContainer = () => {
           component: CustomerContactPanel,
           title: translate('Contact'),
         },
-        {
-          key: 'access-control',
-          component: CustomerAccessControlPanel,
-          title: translate('Access control'),
-        },
+        canManageAccessControl
+          ? {
+              key: 'access-control',
+              component: AccessControlTabsContainer,
+              title: translate('Access control'),
+            }
+          : null,
+        isUserStaff
+          ? {
+              key: 'roles',
+              component: OrganizationRolesList,
+              title: translate('Roles'),
+            }
+          : null,
         {
           key: 'billing',
           component: CustomerBillingPanel,
@@ -106,6 +147,14 @@ export const CustomerManageContainer = () => {
               title: translate('Credit management'),
             }
           : null,
+        userIsOwnerOrStaff &&
+        isFeatureVisible(CustomerFeatures.show_project_digest)
+          ? {
+              key: 'project-digest',
+              component: ProjectDigestConfigPage,
+              title: translate('Project digest'),
+            }
+          : null,
         isUserStaff
           ? {
               key: 'remove',
@@ -114,7 +163,7 @@ export const CustomerManageContainer = () => {
             }
           : null,
       ].filter(Boolean),
-    [user, customer, canRegisterServiceProvider],
+    [user, customer, canRegisterServiceProvider, canManageAccessControl],
   );
 
   const { tabSpec } = usePageTabsTransmitter(tabs);

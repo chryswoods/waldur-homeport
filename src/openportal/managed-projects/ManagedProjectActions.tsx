@@ -1,35 +1,27 @@
-import { Button } from 'react-bootstrap';
-
-import { ActionsDropdown } from '@waldur/table/ActionsDropdown';
+import { ActionsDropdown } from '@/table/ActionsDropdown';
 
 import { ApproveManagedProjectButton } from './ApproveManagedProjectButton';
-import { RejectManagedProjectButton } from './RejectManagedProjectButton';
+import { AttachManagedProjectButton } from './AttachManagedProjectButton';
 import { DeleteManagedProjectButton } from './DeleteManagedProjectButton';
 import { DetachManagedProjectButton } from './DetachManagedProjectButton';
-import { AttachManagedProjectButton } from './AttachManagedProjectButton';
+import { RejectManagedProjectButton } from './RejectManagedProjectButton';
 
+export const ManagedProjectActions = ({ project, refetch }) => {
+  if (!project) {
+    return null;
+  }
 
-export const ManagedProjectActions = ({
-    project,
-    refetch,
-    as,
-}) => {
-    if (!project) {
-        return null;
-    }
-
-    return (
-        <ActionsDropdown
-            row={project}
-            refetch={refetch}
-            actions={[
-                project.state !== 'approved' ? ApproveManagedProjectButton : null,
-                project.state !== 'rejected' ? RejectManagedProjectButton : null,
-                project.project ? null : AttachManagedProjectButton,
-                project.project ? DetachManagedProjectButton : null,
-                DeleteManagedProjectButton,
-            ].filter(Boolean)}
-            data-cy="public-resources-list-actions-dropdown-btn"
-        />
-    );
+  return (
+    <ActionsDropdown
+      row={project}
+      refetch={refetch}
+      actions={[
+        project.state !== 'approved' ? ApproveManagedProjectButton : null,
+        project.state !== 'rejected' ? RejectManagedProjectButton : null,
+        project.project ? null : AttachManagedProjectButton,
+        project.project ? DetachManagedProjectButton : null,
+        DeleteManagedProjectButton,
+      ].filter(Boolean)}
+    />
+  );
 };

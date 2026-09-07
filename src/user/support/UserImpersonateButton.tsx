@@ -1,35 +1,15 @@
 import { EyeIcon } from '@phosphor-icons/react';
-import { useMutation } from '@tanstack/react-query';
 import { FunctionComponent } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
 
-import { translate } from '@waldur/i18n';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { showErrorResponse } from '@waldur/store/notify';
-import { setImpersonatorUser } from '@waldur/workspace/actions';
-import { getUser } from '@waldur/workspace/selectors';
+import { translate } from '@/i18n';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { useUser } from '@/workspace/hooks';
 
-import { UsersService, setImpersonationData } from '../UsersService';
+import { useImpersonate } from './useImpersonate';
 
 export const UserImpersonateButton: FunctionComponent<{ row }> = ({ row }) => {
-  const user = useSelector(getUser);
-  const dispatch = useDispatch();
-  const { mutate, isPending } = useMutation({
-    mutationFn: async () => {
-      try {
-        setImpersonationData(row.uuid);
-        dispatch(setImpersonatorUser(user));
-        await UsersService.refreshCurrentUser();
-      } catch (error) {
-        dispatch(
-          showErrorResponse(
-            error,
-            translate('Unable to impersonate the user.'),
-          ),
-        );
-      }
-    },
-  });
+  const user = useUser();
+  const { impersonate, isPending } = useImpersonate(row.uuid);
 
   if (!(user?.uuid !== row.uuid && user?.is_staff)) {
     return null;
@@ -38,7 +18,7 @@ export const UserImpersonateButton: FunctionComponent<{ row }> = ({ row }) => {
   return (
     <ActionItem
       title={translate('Impersonate')}
-      action={mutate}
+      action={impersonate}
       iconNode={<EyeIcon weight="bold" />}
       disabled={isPending || !row.has_active_session}
       tooltip={

@@ -1,18 +1,18 @@
+import { UseQueryResult } from '@tanstack/react-query';
 import arrayMutators from 'final-form-arrays';
 import { FC } from 'react';
 import { Form } from 'react-final-form';
 import { FieldArray } from 'react-final-form-arrays';
-import { AsyncState } from 'react-use/lib/useAsync';
 import { CategoryColumn } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { Category } from '@waldur/marketplace/types';
-import { AsyncActionDialog } from '@waldur/resource/actions/AsyncActionDialog';
+import { translate } from '@/i18n';
+import { Category } from '@/marketplace/types';
+import { AsyncActionDialog } from '@/resource/actions/AsyncActionDialog';
 
 import { ColumnsList } from './ColumnsList';
 
 interface CategoryColumnsFormProps {
-  asyncState: AsyncState<CategoryColumn[]>;
+  asyncState: UseQueryResult<CategoryColumn[]>;
   submitRequest: (formData: FormData) => Promise<void>;
   category: Category;
   initialValues?: FormData;
@@ -28,7 +28,7 @@ export const CategoryColumnsForm: FC<CategoryColumnsFormProps> = ({
   submitRequest,
   initialValues = { columns: [] },
 }) => {
-  if (asyncState.loading) {
+  if (asyncState.isLoading) {
     return <p>{translate('Loading...')}</p>;
   }
 
@@ -41,23 +41,21 @@ export const CategoryColumnsForm: FC<CategoryColumnsFormProps> = ({
       mutators={{ ...arrayMutators }}
       onSubmit={submitRequest}
       initialValues={initialValues}
-      render={({ handleSubmit, submitting, invalid }) => (
+      render={({ handleSubmit }) => (
         <form onSubmit={handleSubmit}>
           <AsyncActionDialog
             title={translate('Set columns in {name} category', {
               name: category.title,
             })}
-            loading={asyncState.loading}
+            loading={asyncState.isLoading}
             error={asyncState.error}
-            submitting={submitting}
-            invalid={invalid}
           >
-            {asyncState.value ? (
+            {asyncState.data ? (
               <FieldArray name="columns">
                 {(props) => (
                   <ColumnsList
                     {...props}
-                    CategoryColumns={asyncState.value}
+                    CategoryColumns={asyncState.data}
                     category={category}
                   />
                 )}

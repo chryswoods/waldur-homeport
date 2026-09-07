@@ -2,11 +2,11 @@ import { LockIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
 import { Stack } from 'react-bootstrap';
 
-import { Badge } from '@waldur/core/Badge';
-import { formatDate, formatRelativeWithHour } from '@waldur/core/dateUtils';
-import { Link } from '@waldur/core/Link';
-import { ModelCard1 } from '@waldur/core/ModelCard1';
-import { translate } from '@waldur/i18n';
+import { Badge } from '@/core/Badge';
+import { formatDate, formatRelativeWithHour } from '@/core/dateUtils';
+import { Link } from '@/core/Link';
+import { ModelCard1 } from '@/core/ModelCard1';
+import { translate } from '@/i18n';
 
 import { PublicCallApplyButton } from './details/PublicCallApplyButton';
 import { Call } from './types';
@@ -39,7 +39,7 @@ export const CallCard: FC<{ call: Call }> = ({ call }) => {
               {!nextRound ? (
                 <div className="text-muted">{translate('No rounds')}</div>
               ) : nextRound.status.label === 'Open' ? (
-                <Badge variant="warning" outline pill>
+                <Badge variant="warning" pill outline>
                   {translate('Cutoff')}
                   {': '}
                   {formatRelativeWithHour(nextRound.cutoff_time)}
@@ -54,15 +54,14 @@ export const CallCard: FC<{ call: Call }> = ({ call }) => {
               {Boolean(call.fixed_duration_in_days) && (
                 <Badge
                   variant="default"
-                  outline
                   pill
-                  className="px-2"
+                  outline
                   tooltip={
                     <Badge
                       variant="blue"
                       leftIcon={<LockIcon weight="bold" />}
-                      outline
                       pill
+                      outline
                     >
                       {translate('Fixed duration: {n} days', {
                         n: call.fixed_duration_in_days,
@@ -70,6 +69,7 @@ export const CallCard: FC<{ call: Call }> = ({ call }) => {
                     </Badge>
                   }
                   tooltipProps={{ theme: 'light', autoWidth: true }}
+                  className="px-2"
                 >
                   +1
                 </Badge>
@@ -78,9 +78,9 @@ export const CallCard: FC<{ call: Call }> = ({ call }) => {
             <Stack direction="horizontal" gap={2}>
               <PublicCallApplyButton
                 call={call}
-                title={translate('Apply')}
+                title={translate('Apply to call')}
                 variant="text-primary"
-                className="btn-sm"
+                size="sm"
               />
 
               <CallLink call={call} asButton>

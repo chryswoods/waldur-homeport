@@ -2,13 +2,15 @@ import { useQuery } from '@tanstack/react-query';
 import React, { useMemo } from 'react';
 import { Project, projectCreditsList } from 'waldur-js-client';
 
-import { AwesomeCheckbox } from '@waldur/core/AwesomeCheckbox';
-import { ENV } from '@waldur/core/config';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { minimalConsumptionLogicOptions } from '@waldur/customer/credits/constants';
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
+import { AwesomeCheckbox } from '@/core/AwesomeCheckbox';
+import { ENV } from '@/core/config';
+import { SHORT_STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { minimalConsumptionLogicOptions } from '@/customer/credits/constants';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import { renderFieldOrDash } from '@/table/utils';
 
 import { CreditFieldEditButton } from './CreditFieldEditButton';
 
@@ -31,7 +33,7 @@ export const ProjectCredit: React.FC<ProjectCreditProps> = ({ project }) => {
       }).then((response) => response.data.length > 0 && response.data[0]),
 
     refetchOnWindowFocus: false,
-    staleTime: 60 * 1000,
+    staleTime: SHORT_STALE_TIME,
   });
 
   const rows = useMemo(
@@ -41,32 +43,33 @@ export const ProjectCredit: React.FC<ProjectCreditProps> = ({ project }) => {
           currency: ENV.plugins.WALDUR_CORE.CURRENCY_NAME,
         }),
         key: 'value',
-        value: creditData?.value || 'N/A',
+        value: renderFieldOrDash(creditData?.value),
       },
       {
         label: translate('End date'),
         key: 'end_date',
-        value: creditData?.end_date || 'N/A',
+        value: renderFieldOrDash(creditData?.end_date),
       },
       {
         label: translate('Minimal consumption logic'),
         key: 'minimal_consumption_logic',
-        value:
+        value: renderFieldOrDash(
           minimalConsumptionLogicOptions.find(
             (opt) => opt.value === creditData?.minimal_consumption_logic,
-          )?.label || 'N/A',
+          )?.label,
+        ),
       },
       {
         label: translate('Expected consumption ({currency} per month)', {
           currency: ENV.plugins.WALDUR_CORE.CURRENCY_NAME,
         }),
         key: 'expected_consumption',
-        value: creditData?.expected_consumption || 'N/A',
+        value: renderFieldOrDash(creditData?.expected_consumption),
       },
       {
         label: translate('Grace coefficient (%)'),
         key: 'grace_coefficient',
-        value: creditData?.grace_coefficient || 'N/A',
+        value: renderFieldOrDash(creditData?.grace_coefficient),
       },
       {
         label: translate('Apply as minimal consumption'),

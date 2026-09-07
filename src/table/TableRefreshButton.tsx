@@ -1,26 +1,48 @@
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react';
 import { FunctionComponent } from 'react';
 
-import { TableProps } from '@waldur/table/types';
+import { IconButton } from '@/core/buttons/IconButton';
+import { translate } from '@/i18n';
+import { Sorting } from '@/table/types';
 
 export const LoadingSpinner: FunctionComponent = () => (
-  <button type="button" className="btn btn-icon btn-flush">
-    <span className="animation-spin">
-      <ArrowsClockwiseIcon size={20} data-cy="loading-spinner" />
-    </span>
-  </button>
+  <IconButton
+    iconNode={
+      <span className="animation-spin">
+        <ArrowsClockwiseIcon weight="bold" />
+      </span>
+    }
+    tooltip={translate('Loading')}
+    onClick={() => {}}
+    variant="flush"
+    disabled
+  />
 );
 
-export const TableRefreshButton = (props: TableProps) =>
-  (props.loading && props.sorting && !props.sorting.loading) ||
-  (props.sorting && props.sorting.loading) ? (
-    <LoadingSpinner />
-  ) : (
-    <button
-      type="button"
-      className="btn btn-icon btn-text-secondary"
+interface TableRefreshButtonProps {
+  loading?: boolean;
+  sorting?: Sorting & { loading?: boolean };
+  fetch: (force?: boolean) => void;
+}
+
+export const TableRefreshButton: FunctionComponent<TableRefreshButtonProps> = (
+  props,
+) => {
+  // Show spinner when:
+  // 1. loading is true (general loading state)
+  // 2. sorting.loading is true (sorting in progress)
+  const showSpinner = props.loading || (props.sorting && props.sorting.loading);
+
+  if (showSpinner) {
+    return <LoadingSpinner />;
+  }
+
+  return (
+    <IconButton
+      iconNode={<ArrowsClockwiseIcon weight="bold" />}
+      tooltip={translate('Refresh')}
       onClick={() => props.fetch(true)}
-    >
-      <ArrowsClockwiseIcon size={20} data-cy="loading-spinner" />
-    </button>
+      variant="text-secondary"
+    />
   );
+};

@@ -1,20 +1,36 @@
 import { FC } from 'react';
-import { useDispatch } from 'react-redux';
 import { marketplaceProviderResourcesSetBackendId } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ResourceActionDialog } from '@waldur/resource/actions/ResourceActionDialog';
-import { ActionDialogProps } from '@waldur/resource/actions/types';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
+import { translate } from '@/i18n';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ResourceActionDialog } from '@/resource/actions/ResourceActionDialog';
+import { ActionDialogProps } from '@/resource/actions/types';
 
 export const SetBackendIdDialog: FC<ActionDialogProps> = ({
   resolve: { resource, refetch },
 }) => {
-  const dispatch = useDispatch();
+  const mutation = useManagedMutation<any, any, { backend_id: string }>({
+    mutationFn: (formData) =>
+      marketplaceProviderResourcesSetBackendId({
+        path: { uuid: resource.uuid },
+        body: formData,
+      }),
+
+    successMessage: translate('Backend ID has been successfully set.'),
+    errorMessage: translate('Unable to set backend ID.'),
+    refetch: refetch,
+  });
+
   return (
     <ResourceActionDialog
       dialogTitle={translate('Set backend ID')}
+      dialogSubtitle={
+        <ScopeSubtitle
+          label={translate('Resource name')}
+          name={resource.name}
+        />
+      }
       formFields={[
         {
           name: 'backend_id',
@@ -26,25 +42,7 @@ export const SetBackendIdDialog: FC<ActionDialogProps> = ({
       initialValues={{
         backend_id: resource.backend_id,
       }}
-      submitForm={async (formData) => {
-        try {
-          await marketplaceProviderResourcesSetBackendId({
-            path: { uuid: resource.uuid },
-            body: formData,
-          });
-          dispatch(
-            showSuccess(translate('Backend ID has been successfully set.')),
-          );
-          if (refetch) {
-            await refetch();
-          }
-          dispatch(closeModalDialog());
-        } catch (e) {
-          dispatch(
-            showErrorResponse(e, translate('Unable to set backend ID.')),
-          );
-        }
-      }}
+      submitForm={mutation.mutateAsync}
     />
   );
 };

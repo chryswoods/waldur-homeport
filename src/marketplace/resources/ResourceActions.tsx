@@ -2,10 +2,10 @@ import { FC, useMemo } from 'react';
 import { DropDirection } from 'react-bootstrap/esm/DropdownContext';
 import { useBoolean } from 'react-use';
 
-import { ModalActionsRouter } from '@waldur/marketplace/resources/actions/ModalActionsRouter';
-import { ResourceActionsButton as BaseResourceActionsButton } from '@waldur/marketplace/resources/actions/ResourceActionsButton';
-import { getActions } from '@waldur/resource/actions/registry';
-import { ResourceActionComponent } from '@waldur/resource/actions/ResourceActionComponent';
+import { ModalActionsRouter } from '@/marketplace/resources/actions/ModalActionsRouter';
+import { ResourceActionsButton as BaseResourceActionsButton } from '@/marketplace/resources/actions/ResourceActionsButton';
+import { getActions } from '@/resource/actions/registry';
+import { ResourceActionComponent } from '@/resource/actions/ResourceActionComponent';
 
 import {
   ActionsList,
@@ -21,6 +21,8 @@ interface ResourceActionsProps {
   refetch;
   labeled?: boolean;
   drop?: DropDirection;
+  disabled?: boolean;
+  size?: 'sm' | 'lg';
 }
 
 export const ResourceActions: FC<ResourceActionsProps> = ({
@@ -29,6 +31,8 @@ export const ResourceActions: FC<ResourceActionsProps> = ({
   refetch,
   drop,
   labeled = false,
+  disabled,
+  size,
 }) => {
   const [open, onToggle] = useBoolean(false);
   const extraActions = useMemo(() => {
@@ -48,6 +52,8 @@ export const ResourceActions: FC<ResourceActionsProps> = ({
         refetch={refetch}
         labeled
         drop={drop}
+        disabled={disabled}
+        size={size}
       />
     );
   }
@@ -61,6 +67,8 @@ export const ResourceActions: FC<ResourceActionsProps> = ({
         refetch={refetch}
         labeled={labeled}
         drop={drop}
+        disabled={disabled}
+        size={size}
       />
     );
   }
@@ -77,6 +85,8 @@ export const ResourceActions: FC<ResourceActionsProps> = ({
       refetch={refetch}
       labeled={labeled}
       drop={drop}
+      disabled={disabled}
+      size={size}
     />
   );
 };

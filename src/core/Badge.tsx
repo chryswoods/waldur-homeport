@@ -1,9 +1,9 @@
 import classNames from 'classnames';
-import { FunctionComponent, ReactNode } from 'react';
+import { FC, ReactNode } from 'react';
 import BsBadge, { BadgeProps } from 'react-bootstrap/Badge';
 import type { Variant } from 'react-bootstrap/types';
 
-import { Tip, TipProps } from '@waldur/core/Tooltip';
+import { Tip, TipProps } from '@/core/Tooltip';
 
 interface OwnProps extends BadgeProps {
   leftIcon?: ReactNode;
@@ -12,7 +12,16 @@ interface OwnProps extends BadgeProps {
   alignIcon?: boolean;
   tooltip?: ReactNode;
   tooltipProps?: Partial<TipProps>;
-  variant?: Variant;
+  variant?:
+    | Variant
+    | 'pink'
+    | 'blue'
+    | 'teal'
+    | 'indigo'
+    | 'purple'
+    | 'rose'
+    | 'orange'
+    | 'moss';
   roundless?: boolean;
   light?: boolean;
   outline?: boolean;
@@ -23,14 +32,14 @@ interface OwnProps extends BadgeProps {
 
 const wrapTooltip = (label, children, props = {}) =>
   label ? (
-    <Tip label={label} id="state-indicator" {...props}>
+    <Tip label={label} id="tip-badge" {...props}>
       {children}
     </Tip>
   ) : (
     children
   );
 
-export const Badge: FunctionComponent<OwnProps> = ({
+export const Badge: FC<OwnProps> = ({
   variant = 'primary',
   leftIcon,
   rightIcon,

@@ -1,18 +1,18 @@
 import { useMemo } from 'react';
 import { Card } from 'react-bootstrap';
-import { PublicOfferingDetails, Resource } from 'waldur-js-client';
+import { Resource, Offering } from 'waldur-js-client';
 
-import { CodePreview } from '@waldur/core/CodePreview';
-import { formatJsxTemplate, translate } from '@waldur/i18n';
-import { ResourceAccessButton } from '@waldur/resource/ResourceAccessButton';
-import { getResourceAccessEndpoints } from '@waldur/resource/utils';
+import { CodePreview } from '@/core/CodePreview';
+import { formatJsxTemplate, translate } from '@/i18n';
+import { ResourceAccessButton } from '@/resource/ResourceAccessButton';
+import { getResourceAccessEndpoints } from '@/resource/utils';
 
 export const GettingStartedCard = ({
   resource,
   offering,
 }: {
   resource: Resource;
-  offering: PublicOfferingDetails;
+  offering: Offering;
 }) => {
   const endpoints = useMemo(
     () => getResourceAccessEndpoints(resource, offering),

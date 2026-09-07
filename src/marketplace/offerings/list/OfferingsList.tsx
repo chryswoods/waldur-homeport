@@ -5,24 +5,24 @@ import {
   ProviderOfferingDetails,
 } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import {
-  getLabel,
-  getOfferingTypes,
-} from '@waldur/marketplace/common/registry';
-import { createFetcher } from '@waldur/table/api';
-import { BooleanField } from '@waldur/table/BooleanField';
-import { SLUG_COLUMN } from '@waldur/table/slug';
-import Table from '@waldur/table/Table';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { renderFieldOrDash } from '@waldur/table/utils';
-
-import { useOfferingDropdownActions } from '../hooks';
+import { formatDateTime } from '@/core/dateUtils';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { getLabel, getOfferingTypes } from '@/marketplace/common/registry';
+import { createFetcher } from '@/table/api';
+import { BooleanField } from '@/table/BooleanField';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
+import { SLUG_COLUMN } from '@/table/slug';
+import Table from '@/table/Table';
+import { Column } from '@/table/types';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 import { CreateOfferingButton } from './CreateOfferingButton';
 import { OfferingActions } from './OfferingActions';
+import { OfferingDropdownActions } from './OfferingDropdownActions';
 import { OfferingNameColumn } from './OfferingNameColumn';
 import { OfferingStateCell } from './OfferingStateCell';
 import { getStates } from './OfferingStateFilter';
@@ -37,6 +37,8 @@ export const BaseOfferingsList: FunctionComponent<{
   showActions?: boolean;
   showProvider?: boolean;
   filters?;
+  formId?: string;
+  initialFilters?;
 }> = ({
   table,
   filter,
@@ -44,6 +46,8 @@ export const BaseOfferingsList: FunctionComponent<{
   showActions,
   showProvider,
   filters,
+  formId,
+  initialFilters,
 }) => {
   const props = useTable({
     table,
@@ -51,6 +55,7 @@ export const BaseOfferingsList: FunctionComponent<{
     fetchData: createFetcher(marketplaceProviderOfferingsList),
     queryField: 'keyword',
     mandatoryFields,
+    initialFilters,
   });
 
   const organizationColumn: Column<ProviderOfferingDetails>[] =
@@ -70,6 +75,31 @@ export const BaseOfferingsList: FunctionComponent<{
           },
         ]
       : [];
+
+  const costColumn: Column<ProviderOfferingDetails>[] = isFeatureVisible(
+    MarketplaceFeatures.conceal_prices,
+  )
+    ? []
+    : [
+        {
+          title: translate('Cost (previous month)'),
+          render: ({ row }) =>
+            row.total_cost == null ? (
+              <>{DASH_ESCAPE_CODE}</>
+            ) : (
+              <>{defaultCurrency(row.total_cost)}</>
+            ),
+          orderField: 'total_cost',
+          export: (row) =>
+            row.total_cost == null
+              ? DASH_ESCAPE_CODE
+              : defaultCurrency(row.total_cost),
+          exportKeys: ['total_cost'],
+          keys: ['total_cost'],
+          id: 'total_cost',
+          optional: true,
+        },
+      ];
 
   const columns: Column<ProviderOfferingDetails>[] = [
     {
@@ -123,6 +153,16 @@ export const BaseOfferingsList: FunctionComponent<{
       id: 'type',
     },
     {
+      title: translate('Customers'),
+      render: ({ row }) => <>{row.total_customers ?? DASH_ESCAPE_CODE}</>,
+      orderField: 'total_customers',
+      export: 'total_customers',
+      keys: ['total_customers'],
+      id: 'total_customers',
+      optional: true,
+    },
+    ...costColumn,
+    {
       title: translate('Shared'),
       render: ({ row }) => <BooleanField value={row.shared} />,
       id: 'shared',
@@ -132,8 +172,6 @@ export const BaseOfferingsList: FunctionComponent<{
     },
     SLUG_COLUMN as Column<ProviderOfferingDetails>,
   ];
-
-  const dropdownActions = useOfferingDropdownActions(props.fetch);
 
   return (
     <Table
@@ -151,7 +189,7 @@ export const BaseOfferingsList: FunctionComponent<{
       }
       columns={columns}
       verboseName={translate('Offerings')}
-      dropdownActions={showActions && dropdownActions}
+      dropdownActions={<OfferingDropdownActions refetch={props.fetch} />}
       initialSorting={{ field: 'created', mode: 'desc' }}
       enableExport={true}
       rowActions={
@@ -160,6 +198,7 @@ export const BaseOfferingsList: FunctionComponent<{
           : null
       }
       hasQuery={true}
+      formId={formId}
       filters={filters}
       hasOptionalColumns
     />

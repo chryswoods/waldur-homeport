@@ -1,16 +1,17 @@
-import { useSelector } from 'react-redux';
-
-import { ENV } from '@waldur/core/config';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { CustomerFeatures, InvitationsFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { isOwnerOrStaffOrReader as isOwnerOrStafforReaderSelector } from '@waldur/workspace/selectors';
+import { ENV } from '@/core/config';
+import { isFeatureVisible } from '@/features/connect';
+import { CustomerFeatures, InvitationsFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { useUser, useCustomer } from '@/workspace/hooks';
+import { checkIsOwnerOrStaff } from '@/workspace/selectors';
 
 export const useTeamTableTabs = () => {
-  const isOwnerOrStafforReader = useSelector(isOwnerOrStafforReaderSelector);
+  const user = useUser();
+  const customer = useCustomer();
+  const isOwnerOrStaff = checkIsOwnerOrStaff(customer, user);
 
   return [
-    isOwnerOrStafforReader && {
+    isOwnerOrStaff && {
       key: 'users',
       title: translate('Active'),
       state: 'organization-users',

@@ -1,16 +1,18 @@
-import { FC } from 'react';
-import { Card } from 'react-bootstrap';
+import { useQuery } from '@tanstack/react-query';
+import { FC, useMemo } from 'react';
+import { proposalPublicCallsRetrieve } from 'waldur-js-client';
 
-import { TextField } from '@waldur/form';
-import { AwesomeCheckboxField } from '@waldur/form/AwesomeCheckboxField';
-import { ReadOnlyFormControl } from '@waldur/form/ReadOnlyFormControl';
-import { translate } from '@waldur/i18n';
-import { Proposal, ProposalReview } from '@waldur/proposals/types';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { ProjectFeatures } from '@waldur/FeaturesEnums';
+import { AccordionCard } from '@/core/AccordionCard';
+import { ReadOnlyFormControl } from '@/form/ReadOnlyFormControl';
+import { BaseTextField } from '@/form/TextField';
+import { translate } from '@/i18n';
+import { publicCallKey } from '@/proposals/callQueries';
+import { Proposal, ProposalReview } from '@/proposals/types';
+import { renderFieldOrDash } from '@/table/utils';
 
 import { CommentSection } from './CommentSection';
 import { DocumentationFiles } from './DocumentationFiles';
+import { getFieldStates, shouldRenderField } from './proposalFields';
 
 interface ProjectDetailsSummaryProps {
   proposal: Proposal;
@@ -18,16 +20,38 @@ interface ProjectDetailsSummaryProps {
   onAddCommentClick?({ commentField, label }): void;
 }
 
+const FIELD_CONFIG_FIELDS = ['proposal_field_config'] as const;
+
 export const ProjectDetailsSummary: FC<ProjectDetailsSummaryProps> = ({
   proposal,
   reviews,
   onAddCommentClick,
-}) => (
-  <Card className="card-bordered" id="step-project">
-    <Card.Header>
-      <Card.Title>{translate('Project details')}</Card.Title>
-    </Card.Header>
-    <Card.Body>
+}) => {
+  // Which fields this call asked for. Same fetch as ProjectDetailsStep, so the
+  // two share a React Query cache entry when both are on screen.
+  const { data: call } = useQuery({
+    queryKey: publicCallKey(proposal.call_uuid, FIELD_CONFIG_FIELDS),
+    queryFn: () =>
+      proposalPublicCallsRetrieve({
+        path: { uuid: proposal.call_uuid },
+        query: { field: FIELD_CONFIG_FIELDS },
+      }).then((response) => response.data),
+    enabled: !!proposal.call_uuid,
+    refetchOnWindowFocus: false,
+  });
+
+  const fieldStates = useMemo(
+    () => getFieldStates(call?.proposal_field_config),
+    [call],
+  );
+
+  return (
+    <AccordionCard
+      id="step-project"
+      title={translate('Project details')}
+      subtitle={translate('Basic information about your research project.')}
+      defaultOpen={false}
+    >
       <CommentSection
         label={translate('Name')}
         valueField="name"
@@ -40,92 +64,62 @@ export const ProjectDetailsSummary: FC<ProjectDetailsSummaryProps> = ({
         reviews={reviews}
       />
 
-      <CommentSection
-        label={translate('Summary')}
-        valueField="project_summary"
-        commentField="comment_project_summary"
-        tooltip={translate('Brief description of the project.')}
-        onAddCommentClick={onAddCommentClick}
-        reviews={reviews}
-        proposal={proposal}
-      >
-        <TextField solid />
-      </CommentSection>
-
-      <CommentSection
-        label={translate('Description')}
-        valueField="description"
-        commentField="comment_project_description"
-        tooltip={translate(
-          'Explanation of the scientific case of the project for which the resources are intended to be used.',
-        )}
-        onAddCommentClick={onAddCommentClick}
-        reviews={reviews}
-        proposal={proposal}
-      >
-        <TextField solid />
-      </CommentSection>
-
-      <CommentSection
-        commentField="comment_project_has_civilian_purpose"
-        valueField="project_has_civilian_purpose"
-        onAddCommentClick={onAddCommentClick}
-        reviews={reviews}
-        proposal={proposal}
-        inline
-      >
-        <AwesomeCheckboxField
-          label={translate('Project for civilian purpose?')}
-          tooltip={translate('Mark if the project has a civilian purpose.')}
-          tooltipEnd
-          alignMiddle
-          className="flex-grow-1"
+      {shouldRenderField(
+        fieldStates,
+        'project_summary',
+        proposal.project_summary,
+      ) && (
+        <CommentSection
+          label={translate('Summary')}
+          valueField="project_summary"
+          commentField="comment_project_summary"
+          tooltip={translate('Brief description of the project.')}
+          onAddCommentClick={onAddCommentClick}
+          reviews={reviews}
+          proposal={proposal}
         />
-      </CommentSection>
+      )}
 
-      {isFeatureVisible(ProjectFeatures.oecd_fos_2007_code) ? (
+      {shouldRenderField(fieldStates, 'description', proposal.description) && (
+        <CommentSection
+          label={translate('Description')}
+          valueField="description"
+          commentField="comment_project_description"
+          tooltip={translate(
+            'Explanation of the scientific case of the project for which the resources are intended to be used.',
+          )}
+          onAddCommentClick={onAddCommentClick}
+          reviews={reviews}
+          proposal={proposal}
+        >
+          {(props) => (
+            <BaseTextField solid value={props.value} readOnly disabled />
+          )}
+        </CommentSection>
+      )}
+
+      {shouldRenderField(
+        fieldStates,
+        'science_sub_domain',
+        proposal.science_sub_domain,
+      ) && (
         <ReadOnlyFormControl
-          label={translate('Research field (OECD code)')}
-          value={proposal.oecd_fos_2007_label || 'N/A'}
-          tooltip={translate('Select the main research field for the project.')}
+          label={translate('Science domain')}
+          value={renderFieldOrDash(
+            proposal.science_sub_domain_name
+              ? [proposal.science_domain_name, proposal.science_sub_domain_name]
+                  .filter(Boolean)
+                  .join(' > ')
+              : null,
+          )}
+          tooltip={translate('Main research field of the project.')}
           actions={
             <div style={{ width: 42.5 }}>
               {/* Dummy spacing to align with other fields. */}
             </div>
           }
         />
-      ) : null}
-
-      <CommentSection
-        valueField="project_is_confidential"
-        commentField="comment_project_is_confidential"
-        onAddCommentClick={onAddCommentClick}
-        reviews={reviews}
-        proposal={proposal}
-        inline
-      >
-        <AwesomeCheckboxField
-          label={translate('Is the project confidential?')}
-          tooltip={translate(
-            'Select if the project proposal contains confidential information.',
-          )}
-          tooltipEnd
-          alignMiddle
-          className="flex-grow-1"
-        />
-      </CommentSection>
-
-      <CommentSection
-        label={translate('Project duration in days')}
-        valueField="duration_in_days"
-        commentField="comment_project_duration"
-        tooltip={translate(
-          'Expected project duration in days once resources have been granted.',
-        )}
-        onAddCommentClick={onAddCommentClick}
-        reviews={reviews}
-        proposal={proposal}
-      />
+      )}
 
       {proposal.supporting_documentation?.length > 0 && (
         <CommentSection
@@ -143,6 +137,6 @@ export const ProjectDetailsSummary: FC<ProjectDetailsSummaryProps> = ({
           <DocumentationFiles files={proposal.supporting_documentation} />
         </CommentSection>
       )}
-    </Card.Body>
-  </Card>
-);
+    </AccordionCard>
+  );
+};

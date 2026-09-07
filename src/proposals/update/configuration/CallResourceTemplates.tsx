@@ -4,13 +4,14 @@ import {
   proposalProtectedCallsResourceTemplatesList,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { Call } from '@waldur/proposals/types';
-import { ActionsDropdown } from '@waldur/table/ActionsDropdown';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { renderFieldOrDash } from '@waldur/table/utils';
+import { translate } from '@/i18n';
+import { Call } from '@/proposals/types';
+import { callLockedTooltip } from '@/proposals/workflow/constants';
+import { ActionsDropdown } from '@/table/ActionsDropdown';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 import { ResourceTemplateCreateButton } from './ResourceTemplateCreateButton';
 import { ResourceTemplateDeleteButton } from './ResourceTemplateDeleteButton';
@@ -19,6 +20,7 @@ import { ResourceTemplateExpandableRow } from './ResourceTemplateExpandableRow';
 
 interface CallResourceTemplatesProps {
   call: Call;
+  isReadOnly?: boolean;
 }
 
 const RowActions = ({ row, fetch, call }) => (
@@ -67,12 +69,19 @@ export const CallResourceTemplates: FC<CallResourceTemplatesProps> = (
         <ResourceTemplateCreateButton
           call={props.call}
           refetch={tableProps.fetch}
+          disabled={props.isReadOnly}
+          tooltip={props.isReadOnly ? callLockedTooltip() : undefined}
         />
       }
-      rowActions={({ row, fetch }) => (
-        <RowActions row={row} fetch={fetch} call={props.call} />
-      )}
+      rowActions={({ row, fetch }) =>
+        props.isReadOnly ? (
+          <ActionsDropdown disabled tooltip={callLockedTooltip()} />
+        ) : (
+          <RowActions row={row} fetch={fetch} call={props.call} />
+        )
+      }
       expandableRow={ResourceTemplateExpandableRow}
+      showPageSizeSelector
     />
   );
 };

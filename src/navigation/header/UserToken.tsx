@@ -1,19 +1,19 @@
 import { CopyIcon } from '@phosphor-icons/react';
 import { useCallback } from 'react';
-import { Button, FormControl, InputGroup } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
+import { FormControl, InputGroup } from 'react-bootstrap';
 
-import { translate } from '@waldur/i18n';
-import { showSuccess } from '@waldur/store/notify';
+import { CompactSubmitButton } from '@/form/CompactSubmitButton';
+import { translate } from '@/i18n';
+import { useNotify } from '@/store/notify';
 
 export const UserToken = ({ token }) => {
-  const dispatch = useDispatch();
+  const { showSuccess } = useNotify();
 
   const onClick = useCallback(() => {
     navigator.clipboard.writeText(token).then(() => {
-      dispatch(showSuccess(translate('Token has been copied')));
+      showSuccess(translate('Token has been copied'));
     });
-  }, [dispatch, token]);
+  }, [token]);
 
   return (
     <div className="menu-item" data-kt-menu-trigger="click">
@@ -33,15 +33,16 @@ export const UserToken = ({ token }) => {
             }}
           />
 
-          <Button
+          <CompactSubmitButton
+            submitting={false}
+            type="button"
             variant="primary"
-            size="sm"
-            className="px-3"
+            className="px-3 h-30px"
             onClick={onClick}
-          >
-            <CopyIcon />
-            {translate('Copy')}
-          </Button>
+            label={translate('Copy')}
+            iconNode={<CopyIcon weight="bold" />}
+            iconOnLeft
+          />
         </InputGroup>
       </div>
     </div>

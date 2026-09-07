@@ -7,16 +7,34 @@ import React, {
   useState,
 } from 'react';
 import { FormControl, FormGroup } from 'react-bootstrap';
-import { Field } from 'redux-form';
+import { Field } from 'react-final-form';
+import { FieldRenderProps } from 'react-final-form';
 import { Project } from 'waldur-js-client';
 
-import { Tip } from '@waldur/core/Tooltip';
-import { required } from '@waldur/core/validators';
-import { FormField } from '@waldur/form/types';
-import { translate } from '@waldur/i18n';
-import { MenuComponent } from '@waldur/metronic/components';
-import { Role } from '@waldur/permissions/types';
-import { Customer } from '@waldur/workspace/types';
+import { Tip } from '@/core/Tooltip';
+import { required } from '@/core/validators';
+import { translate } from '@/i18n';
+import { MenuComponent } from '@/metronic/components';
+import { Role } from '@/permissions/types';
+import { getAmbiguousRoleDescriptions } from '@/permissions/utils';
+import { Customer } from '@/workspace/types';
+
+// Role title with the machine name appended only when another offered role
+// shares this description (a system role and its identically-named
+// organization clone); otherwise the name is just noise.
+const RoleTitle: React.FC<{ role: Role; ambiguous: Set<string> }> = ({
+  role,
+  ambiguous,
+}) => (
+  <span className="menu-title">
+    {role.description || role.name}
+    {role.description &&
+      role.description !== role.name &&
+      ambiguous.has(role.description) && (
+        <span className="text-muted ms-2 small">{role.name}</span>
+      )}
+  </span>
+);
 
 interface RoleAndProjectSelectPopupProps {
   roles: (Role & { tooltip? })[];
@@ -69,6 +87,8 @@ const RoleAndProjectSelectPopup: React.FC<RoleAndProjectSelectPopupProps> = ({
     [select, selectedProject, selectedRole],
   );
 
+  const ambiguous = useMemo(() => getAmbiguousRoleDescriptions(roles), [roles]);
+
   const [query, setQuery] = useState('');
   const projects = useMemo(() => {
     if (!customer?.projects_count) return [];
@@ -100,9 +120,7 @@ const RoleAndProjectSelectPopup: React.FC<RoleAndProjectSelectPopupProps> = ({
                     onClick={() => onClickRole(role)}
                     aria-hidden="true"
                   >
-                    <span className="menu-title">
-                      {role.description || role.name}
-                    </span>
+                    <RoleTitle role={role} ambiguous={ambiguous} />
                     {role.content_type === 'project' && !currentProject && (
                       <span className="menu-arrow" />
                     )}
@@ -113,9 +131,7 @@ const RoleAndProjectSelectPopup: React.FC<RoleAndProjectSelectPopupProps> = ({
                     label={role.tooltip}
                     className="menu-link disabled px-3"
                   >
-                    <span className="menu-title">
-                      {role.description || role.name}
-                    </span>
+                    <RoleTitle role={role} ambiguous={ambiguous} />
                   </Tip>
                 )}
               </div>
@@ -126,9 +142,7 @@ const RoleAndProjectSelectPopup: React.FC<RoleAndProjectSelectPopupProps> = ({
                 data-kt-menu-trigger
               >
                 <span className="menu-link disabled px-3">
-                  <span className="menu-title">
-                    {role.description || role.name}
-                  </span>
+                  <RoleTitle role={role} ambiguous={ambiguous} />
                   <span className="menu-arrow" />
                 </span>
               </div>
@@ -186,8 +200,9 @@ interface RoleAndProjectSelectFieldProps {
   disabled?: boolean;
 }
 interface RoleAndProjectSelectProps
-  extends Omit<RoleAndProjectSelectFieldProps, 'name'>,
-    FormField {}
+  extends
+    Omit<RoleAndProjectSelectFieldProps, 'name'>,
+    FieldRenderProps<any, HTMLElement> {}
 
 const RoleAndProjectSelect: React.FC<RoleAndProjectSelectProps> = (props) => {
   const { roles, customer, currentProject, placeholder } = props;
@@ -221,7 +236,7 @@ const RoleAndProjectSelect: React.FC<RoleAndProjectSelectProps> = (props) => {
         />
 
         <span className="svg-icon svg-icon-1 rotate-180 position-absolute mx-4 end-0 h-100 d-flex align-items-center">
-          <CaretDownIcon />
+          <CaretDownIcon weight="bold" />
         </span>
       </FormGroup>
       <RoleAndProjectSelectPopup
@@ -247,20 +262,29 @@ export const RoleAndProjectSelectField: React.FC<
   return !disabled ? (
     <Field
       name={name}
-      roles={roles}
-      customer={customer}
-      currentProject={currentProject}
-      component={RoleAndProjectSelect}
-      placeholder={translate('Select...')}
-      validate={[required]}
+      validate={required}
+      render={(fieldProps) => (
+        <RoleAndProjectSelect
+          {...fieldProps}
+          roles={roles}
+          customer={customer}
+          currentProject={currentProject}
+          placeholder={translate('Select...')}
+        />
+      )}
     />
   ) : (
     <Field
       name={name}
-      component={FormControl}
-      placeholder={translate('Select...')}
-      disabled={disabled}
-      validate={[required]}
+      validate={required}
+      render={({ input, meta }) => (
+        <FormControl
+          {...input}
+          placeholder={translate('Select...')}
+          disabled={disabled}
+          isInvalid={meta.touched && meta.invalid}
+        />
+      )}
     />
   );
 };

@@ -1,59 +1,89 @@
 import { XIcon } from '@phosphor-icons/react';
+import classNames from 'classnames';
 import { DateTime } from 'luxon';
 import { FC, ReactNode } from 'react';
+import { FieldRenderProps } from 'react-final-form';
 import Flatpickr, { DateTimePickerProps } from 'react-flatpickr';
 
-import { Tip } from '@waldur/core/Tooltip';
-import { translate } from '@waldur/i18n';
+import { Tip } from '@/core/Tooltip';
+import { translate } from '@/i18n';
 
-import { FormField } from './types';
 import { useFlatpickrTheme } from './useFlatpickrTheme';
 
-type FlatpickrFieldProps = FormField &
-  DateTimePickerProps & {
-    placeholder?: string;
-    iconNode?: ReactNode;
-    solid?: boolean;
-  };
+// ── Base (Pure UI) ──────────────────────────────────────
 
-export const FlatpickrField: FC<FlatpickrFieldProps> = ({
+interface BaseFlatpickrFieldProps extends Omit<
+  DateTimePickerProps,
+  'value' | 'onChange'
+> {
+  /** Current date value — ISO string, Date, or undefined */
+  value?: string | Date | null;
+  /** Called with the selected value (ISO string or null) */
+  onChange?: (value: string | null) => void;
+  placeholder?: string;
+  iconNode?: ReactNode;
+  solid?: boolean;
+  disabled?: boolean;
+}
+
+const BaseFlatpickrField: FC<BaseFlatpickrFieldProps> = ({
+  value,
+  onChange,
   placeholder,
   iconNode,
   solid,
-  ...props
+  disabled,
+  options,
+  id,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  children: _children, // Strip children because react-flatpickr passes it to <input>
+  ...rest
 }) => {
-  const onlyTime = props.options?.enableTime && props.options?.noCalendar;
+  const onlyTime = options?.enableTime && options?.noCalendar;
 
   useFlatpickrTheme();
+
   return (
     <div style={{ position: 'relative' }}>
       <Flatpickr
+        id={id}
+        // Empty string, never undefined: react-flatpickr skips its sync when
+        // the value prop is undefined (`n !== void 0 && ...`), so clearing the
+        // field left the old date on screen while the form held null.
         value={
-          props.input.value
-            ? typeof props.input.value === 'string'
-              ? DateTime.fromISO(props.input.value).toJSDate()
-              : props.input.value
-            : props.options.defaultDate
+          value
+            ? typeof value === 'string'
+              ? DateTime.fromISO(value).toJSDate()
+              : value
+            : (options?.defaultDate ?? '')
         }
-        onChange={(value) =>
-          props.input.onChange(
-            value[0] instanceof Date
-              ? onlyTime
-                ? DateTime.fromJSDate(value[0]).toISOTime()
-                : DateTime.fromJSDate(value[0]).toISODate()
-              : value[0],
-          )
-        }
-        className={solid ? 'form-control form-control-solid' : 'form-control'}
+        onChange={(dates) => {
+          const selected = dates[0];
+          if (!(selected instanceof Date)) {
+            onChange?.(selected ?? null);
+            return;
+          }
+          const dt = DateTime.fromJSDate(selected);
+          onChange?.(
+            onlyTime
+              ? dt.toISOTime()
+              : options?.enableTime
+                ? dt.toISO()
+                : dt.toISODate(),
+          );
+        }}
+        className={classNames('form-control', solid && 'form-control-solid')}
         placeholder={placeholder}
-        {...props}
+        options={options}
+        disabled={disabled}
+        {...rest}
       />
 
-      {props.input.value && typeof props.input.value === 'string' ? (
+      {value && typeof value === 'string' && !disabled ? (
         <button
           type="button"
           className="btn btn-icon btn-circle btn-color-muted w-25px h-25px bg-body shadow end-button"
-          onClick={() => props.input.onChange(null)}
+          onClick={() => onChange?.(null)}
           style={{ position: 'absolute', right: 10, top: 10 }}
         >
           <Tip
@@ -72,7 +102,8 @@ export const FlatpickrField: FC<FlatpickrFieldProps> = ({
           style={{
             position: 'absolute',
             right: 12,
-            top: 13,
+            top: '50%',
+            transform: 'translateY(-50%)',
             pointerEvents: 'none',
           }}
         >
@@ -82,3 +113,25 @@ export const FlatpickrField: FC<FlatpickrFieldProps> = ({
     </div>
   );
 };
+
+// ── Field Adapter ───────────────────────────────────────
+
+export interface FlatpickrFieldProps extends Omit<
+  BaseFlatpickrFieldProps,
+  'value' | 'onChange'
+> {
+  input: FieldRenderProps<any>['input'];
+  // Optional because the Date/Time/DateTime wrappers strip `meta` upstream and
+  // never forward it; declared here so it can be destructured away (below)
+  // instead of leaking onto the underlying <input> via ...rest.
+  meta?: FieldRenderProps<any>['meta'];
+}
+
+export const FlatpickrField: FC<FlatpickrFieldProps> = ({
+  input,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  meta: _meta,
+  ...rest
+}) => (
+  <BaseFlatpickrField {...rest} value={input.value} onChange={input.onChange} />
+);

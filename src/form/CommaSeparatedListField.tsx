@@ -1,38 +1,63 @@
-import { FC } from 'react';
+import { FC, useState } from 'react';
 import { Form, FormControlProps } from 'react-bootstrap';
+import { FieldRenderProps } from 'react-final-form';
 
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
 
-import { FormField } from './types';
+// ── Base (Pure UI) ──────────────────────────────────────
 
-interface CommaSeparatedListFieldProps
-  extends FormField,
-    Omit<FormControlProps, 'onBlur'> {
+interface BaseCommaSeparatedListFieldProps extends Omit<
+  FormControlProps,
+  'value' | 'onChange' | 'onBlur'
+> {
+  /** The current array value */
+  value?: string[];
+  /** Called with the parsed array on every keystroke */
+  onChange?: (value: string[]) => void;
+  /** Called on blur after filtering empty entries */
+  onBlur?: (e: React.FocusEvent) => void;
   placeholder?: string;
-  style?: any;
-  maxLength?: number;
-  autoFocus?: boolean;
   solid?: boolean;
   separator?: 'comma' | 'space';
 }
 
-export const CommaSeparatedListField: FC<CommaSeparatedListFieldProps> = ({
-  input,
+const BaseCommaSeparatedListField: FC<BaseCommaSeparatedListFieldProps> = ({
+  value: valueProp,
+  onChange: onChangeProp,
+  onBlur: onBlurProp,
   placeholder = translate('Enter comma-separated values'),
   solid,
   separator: sep = 'comma',
   ...rest
 }) => {
-  const value = Array.isArray(input.value)
-    ? input.value.join(sep === 'comma' ? ', ' : ' ')
-    : input.value;
+  // The text being typed is held locally so that a separator the user has
+  // entered but not yet filled in ("a, ") stays on screen, while the value
+  // handed to the form stays free of the empty entries that produces. Filtering
+  // them on blur instead is not enough: a form can be submitted straight from
+  // the keyboard, and an empty entry reaching a list-of-emails API is a 400.
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const separator = sep === 'comma' ? ',' : ' ';
+  const joiner = sep === 'comma' ? ', ' : ' ';
+
+  const displayValue =
+    draft ?? (Array.isArray(valueProp) ? valueProp.join(joiner) : valueProp);
+
+  const parse = (text: string) =>
+    text
+      .split(separator)
+      .map((item) => item.trim())
+      .filter(Boolean);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    const parsedValue = newValue
-      .split(sep === 'comma' ? ',' : ' ')
-      .map((item) => item.trim());
-    input.onChange(parsedValue);
+    setDraft(e.target.value);
+    onChangeProp?.(parse(e.target.value));
+  };
+
+  const handleBlur = (e: React.FocusEvent) => {
+    // Drop the draft so the input re-renders from the cleaned value.
+    setDraft(null);
+    onBlurProp?.(e);
   };
 
   return (
@@ -40,9 +65,32 @@ export const CommaSeparatedListField: FC<CommaSeparatedListFieldProps> = ({
       className={solid && 'form-control-solid'}
       type="text"
       placeholder={placeholder}
-      value={value || ''}
-      onChange={handleChange}
       {...rest}
+      value={displayValue || ''}
+      onChange={handleChange}
+      onBlur={handleBlur}
     />
   );
 };
+
+// ── Field Adapter ───────────────────────────────────────
+
+export interface CommaSeparatedListFieldProps extends Omit<
+  BaseCommaSeparatedListFieldProps,
+  'value' | 'onChange' | 'onBlur' | 'name'
+> {
+  input: FieldRenderProps<any>['input'];
+  meta: FieldRenderProps<any>['meta'];
+}
+
+export const CommaSeparatedListField: FC<CommaSeparatedListFieldProps> = ({
+  input,
+  meta,
+  ...rest
+}) => (
+  <BaseCommaSeparatedListField
+    isInvalid={meta.touched && meta.error}
+    {...rest}
+    {...input}
+  />
+);

@@ -7,17 +7,22 @@ import {
   rancherHpasYamlUpdate,
 } from 'waldur-js-client';
 
-import { formatDate } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { ActionsDropdownComponent } from '@waldur/table/ActionsDropdown';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { TableWithPortal } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
+import { formatDate } from '@/core/dateUtils';
+import { translate } from '@/i18n';
+import { ActionsDropdownComponent } from '@/table/ActionsDropdown';
+import { createFetcher } from '@/table/api';
+import {
+  RancherClusterFilter,
+  RancherClusterFilterFormId,
+} from '@/table/generated/RancherClusterFilter';
+import Table from '@/table/Table';
+import { TableWithPortal } from '@/table/types';
+import { useTable } from '@/table/useTable';
 
-import { ClusterFilter, useClusterFilter } from '../ClusterFilter';
+import { useClusterFilter } from '../ClusterFilterHooks';
 import { ViewYAMLButton } from '../ViewYAMLButton';
 
+import { RANCHER_HPAS_TABLE_ID } from './constants';
 import { HPACreateButton } from './HPACreateButton';
 import { HPADeleteButton } from './HPADeleteButton';
 import { HPAUpdateButton } from './HPAUpdateButton';
@@ -38,9 +43,9 @@ const RowActions = ({ row, yamlRetrieve, yamlUpdate }) => (
 export const ClusterHPAList: FunctionComponent<
   TableWithPortal<{ resourceScope: RancherCluster }>
 > = ({ resourceScope, portal }) => {
-  const filter = useClusterFilter(resourceScope);
+  const { filter } = useClusterFilter(resourceScope, RANCHER_HPAS_TABLE_ID);
   const props = useTable({
-    table: 'rancher-hpas',
+    table: RANCHER_HPAS_TABLE_ID,
     fetchData: createFetcher(rancherHpasList),
     filter,
   });
@@ -48,6 +53,7 @@ export const ClusterHPAList: FunctionComponent<
   return (
     <Table<RancherHpa>
       {...props}
+      formId={RancherClusterFilterFormId}
       columns={[
         {
           title: translate('Name'),
@@ -103,7 +109,7 @@ export const ClusterHPAList: FunctionComponent<
       verboseName={translate('horizontal pod autoscalers')}
       showPageSizeSelector
       tableActions={<HPACreateButton cluster={resourceScope} />}
-      filters={<ClusterFilter cluster={resourceScope} />}
+      filters={<RancherClusterFilter cluster={resourceScope} />}
       portal={portal}
       hasActionBar={false}
       cardBordered={false}

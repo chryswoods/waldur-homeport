@@ -1,11 +1,10 @@
 import { FC, useMemo } from 'react';
-import { useSelector } from 'react-redux';
 
-import { IssuesList } from '@waldur/issues/list/IssuesList';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { IssuesList } from '@/issues/list/IssuesList';
+import { useCustomer } from '@/workspace/hooks';
 
 export const CustomerIssuesList: FC = () => {
-  const customer = useSelector(getCustomer);
+  const customer = useCustomer();
   const filter = useMemo(() => ({ customer: customer?.url }), [customer]);
   return (
     <IssuesList
@@ -13,6 +12,7 @@ export const CustomerIssuesList: FC = () => {
       filter={filter}
       scope={customer}
       scopeType="customer"
+      standalone={false}
     />
   );
 };

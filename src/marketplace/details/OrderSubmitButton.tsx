@@ -1,33 +1,39 @@
 import { ShoppingCartIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
-import { Button } from 'react-bootstrap';
+import { useFormState } from 'react-final-form';
 
-import { parseDate } from '@waldur/core/dateUtils';
-import { LoadingSpinnerIcon } from '@waldur/core/LoadingSpinner';
-import { Tip } from '@waldur/core/Tooltip';
-import { removeEmptyObjects } from '@waldur/core/utils';
-import { FieldErrorMessage } from '@waldur/form/FieldError';
-import { FloatingButton } from '@waldur/form/FloatingButton';
-import { translate } from '@waldur/i18n';
+import { parseDate } from '@/core/dateUtils';
+import { Tip } from '@/core/Tooltip';
+import { SubmitButton } from '@/form';
+import { FieldErrorMessage } from '@/form/FieldError';
+import { FloatingButton } from '@/form/FloatingButton';
+import { translate } from '@/i18n';
 
-import { OrderSummaryProps } from './types';
+import { useOrderFormData } from '../deploy/selectors';
 
-export const OrderSubmitButton = (props: OrderSummaryProps) => {
+export const OrderSubmitButton = () => {
+  const { project } = useOrderFormData();
+  const formState = useFormState({
+    subscription: {
+      errors: true,
+      dirty: true,
+      invalid: true,
+      submitting: true,
+    },
+  });
+
   const projectError = useMemo(() => {
-    if (props.formData?.project?.end_date) {
-      const endDate = parseDate(props.formData.project.end_date);
+    if (project?.end_date) {
+      const endDate = parseDate(project.end_date);
       const now = parseDate(null);
       if (endDate.hasSame(now, 'day') || endDate < now) {
         return translate('Project has reached its end date.');
       }
     }
     return null;
-  }, [props.formData?.project]);
+  }, [project]);
 
-  const errors = useMemo(
-    () => removeEmptyObjects(props.errors),
-    [props.errors],
-  );
+  const errors = formState.errors;
 
   const errorsExist =
     projectError ||
@@ -35,26 +41,35 @@ export const OrderSubmitButton = (props: OrderSummaryProps) => {
     errors?.limits ||
     errors?.plan_entries;
 
+  const isDisabled =
+    Boolean(errorsExist) || formState.invalid || formState.submitting;
+
   const Btn = (
-    <Button
-      variant="primary"
-      disabled={Boolean(errorsExist) || !props.formValid || props.isSubmitting}
+    <SubmitButton
+      submitting={formState.submitting}
+      disabled={isDisabled}
       type="submit"
       className="w-100"
-    >
-      {props.isSubmitting && <LoadingSpinnerIcon className="me-1" />}
-      <span className="svg-icon svg-icon-2">
-        <ShoppingCartIcon />
-      </span>
-      {translate('Create')}
-    </Button>
+      label={translate('Create')}
+      iconNode={<ShoppingCartIcon weight="bold" />}
+      iconOnLeft
+    />
   );
 
   return (
     <FloatingButton>
-      {errorsExist ? (
+      {/* Tied to `isDisabled`, not just `errorsExist`: a missing plan or
+          project disables the button without landing in errorsExist, which
+          left it disabled and silent. */}
+      {isDisabled ? (
         <Tip
-          label={<FieldErrorMessage error={projectError || errors} />}
+          label={
+            formState.submitting ? (
+              translate('Submission in progress')
+            ) : (
+              <FieldErrorMessage error={projectError || errors} />
+            )
+          }
           id="offering-button-errors"
           autoWidth
           className="w-100"

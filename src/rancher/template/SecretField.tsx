@@ -1,44 +1,41 @@
+import { useQuery } from '@tanstack/react-query';
 import React from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { useAsync } from 'react-use';
-import { formValueSelector, clearFields } from 'redux-form';
-import { rancherProjectsSecretsRetrieve } from 'waldur-js-client';
+import { useForm, useFormState } from 'react-final-form';
+import { rancherProjectsSecretsList, Secret } from 'waldur-js-client';
 
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { type RootState } from '@waldur/store/reducers';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
 
 import { FieldProps } from '../types';
 
-import { FORM_ID } from './constants';
 import { DecoratedField } from './DecoratedField';
 import { SelectControl } from './SelectControl';
 
 export const SecretField: React.FC<FieldProps> = (props) => {
-  const project = useSelector((state: RootState) =>
-    formValueSelector(FORM_ID)(state, 'project'),
-  );
+  const { values } = useFormState({ subscription: { values: true } });
+  const project = values?.project;
   const {
-    loading,
+    isLoading: loading,
     error,
-    value: options,
-  } = useAsync(
-    () =>
+    data: options,
+  } = useQuery({
+    queryKey: ['SecretField', project],
+
+    queryFn: () =>
       project
-        ? rancherProjectsSecretsRetrieve({ path: { uuid: project.uuid } }).then(
+        ? rancherProjectsSecretsList({ path: { uuid: project.uuid } }).then(
             (r) => r.data,
           )
-        : Promise.resolve([]),
-    [project],
-  );
+        : Promise.resolve<Secret[]>([]),
+  });
 
-  const dispatch = useDispatch();
+  const form = useForm();
 
   const { variable } = props;
 
   const resetSecret = React.useCallback(() => {
-    dispatch(clearFields(FORM_ID, false, false, variable));
-  }, [dispatch, variable]);
+    form.change(variable, undefined);
+  }, [form, variable]);
 
   React.useEffect(() => resetSecret, [project, resetSecret]);
 

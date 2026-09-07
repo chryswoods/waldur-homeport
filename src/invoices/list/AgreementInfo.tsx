@@ -1,36 +1,43 @@
+import { useQuery } from '@tanstack/react-query';
 import { FunctionComponent } from 'react';
-import { useSelector } from 'react-redux';
-import { useAsync } from 'react-use';
 import { PaymentProfile, paymentsList } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { formatDate } from '@waldur/core/dateUtils';
-import { defaultCurrency } from '@waldur/core/formatCurrency';
-import { translate } from '@waldur/i18n';
-import { getActiveFixedPricePaymentProfile } from '@waldur/invoices/details/utils';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { formatDate } from '@/core/dateUtils';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { translate } from '@/i18n';
+import { getActiveFixedPricePaymentProfile } from '@/invoices/details/utils';
+import { useCustomer } from '@/workspace/hooks';
 
 interface AgreementInfoProps {
   paymentProfiles?: PaymentProfile[];
 }
 
 export const AgreementInfo: FunctionComponent<AgreementInfoProps> = (props) => {
-  const customer = useSelector(getCustomer);
+  const customer = useCustomer();
   const activeFixedPricePaymentProfile = getActiveFixedPricePaymentProfile(
     customer ? customer.payment_profiles : props.paymentProfiles,
   );
-  const { value: totalOfSumPaid } = useAsync(async () => {
-    if (activeFixedPricePaymentProfile) {
+  const { data: totalOfSumPaid } = useQuery({
+    queryKey: ['AgreementInfo', activeFixedPricePaymentProfile?.uuid],
+    // React Query forbids queryFn returning undefined; without a profile
+    // there is nothing to fetch at all.
+    enabled: Boolean(activeFixedPricePaymentProfile),
+    queryFn: async () => {
       const response = await getAllPages((page) =>
         paymentsList({
-          query: { page, profile_uuid: activeFixedPricePaymentProfile.uuid },
+          query: {
+            page,
+            page_size: MAX_PAGE_SIZE,
+            profile_uuid: activeFixedPricePaymentProfile.uuid,
+          },
         }),
       );
       return response
         .map((payment) => parseInt(payment.sum))
-        .reduce((a, b) => a + b);
-    }
-  }, [activeFixedPricePaymentProfile]);
+        .reduce((a, b) => a + b, 0);
+    },
+  });
   return (
     <>
       {activeFixedPricePaymentProfile ? (
@@ -64,8 +71,9 @@ export const AgreementInfo: FunctionComponent<AgreementInfoProps> = (props) => {
                 {translate('Total paid')}{' '}
                 <span
                   style={
-                    activeFixedPricePaymentProfile.attributes.contract_sum !==
-                    totalOfSumPaid
+                    Number(
+                      activeFixedPricePaymentProfile.attributes.contract_sum,
+                    ) !== totalOfSumPaid
                       ? {
                           color: 'red',
                           fontWeight: 'bold',

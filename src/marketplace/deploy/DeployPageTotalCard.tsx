@@ -1,20 +1,29 @@
+import { WarningCircleIcon } from '@phosphor-icons/react';
 import { FC, PropsWithChildren } from 'react';
 import { Card } from 'react-bootstrap';
 
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { TosNotification } from '@waldur/form/TosNotification';
-import { translate } from '@waldur/i18n';
-import { DASH_ESCAPE_CODE } from '@waldur/table/constants';
+import { Tip } from '@/core/Tooltip';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { TosNotification } from '@/form/TosNotification';
+import { translate } from '@/i18n';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
 
 import { OfferingTosNotification } from './OfferingTosNotification';
+import { OrderAutoApprovalNotice } from './OrderAutoApprovalNotice';
 
 export const DeployPageTotalCard: FC<
-  PropsWithChildren<{ total?; offering; header? }>
-> = ({ total, offering, header, children }) => {
-  const shouldConcealPrices = isFeatureVisible(
-    MarketplaceFeatures.conceal_prices,
-  );
+  PropsWithChildren<{
+    total?;
+    offering;
+    header?;
+    shouldConcealPrices?: boolean;
+    monthlyRecurringCost?: number;
+  }>
+> = ({ total, offering, header, children, monthlyRecurringCost, ...props }) => {
+  const shouldConcealPrices =
+    props.shouldConcealPrices ??
+    isFeatureVisible(MarketplaceFeatures.conceal_prices);
   return (
     <Card className="card-bordered w-100">
       <Card.Header>
@@ -35,6 +44,43 @@ export const DeployPageTotalCard: FC<
       </Card.Header>
       <Card.Body>
         {children}
+        {offering?.plugin_options?.require_purchase_order_upload ? (
+          <div className="d-flex align-items-center gap-2 mt-4 mb-4 text-warning fs-7">
+            {}
+            <WarningCircleIcon
+              size={16}
+              weight="fill"
+              className="flex-shrink-0"
+            />
+            <Tip
+              id="po-required-tip"
+              label={translate(
+                'After this order is created, a purchase order document (PDF) will need to be uploaded before it can be approved.',
+              )}
+            >
+              <span className="fw-semibold">
+                {translate('Purchase order will be required')}
+              </span>
+            </Tip>
+          </div>
+        ) : offering?.plugin_options?.enable_purchase_order_upload ? (
+          <div className="d-flex align-items-center gap-2 mt-4 mb-4 text-info fs-7">
+            <Tip
+              id="po-optional-tip"
+              label={translate(
+                'After this order is created, a purchase order document (PDF) can optionally be attached before approval.',
+              )}
+            >
+              <span>{translate('Purchase order can be attached')}</span>
+            </Tip>
+          </div>
+        ) : null}
+        {typeof monthlyRecurringCost === 'number' && (
+          <OrderAutoApprovalNotice
+            offering={offering}
+            monthlyCost={monthlyRecurringCost}
+          />
+        )}
         <TosNotification />
         <OfferingTosNotification offering={offering} />
       </Card.Body>

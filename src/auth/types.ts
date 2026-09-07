@@ -19,24 +19,61 @@ interface ValimoAuthConfiguration {
   MOBILE_PREFIX: string;
 }
 
+interface LoginPageStat {
+  value: string;
+  label: string;
+}
+
+interface LoginPageCarouselSlide {
+  title: string;
+  subtitle: string;
+}
+
+interface LoginPageNewsItem {
+  date: string;
+  title: string;
+  description: string;
+  tag: string;
+}
+
+type OfferingVisibilityMode =
+  | 'show_all'
+  | 'show_restricted_disabled'
+  | 'hide_inaccessible'
+  | 'require_membership';
+
+/** How a user reaches services. Navigation only; the API serves the same data. */
+export type ServiceAccessMode = 'calls' | 'marketplace' | 'both';
+
 interface CoreConfiguration {
   INVITATION_USE_WEBHOOKS: boolean;
+  /** Staff and support accounts must hold a passkey and have satisfied it. */
+  PASSKEY_ENFORCED_FOR_STAFF?: boolean;
   DEFAULT_IDP: Pick<IdentityProvider, 'provider' | 'auth_url' | 'client_id'>;
+  LOGIN_PAGE_LAYOUT: string;
+  LOGIN_PAGE_VIDEO_URL: string;
+  LOGIN_PAGE_STATS: LoginPageStat[];
+  LOGIN_PAGE_CAROUSEL_SLIDES: LoginPageCarouselSlide[];
+  LOGIN_PAGE_NEWS: LoginPageNewsItem[];
   ANONYMOUS_USER_CAN_VIEW_OFFERINGS: boolean;
+  SHOW_OFFERING_COVER_IMAGE?: boolean;
+  RESTRICTED_OFFERING_VISIBILITY_MODE?: OfferingVisibilityMode;
+  SERVICE_ACCESS_MODE?: ServiceAccessMode;
   MATOMO_URL_BASE: string;
   MATOMO_SITE_ID: number;
   MASTERMIND_URL: string;
+  ONBOARDING_VALIDATION_METHODS: string[];
   BRAND_COLOR: string;
   HERO_LINK_URL: string;
   HERO_LINK_LABEL: string;
   HERO_IMAGE: string;
   LOGIN_LOGO: string;
-  SITE_LOGO: string;
   POWERED_BY_LOGO: string;
   SIDEBAR_LOGO: string;
   SIDEBAR_LOGO_MOBILE: string;
   SIDEBAR_LOGO_DARK: string;
   SIDEBAR_STYLE: string;
+  FONT_FAMILY: string;
   HOMEPORT_SENTRY_DSN: string;
   HOMEPORT_SENTRY_ENVIRONMENT: string;
   HOMEPORT_SENTRY_TRACES_SAMPLE_RATE: number;
@@ -50,7 +87,6 @@ interface CoreConfiguration {
   AUTHENTICATION_METHODS: string[];
   INVITATIONS_ENABLED: boolean;
   VALIDATE_INVITATION_EMAIL: boolean;
-  NATIVE_NAME_ENABLED: boolean;
   ONLY_STAFF_MANAGES_SERVICES: boolean;
   PROTECT_USER_DETAILS_FOR_REGISTRATION_METHODS: string[];
   SITE_DESCRIPTION: string;
@@ -58,6 +94,8 @@ interface CoreConfiguration {
   SITE_EMAIL: string;
   SITE_NAME: string;
   MARKETPLACE_LANDING_PAGE: string;
+  MARKETPLACE_LAYOUT_MODE: string;
+  MARKETPLACE_CARD_STYLE: string;
   TRANSLATION_DOMAIN: string;
   ORGANIZATION_SUBNETS_VISIBLE: boolean;
   CURRENCY_NAME: string;
@@ -70,24 +108,43 @@ interface CoreConfiguration {
   USER_TABLE_COLUMNS: string;
   FREEIPA_USERNAME_PREFIX?: string;
   FREEIPA_ENABLED?: boolean;
+  AFFILIATES_ENABLED?: boolean;
+  PAT_ENABLED?: boolean;
   KEYCLOAK_ICON: string;
   RANCHER_USERNAME_INPUT_LABEL: string;
+  DISCLAIMER_AREA_TEXT: string;
+  DISCLAIMER_AREA_LOGO: string;
   ENFORCE_USER_CONSENT_FOR_OFFERINGS: boolean;
   ENABLE_PROJECT_KIND_COURSE: boolean;
   ENABLE_ORDER_START_DATE: boolean;
+  ONLY_ONE_PROJECT_MANAGER?: boolean;
+  PROJECT_END_DATE_MANDATORY?: boolean;
+  AFFILIATION_REQUIRED_AT_PROJECT_CREATION?: boolean;
+  PROJECT_NAME_REGEX?: string;
+  PROJECT_NAME_REGEX_ERROR_MESSAGE?: string;
+  ALLOW_SERVICE_PROVIDER_OFFERING_MANAGEMENT?: boolean;
+  ENFORCE_OFFERING_USER_PROFILE_COMPLETENESS?: boolean;
+  ENABLE_MARKDOWN_IMAGE_UPLOAD?: boolean;
+  MARKDOWN_IMAGE_MAX_SIZE_MB?: number;
   OIDC_ACCESS_TOKEN_ENABLED: boolean;
+  USER_ACTIONS_ENABLED: boolean;
+  ENABLED_USER_PROFILE_ATTRIBUTES: string[];
+  MANDATORY_USER_ATTRIBUTES?: string[];
+  ENFORCE_MANDATORY_USER_ATTRIBUTES?: boolean;
+  SSH_KEY_ALLOWED_TYPES: string[];
+  SSH_KEY_MIN_RSA_KEY_SIZE: number;
+  ENABLED_REPORTING_SCREENS: string[];
+  AI_ASSISTANT_NAME: string;
+  AI_ASSISTANT_ENABLED: boolean;
+  AI_ASSISTANT_ENABLED_ROLES:
+    'disabled' | 'staff' | 'staff_and_support' | 'all' | 'anonymous';
+  MATRIX_ENABLED: boolean;
 }
 
 interface OpenStackConfiguration {
   TENANT_CREDENTIALS_VISIBLE: boolean;
   ALLOW_CUSTOMER_USERS_OPENSTACK_CONSOLE_ACCESS: boolean;
   REQUIRE_AVAILABILITY_ZONE: boolean;
-}
-
-interface MarketplaceOpenStackTenantConfiguration {
-  TENANT_CATEGORY_UUID: string;
-  INSTANCE_CATEGORY_UUID: string;
-  VOLUME_CATEGORY_UUID: string;
 }
 
 interface RancherConfiguration {
@@ -105,7 +162,12 @@ interface VMWareConfiguration {
 interface SupportConfiguration {
   ENABLED: boolean;
   DISPLAY_REQUEST_TYPE: boolean;
-  ACTIVE_BACKEND_TYPE: 'atlassian' | 'zammad' | 'smax';
+  ACTIVE_BACKEND_TYPE: 'basic' | 'atlassian' | 'zammad' | 'smax';
+  PROVIDER_ROUTING_ENABLED: boolean;
+}
+
+interface OpenPortalConfiguration {
+  ENABLED: boolean;
 }
 
 export interface PluginConfiguration {
@@ -115,7 +177,7 @@ export interface PluginConfiguration {
   WALDUR_AUTH_VALIMO: Partial<ValimoAuthConfiguration>;
   WALDUR_CORE: CoreConfiguration;
   WALDUR_OPENSTACK: Partial<OpenStackConfiguration>;
-  WALDUR_MARKETPLACE_OPENSTACK: Partial<MarketplaceOpenStackTenantConfiguration>;
+  WALDUR_OPENPORTAL: Partial<OpenPortalConfiguration>;
   WALDUR_RANCHER: RancherConfiguration;
   WALDUR_VMWARE: Partial<VMWareConfiguration>;
 }

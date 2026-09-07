@@ -1,9 +1,7 @@
 import { FunctionComponent } from 'react';
-import { useDispatch } from 'react-redux';
 
-import { AddButton } from '@waldur/core/AddButton';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { openModalDialog } from '@waldur/modal/actions';
+import { CreateModalButton } from '@/core/buttons';
+import { lazyComponent } from '@/core/lazyComponent';
 
 const BroadcastTemplateCreateDialog = lazyComponent(() =>
   import('./BroadcastTemplateCreateDialog').then((module) => ({
@@ -13,17 +11,10 @@ const BroadcastTemplateCreateDialog = lazyComponent(() =>
 
 export const BroadcastTemplateCreateButton: FunctionComponent<{ refetch }> = ({
   refetch,
-}) => {
-  const dispatch = useDispatch();
-  const callback = () =>
-    dispatch(
-      openModalDialog(BroadcastTemplateCreateDialog, {
-        dialogClassName: 'modal-dialog-centered',
-        resolve: {
-          refetch,
-        },
-        size: 'lg',
-      }),
-    );
-  return <AddButton action={callback} />;
-};
+}) => (
+  <CreateModalButton
+    dialog={BroadcastTemplateCreateDialog}
+    resolve={{ refetch }}
+    size="lg"
+  />
+);

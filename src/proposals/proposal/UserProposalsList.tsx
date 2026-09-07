@@ -1,65 +1,56 @@
 import { useCurrentStateAndParams } from '@uirouter/react';
-import { FC, useMemo } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
-import {
-  Proposal,
-  proposalProposalsList,
-  ProposalProposalsListData,
-} from 'waldur-js-client';
+import { FC, ReactNode, useMemo } from 'react';
+import { Proposal, proposalProposalsList } from 'waldur-js-client';
 
-import { Link } from '@waldur/core/Link';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { ProjectFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { PROPOSALS_FILTER_FORM_ID } from '@waldur/proposals/constants';
-import { getProposalStateOptions } from '@waldur/proposals/utils';
-import { createFetcher } from '@waldur/table/api';
-import { DASH_ESCAPE_CODE } from '@waldur/table/constants';
-import Table from '@waldur/table/Table';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { renderFieldOrDash } from '@waldur/table/utils';
+import { Link } from '@/core/Link';
+import { isFeatureVisible } from '@/features/connect';
+import { ProjectFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import {
+  requestListTitle,
+  requestNoun,
+  requestNounPlural,
+  showsCallColumns,
+} from '@/proposals/presentation';
+import { getProposalStateOptions } from '@/proposals/utils';
+import { createFetcher } from '@/table/api';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
+import {
+  ProposalsFilter,
+  ProposalsFilterFormId,
+  ProposalStatesOptions,
+  selectProposalsFilter,
+} from '@/table/generated/ProposalsFilter';
+import Table from '@/table/Table';
+import { Column } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 import { EndingField } from '../EndingField';
 
 import { ProposalBadge } from './ProposalBadge';
-import { ProposalsTableFilter } from './ProposalsTableFilter';
-
-const filtersSelector = createSelector(
-  getFormValues(PROPOSALS_FILTER_FORM_ID),
-  (filters: any) => {
-    const result: ProposalProposalsListData['query'] = {};
-    if (filters?.state) {
-      result.state = filters.state.map((option) => option.value);
-    }
-    if (filters?.call) {
-      result.call_uuid = filters.call.uuid;
-    }
-    result.o = ['-round__cutoff_time'];
-    return result;
-  },
-);
 
 const mandatoryFields = ['uuid', 'proposal_name', 'state'];
 
-export const UserProposalsList: FC = () => {
+interface UserProposalsListProps {
+  /** Rendered in the card toolbar beside search. */
+  actions?: ReactNode;
+  /** Standalone puts the title above the panel, which suits a page of its own
+   *  but not a tab inside one — see UserOfferingList for the in-tab shape. */
+  standalone?: boolean;
+}
+
+export const UserProposalsList: FC<UserProposalsListProps> = ({
+  actions,
+  standalone = true,
+}) => {
   const {
     params: { call },
   } = useCurrentStateAndParams();
   const callObj = call ? JSON.parse(decodeURIComponent(call)) : undefined;
-  const filter = useSelector(filtersSelector);
 
-  const tableProps = useTable({
-    table: 'MyProposalsList',
-    fetchData: createFetcher(proposalProposalsList),
-    queryField: 'name',
-    filter,
-    mandatoryFields,
-  });
-
-  const initialValues = useMemo(
+  const initialFilters = useMemo(
     () => ({
       state: getProposalStateOptions().filter(
         (option) => option.value !== 'canceled' && option.value !== 'rejected',
@@ -69,9 +60,47 @@ export const UserProposalsList: FC = () => {
     [callObj],
   );
 
+  const values = useFilterValues('MyProposalsList');
+  const formFilters = useMemo(() => selectProposalsFilter(values), [values]);
+
+  const filter = useMemo(
+    () => ({
+      // Deliberately no `my_proposals: true`. It means "created by the
+      // current user" (proposal/filters.py: filter_my_proposals), while the
+      // resource lens beside it scopes to proposals the user can *read* —
+      // which includes ones they only hold a role on. The two would otherwise
+      // list different sets: a PROPOSAL.MEMBER saw a team-mate's line items
+      // in the resource lens and no sign of the request they belong to. Two
+      // projections of one page cannot disagree about what is in it, so both
+      // use the readable scope.
+      o: ['-round__cutoff_time'],
+      ...formFilters,
+    }),
+    [formFilters],
+  );
+
+  const tableProps = useTable({
+    table: 'MyProposalsList',
+    initialFilters,
+    syncFiltersToURL: true,
+    fetchData: createFetcher(proposalProposalsList),
+    queryField: 'name',
+    filter,
+    mandatoryFields,
+  });
+
+  const callColumn: Column<Proposal> = {
+    title: translate('Call'),
+    render: ({ row }) => <>{renderFieldOrDash(row.call_name)}</>,
+    keys: ['call_name'],
+    filter: 'call',
+    inlineFilter: (row) => ({ name: row.call_name, uuid: row.call_uuid }),
+    id: 'call',
+  };
+
   const columns: Column<Proposal>[] = [
     {
-      title: translate('Proposal'),
+      title: requestNoun(),
       render: ({ row }) => (
         <Link
           state="proposals.manage-proposal"
@@ -83,29 +112,10 @@ export const UserProposalsList: FC = () => {
       keys: ['name'],
       id: 'proposal',
     },
-    {
-      title: translate('ID'),
-      render: ({ row }) => <span className="fw-semibold">{row.slug}</span>,
-      keys: ['slug'],
-      id: 'id',
-      className: 'text-nowrap',
-    },
-    {
-      title: translate('Call'),
-      render: ({ row }) => <>{renderFieldOrDash(row.call_name)}</>,
-      keys: ['call_name'],
-      filter: 'call',
-      inlineFilter: (row) => ({ name: row.call_name, uuid: row.call_uuid }),
-      id: 'call',
-    },
+    ...(showsCallColumns() ? [callColumn] : []),
     {
       title: translate('Ending'),
-      render: ({ row }) => (
-        <EndingField
-          endDate={row.round?.cutoff_time}
-          hasFixedDuration={Boolean(row.duration_in_days)}
-        />
-      ),
+      render: ({ row }) => <EndingField endDate={row.round?.cutoff_time} />,
       keys: ['round'],
       id: 'ending',
       className: 'text-nowrap',
@@ -117,7 +127,7 @@ export const UserProposalsList: FC = () => {
       orderField: 'state',
       filter: 'state',
       inlineFilter: (row) =>
-        getProposalStateOptions().filter((s) => s.value === row.state),
+        ProposalStatesOptions.filter((s) => s.value === row.state),
       id: 'state',
     },
     {
@@ -135,42 +145,42 @@ export const UserProposalsList: FC = () => {
       optional: true,
       id: 'created',
     },
-    {
-      title: translate('Duration in days'),
-      render: ({ row }) => <>{row.duration_in_days || DASH_ESCAPE_CODE}</>,
-      keys: ['duration_in_days'],
-      optional: true,
-      id: 'duration_in_days',
-    },
   ];
 
-  if (isFeatureVisible(ProjectFeatures.oecd_fos_2007_code)) {
+  if (isFeatureVisible(ProjectFeatures.science_domain)) {
     columns.push({
-      title: translate('OECD FoS code'),
+      title: translate('Science domain'),
       render: ({ row }) => (
         <>
-          {row.oecd_fos_2007_code
-            ? `${row.oecd_fos_2007_code}. ${row.oecd_fos_2007_label}`
+          {row.science_sub_domain_name
+            ? [row.science_domain_name, row.science_sub_domain_name]
+                .filter(Boolean)
+                .join(' > ')
             : DASH_ESCAPE_CODE}
         </>
       ),
 
       optional: true,
-      keys: ['oecd_fos_2007_code', 'oecd_fos_2007_label'],
-      id: 'oecd_fos_code',
+      keys: ['science_domain_name', 'science_sub_domain_name'],
+      id: 'science_domain',
     });
   }
 
   return (
     <Table
       {...tableProps}
+      formId={ProposalsFilterFormId}
       columns={columns}
-      title={translate('My proposals')}
-      verboseName={translate('Proposals')}
+      title={standalone ? requestListTitle() : undefined}
+      verboseName={requestNounPlural()}
+      standalone={standalone}
+      tableActions={actions}
       hasQuery={true}
       hasOptionalColumns
       showPageSizeSelector={true}
-      filters={<ProposalsTableFilter initialValues={initialValues} />}
+      // Same predicate as the Call column above: a deployment that hides
+      // calls must not offer to filter by one.
+      filters={<ProposalsFilter hideCall={!showsCallColumns()} />}
     />
   );
 };

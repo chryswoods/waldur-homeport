@@ -6,17 +6,18 @@ import {
 import { debounce } from 'lodash-es';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { FilterBox } from '@waldur/form/FilterBox';
-import { translate } from '@waldur/i18n';
-import { DataPage, processApiResponse, SdkFunction } from '@waldur/table/api';
+import { FilterBox } from '@/form/FilterBox';
+import { translate } from '@/i18n';
+import { DataPage, processApiResponse, SdkFunction } from '@/table/api';
 
 import useOnScreen from '../useOnScreen';
 
 import { InfiniteList } from './InfiniteList';
 import { BaseAsyncListProps, RowData } from './types';
 
-interface AsyncSearchBoxProps<Fetcher extends SdkFunction>
-  extends BaseAsyncListProps<Fetcher> {
+interface AsyncSearchBoxProps<
+  Fetcher extends SdkFunction,
+> extends BaseAsyncListProps<Fetcher> {
   className?: string;
   wrapperClassName?: string;
 }

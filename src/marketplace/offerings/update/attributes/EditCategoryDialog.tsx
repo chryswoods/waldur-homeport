@@ -1,104 +1,82 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
-import { useDispatch } from 'react-redux';
-import { change, Field, reduxForm } from 'redux-form';
+import { FC, useMemo } from 'react';
+import { Form } from 'react-final-form';
 import { marketplaceProviderOfferingsUpdateDescription } from 'waldur-js-client';
 
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { required } from '@waldur/core/validators';
-import { SelectField, SubmitButton } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { getCategories } from '@waldur/marketplace/common/api';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { required } from '@/core/validators';
+import { FormFooter, SelectGroup } from '@/form';
+import { translate } from '@/i18n';
+import { getCategories } from '@/marketplace/common/api';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
-import { CATEGORY_FORM_ID } from './constants';
-
-type OwnProps = {
+interface EditCategoryDialogProps {
   resolve: { offering; refetch };
-};
-
-interface FormData {
-  category: any;
 }
 
-export const EditCategoryDialog = reduxForm<FormData, OwnProps>({
-  form: CATEGORY_FORM_ID,
-})(({ resolve, handleSubmit, invalid, submitting }) => {
-  const dispatch = useDispatch();
-
-  const submitRequest = async (formData: FormData) => {
-    try {
-      await marketplaceProviderOfferingsUpdateDescription({
+export const EditCategoryDialog: FC<EditCategoryDialogProps> = ({
+  resolve,
+}) => {
+  const submitRequestMutation = useManagedMutation<any, any, any>({
+    mutationFn: (formData) =>
+      marketplaceProviderOfferingsUpdateDescription({
         path: { uuid: resolve.offering.uuid },
         body: {
           category: formData.category.url,
         },
-      });
-      dispatch(showSuccess(translate('Category has been updated.')));
-      dispatch(closeModalDialog());
-      if (resolve.refetch) {
-        await resolve.refetch();
-      }
-    } catch (error) {
-      dispatch(
-        showErrorResponse(error, translate('Unable to update category')),
-      );
-    }
-  };
+      }),
+    successMessage: translate('Category has been updated.'),
+    errorMessage: translate('Unable to update category'),
+    refetch: resolve.refetch,
+  });
 
   const queryData = useQuery({
     queryKey: ['EditCategoryDialog'],
     queryFn: getCategories,
   });
 
-  useEffect(() => {
+  const initialValues = useMemo(() => {
     if (queryData.data) {
-      dispatch(
-        change(
-          CATEGORY_FORM_ID,
-          'category',
-          queryData.data.find((item) => item.url === resolve.offering.category),
+      return {
+        category: queryData.data.find(
+          (item) => item.url === resolve.offering.category,
         ),
-      );
+      };
     }
-  }, [queryData.data, dispatch, resolve.offering.category]);
+    return {};
+  }, [queryData.data, resolve.offering.category]);
 
   return (
-    <form onSubmit={handleSubmit(submitRequest)}>
-      <ModalDialog
-        title={translate('Edit category')}
-        footer={
-          <>
-            <CloseDialogButton />
-            <SubmitButton
-              disabled={invalid}
-              submitting={submitting}
-              label={translate('Save')}
-            />
-          </>
-        }
-      >
-        {queryData.isLoading ? (
-          <LoadingSpinner />
-        ) : queryData.isError ? (
-          <LoadingErred loadData={queryData.refetch} />
-        ) : (
-          <Field
-            name="category"
-            options={queryData.data}
-            required={true}
-            isClearable={false}
-            component={SelectField}
-            getOptionValue={(option) => option.url}
-            getOptionLabel={(option) => option.title}
-            validate={required}
-          />
-        )}
-      </ModalDialog>
-    </form>
+    <Form
+      onSubmit={(values) => submitRequestMutation.mutateAsync(values)}
+      initialValues={initialValues}
+      render={({ handleSubmit }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate('Edit category')}
+            footer={<FormFooter submitLabel={translate('Save')} />}
+          >
+            {queryData.isLoading ? (
+              <LoadingSpinner />
+            ) : queryData.isError ? (
+              <LoadingErred loadData={queryData.refetch} />
+            ) : (
+              <SelectGroup
+                name="category"
+                label={translate('Category')}
+                required={true}
+                validate={required}
+                options={queryData.data}
+                isClearable={false}
+                getOptionValue={(option) => option.url}
+                getOptionLabel={(option) => option.title}
+              />
+            )}
+          </ModalDialog>
+        </form>
+      )}
+    />
   );
-});
+};

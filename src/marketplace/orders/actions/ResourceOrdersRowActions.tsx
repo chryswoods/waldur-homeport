@@ -1,8 +1,7 @@
-import { useSelector } from 'react-redux';
-import { OrderDetails as OrderResponse } from 'waldur-js-client';
+import { OrderDetails } from 'waldur-js-client';
 
-import { ActionsDropdown } from '@waldur/table/ActionsDropdown';
-import { getUser } from '@waldur/workspace/selectors';
+import { ActionsDropdown } from '@/table/ActionsDropdown';
+import { useUser } from '@/workspace/hooks';
 
 import { CancelTerminationOrderButton } from './CancelTerminationOrderButton';
 import { OrderUnlinkButton } from './OrderUnlinkButton';
@@ -11,10 +10,10 @@ export const ResourceOrderRowActions = ({
   row,
   refetch,
 }: {
-  row: OrderResponse;
+  row: OrderDetails;
   refetch?(): void;
 }) => {
-  const user = useSelector(getUser);
+  const user = useUser();
   return (
     user.is_staff && (
       <ActionsDropdown

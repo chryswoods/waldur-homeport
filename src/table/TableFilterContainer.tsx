@@ -1,41 +1,32 @@
 import { FC } from 'react';
 import { Accordion } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
 import { useMediaQuery } from 'react-responsive';
 
-import { GRID_BREAKPOINTS } from '@waldur/core/constants';
-import { type RootState } from '@waldur/store/reducers';
+import { GRID_BREAKPOINTS } from '@/core/constants';
 
 import { TableFilterContext } from './FilterContextProvider';
 import { SavedFilterSelect } from './SavedFilterSelect';
-import { FilterItem } from './types';
-import { getFiltersFormId } from './utils';
+import { FilterItem, FilterPosition } from './types';
 
 interface TableFilterContainerProps {
   filters: JSX.Element;
+  formId?: string;
   table?: string;
+  filterPosition?: FilterPosition;
   setFilter?: (item: FilterItem) => void;
   close?(): void; // comes from the drawer
 }
 
 export const TableFilterContainer: FC<TableFilterContainerProps> = (props) => {
-  const originalFilterPosition = useSelector((state: RootState) => {
-    if (props.table && state.tables && state.tables[props.table]) {
-      return state.tables[props.table].filterPosition;
-    }
-    return 'header';
-  });
-  const filtersFormId = getFiltersFormId(props.filters);
+  const filtersFormId = props.formId || '';
 
-  const isSm = useMediaQuery({ maxWidth: GRID_BREAKPOINTS.sm });
-  const filterPosition =
-    isSm && originalFilterPosition === 'menu'
-      ? 'sidebar'
-      : originalFilterPosition;
+  const isMd = useMediaQuery({ maxWidth: GRID_BREAKPOINTS.md });
+  const filterPosition: FilterPosition = props.filterPosition || 'header';
 
   return (
     <TableFilterContext.Provider
       value={{
+        table: props.table,
         filterPosition,
         form: filtersFormId,
         setFilter: props.setFilter,
@@ -44,13 +35,23 @@ export const TableFilterContainer: FC<TableFilterContainerProps> = (props) => {
       {filterPosition === 'sidebar' ? (
         // Sidebar filters
         <div className="filter-container">
-          <SavedFilterSelect table={props.table} formId={filtersFormId} />
+          <SavedFilterSelect
+            table={props.table}
+            formId={filtersFormId}
+            filterPosition={filterPosition}
+          />
           <Accordion alwaysOpen>{props.filters}</Accordion>
         </div>
       ) : (
         // Header filters
-        <div className="d-flex scroll-x">
-          <div className="d-flex align-items-stretch text-nowrap w-100">
+        <div className={isMd ? 'd-flex scroll-x' : 'd-flex'}>
+          <div
+            className={
+              isMd
+                ? 'd-flex align-items-stretch text-nowrap w-100'
+                : 'd-flex align-items-stretch flex-wrap gap-2 w-100'
+            }
+          >
             {props.filters}
           </div>
         </div>

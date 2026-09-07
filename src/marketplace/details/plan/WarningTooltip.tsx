@@ -1,15 +1,19 @@
 import { WarningCircleIcon } from '@phosphor-icons/react';
-import { useSelector } from 'react-redux';
+import { useFormState } from 'react-final-form';
 
-import { Tip } from '@waldur/core/Tooltip';
-import { FieldError } from '@waldur/form';
-import { formSubmitErrorsSelector } from '@waldur/marketplace/deploy/selectors';
-import { concealPricesSelector } from '@waldur/marketplace/deploy/utils';
-import { PriceTooltip } from '@waldur/price/PriceTooltip';
+import { Tip } from '@/core/Tooltip';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { FieldError } from '@/form';
+import { PriceTooltip } from '@/price/PriceTooltip';
 
 export const WarningTooltip = () => {
-  const submitErrors = useSelector(formSubmitErrorsSelector);
-  const shouldConcealPrices = useSelector(concealPricesSelector);
+  const { submitErrors } = useFormState({
+    subscription: { submitErrors: true },
+  });
+  const shouldConcealPrices = isFeatureVisible(
+    MarketplaceFeatures.conceal_prices,
+  );
 
   return (
     <>
@@ -23,7 +27,6 @@ export const WarningTooltip = () => {
             size={18}
             weight="bold"
             className="ms-2 text-warning mb-1"
-            data-testid="warning"
           />
         </Tip>
       )}

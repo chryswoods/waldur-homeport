@@ -1,14 +1,22 @@
 import { FC } from 'react';
 import { proposalProposalsListUsersList } from 'waldur-js-client';
 
-import { createFetcher } from '@waldur/table/api';
-import { useTable } from '@waldur/table/useTable';
+import { createFetcher } from '@/table/api';
+import { useTable } from '@/table/useTable';
 
 import { FieldReviewComments } from '../proposal/create-review/FieldReviewComments';
 
 import { UsersList } from './UsersList';
 
-export const ProposalUsersListSummary: FC<{ scope; reviews? }> = (props) => {
+import '@/proposals/flushTable.scss';
+
+export const ProposalUsersListSummary: FC<{
+  scope;
+  reviews?;
+  // Set by the proposal detail for reviewer-only viewers: role expiration is
+  // team-admin metadata concealed from reviewers (backend also drops it).
+  hideExpiration?: boolean;
+}> = (props) => {
   const usersTable = useTable({
     table: `ProposalUsersList`,
     fetchData: createFetcher(proposalProposalsListUsersList, {
@@ -16,18 +24,23 @@ export const ProposalUsersListSummary: FC<{ scope; reviews? }> = (props) => {
     }),
   });
   return (
-    <UsersList
-      table={usersTable}
-      scope={props.scope}
-      hideRole={false}
-      readOnly
-      tableFooter={
-        <FieldReviewComments
-          reviews={props.reviews}
-          fieldName="comment_team"
-          space={0}
-        />
-      }
-    />
+    <div className="proposal-flush-table">
+      <UsersList
+        table={usersTable}
+        scope={props.scope}
+        hideRole={false}
+        hideExpiration={props.hideExpiration}
+        readOnly
+        cardBordered={false}
+        hasActionBar={false}
+        tableFooter={
+          <FieldReviewComments
+            reviews={props.reviews}
+            fieldName="comment_team"
+            space={0}
+          />
+        }
+      />
+    </div>
   );
 };

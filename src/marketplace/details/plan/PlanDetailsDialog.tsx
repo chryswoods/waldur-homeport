@@ -1,18 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 import React from 'react';
 import {
-  marketplacePublicOfferingsRetrieve,
+  marketplaceResourcesOfferingRetrieve,
   marketplaceResourcesRetrieve,
   projectsRetrieve,
 } from 'waldur-js-client';
 
-import { defaultCurrency } from '@waldur/core/formatCurrency';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { BillingPeriod } from '@waldur/marketplace/common/BillingPeriod';
-import { getFormLimitParser } from '@waldur/marketplace/common/registry';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
+import { STALE_TIME, UI_STALE_TIME } from '@/core/constants';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { BillingPeriod } from '@/marketplace/common/BillingPeriod';
+import { getFormLimitParser } from '@/marketplace/common/registry';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { VersionHistoryButton } from '@/version-history';
 
 import { PureDetailsTable } from './PlanDetailsTable';
 import { combinePrices } from './utils';
@@ -22,32 +24,26 @@ interface PlanDetailsDialogProps {
 }
 
 async function loadData(resourceId: string) {
-  const resource = await marketplaceResourcesRetrieve({
-    path: { uuid: resourceId },
-    query: {
-      field: [
-        'offering_uuid',
-        'project_uuid',
-        'plan',
-        'plan_uuid',
-        'limits',
-        'current_usages',
-      ],
-    },
-  }).then((r) => r.data);
-  const offering = await marketplacePublicOfferingsRetrieve({
-    path: { uuid: resource.offering_uuid },
-    query: {
-      field: [
-        'type',
-        'plans',
-        'components',
-        'plugin_options',
-        'options',
-        'resource_options',
-      ],
-    },
-  }).then((response) => response.data);
+  const [resource, offering] = await Promise.all([
+    marketplaceResourcesRetrieve({
+      path: { uuid: resourceId },
+      query: {
+        field: [
+          'offering_uuid',
+          'project_uuid',
+          'plan',
+          'plan_uuid',
+          'limits',
+          'current_usages',
+          'end_date',
+          'created',
+        ],
+      },
+    }).then((r) => r.data),
+    marketplaceResourcesOfferingRetrieve({
+      path: { uuid: resourceId },
+    }).then((response) => response.data),
+  ]);
   const plan =
     resource.plan &&
     offering.plans.find((item) => item.uuid === resource.plan_uuid);
@@ -67,6 +63,8 @@ async function loadData(resourceId: string) {
       limitParser(resource.limits),
       limitParser(resource.current_usages),
       offering,
+      resource.end_date,
+      resource.created,
     ),
   };
 }
@@ -76,7 +74,7 @@ export const PlanDetailsDialog: React.FC<PlanDetailsDialogProps> = (props) => {
     queryKey: ['resource-plan-data', props.resolve.resourceId],
     queryFn: () => loadData(props.resolve.resourceId),
     refetchOnWindowFocus: false,
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
 
   // Use the same caching pattern as ResourceDetailsHeaderBody for project data
@@ -91,7 +89,7 @@ export const PlanDetailsDialog: React.FC<PlanDetailsDialogProps> = (props) => {
         : null,
     enabled: !!data?.resource?.project_uuid,
     refetchOnWindowFocus: false,
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_TIME,
   });
 
   const concealBillingInfo =
@@ -100,7 +98,18 @@ export const PlanDetailsDialog: React.FC<PlanDetailsDialogProps> = (props) => {
   return (
     <ModalDialog
       title={translate('Plan details')}
-      footer={<CloseDialogButton label={translate('Done')} />}
+      footer={
+        <>
+          {data?.plan && (
+            <VersionHistoryButton
+              entityType="plan"
+              entityUuid={data.plan.uuid}
+              entityName={data.plan.name}
+            />
+          )}
+          <CloseDialogButton label={translate('Done')} />
+        </>
+      }
     >
       {isLoading ? (
         <LoadingSpinner />
@@ -135,6 +144,8 @@ export const PlanDetailsDialog: React.FC<PlanDetailsDialogProps> = (props) => {
             {...data}
             viewMode={true}
             concealBillingInfo={concealBillingInfo}
+            endDate={data.resource.end_date}
+            startDate={data.resource.created}
           />
         </>
       )}

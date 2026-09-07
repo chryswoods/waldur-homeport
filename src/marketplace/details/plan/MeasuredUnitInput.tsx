@@ -1,4 +1,5 @@
 import { Form, InputGroup } from 'react-bootstrap';
+import { PublicOfferingDetails, Offering } from 'waldur-js-client';
 
 import { Component } from './types';
 
@@ -8,9 +9,11 @@ export const MeasuredUnitInput = ({
 }: {
   input: any;
   component: Component;
+  offering?: PublicOfferingDetails | Offering;
 }) => (
   <InputGroup className="mw-200px">
     <Form.Control
+      name={input.name}
       type="number"
       min={component.min_value || 0}
       max={component.max_value}

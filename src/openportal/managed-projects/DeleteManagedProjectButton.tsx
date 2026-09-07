@@ -1,60 +1,46 @@
-import { TrashIcon } from '@phosphor-icons/react';
-import { useAsyncFn } from 'react-use';
 import { FC } from 'react';
-import { useDispatch } from 'react-redux';
+import { openportalManagedProjectsDeleteDestroy } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-
-import { deleteManagedProject } from '../api';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { RemovalActionItem } from '@/resource/actions/RemovalActionItem';
 
 export const DeleteManagedProjectButton: FC<{ row; refetch }> = ({
-    row,
-    refetch,
+  row,
+  refetch,
 }) => {
-    const project = row; // Assuming row is the project object
+  const project = row; // Assuming row is the project object
 
-    if (!project) {
-        return null;
-    }
+  if (!project) {
+    return null;
+  }
 
-    const dispatch = useDispatch();
+  const deleteMutation = useManagedMutation<any, any, void>({
+    mutationFn: () =>
+      openportalManagedProjectsDeleteDestroy({
+        path: {
+          identifier: project.identifier,
+          destination: project.destination,
+        },
+      }),
+    successMessage: translate('Managed project has been deleted.'),
+    errorMessage: translate('Unable to delete this managed project.'),
+    refetch,
+    confirmation: {
+      title: translate('Delete managed project'),
+      body: translate(
+        'Are you sure you would like to delete this managed project?',
+      ),
+      options: { forDeletion: true },
+    },
+  });
 
-    const action = async () => {
-        try {
-            await waitForConfirmation(
-                dispatch,
-                translate('Delete managed project'),
-                translate('Are you sure you would like to delete this managed project?'),
-                { forDeletion: true },
-            );
-        } catch {
-            return;
-        }
-        try {
-            await deleteManagedProject({ identifier: project.identifier, destination: project.destination });
-            await refetch();
-            dispatch(showSuccess(translate('Managed project has been deleted.')));
-        } catch (e) {
-            dispatch(
-                showErrorResponse(e, translate('Unable to delete this managed project.')),
-            );
-        }
-    };
-
-    const [{ loading }, callback] = useAsyncFn(action);
-
-    return (
-        <ActionItem
-            title={translate('Delete')}
-            disabled={loading}
-            action={callback}
-            iconNode={<TrashIcon weight="bold" />}
-            size="sm"
-            className="text-danger"
-            iconColor="danger"
-        />
-    );
+  return (
+    <RemovalActionItem
+      title={translate('Delete')}
+      disabled={deleteMutation.isPending}
+      action={() => deleteMutation.mutate()}
+      size="sm"
+    />
+  );
 };

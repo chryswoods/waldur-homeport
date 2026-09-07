@@ -1,24 +1,19 @@
-import { Field } from 'redux-form';
-import { OfferingComponent } from 'waldur-js-client';
+import { PublicOfferingDetails } from 'waldur-js-client';
 
-import { required } from '@waldur/core/validators';
-import { InputField } from '@waldur/form/InputField';
-import { Select } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
+import { required } from '@/core/validators';
+import { NumberGroup, SelectGroup } from '@/form';
+import { translate } from '@/i18n';
 
-import { FormGroup } from '../../FormGroup';
+import { ValidatorConfiguration } from './ValidatorConfiguration';
 
 interface ComponentMultiplierConfigurationProps {
-  name: string;
-  offering?: {
-    components?: OfferingComponent[];
-  };
+  offering?: PublicOfferingDetails;
 }
 
 export const ComponentMultiplierConfiguration = ({
-  name,
   offering,
 }: ComponentMultiplierConfigurationProps) => {
+  const name = 'component_multiplier_config';
   // Filter only limit-based components
   const limitComponents =
     offering?.components?.filter(
@@ -32,78 +27,54 @@ export const ComponentMultiplierConfiguration = ({
 
   return (
     <>
-      <FormGroup
+      <SelectGroup
+        name={`${name}.component_type`}
         label={translate('Component Type')}
         description={translate(
           'Select the limit-based component this multiplier applies to',
         )}
         required
-      >
-        <Field
-          name={`${name}.component_type`}
-          validate={required}
-          component={(fieldProps) => (
-            <Select
-              value={componentOptions.find(
-                (opt) => opt.value === fieldProps.input.value,
-              )}
-              onChange={(option) => fieldProps.input.onChange(option?.value)}
-              options={componentOptions}
-              isClearable={false}
-              placeholder={translate('Select component')}
-              getOptionValue={(option) => option.value}
-              getOptionLabel={(option) => option.label}
-            />
-          )}
-        />
-      </FormGroup>
-
-      <FormGroup
+        validate={required}
+        options={componentOptions}
+        isClearable={false}
+        placeholder={translate('Select component')}
+        getOptionValue={(option) => option.value}
+        getOptionLabel={(option) => option.label}
+        simpleValue
+      />
+      <NumberGroup
+        name={`${name}.factor`}
+        validate={required}
         label={translate('Multiplication Factor')}
         description={translate(
           'User input will be multiplied by this factor to calculate the component limit',
         )}
         required
-      >
-        <Field
-          name={`${name}.factor`}
-          component={InputField}
-          type="number"
-          min="1"
-          validate={required}
-          placeholder={translate('e.g., 50000 for TB to inodes conversion')}
-        />
-      </FormGroup>
-
-      <FormGroup
+        type="number"
+        min="1"
+        placeholder={translate('e.g., 50000 for TB to inodes conversion')}
+      />
+      <NumberGroup
         label={translate('Minimum Limit')}
         description={translate(
           'Minimum allowed value for user input (optional)',
         )}
-      >
-        <Field
-          name={`${name}.min_limit`}
-          component={InputField}
-          type="number"
-          min="0"
-          placeholder={translate('e.g., 1')}
-        />
-      </FormGroup>
-
-      <FormGroup
+        name={`${name}.min_limit`}
+        type="number"
+        min="0"
+        placeholder={translate('e.g., 1')}
+      />
+      <NumberGroup
         label={translate('Maximum Limit')}
         description={translate(
           'Maximum allowed value for user input (optional)',
         )}
-      >
-        <Field
-          name={`${name}.max_limit`}
-          component={InputField}
-          type="number"
-          min="0"
-          placeholder={translate('e.g., 100')}
-        />
-      </FormGroup>
+        name={`${name}.max_limit`}
+        type="number"
+        min="0"
+        placeholder={translate('e.g., 100')}
+      />
+      <ValidatorConfiguration offering={offering} />
     </>
   );
 };

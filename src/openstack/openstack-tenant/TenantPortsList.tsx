@@ -1,26 +1,63 @@
-import { FunctionComponent, useMemo } from 'react';
+import { XCircleIcon } from '@phosphor-icons/react';
+import { useQuery } from '@tanstack/react-query';
+import { useCurrentStateAndParams, useRouter } from '@uirouter/react';
+import { FunctionComponent, useCallback, useEffect, useMemo } from 'react';
+import { useDispatch } from 'react-redux';
 import {
   OpenStackPort,
   openstackPortsList,
   OpenstackPortsListData,
+  openstackPortsRetrieve,
 } from 'waldur-js-client';
 
-import { Badge } from '@waldur/core/Badge';
-import { translate } from '@waldur/i18n';
-import { ResourceRowActions } from '@waldur/resource/actions/ResourceRowActions';
-import { ResourceSummary } from '@waldur/resource/summary/ResourceSummary';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { Badge } from '@/core/Badge';
+import { translate } from '@/i18n';
+import { ActionButtonResource } from '@/resource/actions/ActionButtonResource';
+import { ResourceSummary } from '@/resource/summary/ResourceSummary';
+import { setToggled } from '@/table/actions';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { ToolbarButton } from '@/table/ToolbarButton';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
+
+import { SetAllowedAddressPairsAction } from '../openstack-instance/SetAllowedAddressPairsAction';
 
 import { CreatePortAction } from './actions/CreatePortAction';
+import { getPortCategory } from './portCategories';
+import { OpenStackTenant } from './types';
 
-export const TenantPortsList: FunctionComponent<{ resourceScope }> = ({
-  resourceScope,
-}) => {
+const TABLE_ID = 'openstack-ports';
+
+export const TenantPortsList: FunctionComponent<{
+  resourceScope: OpenStackTenant;
+}> = ({ resourceScope }) => {
+  const dispatch = useDispatch();
+  const { state, params } = useCurrentStateAndParams();
+  const router = useRouter();
+  const targetPortUuid = params?.object as string | undefined;
+
+  const clearPortFilter = useCallback(() => {
+    router.stateService.go(state.name, { ...params, object: null });
+  }, [router, state, params]);
+
+  // Fetch backend_id of target port so we can filter the table to exactly that port
+  const { data: targetPort } = useQuery({
+    queryKey: ['port-for-expand', targetPortUuid],
+    queryFn: () =>
+      openstackPortsRetrieve({
+        path: { uuid: targetPortUuid },
+        query: { field: ['uuid', 'backend_id'] },
+      }).then((res) => res.data),
+    enabled: Boolean(targetPortUuid),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
   const filter = useMemo(
     (): OpenstackPortsListData['query'] => ({
       tenant_uuid: resourceScope.uuid,
+      ...(targetPort?.backend_id ? { backend_id: targetPort.backend_id } : {}),
       field: [
         'uuid',
         'url',
@@ -47,18 +84,27 @@ export const TenantPortsList: FunctionComponent<{ resourceScope }> = ({
         'allowed_address_pairs',
         'security_groups',
         'project_uuid',
+        'backend_id',
       ],
-
       o: ['network_name'],
     }),
-    [resourceScope],
+    [resourceScope, targetPort?.backend_id],
   );
   const props = useTable({
-    table: 'openstack-ports',
+    table: TABLE_ID,
     fetchData: createFetcher(openstackPortsList),
     queryField: 'query',
     filter,
   });
+
+  useEffect(() => {
+    if (!targetPortUuid || !props.rows?.length) return;
+    const match = props.rows.find((r) => r.uuid === targetPortUuid);
+    if (match) {
+      dispatch(setToggled(TABLE_ID, { [targetPortUuid]: true }));
+    }
+  }, [props.rows, targetPortUuid, dispatch]);
+
   return (
     <Table<OpenStackPort>
       {...props}
@@ -72,14 +118,40 @@ export const TenantPortsList: FunctionComponent<{ resourceScope }> = ({
                 : 'N/A'}
             </>
           ),
+          copyField: (row) =>
+            row.fixed_ips && row.fixed_ips.length > 0
+              ? row.fixed_ips.map((fip) => fip.ip_address).join(', ')
+              : '',
         },
         {
           title: translate('MAC address'),
-          render: ({ row }) => <>{row.mac_address || 'N/A'}</>,
+          render: ({ row }) => <>{renderFieldOrDash(row.mac_address)}</>,
+          copyField: (row) => row.mac_address || '',
         },
         {
           title: translate('Network name'),
-          render: ({ row }) => <>{row.network_name || 'N/A'}</>,
+          render: ({ row }) => <>{renderFieldOrDash(row.network_name)}</>,
+          copyField: (row) => row.network_name || '',
+        },
+        {
+          title: translate('Type'),
+          render: ({ row }) => {
+            const category = getPortCategory(row.device_owner);
+            if (!category) {
+              return <>{renderFieldOrDash(row.device_owner)}</>;
+            }
+            return (
+              <Badge
+                variant={category.variant}
+                pill
+                outline
+                tooltip={row.device_owner}
+              >
+                {category.label}
+              </Badge>
+            );
+          },
+          copyField: (row) => row.device_owner || '',
         },
         {
           title: translate('Status'),
@@ -119,10 +191,25 @@ export const TenantPortsList: FunctionComponent<{ resourceScope }> = ({
         },
       ]}
       tableActions={
-        <CreatePortAction resource={resourceScope} refetch={props.fetch} />
+        <>
+          {targetPortUuid && (
+            <ToolbarButton
+              iconNode={<XCircleIcon weight="bold" />}
+              title={translate('Show all ports')}
+              onClick={clearPortFilter}
+              className="me-2"
+            />
+          )}
+          <CreatePortAction resource={resourceScope} refetch={props.fetch} />
+        </>
       }
       rowActions={({ row }) => (
-        <ResourceRowActions resource={row} refetch={props.fetch} />
+        <ActionButtonResource
+          url={row.url}
+          refetch={props.fetch}
+          nestedResource
+          extraActions={[SetAllowedAddressPairsAction]}
+        />
       )}
       hasQuery={true}
       expandableRow={({ row }) => <ResourceSummary resource={row} />}

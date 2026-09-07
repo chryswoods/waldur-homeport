@@ -1,52 +1,46 @@
-import { ArrowCounterClockwiseIcon } from '@phosphor-icons/react';
-import { FC, useState } from 'react';
+import {
+  ArrowCounterClockwiseIcon,
+  CheckIcon,
+  WarningIcon,
+} from '@phosphor-icons/react';
+import { FC, useMemo } from 'react';
 import { Alert } from 'react-bootstrap';
-import { Field, Form } from 'react-final-form';
-import { useDispatch, useSelector } from 'react-redux';
+import { Form } from 'react-final-form';
 import {
   Project,
-  projectsRecover,
   ProjectRecoveryRequest,
+  projectsRecover,
 } from 'waldur-js-client';
 
-import { AwesomeRadioButton } from '@waldur/core/AwesomeRadioButton';
-import { SubmitButton } from '@waldur/form';
-import { DateField } from '@waldur/form/DateField';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { useNotify } from '@waldur/store/hooks';
-import { RoleField } from '@waldur/user/affiliations/RoleField';
-import { getUser } from '@waldur/workspace/selectors';
+import { RadioGroup, DateGroup, SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useNotify } from '@/store/notify';
+import { RoleField } from '@/user/affiliations/RoleField';
+import { useUser } from '@/workspace/hooks';
 
 interface ProjectRecoveryModalProps {
-  resolve: {
-    project: Project;
-  };
+  resolve: { project: Project };
 }
 
 export const ProjectRecoveryModal: FC<ProjectRecoveryModalProps> = ({
   resolve: { project },
 }) => {
-  const dispatch = useDispatch();
   const { showSuccess, showErrorResponse } = useNotify();
-  const user = useSelector(getUser);
-  const [roleRecoveryOption, setRoleRecoveryOption] = useState<string>('');
-
-  const handleClose = () => {
-    dispatch(closeModalDialog());
-  };
+  const { closeDialog } = useModal();
+  const user = useUser();
 
   const handleRecover = async (values: any) => {
     try {
       const body: ProjectRecoveryRequest = {};
 
-      if (roleRecoveryOption === 'restore_team_members') {
+      if (values.roleRecoveryOption === 'restore_team_members') {
         body.restore_team_members = true;
       } else if (
-        roleRecoveryOption === 'send_invitations_to_previous_members'
+        values.roleRecoveryOption === 'send_invitations_to_previous_members'
       ) {
         body.send_invitations_to_previous_members = true;
       }
@@ -82,7 +76,7 @@ export const ProjectRecoveryModal: FC<ProjectRecoveryModalProps> = ({
         }
       }
 
-      handleClose();
+      closeDialog();
       window.location.reload();
     } catch (error) {
       showErrorResponse(error, translate('Unable to recover project.'));
@@ -94,43 +88,52 @@ export const ProjectRecoveryModal: FC<ProjectRecoveryModalProps> = ({
     (project.termination_metadata as any)?.user_roles || [];
   const hasPreviousMembers = previousMembers.length > 0;
 
-  const roleRecoveryChoices = [
-    {
-      value: '',
-      label: translate('Do not restore team members'),
-      description: translate(
-        'Project will be recovered without restoring any team members',
-      ),
-    },
-    {
-      value: 'send_invitations_to_previous_members',
-      label: translate('Re-invite team members ({count} users)', {
-        count: previousMembers.length,
-      }),
-      description: translate('Send invitations to users with prior access'),
-    },
-    ...(user.is_staff
-      ? [
-          {
-            value: 'restore_team_members',
-            label: translate('Restore team members ({count} users)', {
-              count: previousMembers.length,
-            }),
-            description: translate(
-              'Automatically restore team members who had access before project deletion (staff only)',
-            ),
-          },
-        ]
-      : []),
-  ];
+  const roleRecoveryChoices = useMemo(
+    () => [
+      {
+        value: '',
+        label: translate('Do not restore team members'),
+        description: translate(
+          'Project will be recovered without restoring any team members',
+        ),
+      },
+      {
+        value: 'send_invitations_to_previous_members',
+        label: translate('Re-invite team members ({count} users)', {
+          count: previousMembers.length,
+        }),
+        description: translate('Send invitations to users with prior access'),
+      },
+      ...(user.is_staff
+        ? [
+            {
+              value: 'restore_team_members',
+              label: translate('Restore team members ({count} users)', {
+                count: previousMembers.length,
+              }),
+              description: translate(
+                'Automatically restore team members who had access before project deletion (staff only)',
+              ),
+            },
+          ]
+        : []),
+    ],
+    [user, previousMembers],
+  );
 
   return (
     <Form
       onSubmit={handleRecover}
-      render={({ handleSubmit, submitting }) => (
+      render={({ handleSubmit, submitting, values }) => (
         <form onSubmit={handleSubmit}>
           <ModalDialog
             title={translate('Recover Project')}
+            subtitle={
+              <ScopeSubtitle
+                label={translate('Project name')}
+                name={project.name}
+              />
+            }
             iconNode={<ArrowCounterClockwiseIcon weight="bold" />}
             footer={
               <>
@@ -153,20 +156,20 @@ export const ProjectRecoveryModal: FC<ProjectRecoveryModalProps> = ({
               </p>
               <ul className="list-unstyled">
                 <li className="mb-2">
-                  <i className="fa fa-check text-success me-2" />
+                  <CheckIcon className="text-success me-2" weight="bold" />
                   {translate('Restore project access and functionality')}
                 </li>
                 <li className="mb-2">
-                  <i className="fa fa-check text-success me-2" />
+                  <CheckIcon className="text-success me-2" weight="bold" />
                   {translate('Re-enable project management capabilities')}
                 </li>
                 <li className="mb-2">
-                  <i className="fa fa-exclamation-triangle text-warning me-2" />
+                  <WarningIcon className="text-warning me-2" weight="bold" />
                   {translate('Resources will need to be manually recreated')}
                 </li>
                 {!hasTerminationMetadata && (
                   <li className="mb-2">
-                    <i className="fa fa-exclamation-triangle text-warning me-2" />
+                    <WarningIcon className="text-warning me-2" weight="bold" />
                     {translate(
                       'User roles will need to be manually reassigned',
                     )}
@@ -177,40 +180,18 @@ export const ProjectRecoveryModal: FC<ProjectRecoveryModalProps> = ({
 
             {hasPreviousMembers && (
               <div className="mb-4">
-                <AwesomeRadioButton
+                <RadioGroup
+                  name="roleRecoveryOption"
+                  defaultValue=""
                   label={translate(
                     'Choose what should be restored along with the project:',
                   )}
                   choices={roleRecoveryChoices}
-                  input={{
-                    name: 'roleRecoveryOption',
-                    value: roleRecoveryOption,
-                    onChange: (e) => setRoleRecoveryOption(e.target.value),
-                    onBlur: () => {},
-                    onFocus: () => {},
-                    onDragStart: () => {},
-                    onDrop: () => {},
-                  }}
-                  meta={{
-                    autofilled: false,
-                    asyncValidating: false,
-                    dirty: false,
-                    dispatch: (() => {}) as any,
-                    form: 'projectRecoveryForm',
-                    initial: '',
-                    invalid: false,
-                    pristine: true,
-                    submitting: false,
-                    submitFailed: false,
-                    touched: false,
-                    valid: true,
-                    visited: false,
-                  }}
                 />
 
-                {(roleRecoveryOption ===
+                {(values.roleRecoveryOption ===
                   'send_invitations_to_previous_members' ||
-                  roleRecoveryOption === 'restore_team_members') && (
+                  values.roleRecoveryOption === 'restore_team_members') && (
                   <div
                     className="border rounded p-3 mb-3 mt-3"
                     style={{ maxHeight: '200px', overflowY: 'auto' }}
@@ -250,18 +231,14 @@ export const ProjectRecoveryModal: FC<ProjectRecoveryModalProps> = ({
             )}
 
             <div className="mb-4">
-              <FormGroup
+              <DateGroup
+                name="end_date"
+                placeholder="YYYY-MM-DD"
                 label={translate('End date (optional)')}
                 description={translate(
                   'Set an expiration date for the recovered project',
                 )}
-              >
-                <Field
-                  name="end_date"
-                  component={DateField as any}
-                  placeholder="YYYY-MM-DD"
-                />
-              </FormGroup>
+              />
             </div>
 
             {!hasTerminationMetadata && (

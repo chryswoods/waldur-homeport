@@ -1,33 +1,28 @@
 import { EyeSlashIcon, WarningCircleIcon } from '@phosphor-icons/react';
 import { useMutation } from '@tanstack/react-query';
 import { Stack } from 'react-bootstrap';
-import { useSelector, useDispatch } from 'react-redux';
+import { useSelector } from 'react-redux';
 
-import { getHeaders } from '@waldur/core/api';
-import { translate } from '@waldur/i18n';
-import { showErrorResponse } from '@waldur/store/notify';
-import {
-  UsersService,
-  clearImpersonationData,
-} from '@waldur/user/UsersService';
-import { getImpersonatorUser, getUser } from '@waldur/workspace/selectors';
-
+import { getHeaders } from '@/core/api';
+import { translate } from '@/i18n';
+import { useNotify } from '@/store/notify';
+import { UsersService, clearImpersonationData } from '@/user/UsersService';
+import { useUser } from '@/workspace/hooks';
+import { getImpersonatorUser } from '@/workspace/selectors';
 import './ImpersonationBar.scss';
 
 export const ImpersonationBar = () => {
-  const user = useSelector(getUser);
+  const user = useUser();
   const impersonatorUser = useSelector(getImpersonatorUser);
 
-  const dispatch = useDispatch();
+  const { showErrorResponse } = useNotify();
   const { mutate: stop, isPending: isLoading } = useMutation({
     mutationFn: async () => {
       try {
         clearImpersonationData();
         await UsersService.refreshCurrentUser({ headers: getHeaders(false) });
       } catch (error) {
-        dispatch(
-          showErrorResponse(error, translate('Unable to stop impersonating.')),
-        );
+        showErrorResponse(error, translate('Unable to stop impersonating.'));
       }
     },
   });

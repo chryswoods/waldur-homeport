@@ -6,16 +6,17 @@ import {
   invoicesList,
 } from 'waldur-js-client';
 
-import { getLineChartOptions } from '@waldur/dashboard/chart';
-import { Scope } from '@waldur/dashboard/types';
+import { STALE_TIME } from '@/core/constants';
+import { getLineChartOptions } from '@/dashboard/chart';
+import { Scope } from '@/dashboard/types';
 import {
   formatOrganizationCostChart,
   getCostChartAndOptions,
   getCreditChartAndOptions,
   getTeamSizeChart,
-} from '@waldur/dashboard/utils';
-import { getActiveFixedPricePaymentProfile } from '@waldur/invoices/details/utils';
-import { Customer } from '@waldur/workspace/types';
+} from '@/dashboard/utils';
+import { getActiveFixedPricePaymentProfile } from '@/invoices/details/utils';
+import { Customer } from '@/workspace/types';
 
 async function getCustomerCostData(customer: Scope) {
   if (!getActiveFixedPricePaymentProfile(customer.payment_profiles)) {
@@ -34,9 +35,10 @@ async function getCustomerCostData(customer: Scope) {
 
 export function useCustomerCostChart(customer: Scope) {
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['CustomerCostData', customer.url],
-    queryFn: () => getCustomerCostData(customer),
-    staleTime: 5 * 60 * 1000,
+    queryKey: ['CustomerCostData', customer?.url],
+    queryFn: () => (customer ? getCustomerCostData(customer) : null),
+    staleTime: STALE_TIME,
+    enabled: Boolean(customer),
   });
 
   const chartData = useMemo(() => {
@@ -58,7 +60,7 @@ export function useCustomerCreditChart(customer: Customer) {
   } = useQuery({
     queryKey: ['CustomerCostData', customer.url],
     queryFn: () => getCustomerCostData(customer),
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_TIME,
   });
 
   const chartData = useMemo(() => {
@@ -67,6 +69,13 @@ export function useCustomerCreditChart(customer: Customer) {
       year: invoice.year,
       month: invoice.month,
       price: Number(invoice.price),
+      // Invoice exposes `compensations` (plural); InvoiceCost (project-level)
+      // exposes `compensation`.
+      compensation: Number(invoice.compensations),
+      // Likewise `incurred_costs` against InvoiceCost's `incurred`: the gross
+      // cost, of which `price` is the net after compensation. Already in the
+      // requested field list above.
+      incurred: Number(invoice.incurred_costs),
     }));
     return getCreditChartAndOptions(invoiceCosts, customer.credit?.value);
   }, [invoices, customer]);
@@ -85,7 +94,7 @@ export const useCustomerTeamChart = (customer) => {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['CustomerTeamChart', customer.url],
     queryFn: () => getTeamSizeChart(customer),
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_TIME,
   });
 
   const chartData = useMemo(

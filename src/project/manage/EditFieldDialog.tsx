@@ -1,33 +1,26 @@
 import { pick } from 'lodash-es';
-import { Field, Form } from 'react-final-form';
-import { useDispatch, useSelector } from 'react-redux';
+import { Form } from 'react-final-form';
 import { projectsPartialUpdate } from 'waldur-js-client';
-import { Project } from 'waldur-js-client';
 
-import { formatISODate } from '@waldur/core/dateUtils';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { useCustomerProjects } from '@waldur/customer/workspace/fetchCustomer';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { DeploymentFeatures } from '@waldur/FeaturesEnums';
-import { SubmitButton } from '@waldur/form';
-import MarkdownEditor from '@waldur/form/MarkdownEditor';
-import { StringField } from '@waldur/form/StringField';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { useNotify } from '@waldur/store/hooks';
-import { setCurrentProject } from '@waldur/workspace/actions';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { SubmitButton, MarkdownGroup } from '@/form';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { useSetProject } from '@/workspace/hooks';
 
-import { EndDateGroup } from '../create/EndDateGroup';
-import { IndustryGroup } from '../create/IndustryGroup';
-import { KindGroup } from '../create/KindGroup';
-import { NameGroup } from '../create/NameGroup';
-import { OecdCodeGroup } from '../create/OecdCodeGroup';
-import { StartDateGroup } from '../create/StartDateGroup';
 import { EditProjectProps } from '../types';
+
+const getFieldTitle = (key: string): string => {
+  switch (key) {
+    case 'description':
+      return translate('Description');
+    case 'staff_notes':
+      return translate('Staff notes');
+    default:
+      return translate('Edit');
+  }
+};
 
 const formatValue = (key, value) => {
   if (['', undefined, null].includes(value)) {
@@ -37,42 +30,30 @@ const formatValue = (key, value) => {
     }
     return null;
   }
-  switch (key) {
-    case 'end_date':
-    case 'start_date':
-      return formatISODate(value);
-    case 'oecd_fos_2007_code':
-      return value.value;
-    default:
-      return value;
-  }
+  return value;
 };
 
 export const EditFieldDialog = ({ resolve }: { resolve: EditProjectProps }) => {
-  const dispatch = useDispatch();
-  const customer = useSelector(getCustomer);
-  const { loading: loadingProjects } = useCustomerProjects();
-  const { showSuccess, showErrorResponse } = useNotify();
+  const setCurrentProject = useSetProject();
 
-  const onSubmit = async (formData: FormData) => {
-    try {
-      const project = await projectsPartialUpdate({
+  const updateMutation = useManagedMutation<any, any, FormData>({
+    mutationFn: (formData) =>
+      projectsPartialUpdate({
         path: { uuid: resolve.project.uuid },
         body: {
           [resolve.name]: formatValue(resolve.name, formData[resolve.name]),
         },
-      });
-      dispatch(setCurrentProject(project.data as any as Project));
-      showSuccess(translate('Project has been updated.'));
-      dispatch(closeModalDialog());
-    } catch (e) {
-      showErrorResponse(e, translate('Project could not be updated.'));
-    }
-  };
+      }),
+    successMessage: translate('Project has been updated.'),
+    errorMessage: translate('Project could not be updated.'),
+    onSuccess: (response: any) => {
+      setCurrentProject(response.data);
+    },
+  });
 
   return (
     <Form
-      onSubmit={onSubmit}
+      onSubmit={(values: FormData) => updateMutation.mutateAsync(values)}
       initialValues={pick(resolve.project, resolve.name)}
       subscription={{
         values: true,
@@ -84,85 +65,29 @@ export const EditFieldDialog = ({ resolve }: { resolve: EditProjectProps }) => {
       {({ invalid, handleSubmit, submitting }) => (
         <form onSubmit={handleSubmit}>
           <ModalDialog
-            headerLess
-            bodyClassName="pb-2"
-            footerClassName="border-0 pt-0 gap-2"
+            title={getFieldTitle(resolve.name)}
             footer={
               <>
-                <CloseDialogButton className="flex-grow-1" />
+                <CloseDialogButton className="flex-equal" />
                 <SubmitButton
                   disabled={invalid}
                   submitting={submitting}
                   label={translate('Confirm')}
-                  className="btn btn-primary flex-grow-1"
+                  className="btn btn-primary flex-equal"
                 />
               </>
             }
           >
-            {resolve.name === 'customer_name' ? (
-              <FormGroup label={translate('Project owner')}>
-                <Field
-                  component={StringField as any}
-                  name="customer_name"
-                  disabled
-                />
-              </FormGroup>
-            ) : resolve.name === 'name' ? (
-              loadingProjects ? (
-                <LoadingSpinner />
-              ) : (
-                <NameGroup customer={customer} />
-              )
-            ) : resolve.name === 'description' ? (
-              <FormGroup label={translate('Description')}>
-                <Field component={MarkdownEditor as any} name="description" />
-              </FormGroup>
-            ) : resolve.name === 'is_industry' ? (
-              <IndustryGroup />
-            ) : resolve.name === 'start_date' ? (
-              <StartDateGroup />
-            ) : resolve.name === 'end_date' ? (
-              <EndDateGroup />
-            ) : resolve.name === 'oecd_fos_2007_code' ? (
-              <OecdCodeGroup />
-            ) : resolve.name === 'backend_id' ? (
-              <FormGroup label={translate('Backend ID')}>
-                <Field component={StringField as any} name="backend_id" />
-              </FormGroup>
-            ) : resolve.name === 'slug' ? (
-              <FormGroup label={translate('Slug')}>
-                <Field
-                  component={StringField as any}
-                  name="slug"
-                  disabled={
-                    isFeatureVisible(DeploymentFeatures.make_slugs_immutable) &&
-                    !!resolve.project.slug
-                  }
-                />
-                {isFeatureVisible(DeploymentFeatures.make_slugs_immutable) &&
-                  resolve.project.slug && (
-                    <p className="text-muted mt-2">
-                      {translate('Slug cannot be changed once set.')}
-                    </p>
-                  )}
-              </FormGroup>
+            {resolve.name === 'description' ? (
+              <MarkdownGroup
+                name="description"
+                label={translate('Description')}
+              />
             ) : resolve.name === 'staff_notes' ? (
-              <FormGroup label={translate('Staff notes')}>
-                <Field component={MarkdownEditor as any} name="staff_notes" />
-              </FormGroup>
-            ) : resolve.name === 'kind' ? (
-              <KindGroup />
-            ) : resolve.name === 'max_service_accounts' ? (
-              <FormGroup
-                label={translate('Maximum number of service accounts')}
-              >
-                <Field
-                  component={StringField as any}
-                  name="max_service_accounts"
-                  type="number"
-                  min={0}
-                />
-              </FormGroup>
+              <MarkdownGroup
+                name="staff_notes"
+                label={translate('Staff notes')}
+              />
             ) : null}
           </ModalDialog>
         </form>

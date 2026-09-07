@@ -1,35 +1,33 @@
 import { CopyIcon, TrashIcon } from '@phosphor-icons/react';
 import { useCallback } from 'react';
-import { Button } from 'react-bootstrap';
-import { useDispatch, useSelector } from 'react-redux';
+import { useField } from 'react-final-form';
 
-import { Tip } from '@waldur/core/Tooltip';
-import { translate } from '@waldur/i18n';
-import { showSuccess } from '@waldur/store/notify';
+import { Tip } from '@/core/Tooltip';
+import { translate } from '@/i18n';
+import { useNotify } from '@/store/notify';
+import { ActionButton } from '@/table/ActionButton';
 
 import { SelectField } from './SelectField';
-import { getPairSelector } from './utils';
 
-export const FloatingIpRow = ({ row, subnets, floatingIps, onRemove }) => {
-  const pair = useSelector(getPairSelector(row));
+export const FloatingIpRow = ({ name, subnets, floatingIps, onRemove }) => {
+  const {
+    input: { value: pair },
+  } = useField(name);
 
-  const dispatch = useDispatch();
+  const { showSuccess } = useNotify();
 
-  const onClick = useCallback(
-    (value) => {
-      navigator.clipboard.writeText(value).then(() => {
-        dispatch(showSuccess(translate('Text has been copied')));
-      });
-    },
-    [dispatch],
-  );
+  const onClick = useCallback((value) => {
+    navigator.clipboard.writeText(value).then(() => {
+      showSuccess(translate('Text has been copied'));
+    });
+  }, []);
   return (
     <tr>
       <td className="col-md-6 ps-0">
         {pair.address ? (
           <div className="btn-text-align">{pair.subnet_name}</div>
         ) : (
-          <SelectField name="subnet" options={subnets} />
+          <SelectField name={`${name}.subnet`} options={subnets} />
         )}
       </td>
       <td className="col-md-5">
@@ -41,29 +39,26 @@ export const FloatingIpRow = ({ row, subnets, floatingIps, onRemove }) => {
               className="text-btn pe-3"
             >
               <Tip label={translate('Copy to clipboard')} id="copyToClipboard">
-                <CopyIcon size={20} />
+                <CopyIcon size={20} weight="bold" />
               </Tip>
             </button>
             {pair.address}
           </div>
         ) : (
           <SelectField
-            name="floating_ip"
+            name={`${name}.floating_ip`}
             options={floatingIps}
             disabled={!pair.subnet}
           />
         )}
       </td>
       <td>
-        <Button
+        <ActionButton
+          action={onRemove}
+          title={translate('Remove')}
+          iconNode={<TrashIcon weight="bold" />}
           variant="text-secondary"
-          title={translate('Delete')}
-          onClick={onRemove}
-        >
-          <span className="svg-icon svg-icon-2">
-            <TrashIcon />
-          </span>
-        </Button>
+        />
       </td>
     </tr>
   );

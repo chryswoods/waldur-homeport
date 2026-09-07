@@ -4,13 +4,13 @@ import { Card, Col, Form, Row } from 'react-bootstrap';
 import { usersPartialUpdate } from 'waldur-js-client';
 import { User } from 'waldur-js-client';
 
-import { Tip } from '@waldur/core/Tooltip';
-import { SubmitButton } from '@waldur/form';
-import { Select } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { SecretField } from '@waldur/marketplace/common/SecretField';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-import { useNotify } from '@waldur/store/hooks';
+import { Tip } from '@/core/Tooltip';
+import { SubmitButton } from '@/form';
+import { FormGroup } from '@/form';
+import { Select } from '@/form/select';
+import { translate } from '@/i18n';
+import { SecretField } from '@/marketplace/common/SecretField';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
 const TOKEN_OPTIONS = [
   { label: translate('{count} minutes', { count: 10 }), value: 600 },
@@ -31,26 +31,19 @@ export const UserTokenLifetime: React.FC<UserEditTokenComponentProps> = (
   const [tokenLifetime, setTokenLifetime] = useState(
     TOKEN_OPTIONS.find((option) => option.value === props.user.token_lifetime),
   );
-  const [submitting, setSubmitting] = useState(false);
 
-  const { showSuccess, showErrorResponse } = useNotify();
-
-  const handleSubmit = async () => {
-    try {
-      setSubmitting(true);
-      await usersPartialUpdate({
+  const { mutate: handleSubmit, isPending: submitting } = useManagedMutation({
+    mutationFn: () =>
+      usersPartialUpdate({
         path: { uuid: props.user.uuid },
         body: {
-          token_lifetime: tokenLifetime.value,
+          token_lifetime: tokenLifetime?.value,
         },
-      });
-      showSuccess(translate('User has been updated'));
-    } catch (error) {
-      showErrorResponse(error, translate('User could not be updated'));
-    } finally {
-      setSubmitting(false);
-    }
-  };
+      }),
+    successMessage: translate('User has been updated'),
+    errorMessage: translate('User could not be updated'),
+    closeModal: false,
+  });
 
   return (
     <Card className="card-bordered mb-6">
@@ -87,7 +80,7 @@ export const UserTokenLifetime: React.FC<UserEditTokenComponentProps> = (
                 'Lifetime will be updated and reset upon saving the form. Token lifetime is prolonged each time a successful API call with the token is done.',
               )}
             >
-              {translate('Token lifetime')} <QuestionIcon />
+              {translate('Token lifetime')} <QuestionIcon weight="bold" />
             </Tip>
           }
         >

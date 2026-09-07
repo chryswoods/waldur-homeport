@@ -1,27 +1,14 @@
-import MatomoTracker from '@jonkoops/matomo-tracker';
-import * as Sentry from '@sentry/react';
+import { initBrandTokens } from 'waldur-design-tokens';
 
 import { ENV } from './core/config';
-import { DEFAULT_PRIMARY_COLORS } from './core/constants';
-import { generateBrandColors, hexToRgb } from './core/generateColors';
-import { LanguageUtilsService } from './i18n/LanguageUtilsService';
-import { getConsent } from './navigation/cookies/CookiesStorage';
+import { initMatomoTracker } from './core/matomo';
+import { initSentry } from './core/sentry';
+import { getBrandColor } from './core/utils';
+import {
+  initLanguageUtils,
+  LanguageUtilsService,
+} from './i18n/LanguageUtilsService';
 import { attachTransitions } from './transitions';
-
-function initSentry() {
-  if (ENV.plugins.WALDUR_CORE.HOMEPORT_SENTRY_DSN) {
-    const { hostname } = new URL(ENV.apiEndpoint);
-    Sentry.init({
-      release: `waldur-homeport@${ENV.buildId}`,
-      dsn: ENV.plugins.WALDUR_CORE.HOMEPORT_SENTRY_DSN,
-      environment:
-        ENV.plugins.WALDUR_CORE.HOMEPORT_SENTRY_ENVIRONMENT || 'unknown',
-      tracesSampleRate:
-        ENV.plugins.WALDUR_CORE.HOMEPORT_SENTRY_TRACES_SAMPLE_RATE || 0.2,
-      tracePropagationTargets: [hostname, /^\//],
-    });
-  }
-}
 
 const generateCheckboxSvgUrl = (color) => {
   const svg = `<svg width='12' height='9' viewBox='0 0 12 9' fill='none' xmlns='http://www.w3.org/2000/svg'><path d='M11 1.25L4.125 8.125L1 5' stroke='${color}' stroke-width='1.6666' stroke-linecap='round' stroke-linejoin='round'/></svg>`;
@@ -39,56 +26,58 @@ const generateRadioSvgUrl = (color) => {
 };
 
 function initCssVariables() {
-  const brand600 =
-    ENV.plugins.WALDUR_CORE.BRAND_COLOR || DEFAULT_PRIMARY_COLORS[600];
-  document.documentElement.style.setProperty('--waldur-brand-color', brand600);
-  const brandRgb = hexToRgb(brand600);
+  initBrandTokens(getBrandColor());
+
+  // Font family
+  const fontFamily = ENV.plugins.WALDUR_CORE.FONT_FAMILY || 'Inter';
   document.documentElement.style.setProperty(
-    `--waldur-brand-color-rgb`,
-    brandRgb,
+    '--waldur-font-family',
+    `${fontFamily}, Helvetica, sans-serif`,
   );
-
-  const brandColors = generateBrandColors(brand600);
-
-  Object.entries(brandColors).forEach(([key, color]) => {
-    document.documentElement.style.setProperty(`--waldur-brand-${key}`, color);
-  });
+  const fontSizeAdjust: Record<string, number> = {
+    'Maven Pro': 1.08,
+  };
+  document.documentElement.style.setProperty(
+    '--waldur-font-size-adjust',
+    String(fontSizeAdjust[fontFamily] ?? 1),
+  );
 
   // Generate checkbox & radio bg
   document.documentElement.style.setProperty(
     '--checkbox-bg',
-    generateCheckboxSvgUrl(brand600),
+    generateCheckboxSvgUrl('#fff'),
   );
   document.documentElement.style.setProperty(
     '--checkbox-indeterminate-bg',
-    generateCheckboxIndeterminateSvgUrl(brand600),
+    generateCheckboxIndeterminateSvgUrl('#fff'),
   );
   document.documentElement.style.setProperty(
     '--radio-bg',
-    generateRadioSvgUrl(brand600),
+    generateRadioSvgUrl('#fff'),
   );
 }
 
-export let MatomoInstance: MatomoTracker = null;
-
-export function initMatomoTracker() {
-  const isAllowed = getConsent() === 'true';
-  if (
-    isAllowed &&
-    ENV.plugins.WALDUR_CORE.MATOMO_URL_BASE &&
-    ENV.plugins.WALDUR_CORE.MATOMO_SITE_ID
-  )
-    MatomoInstance = new MatomoTracker({
-      urlBase: ENV.plugins.WALDUR_CORE.MATOMO_URL_BASE,
-      siteId: ENV.plugins.WALDUR_CORE.MATOMO_SITE_ID,
-    });
+function initPageTitle() {
+  document.title = ENV.plugins.WALDUR_CORE.FULL_PAGE_TITLE;
 }
 
+function initI18n() {
+  initLanguageUtils();
+  LanguageUtilsService.checkLanguage();
+}
+
+/**
+ * Composes the init* steps above in order. Split out so each concern
+ * (analytics, error tracking, i18n, router transitions, brand CSS
+ * variables) can be reasoned about and changed independently, and so a
+ * future standalone auth app has a clear, small set of steps to copy
+ * rather than one monolithic function to pick apart.
+ */
 export function afterBootstrap() {
-  document.title = ENV.plugins.WALDUR_CORE.FULL_PAGE_TITLE;
+  initPageTitle();
   initMatomoTracker();
   initSentry();
-  LanguageUtilsService.checkLanguage();
+  initI18n();
   attachTransitions();
   initCssVariables();
 }

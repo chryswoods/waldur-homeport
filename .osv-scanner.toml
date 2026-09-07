@@ -1,0 +1,7 @@
+# osv-scanner suppressions. See https://google.github.io/osv-scanner/configuration/
+# The CI "Scan JS dependencies" job passes --config=.osv-scanner.toml when this
+# file exists (waldur-pipelines /templates/test/vulnerability-scan.yml).
+#
+# No suppressions are active. Add an [[IgnoredVulns]] block only when an
+# advisory has no compatible fixed version, and state the re-evaluation
+# trigger in the reason so the entry does not outlive its premise.

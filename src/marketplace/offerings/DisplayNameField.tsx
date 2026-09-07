@@ -1,11 +1,8 @@
 import { FunctionComponent } from 'react';
-import { Field } from 'redux-form';
 
-import { required } from '@waldur/core/validators';
-import { InputField } from '@waldur/form/InputField';
-import { translate } from '@waldur/i18n';
-
-import { FormGroup } from './FormGroup';
+import { required } from '@/core/validators';
+import { StringGroup } from '@/form';
+import { translate } from '@/i18n';
 
 interface DisplayNameFieldProps {
   name: string;
@@ -15,19 +12,18 @@ interface DisplayNameFieldProps {
 
 export const DisplayNameField: FunctionComponent<DisplayNameFieldProps> = (
   props,
-) => (
-  <FormGroup
-    label={translate('Display name')}
-    required={true}
-    help={translate('Label that is visible to users in Marketplace.')}
-  >
-    <Field
-      component={InputField}
+) => {
+  return (
+    <StringGroup
+      label={translate('Display name')}
+      required={true}
+      help={translate('Label that is visible to users in Marketplace.')}
+      helpEnd
+      space={5}
       name={props.name}
-      type="text"
       validate={required}
       disabled={props.disabled}
       readOnly={props.readOnly}
     />
-  </FormGroup>
-);
+  );
+};

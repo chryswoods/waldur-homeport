@@ -1,13 +1,15 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import classNames from 'classnames';
 import { useEffect, useMemo, useState } from 'react';
 import { CategoryGroup } from 'waldur-js-client';
 
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { getGroupedCategories } from '@waldur/marketplace/category/utils';
-import { getCategoryGroups } from '@waldur/marketplace/common/api';
-import { Category } from '@waldur/marketplace/types';
+import { SHORT_STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { getGroupedCategories } from '@/marketplace/category/utils';
+import { getCategoryGroups } from '@/marketplace/common/api';
+import { Category } from '@/marketplace/types';
 
 import { CategoriesPanel } from './CategoriesPanel';
 import { RECENTLY_ADDED_OFFERINGS_UUID } from './constants';
@@ -40,7 +42,7 @@ export const DataLoader = ({
         ? null
         : fetchLastNOfferings(customer, project),
 
-    staleTime: 1 * 60 * 1000,
+    staleTime: SHORT_STALE_TIME,
   });
 
   const {
@@ -51,7 +53,7 @@ export const DataLoader = ({
   } = useQuery({
     queryKey: ['MarketplaceCategoryGroups'],
     queryFn: () => getCategoryGroups(),
-    staleTime: 1 * 60 * 1000,
+    staleTime: SHORT_STALE_TIME,
   });
 
   const {
@@ -68,7 +70,7 @@ export const DataLoader = ({
       project?.uuid,
     ],
     queryFn: () => fetchCategories(customer, project, filter),
-    staleTime: 1 * 60 * 1000,
+    staleTime: SHORT_STALE_TIME,
     placeholderData: keepPreviousData,
   });
 
@@ -121,10 +123,10 @@ export const DataLoader = ({
 
   return (
     <div
-      className={
-        'd-flex flex-column flex-lg-row h-100' +
-        (selectedCategory ? ' category-selected' : '')
-      }
+      className={classNames(
+        'd-flex flex-column flex-lg-row h-100',
+        selectedCategory && 'category-selected',
+      )}
     >
       {loadingCategories || loadingGroups ? (
         <div className="message-wrapper p-4">

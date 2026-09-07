@@ -1,18 +1,19 @@
 import { CaretRightIcon } from '@phosphor-icons/react';
+import { useQuery } from '@tanstack/react-query';
 import React from 'react';
-import { useAsync } from 'react-use';
 import {
   marketplaceCategoriesRetrieve,
   PublicOfferingDetails,
 } from 'waldur-js-client';
 
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { getTabs } from '@waldur/marketplace/details/OfferingTabs';
-import { OfferingTabsComponent } from '@waldur/marketplace/details/OfferingTabsComponent';
-import { OfferingDetailsLink } from '@waldur/marketplace/links/OfferingDetailsLink';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { Field } from '@waldur/resource/summary';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { getTabs } from '@/marketplace/details/OfferingTabs';
+import { OfferingTabsComponent } from '@/marketplace/details/OfferingTabsComponent';
+import { OfferingDetailsLink } from '@/marketplace/links/OfferingDetailsLink';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { Field } from '@/resource/summary';
 
 interface OfferingDetailsDialogProps {
   resolve: { offering: PublicOfferingDetails; concealBillingInfo?: boolean };
@@ -36,15 +37,24 @@ async function loadData(
 export const OfferingDetailsDialog: React.FC<OfferingDetailsDialogProps> = (
   props,
 ) => {
-  const { loading, error, value } = useAsync(
-    () => loadData(props.resolve.offering, props.resolve.concealBillingInfo),
-    [props.resolve.offering],
-  );
+  const {
+    isLoading: loading,
+    error,
+    data: value,
+  } = useQuery({
+    queryKey: ['OfferingDetailsDialog', props.resolve.offering],
+    queryFn: () =>
+      loadData(props.resolve.offering, props.resolve.concealBillingInfo),
+  });
   return (
     <ModalDialog
       title={translate('Offering details')}
-      closeButton
-      hasFooterBorder
+      subtitle={
+        <ScopeSubtitle
+          label={translate('Offering name')}
+          name={props.resolve.offering.name}
+        />
+      }
       bodyClassName="h-500px"
       footer={
         <OfferingDetailsLink

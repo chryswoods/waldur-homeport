@@ -4,13 +4,13 @@ import {
   RemoteSynchronisation,
 } from 'waldur-js-client';
 
-import { Badge } from '@waldur/core/Badge';
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import { DASH_ESCAPE_CODE } from '@waldur/table/constants';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { Badge } from '@/core/Badge';
+import { formatDateTime } from '@/core/dateUtils';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
 
 import { RemoteSyncCreateButton } from './RemoteSyncCreateButton';
 import { RemoteSyncExpandableRow } from './RemoteSyncExpandableRow';
@@ -65,13 +65,13 @@ export const RemoteOfferingSyncList: FunctionComponent = () => {
           title: translate('State'),
           render: ({ row }) => (
             <Badge
-              outline
-              pill
               variant={
                 ['OK', 'Active'].includes(row.get_state_display)
                   ? 'primary'
                   : 'default'
               }
+              pill
+              outline
             >
               {row.get_state_display}
             </Badge>
@@ -80,7 +80,7 @@ export const RemoteOfferingSyncList: FunctionComponent = () => {
         {
           title: translate('Enabled'),
           render: ({ row }) => (
-            <Badge outline pill variant={row.is_active ? 'primary' : 'default'}>
+            <Badge variant={row.is_active ? 'primary' : 'default'} pill outline>
               {row.is_active ? translate('Yes') : translate('No')}
             </Badge>
           ),

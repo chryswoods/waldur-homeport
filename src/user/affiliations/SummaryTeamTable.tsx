@@ -5,19 +5,19 @@ import {
   projectsListUsersList,
 } from 'waldur-js-client';
 
-import Avatar from '@waldur/core/Avatar';
-import { renderRoleExpirationDate } from '@waldur/customer/team/TeamTableComponent';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { UserFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { ActionsDropdownComponent } from '@waldur/table/ActionsDropdown';
-import { createFetcher } from '@waldur/table/api';
-import { DASH_ESCAPE_CODE } from '@waldur/table/constants';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { RoleField } from '@waldur/user/affiliations/RoleField';
-import { UserDetailsButton } from '@waldur/user/UserDetailsButton';
-import { Customer } from '@waldur/workspace/types';
+import Avatar from '@/core/Avatar';
+import { renderRoleExpirationDate } from '@/customer/team/TeamTableComponent';
+import { isFeatureVisible } from '@/features/connect';
+import { UserFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { ActionsDropdownComponent } from '@/table/ActionsDropdown';
+import { createFetcher } from '@/table/api';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { RoleField } from '@/user/affiliations/RoleField';
+import { UserDetailsButton } from '@/user/UserDetailsButton';
+import { Customer } from '@/workspace/types';
 
 const organizationUserMandatoryFields = [
   'uuid',
@@ -43,7 +43,7 @@ const projectUserMandatoryFields = [
 const RowActions = ({ row }) => {
   return (
     <ActionsDropdownComponent>
-      <UserDetailsButton userId={row.user_uuid || row.uuid} asDropdownItem />
+      <UserDetailsButton userId={row.user_uuid || row.uuid} />
     </ActionsDropdownComponent>
   );
 };
@@ -51,20 +51,32 @@ const RowActions = ({ row }) => {
 interface OwnProps {
   scope: Customer | Project;
   context: 'organization' | 'project';
+  fetchData?: ReturnType<typeof createFetcher>;
+  filter?: Record<string, unknown>;
+  hideActions?: boolean;
 }
 
-export const SummaryTeamTable: FC<OwnProps> = ({ scope, context }) => {
+export const SummaryTeamTable: FC<OwnProps> = ({
+  scope,
+  context,
+  fetchData,
+  filter,
+  hideActions,
+}) => {
   const props = useTable({
     table:
       (context === 'organization' ? 'customer-users' : 'project-users') +
       '-' +
       scope.uuid,
-    fetchData: createFetcher(
-      context === 'organization' ? customersUsersList : projectsListUsersList,
-      context === 'organization'
-        ? { path: { customer_uuid: scope.uuid } }
-        : { path: { uuid: scope.uuid } },
-    ),
+    fetchData:
+      fetchData ??
+      createFetcher(
+        context === 'organization' ? customersUsersList : projectsListUsersList,
+        context === 'organization'
+          ? { path: { customer_uuid: scope.uuid } }
+          : { path: { uuid: scope.uuid } },
+      ),
+    filter,
     mandatoryFields:
       context === 'organization'
         ? organizationUserMandatoryFields
@@ -123,9 +135,10 @@ export const SummaryTeamTable: FC<OwnProps> = ({ scope, context }) => {
           render: ({ row }) => renderRoleExpirationDate(row),
           className: 'w-45px',
         },
-      ].filter(Boolean)}
+      ]}
       verboseName={translate('Team members')}
       hasActionBar={false}
+      cardBordered={false}
       hoverShadow={false}
       initialSorting={
         (context === 'organization' && {
@@ -139,7 +152,7 @@ export const SummaryTeamTable: FC<OwnProps> = ({ scope, context }) => {
       }
       initialPageSize={5}
       minHeight="auto"
-      rowActions={RowActions}
+      rowActions={hideActions ? null : RowActions}
     />
   );
 };

@@ -1,41 +1,39 @@
 import { FC, useMemo } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
 import {
   marketplaceRobotAccountsList,
   RobotAccountDetails,
 } from 'waldur-js-client';
 
-import { CopyToClipboardContainer } from '@waldur/core/CopyToClipboardContainer';
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { CopyToClipboardContainer } from '@/core/CopyToClipboardContainer';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import {
+  MarketplaceRobotAccountsFilter,
+  selectMarketplaceRobotAccountsFilter,
+  MarketplaceRobotAccountsFilterFormId,
+} from '@/table/generated/MarketplaceRobotAccountsFilter';
+import Table from '@/table/Table';
+import { Column } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
+import { useCustomer } from '@/workspace/hooks';
 
-import { ProviderRobotAccountFilter } from './ProviderRobotAccountFilter';
 import { RobotAccountActions } from './RobotAccountActions';
 import { RobotAccountExpandable } from './RobotAccountExpandable';
 
-interface FilterValues {
-  project?: { uuid };
-  customer?: { uuid };
-}
-
 export const ProviderRobotAccountList: FC<{ provider }> = ({ provider }) => {
-  const filterValues = useSelector(
-    getFormValues('ProviderRobotAccountFilter'),
-  ) as FilterValues;
-  const customer = useSelector(getCustomer);
+  const values = useFilterValues('provider-robot-accounts');
+
+  const formFilter = useMemo(
+    () => selectMarketplaceRobotAccountsFilter(values),
+    [values],
+  );
+
+  const customer = useCustomer();
   const filter = useMemo(() => {
-    const baseFilter: {
-      project_uuid?: string;
-      customer_uuid?: string;
-      provider_uuid?: string;
-    } = {
-      project_uuid: filterValues?.project?.uuid,
-      customer_uuid: filterValues?.customer?.uuid,
+    const baseFilter: any = {
+      ...formFilter,
     };
 
     if (provider) {
@@ -43,10 +41,11 @@ export const ProviderRobotAccountList: FC<{ provider }> = ({ provider }) => {
     }
 
     return baseFilter;
-  }, [filterValues, customer]);
+  }, [formFilter, customer, provider]);
 
   const tableProps = useTable({
     table: 'provider-robot-accounts',
+    syncFiltersToURL: true,
     fetchData: createFetcher(marketplaceRobotAccountsList),
     filter,
   });
@@ -64,7 +63,7 @@ export const ProviderRobotAccountList: FC<{ provider }> = ({ provider }) => {
     {
       title: translate('Project'),
       render: ({ row }) => row.project_name,
-      filter: 'project',
+      filter: 'project_uuid',
       inlineFilter: (row) => ({
         name: row.project_name,
         uuid: row.project_uuid,
@@ -76,7 +75,7 @@ export const ProviderRobotAccountList: FC<{ provider }> = ({ provider }) => {
     },
     {
       title: translate('Type'),
-      render: ({ row }) => row.type || 'N/A',
+      render: ({ row }) => renderFieldOrDash(row.type),
     },
     {
       title: translate('Username'),
@@ -92,13 +91,21 @@ export const ProviderRobotAccountList: FC<{ provider }> = ({ provider }) => {
   return (
     <Table<RobotAccountDetails>
       {...tableProps}
-      filters={<ProviderRobotAccountFilter provider={provider} />}
+      filters={
+        // The generated filter queries provider-scoped endpoints, so it
+        // only makes sense (and only works) when a provider is in scope —
+        // the support view renders this list without one.
+        provider ? (
+          <MarketplaceRobotAccountsFilter provider={provider} />
+        ) : undefined
+      }
       columns={columns}
       verboseName={translate('robot accounts')}
       expandableRow={RobotAccountExpandable}
       rowActions={({ row }) => (
         <RobotAccountActions refetch={tableProps.fetch} row={row} />
       )}
+      formId={MarketplaceRobotAccountsFilterFormId}
     />
   );
 };

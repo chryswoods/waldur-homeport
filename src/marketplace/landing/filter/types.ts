@@ -1,8 +1,10 @@
-import { AtLeast } from '@waldur/core/types';
-import { FilterItem } from '@waldur/table/types';
+import { AtLeast } from '@/core/types';
+import { FilterItem } from '@/table/types';
 
-export interface MarketplaceFilterItem
-  extends AtLeast<FilterItem, 'name' | 'value'> {
+export interface MarketplaceFilterItem extends AtLeast<
+  FilterItem,
+  'name' | 'value'
+> {
   getValueLabel?(value): any;
 }
 

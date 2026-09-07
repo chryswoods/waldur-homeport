@@ -1,104 +1,41 @@
-import { QuestionIcon } from '@phosphor-icons/react';
-import classNames from 'classnames';
-import { FunctionComponent } from 'react';
-import { useSelector } from 'react-redux';
+import { FunctionComponent, Suspense } from 'react';
+import { NestedTag, Offering } from 'waldur-js-client';
 
-import { ModelCard1 } from '@waldur/core/ModelCard1';
-import { Tip } from '@waldur/core/Tooltip';
-import { translate } from '@waldur/i18n';
-import Placeholder from '@waldur/images/logo_w.svg';
-import { OfferingDetailsLink } from '@waldur/marketplace/links/OfferingDetailsLink';
-import { wrapTooltip } from '@waldur/table/ActionButton';
-import { getUser } from '@waldur/workspace/selectors';
+import { LoadingSpinnerSimple } from '@/core/LoadingSpinner';
 
-import { isOfferingRestrictedToProject } from '../offerings/utils';
-import { Offering } from '../types';
+import { CARD_STYLES, DEFAULT_CARD_STYLE } from './cards/index';
+import { CardStyleType } from './cards/types';
 
 import './OfferingCard.scss';
-import { DeployButton } from './DeployButton';
-import { getOfferingImage } from './getOfferingImage';
-import { ViewOfferingButton } from './ViewOfferingButton';
 
 interface OfferingCardProps {
   offering: Offering;
+  variant?: CardStyleType;
   className?: string;
+  onTagClick?(tag: NestedTag): void;
 }
 
-export const OfferingCard: FunctionComponent<OfferingCardProps> = (props) => {
-  const user = useSelector(getUser);
-  const { isRestricted, isAllowed } = isOfferingRestrictedToProject(
-    props.offering,
-    user,
-  );
+export const OfferingCard: FunctionComponent<OfferingCardProps> = ({
+  offering,
+  variant = DEFAULT_CARD_STYLE,
+  className,
+  onTagClick,
+}) => {
+  const CardComponent = CARD_STYLES[variant] || CARD_STYLES.detailed;
 
-  return wrapTooltip(
-    props.offering.state === 'Paused' &&
-      (props.offering.paused_reason ||
-        translate('Requesting of new resources has been temporarily paused')),
-    <OfferingDetailsLink
-      offering_uuid={props.offering.uuid}
-      className={classNames(props.className, 'offering-card', {
-        disabled: props.offering.state !== 'Active',
-      })}
-      disabled={!isAllowed}
+  return (
+    <Suspense
+      fallback={
+        <div className="d-flex justify-content-center align-items-center h-100">
+          <LoadingSpinnerSimple />
+        </div>
+      }
     >
-      <ModelCard1
-        title={props.offering.name}
-        subtitle={
-          !isRestricted
-            ? props.offering.customer_name
-            : [props.offering.customer_name, props.offering.project_name]
-                .filter(Boolean)
-                .join(' - ')
-        }
-        clickable
-        logo={props.offering.thumbnail}
-        image={getOfferingImage(props.offering)}
-        imageCover={Boolean(props.offering.image)}
-        placeholder={
-          <span className="svg-icon svg-icon-5tx svg-icon-dark">
-            <Placeholder className="mh-85px" />
-          </span>
-        }
-        footer={
-          !isRestricted ? (
-            <div className="d-flex justify-content-end align-items-center gap-2">
-              <DeployButton offering={props.offering} />
-              <ViewOfferingButton offering={props.offering} />
-            </div>
-          ) : (
-            <div className="d-flex justify-content-between align-items-center gap-4">
-              {isRestricted && (
-                <Tip
-                  id={`tip-restricted-${props.offering.uuid}`}
-                  label={
-                    props.offering.project_name
-                      ? translate(
-                          'Offering is restricted to {project} in {organization}',
-                          {
-                            project: props.offering.project_name,
-                            organization: props.offering.customer_name,
-                          },
-                        )
-                      : translate('Offering is restricted to {organization}', {
-                          organization: props.offering.customer_name,
-                        })
-                  }
-                >
-                  <QuestionIcon size={20} className="text-muted ms-1" />
-                </Tip>
-              )}
-              <div className="flex-grow-1 d-flex justify-content-end gap-2">
-                <DeployButton offering={props.offering} disabled={!isAllowed} />
-                <ViewOfferingButton
-                  offering={props.offering}
-                  disabled={!isAllowed}
-                />
-              </div>
-            </div>
-          )
-        }
+      <CardComponent
+        offering={offering}
+        className={className}
+        onTagClick={onTagClick}
       />
-    </OfferingDetailsLink>,
+    </Suspense>
   );
 };

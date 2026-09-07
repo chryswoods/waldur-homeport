@@ -1,50 +1,41 @@
-import { TrashIcon } from '@phosphor-icons/react';
 import { FunctionComponent } from 'react';
-import { useDispatch } from 'react-redux';
 import { broadcastMessagesDestroy } from 'waldur-js-client';
 
-import { formatJsxTemplate, translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
+import { formatJsxTemplate, translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { RemovalActionItem } from '@/resource/actions/RemovalActionItem';
 
 export const BroadcastDeleteButton: FunctionComponent<{ row; refetch }> = ({
   row,
   refetch,
 }) => {
-  const dispatch = useDispatch();
+  const { mutate, isPending } = useManagedMutation<any, any, void>({
+    mutationFn: () => broadcastMessagesDestroy({ path: { uuid: row.uuid } }),
+    refetch: refetch,
 
-  const callback = async () => {
-    try {
-      await waitForConfirmation(
-        dispatch,
-        translate('Delete broadcast'),
-        translate(
-          'Are you sure you would like to delete broadcast {broadcast}?',
-          { broadcast: <strong>{row.subject}</strong> },
-          formatJsxTemplate,
-        ),
-        { forDeletion: true },
-      );
-    } catch {
-      return;
-    }
-    try {
-      await broadcastMessagesDestroy({ path: { uuid: row.uuid } });
-      await refetch();
-      dispatch(showSuccess(translate('Broadcast has been deleted.')));
-    } catch (e) {
-      dispatch(showErrorResponse(e, translate('Unable to delete broadcast.')));
-    }
-  };
+    confirmation: {
+      title: translate('Delete broadcast'),
+
+      body: translate(
+        'Are you sure you would like to delete broadcast {broadcast}?',
+        { broadcast: <strong>{row.subject}</strong> },
+        formatJsxTemplate,
+      ),
+
+      options: {
+        forDeletion: true,
+      },
+    },
+
+    successMessage: translate('Broadcast has been deleted.'),
+    errorMessage: translate('Unable to delete broadcast.'),
+  });
 
   return (
-    <ActionItem
+    <RemovalActionItem
       title={translate('Delete')}
-      action={callback}
-      iconNode={<TrashIcon weight="bold" />}
-      iconColor="danger"
-      className="text-danger"
+      action={mutate}
+      disabled={isPending}
     />
   );
 };

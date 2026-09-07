@@ -1,39 +1,49 @@
 import { ChatsCircleIcon } from '@phosphor-icons/react';
-import { useDispatch } from 'react-redux';
+import React from 'react';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { openDrawerDialog } from '@waldur/drawer/actions';
-import { translate } from '@waldur/i18n';
-
-const QuickIssueContainer = lazyComponent(() =>
-  import('./quick-issue-drawer/QuickIssueContainer').then((module) => ({
-    default: module.QuickIssueContainer,
-  })),
-);
+import { Tip } from '@/core/Tooltip';
+import { useDrawer } from '@/drawer/actions';
+import { DRAWER_SHELL_CLASS } from '@/drawer/shellClasses';
+import { isDrawerOpenWithClass } from '@/drawer/utils';
+import { translate } from '@/i18n';
+import { useMatrixTotalUnread } from '@/matrix/chat/useMatrixTotalUnread';
+import { isMatrixChatEnabled } from '@/matrix/utils';
+import { HeaderButtonBullet } from '@/navigation/header/HeaderButtonBullet';
+import { openSupportDrawer } from '@/support/openSupportDrawer';
 
 export const QuickIssueDrawerToggle: React.FC = () => {
-  const dispatch = useDispatch();
+  const { openDrawer, closeDrawer } = useDrawer();
+  const matrixUnread = useMatrixTotalUnread();
+  const showChatBullet = isMatrixChatEnabled() && matrixUnread > 0;
 
-  const openDrawer = () => {
-    dispatch(
-      openDrawerDialog(QuickIssueContainer, {
-        title: translate('Requests'),
-      }),
-    );
+  const toggleSupportDrawer = () => {
+    if (isDrawerOpenWithClass(DRAWER_SHELL_CLASS.support)) {
+      closeDrawer();
+    } else {
+      openSupportDrawer(openDrawer);
+    }
   };
 
   return (
-    <div className="d-flex align-items-center ms-1 ms-lg-3">
-      <button
-        id="quick-issue-toggle"
-        type="button"
-        className="btn-nav-item"
-        onClick={openDrawer}
+    <div className="d-flex align-items-center ms-1">
+      <Tip
+        label={translate('Support')}
+        id="quick-issue-toggle-tip"
+        placement="bottom"
       >
-        <span className="svg-icon svg-icon-2" title={translate('Requests')}>
-          <ChatsCircleIcon weight="bold" />
-        </span>
-      </button>
+        <button
+          id="quick-issue-toggle"
+          type="button"
+          className="position-relative btn-nav-item"
+          onClick={toggleSupportDrawer}
+          aria-label={translate('Support')}
+        >
+          <span className="svg-icon svg-icon-2">
+            <ChatsCircleIcon weight="bold" />
+          </span>
+          {showChatBullet && <HeaderButtonBullet />}
+        </button>
+      </Tip>
     </div>
   );
 };

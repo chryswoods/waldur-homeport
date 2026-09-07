@@ -1,35 +1,43 @@
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
+import { useMemo } from 'react';
+import { EventsListData } from 'waldur-js-client';
 
-import { isEmpty } from '@waldur/core/utils';
-import { BaseEventsList } from '@waldur/events/BaseEventsList';
-import { getCustomer } from '@waldur/workspace/selectors';
-
-import { CustomerEventsFilter } from './CustomerEventsFilter';
-
-const mapStateToFilter = createSelector(
-  getCustomer,
-  getFormValues('customerEventsFilter'),
-  (customer, userFilter: any) => {
-    const filter = {
-      ...userFilter,
-      feature: userFilter?.feature?.map((option) => option.value),
-      scope: customer.url,
-    };
-    if (userFilter && isEmpty(userFilter.feature)) {
-      filter.feature = ['customers', 'projects', 'resources'];
-    }
-    return filter;
-  },
-);
+import { isEmpty } from '@/core/utils';
+import { BaseEventsList } from '@/events/BaseEventsList';
+import {
+  CustomerEventsFilter,
+  CustomerEventsFilterFormId,
+  selectCustomerEventsFilter,
+} from '@/table/generated/CustomerEventsFilter';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useCustomer } from '@/workspace/hooks';
 
 export const CustomerEventsList = () => {
-  const customer = useSelector(getCustomer);
-  const filter = useSelector(mapStateToFilter);
+  const customer = useCustomer();
+  const tableId = `customer-events-${customer.uuid}`;
+  const values = useFilterValues(tableId);
+  const userFilter = useMemo(
+    () => selectCustomerEventsFilter(values),
+    [values],
+  );
+
+  const filter = useMemo(() => {
+    if (!customer) return undefined;
+    const result: EventsListData['query'] = {
+      ...userFilter,
+      scope: customer.url,
+    };
+    if (isEmpty(userFilter.feature)) {
+      result.feature = ['customers', 'projects', 'resources'];
+    }
+    return result;
+  }, [customer, userFilter]);
+
+  if (!customer) return null;
+
   return (
     <BaseEventsList
-      table={`customer-events-${customer.uuid}`}
+      table={tableId}
+      formId={CustomerEventsFilterFormId}
       filter={filter}
       filters={<CustomerEventsFilter />}
     />

@@ -1,20 +1,16 @@
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react';
-import { useCallback, useMemo } from 'react';
-import { useDispatch } from 'react-redux';
+import { useMemo } from 'react';
 import {
   openstackInstancesPull,
   openstackTenantsPull,
   openstackVolumesPull,
+  Resource,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import {
-  INSTANCE_TYPE,
-  TENANT_TYPE,
-  VOLUME_TYPE,
-} from '@waldur/openstack/constants';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
+import { translate } from '@/i18n';
+import { useBatchMutation } from '@/modal/useBatchMutation';
+import { INSTANCE_TYPE, TENANT_TYPE, VOLUME_TYPE } from '@/openstack/constants';
+import { ActionItem } from '@/resource/actions/ActionItem';
 
 const apiMethods = {
   [INSTANCE_TYPE]: (uuid: string) => openstackInstancesPull({ path: { uuid } }),
@@ -22,9 +18,13 @@ const apiMethods = {
   [TENANT_TYPE]: (uuid: string) => openstackTenantsPull({ path: { uuid } }),
 };
 
-export const MultiPullAction = ({ rows, refetch }) => {
-  const dispatch = useDispatch();
-
+export const MultiPullAction = ({
+  rows,
+  refetch,
+}: {
+  rows: Resource[];
+  refetch(): void;
+}) => {
   const resources = useMemo(
     () =>
       rows.filter((resource) =>
@@ -41,27 +41,24 @@ export const MultiPullAction = ({ rows, refetch }) => {
       ),
     [resources],
   );
-  const callback = useCallback(async () => {
-    try {
-      await waitForConfirmation(
-        dispatch,
-        translate('Perform mass action'),
-        translate('Are you sure you want to synchronise {count} resources?', {
-          count: validResources.length,
-        }),
-      );
-    } catch {
-      return;
-    }
 
-    Promise.all(
-      validResources.map((resource) => {
-        apiMethods[resource.resource_type](resource.resource_uuid);
-      }),
-    ).then(() => {
-      refetch();
-    });
-  }, [dispatch, validResources, refetch]);
+  const pullMutation = useBatchMutation({
+    rows: validResources,
+    mutationFn: (resource) =>
+      apiMethods[resource.resource_type](resource.resource_uuid),
+    successMessage: translate('Resources are synchronised.'),
+    errorMessage: translate('Unable to synchronise resources.'),
+    refetch,
+    confirmation: {
+      title: translate('Perform mass action'),
+      body: translate(
+        'Are you sure you want to synchronise {count} resources?',
+        {
+          count: validResources.length,
+        },
+      ),
+    },
+  });
 
   if (validResources.length === 0) {
     return null;
@@ -69,8 +66,8 @@ export const MultiPullAction = ({ rows, refetch }) => {
   return (
     <ActionItem
       title={translate('Synchronise')}
-      action={callback}
-      disabled={validResources.length !== rows.length}
+      action={() => pullMutation.mutate()}
+      disabled={validResources.length !== rows.length || pullMutation.isPending}
       iconNode={<ArrowsClockwiseIcon weight="bold" />}
     />
   );

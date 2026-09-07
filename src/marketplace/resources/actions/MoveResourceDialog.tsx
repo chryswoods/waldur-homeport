@@ -1,15 +1,12 @@
-import { useDispatch } from 'react-redux';
-import { reduxForm } from 'redux-form';
+import { Form } from 'react-final-form';
 import { marketplaceResourcesMoveResource, Resource } from 'waldur-js-client';
 
-import { FormContainer, SubmitButton } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { FormFooter } from '@/form';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { useNotify } from '@/store/notify';
 
-import { MOVE_RESOURCE_FORM_ID } from './constants';
 import { MoveToProjectAutocomplete } from './MoveToProjectAutocomplete';
 
 interface MoveResourceDialogOwnProps {
@@ -23,70 +20,54 @@ interface FormData {
   project: { name: string; customer_name: string; url: string };
 }
 
-export const MoveResourceDialog = reduxForm<
-  FormData,
-  MoveResourceDialogOwnProps
->({
-  form: MOVE_RESOURCE_FORM_ID,
-})((props) => {
-  const dispatch = useDispatch();
+export const MoveResourceDialog = (props: MoveResourceDialogOwnProps) => {
+  const { showSuccess } = useNotify();
 
-  const submitRequest = async (formData: FormData) => {
-    try {
-      await marketplaceResourcesMoveResource({
+  const submitRequestMutation = useManagedMutation<any, any, FormData>({
+    mutationFn: (formData) =>
+      marketplaceResourcesMoveResource({
         path: { uuid: props.resolve.resource.marketplace_resource_uuid },
         body: {
           project: {
             url: formData.project.url,
           },
         },
-      });
-      dispatch(
-        showSuccess(
-          translate(
-            '{resourceName} resource has been moved to {projectName} project.',
-            {
-              resourceName: props.resolve.resource.name,
-              projectName: formData.project.name,
-            },
-          ),
-        ),
-      );
-      if (props.resolve.refetch) {
-        await props.resolve.refetch();
-      }
-      dispatch(closeModalDialog());
-    } catch (error) {
-      dispatch(showErrorResponse(error, translate('Unable to move resource.')));
-    }
-  };
-
-  return (
-    <form onSubmit={props.handleSubmit(submitRequest)}>
-      <ModalDialog
-        title={translate(
-          'Move resource {resourceName} from {projectName} ({customerName})',
+      }),
+    errorMessage: translate('Unable to move resource.'),
+    refetch: props.resolve.refetch,
+    onSuccess: (_data, formData) => {
+      showSuccess(
+        translate(
+          '{resourceName} resource has been moved to {projectName} project.',
           {
             resourceName: props.resolve.resource.name,
-            projectName: props.resolve.resource.project_name,
-            customerName: props.resolve.resource.customer_name,
+            projectName: formData.project.name,
           },
-        )}
-        footer={
-          <>
-            <CloseDialogButton />
-            <SubmitButton
-              submitting={props.submitting}
-              label={translate('Save')}
-              disabled={props.invalid}
-            />
-          </>
-        }
-      >
-        <FormContainer submitting={props.submitting}>
-          <MoveToProjectAutocomplete isDisabled={props.submitting} />
-        </FormContainer>
-      </ModalDialog>
-    </form>
+        ),
+      );
+    },
+  });
+
+  return (
+    <Form
+      onSubmit={(values: FormData) => submitRequestMutation.mutateAsync(values)}
+      render={({ handleSubmit }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate(
+              'Move resource {resourceName} from {projectName} ({customerName})',
+              {
+                resourceName: props.resolve.resource.name,
+                projectName: props.resolve.resource.project_name,
+                customerName: props.resolve.resource.customer_name,
+              },
+            )}
+            footer={<FormFooter submitLabel={translate('Save')} />}
+          >
+            <MoveToProjectAutocomplete />
+          </ModalDialog>
+        </form>
+      )}
+    />
   );
-});
+};

@@ -1,10 +1,8 @@
 import { FunctionComponent, useMemo } from 'react';
-import { Field } from 'redux-form';
 
-import { required } from '@waldur/core/validators';
-import { InputField } from '@waldur/form/InputField';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
+import { composeValidators, required } from '@/core/validators';
+import { StringGroup } from '@/form';
+import { translate } from '@/i18n';
 
 import { getDataVolumes } from './utils';
 
@@ -24,21 +22,22 @@ const createMountPointValidator = (nodeIndex: number) => (value, allValues) => {
   }
 };
 
-export const VolumeMountPointGroup: FunctionComponent<{ nodeIndex: number }> = (
-  props,
-) => {
+export const VolumeMountPointGroup: FunctionComponent<{
+  nodeIndex: number;
+  name?: string;
+}> = (props) => {
   const validateMountPoint = useMemo(
-    () => [required, createMountPointValidator(props.nodeIndex)],
+    () =>
+      composeValidators(required, createMountPointValidator(props.nodeIndex)),
     [props.nodeIndex],
   );
 
   return (
-    <FormGroup label={translate('Mount point')} required={true}>
-      <Field
-        name="mount_point"
-        component={InputField}
-        validate={validateMountPoint}
-      />
-    </FormGroup>
+    <StringGroup
+      label={translate('Mount point')}
+      required={true}
+      name={props.name || 'mount_point'}
+      validate={validateMountPoint}
+    />
   );
 };

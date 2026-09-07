@@ -1,10 +1,10 @@
 import { LockIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 
-import { Badge } from '@waldur/core/Badge';
-import { parseDate } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { DASH_ESCAPE_CODE } from '@waldur/table/constants';
+import { Badge } from '@/core/Badge';
+import { parseDate } from '@/core/dateUtils';
+import { translate } from '@/i18n';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
 
 export const EndingField = ({
   endDate,
@@ -15,7 +15,11 @@ export const EndingField = ({
     if (!endDate) return {};
     const endDateParsed = parseDate(endDate);
     const diffNowDays = endDateParsed.diffNow().as('days');
-    const textClass = diffNowDays <= 4 ? 'text-danger' : '';
+    // Only an approaching deadline is urgent. Once it passes there is nothing
+    // left to act on, and "Has ended" already says so without flagging an
+    // error on states where ending is a normal outcome, such as an accepted
+    // proposal whose call has closed.
+    const textClass = diffNowDays > 0 && diffNowDays <= 4 ? 'text-danger' : '';
     return {
       text:
         diffNowDays > 0 ? endDateParsed.toRelative() : translate('Has ended'),
@@ -45,12 +49,11 @@ export const EndingField = ({
           &nbsp;
           <Badge
             variant="blue"
-            outline
-            pill
-            onlyIcon
             size="sm"
+            pill
+            outline
+            onlyIcon
             tooltip={translate('Fixed duration')}
-            className="w-20px h-20px p-1"
           >
             <LockIcon weight="bold" size={12} />
           </Badge>

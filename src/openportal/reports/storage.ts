@@ -1,10 +1,8 @@
 /**
- * Utilities for human-readable storage size strings produced by
- * templemeads::storage::StorageSize / QuotaLimit serde serialisation.
- *
- * Strings take the form "<value> <unit>" e.g. "24.00 KB", "2.00 TB",
+ * Utility functions for storage size parsing and formatting,
  * or the special value "unlimited".
  */
+import { translate } from '@/i18n';
 
 const BYTES_PER_UNIT: Record<string, number> = {
   B: 1,
@@ -35,13 +33,16 @@ export function parseStorageBytes(str: string): number {
 
 /** Format a byte count as a human-readable string e.g. "1.50 GB". */
 export function formatStorageBytes(bytes: number): string {
-  if (!isFinite(bytes)) return 'Unlimited';
-  if (bytes === 0) return '0 B';
+  if (!isFinite(bytes)) return translate('Unlimited');
+  if (bytes === 0) return translate('0 B');
   const i = Math.min(
     Math.floor(Math.log(bytes) / Math.log(1024)),
     FORMAT_UNITS.length - 1,
   );
-  return `${(bytes / 1024 ** i).toFixed(2)} ${FORMAT_UNITS[i]}`;
+  return translate('{value} {unit}', {
+    value: (bytes / 1024 ** i).toFixed(2),
+    unit: FORMAT_UNITS[i],
+  });
 }
 
 /** Convert CPU-seconds to hours, rounded to 2 decimal places. */

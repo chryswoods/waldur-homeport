@@ -1,17 +1,18 @@
-import { FunctionComponent } from 'react';
+import { FC, FunctionComponent } from 'react';
 import { openportalProjectTemplateList } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { Link } from '@waldur/core/Link';
-import { ActionsDropdown } from '@waldur/table/ActionsDropdown';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { renderFieldOrDash } from '@waldur/table/utils';
+import { Link } from '@/core/Link';
+import { translate } from '@/i18n';
+import { ActionsDropdown } from '@/table/ActionsDropdown';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 import { ProjectTemplateCreateButton } from './ProjectTemplateCreateButton';
 import { ProjectTemplateDeleteButton } from './ProjectTemplateDeleteButton';
 import { ProjectTemplateEditButton } from './ProjectTemplateEditButton';
+import { ProjectTemplateExpandableRow } from './ProjectTemplateExpandableRow';
 
 const ProjectTemplateRowActions = ({ row, fetch }) => (
   <ActionsDropdown
@@ -23,14 +24,18 @@ const ProjectTemplateRowActions = ({ row, fetch }) => (
   />
 );
 
-const stringify_customer = (customer: any) => {
+const CustomerLink: FC<{ customer?: any }> = ({ customer }) => {
   if (!customer) {
-    return 'Not set';
+    return <>{translate('Not set')}</>;
   }
-  // customer.url is the URL. Render it as a link, using customer.name as the display text.
-  const url = `/organizations/${customer.uuid}/dashboard/`;
-  return <a key={customer.uuid} href={url} target="_blank" rel="noopener noreferrer">{customer.display_name || customer.name}</a>;
-}
+  return (
+    <Link
+      state="organization.dashboard"
+      params={{ uuid: customer.uuid }}
+      label={customer.display_name || customer.name || customer.uuid}
+    />
+  );
+};
 
 export const ProjectTemplateList: FunctionComponent<{}> = () => {
   const props = useTable({
@@ -43,14 +48,7 @@ export const ProjectTemplateList: FunctionComponent<{}> = () => {
       columns={[
         {
           title: translate('Name'),
-          render: ({ row }) => (
-            <Link
-              state="marketplace-provider-project-template-detail"
-              params={{ templateUuid: row.uuid }}
-            >
-              {row.name || '—'}
-            </Link>
-          ),
+          render: ({ row }) => renderFieldOrDash(row.name),
         },
         {
           title: translate('Offering'),
@@ -62,15 +60,16 @@ export const ProjectTemplateList: FunctionComponent<{}> = () => {
         },
         {
           title: translate('Organization'),
-          render: ({ row }) => stringify_customer(row.customer_data),
+          render: ({ row }) => <CustomerLink customer={row.customer_data} />,
         },
         {
           title: translate('Shortname'),
           render: ({ row }) => renderFieldOrDash(row.shortname),
         },
       ]}
-      verboseName={translate('Project Templates')}
+      verboseName={translate('Project templates')}
       rowActions={ProjectTemplateRowActions}
+      expandableRow={ProjectTemplateExpandableRow}
       tableActions={<ProjectTemplateCreateButton refetch={props.fetch} />}
     />
   );

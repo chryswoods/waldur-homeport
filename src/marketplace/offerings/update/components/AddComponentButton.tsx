@@ -1,17 +1,14 @@
 import { PlusCircleIcon } from '@phosphor-icons/react';
 import { FunctionComponent } from 'react';
-import { useDispatch } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { ActionButton } from '@waldur/table/ActionButton';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { ActionButton } from '@/table/ActionButton';
 
-import { ADD_COMPONENT_FORM_ID } from './constants';
-
-const AddComponentDialog = lazyComponent(() =>
-  import('./AddComponentDialog').then((module) => ({
-    default: module.AddComponentDialog,
+const OfferingComponentDialog = lazyComponent(() =>
+  import('./OfferingComponentDialog').then((module) => ({
+    default: module.OfferingComponentDialog,
   })),
 );
 
@@ -19,14 +16,11 @@ export const AddComponentButton: FunctionComponent<{
   offering;
   refetch;
 }> = ({ offering, refetch }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const callback = () => {
-    dispatch(
-      openModalDialog(AddComponentDialog, {
-        resolve: { offering, refetch },
-        formId: ADD_COMPONENT_FORM_ID,
-      }),
-    );
+    openDialog(OfferingComponentDialog, {
+      resolve: { offering, refetch },
+    });
   };
   return (
     <ActionButton

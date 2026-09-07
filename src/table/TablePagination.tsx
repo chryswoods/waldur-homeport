@@ -1,14 +1,10 @@
-import {
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  CaretLeftIcon,
-  CaretRightIcon,
-} from '@phosphor-icons/react';
+import { CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react';
 import { FunctionComponent } from 'react';
-import { Button, Col, Row } from 'react-bootstrap';
+import { Col, Row } from 'react-bootstrap';
 
-import { translate } from '@waldur/i18n';
-import Pagination from '@waldur/table/Pagination';
+import { IconButton } from '@/core/buttons/IconButton';
+import { translate } from '@/i18n';
+import Pagination from '@/table/Pagination';
 
 import { PAGE_SIZE_COMPACT } from './constants';
 import { TablePageSize } from './TablePageSize';
@@ -33,13 +29,11 @@ export const TablePagination: FunctionComponent<TablePaginationProps> = (
 
   return props.resultCount > PAGE_SIZE_COMPACT ? (
     <>
-      <div className="table-pagination d-none d-md-block">
+      <div className="table-pagination d-none d-md-block px-5">
         <Row className="d-flex px-0 align-items-center">
           <Col
             sm="auto"
-            lg={6}
-            xl={3}
-            className="d-flex align-items-start justify-content-start order-lg-2 order-xl-1"
+            className="d-flex align-items-start justify-content-start"
           >
             {props.showPageSizeSelector && (
               <TablePageSize
@@ -50,7 +44,7 @@ export const TablePagination: FunctionComponent<TablePaginationProps> = (
               />
             )}
           </Col>
-          <Col sm lg={12} xl={6} className="order-lg-1 order-xl-2">
+          <Col sm>
             {props.hasRows && props.resultCount > props.pageSize && (
               <Pagination
                 totalPages={totalPages}
@@ -63,10 +57,10 @@ export const TablePagination: FunctionComponent<TablePaginationProps> = (
               />
             )}
           </Col>
-          <Col sm="auto" lg={6} xl={3} className="order-3">
+          <Col sm="auto">
             <div className="d-flex align-items-center justify-content-end">
               {props.hasRows && (
-                <div className="text-dark text-nowrap fs-6 me-4">
+                <div className="text-muted text-nowrap fs-7 me-8">
                   {translate('{from}-{to} of {all} items', {
                     from,
                     to,
@@ -75,21 +69,25 @@ export const TablePagination: FunctionComponent<TablePaginationProps> = (
                 </div>
               )}
               <div
-                className={'page-item me-1' + (prevDisabled ? ' disabled' : '')}
+                className={
+                  'page-item previous' + (prevDisabled ? ' disabled' : '')
+                }
               >
                 <button
                   type="button"
-                  className="page-link px-1"
+                  className="page-link"
                   disabled={prevDisabled}
                   onClick={() => props.gotoPage(props.currentPage - 1)}
                 >
                   <CaretLeftIcon size={20} weight="bold" />
                 </button>
               </div>
-              <div className={'page-item' + (nextDisabled ? ' disabled' : '')}>
+              <div
+                className={'page-item next' + (nextDisabled ? ' disabled' : '')}
+              >
                 <button
                   type="button"
-                  className="page-link px-1"
+                  className="page-link"
                   disabled={nextDisabled}
                   onClick={() => props.gotoPage(props.currentPage + 1)}
                 >
@@ -104,17 +102,15 @@ export const TablePagination: FunctionComponent<TablePaginationProps> = (
       {/* Mobile view */}
       <div className="table-pagination d-flex d-md-none align-items-center justify-content-between">
         <div className={'page-item me-1' + (prevDisabled ? ' disabled' : '')}>
-          <Button
-            variant="tertiary"
-            className="btn-icon w-35px h-35px"
-            disabled={prevDisabled}
+          <IconButton
+            iconNode={<CaretLeftIcon weight="bold" />}
+            tooltip={translate('Previous page')}
             onClick={() => props.gotoPage(props.currentPage - 1)}
-          >
-            <ArrowLeftIcon size={20} weight="bold" />
-          </Button>
+            disabled={prevDisabled}
+          />
         </div>
         {props.hasRows && (
-          <div className="text-dark text-nowrap fs-6 me-4">
+          <div className="text-secondary fw-bold text-nowrap fs-5 mx-2">
             {translate('Page {page} of {total}', {
               page: props.currentPage,
               total: totalPages,
@@ -122,14 +118,12 @@ export const TablePagination: FunctionComponent<TablePaginationProps> = (
           </div>
         )}
         <div className={'page-item' + (nextDisabled ? ' disabled' : '')}>
-          <Button
-            variant="tertiary"
-            className="btn-icon w-35px h-35px"
-            disabled={nextDisabled}
+          <IconButton
+            iconNode={<CaretRightIcon weight="bold" />}
+            tooltip={translate('Next page')}
             onClick={() => props.gotoPage(props.currentPage + 1)}
-          >
-            <ArrowRightIcon size={20} weight="bold" />
-          </Button>
+            disabled={nextDisabled}
+          />
         </div>
       </div>
     </>

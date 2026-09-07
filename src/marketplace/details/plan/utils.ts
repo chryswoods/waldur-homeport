@@ -1,20 +1,29 @@
+import { sumBy } from 'lodash-es';
 import { DateTime } from 'luxon';
 import { useMemo } from 'react';
-import { BasePublicPlan, PublicOfferingDetails } from 'waldur-js-client';
+import {
+  BasePublicPlan,
+  LimitPeriodEnum,
+  PublicOfferingDetails,
+  ProviderPlanDetails as Plan,
+} from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
-import { calculateMonthsDifference } from '@waldur/core/dateUtils';
-import { formatCurrency } from '@waldur/core/formatCurrency';
-import { translate } from '@waldur/i18n';
+import { ENV } from '@/core/config';
+import { calculateMonthsDifference } from '@/core/dateUtils';
+import { formatCurrency } from '@/core/formatCurrency';
+import { translate } from '@/i18n';
 import {
   filterOfferingComponents,
   getFormLimitParser,
-} from '@waldur/marketplace/common/registry';
-import { getBillingPeriods } from '@waldur/marketplace/common/utils';
-import { orderFormSelector } from '@waldur/marketplace/deploy/selectors';
-import { Limits } from '@waldur/marketplace/details/types';
-import { parseOfferingLimits } from '@waldur/marketplace/offerings/store/limits';
-import { Plan } from '@waldur/marketplace/types';
+} from '@/marketplace/common/registry';
+import { getBillingPeriods } from '@/marketplace/common/utils';
+import { useOrderFormData } from '@/marketplace/deploy/selectors';
+import { Limits } from '@/marketplace/details/types';
+import { parseOfferingLimits } from '@/marketplace/offerings/store/limits';
+import {
+  evaluateTiers,
+  parseFormulaToTiers,
+} from '@/marketplace/offerings/update/plans/discountFormula';
 
 import { Component, PricesData } from './types';
 
@@ -22,8 +31,9 @@ export const combinePrices = (
   plan: BasePublicPlan,
   limits: Limits,
   usages: Limits,
-  offering: PublicOfferingDetails,
+  offering: Pick<PublicOfferingDetails, 'type' | 'components'>,
   end_date?: string,
+  start_date?: string,
 ): PricesData => {
   if (plan && offering) {
     const { periods, multipliers, periodKeys } = getBillingPeriods(plan.unit);
@@ -31,13 +41,15 @@ export const combinePrices = (
     const offeringComponents = filterOfferingComponents(offering);
 
     // Calculate the duration multiplier based on the end_date
+    const effectiveStartDate = start_date || DateTime.now().toISODate();
     const durationInMonths = calculateMonthsDifference(
-      DateTime.now().toISODate(),
+      effectiveStartDate,
       end_date,
     );
 
     const components: Component[] = offeringComponents.map((component) => {
       let amount = 0;
+      let displayAmount: number | undefined;
       if (
         component.billing_type === 'limit' &&
         limits &&
@@ -63,25 +75,91 @@ export const combinePrices = (
         // If the one-time component is prepaid, take its value from limits.
         if (component.is_prepaid && limits && limits[component.type]) {
           amount = limits[component.type];
+          displayAmount = amount;
           if (durationInMonths) {
             amount *= durationInMonths;
           }
         } else {
-          // Otherwise, preserve the existing logic for non-prepaid one-time components.
-          amount = 1;
+          // For non-prepaid one-time components, use plan quotas if available.
+          // Use != null to properly handle quota value of 0
+          amount =
+            plan.quotas && plan.quotas[component.type] != null
+              ? plan.quotas[component.type]
+              : 1;
         }
       }
-      const price = plan.prices[component.type] || 0;
-      const subTotal = price * amount;
+      // A limit component carries no plan-side quantity: the customer picks it
+      // when ordering. Without any limits behind the plan (public offering
+      // pricing) `amount` falls back to 0, which is not an included quantity.
+      // A limits object that merely omits this component is a placed order that
+      // requested none of it, so only a wholly absent one counts as unknown.
+      const quantityUnknown = component.billing_type === 'limit' && !limits;
+
+      const price = Number(plan.prices[component.type]) || 0;
+      // The price from the plan component is always per billing unit
+      // (per the plan's unit field: hour, day, month, etc.).
+      // The limit_period only defines how limits are evaluated/reset,
+      // not how prices are denominated.
+      const rawSubTotal = price * amount;
+
+      // Volume discounts are configured per plan component. A discount can be
+      // previewed live only when its scope is per-resource (otherwise it
+      // depends on the customer's other resources) and its billed quantity is
+      // known at order time (every billing type except usage-based, which is
+      // metered later) and its formula is tier-shaped (client-evaluable).
+      // Every other case is applied at invoice finalization.
+      const planComponent = plan.components?.find(
+        (pc) => pc.type === component.type,
+      );
+      const discountFormula = (planComponent?.discount_formula || '').trim();
+
+      let discountApplied = false;
+      let discountAmount = 0;
+      let discountPercent = 0;
+      let discountDeferred = false;
+
+      if (discountFormula) {
+        const tiers = parseFormulaToTiers(discountFormula);
+        const previewable =
+          planComponent?.discount_aggregation === 'resource' &&
+          component.billing_type !== 'usage' &&
+          tiers !== null &&
+          tiers.length > 0;
+        if (previewable) {
+          // The tier threshold is expressed in component units (e.g. TB), so
+          // evaluate it on the raw entered volume — for prepaid components
+          // `amount` is already duration-multiplied and would cross the tier
+          // regardless of the actual volume. The resulting percentage still
+          // applies to the whole (duration-multiplied) charge.
+          const percent = evaluateTiers(tiers, displayAmount ?? amount);
+          if (percent > 0) {
+            discountApplied = true;
+            discountPercent = percent;
+            discountAmount = (rawSubTotal * percent) / 100;
+          }
+        } else {
+          discountDeferred = true;
+        }
+      }
+
+      const subTotal = rawSubTotal - discountAmount;
       const prices = multipliers.map((mult) => mult * subTotal);
+
       return {
         ...component,
         amount,
+        quantityUnknown,
+        displayAmount,
+        durationInMonths: displayAmount != null ? durationInMonths : undefined,
         prices,
         subTotal,
         price,
         min_value: offeringLimits[component.type].min,
         max_value: offeringLimits[component.type].max,
+        discountApplied,
+        discountAmount,
+        discountPercent,
+        discountDeferred,
       };
     });
     const fixedComponents = components.filter(
@@ -139,12 +217,15 @@ const calculateTotalPeriods = (components: Component[]) => {
   }, []);
 };
 
+export const LIMIT_PERIODS: LimitPeriodEnum[] = [
+  'month',
+  'quarterly',
+  'annual',
+];
+
 export const useComponentsDetailPrices = (prices: PricesData) => {
   const fixedRows = prices.components.filter(
     (component) => component.billing_type === 'fixed',
-  );
-  const usageRows = prices.components.filter(
-    (component) => component.billing_type === 'usage',
   );
   const initialRows = prices.components.filter(
     (component) =>
@@ -153,6 +234,19 @@ export const useComponentsDetailPrices = (prices: PricesData) => {
   const prepaidRows = prices.components.filter(
     (component) =>
       component.billing_type === 'one' && component.is_prepaid == true,
+  );
+
+  // Identify usage components that serve as overage for prepaid components
+  const overageTypes = new Set(
+    prepaidRows.map((c) => c.overage_component).filter(Boolean),
+  );
+  const overageRows = prices.components.filter(
+    (component) =>
+      component.billing_type === 'usage' && overageTypes.has(component.type),
+  );
+  const usageRows = prices.components.filter(
+    (component) =>
+      component.billing_type === 'usage' && !overageTypes.has(component.type),
   );
   const switchRows = prices.components.filter(
     (component) => component.billing_type === 'few',
@@ -166,6 +260,33 @@ export const useComponentsDetailPrices = (prices: PricesData) => {
   );
   const periodicLimitedRows = limitedRows.filter(
     (component) => component.limit_period && component.limit_period !== 'total',
+  );
+
+  const periodicLimitedRowsByPeriod = useMemo<
+    Record<
+      LimitPeriodEnum,
+      { rows: Component[]; totalPeriods: number[]; total: number }
+    >
+  >(
+    () =>
+      LIMIT_PERIODS.reduce(
+        (acc, per) => {
+          const rows = periodicLimitedRows.filter(
+            (component) => component.limit_period === per,
+          );
+          acc[per] = {
+            rows: rows,
+            totalPeriods: calculateTotalPeriods(rows),
+            total: Number(sumBy(rows, 'subTotal').toFixed(2)),
+          };
+          return acc;
+        },
+        {} as Record<
+          LimitPeriodEnum,
+          { rows: Component[]; totalPeriods: number[]; total: number }
+        >,
+      ),
+    [periodicLimitedRows],
   );
 
   const fixedTotalPeriods = useMemo(
@@ -194,13 +315,24 @@ export const useComponentsDetailPrices = (prices: PricesData) => {
     [totalLimitedRows],
   );
 
-  const periodicTotal: number[] = useMemo(
+  const periodicTotalPeriods: number[] = useMemo(
     () =>
       prices.periods.map(
         (_, i) =>
           (fixedTotalPeriods[i] || 0) + (periodicLimitedTotalPeriods[i] || 0),
       ),
     [fixedTotalPeriods, periodicLimitedTotalPeriods],
+  );
+
+  const periodicTotal: number = useMemo(
+    () =>
+      Number(
+        sumBy(
+          (fixedRows || []).concat(periodicLimitedRows || []),
+          'subTotal',
+        ).toFixed(2),
+      ),
+    [fixedRows, periodicLimitedRows],
   );
 
   const oneTimeTotal: number = useMemo(
@@ -228,14 +360,22 @@ export const useComponentsDetailPrices = (prices: PricesData) => {
       fixedRows,
       fixedTotalPeriods,
       usageRows,
-      periodicLimitedRows,
-      periodicLimitedTotalPeriods,
-      periodicTotal,
+      limitedRows: periodicLimitedRows,
+      limitedRowsByPeriod: periodicLimitedRowsByPeriod,
+      limitedTotalPeriods: periodicLimitedTotalPeriods,
+      totalPeriods: periodicTotalPeriods,
+      total: periodicTotal,
+      /** Consider the fixed and usage based components on a monthly basis for now. */
+      hasMonthlyCost:
+        periodicLimitedRowsByPeriod['month'].rows.length > 0 ||
+        fixedRows.length > 0 ||
+        usageRows.length > 0,
     },
     oneTime: {
       hasOneTimeCost,
       initialRows,
       prepaidRows,
+      overageRows,
       switchRows,
       totalLimitedRows,
       initialTotalPeriods,
@@ -247,47 +387,72 @@ export const useComponentsDetailPrices = (prices: PricesData) => {
   };
 };
 
-const getPlan = (state, props) => {
-  if (props.viewMode && props.order) {
-    if (props.order.plan_uuid) {
-      if (props.type && props.type === 'old') {
-        return props.offering.plans.find(
-          (plan) => plan.uuid === props.order.old_plan_uuid,
+interface OrderPricesProps {
+  offering: Pick<PublicOfferingDetails, 'type' | 'components' | 'plans'>;
+  plan?: any;
+  limits?: any;
+  order?: any;
+  viewMode?: boolean;
+  type?: string;
+  /**
+   * Length of a prepaid subscription named in months rather than by an end
+   * date, for the surfaces that have no start date to hang one on (see
+   * PrepaidMonthsMode).
+   */
+  prepaidDurationMonths?: number;
+}
+
+// Prices track the form values (plan/limits/dates). Requires a surrounding
+// <Form> — useOrderFormData reads it via useFormState. In read-only viewMode
+// the caller supplies an inert Form (see TabbedPlanComponents), so formData is
+// empty and prices fall back to the passed plan/limits.
+export const useOrderPrices = (props: OrderPricesProps): PricesData =>
+  usePricesFromFormData(props, useOrderFormData());
+
+const usePricesFromFormData = (
+  props: OrderPricesProps,
+  formData: any,
+): PricesData => {
+  const plan: Plan = useMemo(() => {
+    if (props.viewMode && props.order) {
+      if (props.order.plan_uuid) {
+        if (props.type && props.type === 'old') {
+          return props.offering.plans?.find(
+            (plan) => plan.uuid === props.order.old_plan_uuid,
+          );
+        }
+        return props.offering.plans?.find(
+          (plan) => plan.uuid === props.order.plan_uuid,
         );
+      } else {
+        return props.offering.plans?.[0];
       }
-      return props.offering.plans.find(
-        (plan) => plan.uuid === props.order.plan_uuid,
-      );
-    } else {
-      return props.offering.plans[0];
     }
-  } else {
-    return orderFormSelector(state, 'plan');
-  }
-};
+    return formData?.plan || props.plan;
+  }, [props, formData]);
 
-const getLimits = (state, props) => {
-  const limitParser = getFormLimitParser(props.offering.type);
-  if (props.viewMode && props.order) {
-    return limitParser(props.order.limits);
-  } else {
-    return orderFormSelector(state, 'limits');
-  }
-};
+  const limits: Limits = useMemo(() => {
+    const limitParser = getFormLimitParser(props.offering.type);
+    if (props.viewMode && props.order) {
+      // An order always answers the question, even when it requested no limits
+      // at all — normalise so its plan never reads as "chosen at order time".
+      return limitParser(props.order.limits) || {};
+    }
+    return formData?.limits || props.limits;
+  }, [props, formData]);
 
-export const getEndDate = (state) => {
-  return orderFormSelector(state, 'attributes.end_date');
-};
+  const startDate = formData?.start_date;
+  // combinePrices takes dates; the month it lands in is irrelevant.
+  const endDate = props.prepaidDurationMonths
+    ? DateTime.fromISO(startDate || DateTime.now().toISODate())
+        .plus({ months: props.prepaidDurationMonths })
+        .toISODate()
+    : formData?.attributes?.end_date;
 
-export const getStartDate = (state) => {
-  return orderFormSelector(state, 'start_date');
-};
-
-export const pricesSelector = (state, props): PricesData => {
-  const plan: Plan = getPlan(state, props) || props.plan;
-  const limits: Limits = getLimits(state, props) || props.limits;
-  const endDate = getEndDate(state);
-  return combinePrices(plan, limits, {}, props.offering, endDate);
+  return useMemo(
+    () => combinePrices(plan, limits, {}, props.offering, endDate, startDate),
+    [plan, limits, props.offering, endDate, startDate],
+  );
 };
 
 interface CostParts {
@@ -304,6 +469,7 @@ interface CostParts {
 export const getPrepaidCostParts = (
   component: Component,
   endDate: string,
+  startDate?: string,
 ): CostParts => {
   const currency = ENV.plugins.WALDUR_CORE.CURRENCY_NAME;
   const formattedTotal = formatCurrency(component.subTotal, currency, 4);
@@ -316,14 +482,19 @@ export const getPrepaidCostParts = (
     };
   }
 
-  const durationInMonths = calculateMonthsDifference(
-    DateTime.now().toISODate(),
-    endDate,
-  );
+  const effectiveStartDate = startDate || DateTime.now().toISODate();
+  // The component carries the duration it was priced with — the only figure
+  // available where the period is a length (see PrepaidMonthsMode).
+  const durationInMonths =
+    component.durationInMonths ??
+    calculateMonthsDifference(effectiveStartDate, endDate);
 
   // The component.amount is the total for the whole period.
   // We need the base amount per month for the details string.
-  const baseAmount = component.amount / durationInMonths;
+  const baseAmount =
+    durationInMonths > 0
+      ? component.amount / durationInMonths
+      : component.amount;
 
   const formattedPrice = formatCurrency(component.price, currency, 4);
   const calculationBase = `(${baseAmount} ${component.measured_unit} × ${formattedPrice})`;

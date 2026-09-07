@@ -1,90 +1,88 @@
-import { Field } from 'redux-form';
-
 import {
-  FormGroup,
-  NumberField,
-  SecretField,
-  StringField,
-  TextField,
-} from '@waldur/form';
-import { AwesomeCheckboxField } from '@waldur/form/AwesomeCheckboxField';
-import { EmailField } from '@waldur/form/EmailField';
-import { SettingsDescription } from '@waldur/SettingsDescription';
+  BooleanGroup,
+  EmailGroup,
+  NumberGroup,
+  SecretGroup,
+  StringGroup,
+  TextGroup,
+} from '@/form';
+import { SettingsDescription } from '@/SettingsDescription';
 
 import { getKeyTitle } from '../settings/utils';
 
-const FieldRow = ({ field, ...rest }) =>
-  field.type === 'string' ? (
-    <StringField {...rest} />
-  ) : field.type === 'boolean' ? (
-    <AwesomeCheckboxField
-      label={getKeyTitle(field.key)}
-      hideLabel
-      className="mt-3"
-      {...rest}
-    />
-  ) : field.type === 'email_field' ? (
-    <EmailField {...rest} />
-  ) : field.type === 'text_field' ? (
-    <TextField {...rest} />
-  ) : field.type === 'integer' ? (
-    <NumberField {...rest} />
-  ) : field.type === 'secret_field' ? (
-    <SecretField {...rest} />
-  ) : field.type === 'dict_field' ? (
-    <TextField rows={5} {...rest} />
-  ) : (
-    <StringField {...rest} />
-  );
+const getFieldComponent = (fieldType: string) => {
+  switch (fieldType) {
+    case 'string':
+      return StringGroup;
+    case 'boolean':
+      return BooleanGroup;
+    case 'email_field':
+      return EmailGroup;
+    case 'text_field':
+      return TextGroup;
+    case 'integer':
+      return NumberGroup;
+    case 'secret_field':
+      return SecretGroup;
+    case 'dict_field':
+      return TextGroup;
+    default:
+      return StringGroup;
+  }
+};
+
+const formatDictField = (value) => {
+  if (!value) return '';
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return '';
+    }
+  }
+  return value;
+};
+
+const parseDictField = (value) => {
+  if (!value || !value.trim()) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
 
 export const SupportSettingsForm = ({ name }) => {
-  const fields = SettingsDescription.find((group) =>
-    group.description.toLowerCase().includes(name),
-  ).items;
+  const fields =
+    SettingsDescription.find((group) =>
+      group.description.toLowerCase().includes(name),
+    )?.items || [];
+
   return (
     <>
-      {fields.map((field) => (
-        <Field
-          component={FormGroup}
-          name={field.key}
-          key={field.key}
-          label={
-            field.type !== 'boolean' &&
-            (field.description.length < 75
-              ? field.description
-              : getKeyTitle(field.key))
-          }
-          format={
-            field.type === 'dict_field'
-              ? (value) => {
-                  if (!value) return '';
-                  if (typeof value === 'object') {
-                    try {
-                      return JSON.stringify(value, null, 2);
-                    } catch {
-                      return '';
-                    }
-                  }
-                  return value;
-                }
-              : undefined
-          }
-          parse={
-            field.type === 'dict_field'
-              ? (value) => {
-                  if (!value || !value.trim()) return null;
-                  try {
-                    return JSON.parse(value);
-                  } catch {
-                    return value;
-                  }
-                }
-              : undefined
-          }
-        >
-          <FieldRow field={field} />
-        </Field>
-      ))}
+      {fields.map((field) => {
+        const FieldComponent = getFieldComponent(field.type);
+        const isBoolean = field.type === 'boolean';
+        const isDictField = field.type === 'dict_field';
+
+        return (
+          <FieldComponent
+            key={field.key}
+            name={field.key}
+            label={
+              isBoolean
+                ? getKeyTitle(field.key)
+                : field.description.length < 75
+                  ? field.description
+                  : getKeyTitle(field.key)
+            }
+            format={isDictField ? formatDictField : undefined}
+            parse={isDictField ? parseDictField : undefined}
+            {...(isBoolean ? { className: 'mt-3' } : {})}
+            {...(isDictField ? { rows: 5 } : {})}
+          />
+        );
+      })}
     </>
   );
 };

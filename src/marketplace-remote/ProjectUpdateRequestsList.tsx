@@ -1,35 +1,48 @@
-import { FunctionComponent } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
+import { FunctionComponent, useMemo } from 'react';
 import { marketplaceProjectUpdateRequestsList } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { useTitle } from '@waldur/navigation/title';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { getProject } from '@waldur/workspace/selectors';
+import { formatDateTime } from '@/core/dateUtils';
+import { translate } from '@/i18n';
+import { Option } from '@/marketplace/common/registry';
+import { useTitle } from '@/navigation/title';
+import { createFetcher } from '@/table/api';
+import {
+  MarketplaceProjectUpdateRequestsFilter as ProjectUpdateRequestListFilter,
+  selectMarketplaceProjectUpdateRequestsFilter as selectProjectUpdateRequestListFilter,
+  MarketplaceProjectUpdateRequestsFilterFormId,
+} from '@/table/generated/MarketplaceProjectUpdateRequestsFilter';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
+import { useProject } from '@/workspace/hooks';
 
 import { ProjectUpdateRequestExpandable } from './ProjectUpdateRequestExpandable';
-import { ProjectUpdateRequestListFilter } from './ProjectUpdateRequestListFilter';
-import { getStates } from './RequestStateFilter';
 
-const mapStateToFilter = createSelector(
-  getProject,
-  getFormValues('ProjectUpdateRequestListFilter'),
-  (project, filterValues: any) => ({
-    project_uuid: project.uuid,
-    state: filterValues?.state?.map((choice) => choice.value),
-  }),
-);
+const getStates = (): Option[] => [
+  { value: 'pending', label: translate('Pending') },
+  { value: 'approved', label: translate('Approved') },
+  { value: 'rejected', label: translate('Rejected') },
+  { value: 'canceled', label: translate('Canceled') },
+];
 
 export const ProjectUpdateRequestsList: FunctionComponent = () => {
   useTitle(translate('Project updates'));
-  const filter = useSelector(mapStateToFilter);
+  const values = useFilterValues('marketplace-project-update-requests');
+
+  const filterState = useMemo(
+    () => selectProjectUpdateRequestListFilter(values),
+    [values],
+  );
+
+  const project = useProject();
+  const filter = {
+    ...filterState,
+    project_uuid: project.uuid,
+  };
   const props = useTable({
     table: 'marketplace-project-update-requests',
+    syncFiltersToURL: true,
     fetchData: createFetcher(marketplaceProjectUpdateRequestsList),
     filter,
   });
@@ -60,12 +73,13 @@ export const ProjectUpdateRequestsList: FunctionComponent = () => {
         },
         {
           title: translate('Reviewed by'),
-          render: ({ row }) => row.reviewed_by_full_name || 'N/A',
+          render: ({ row }) => renderFieldOrDash(row.reviewed_by_full_name),
         },
       ]}
       expandableRow={ProjectUpdateRequestExpandable}
       verboseName={translate('requests')}
       filters={<ProjectUpdateRequestListFilter />}
+      formId={MarketplaceProjectUpdateRequestsFilterFormId}
     />
   );
 };

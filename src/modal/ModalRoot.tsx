@@ -1,46 +1,50 @@
 import { ErrorBoundary } from '@sentry/react';
 import React, { FunctionComponent } from 'react';
 import { Modal } from 'react-bootstrap';
-import { useSelector, useDispatch } from 'react-redux';
-import { isDirty } from 'redux-form';
 
-import { ErrorMessage } from '@waldur/ErrorMessage';
-import { translate } from '@waldur/i18n';
-import { type RootState } from '@waldur/store/reducers';
-
-import { closeModalDialog } from './actions';
+import { DirtyFormContext } from '@/core/DirtyFormContext';
+import { ErrorMessage } from '@/ErrorMessage';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
 
 import './ModalRoot.css';
 
-interface TState {
-  modalComponent: React.ComponentType | string;
-  modalProps: any;
-}
-
 export const ModalRoot: FunctionComponent = () => {
-  const { modalComponent, modalProps } = useSelector<{ modal: TState }, TState>(
-    (state: RootState) => state.modal,
-  );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { formId, modalStyle, resolve, initialValues, ...rest } =
-    modalProps || {};
+  const { modalComponent, modalProps, closeDialog, confirm } = useModal();
+  const {
+    formId: _formId,
+    modalStyle,
+    // Filter out custom props that shouldn't be passed to Modal DOM element
+    resolve: _resolve,
+    initialValues: _initialValues,
+    roleTypes: _roleTypes,
+    refetch: _refetch,
+    change: _change,
+    ...rest
+  } = modalProps || {};
 
-  const dispatch = useDispatch();
-  const isDirtyForm = useSelector((state: RootState) =>
-    formId ? isDirty(formId)(state) : false,
-  );
-  const onHide = () => {
-    if (
-      isDirtyForm &&
-      !confirm(
-        translate(
-          'You have entered data in form. When dialog is closed form data would be lost.',
-        ),
-      )
-    ) {
-      return;
+  const [isDirtyContext, setIsDirtyContext] = React.useState(false);
+  const isDirtyForm = isDirtyContext;
+  const onHide = async () => {
+    if (isDirtyForm) {
+      try {
+        await confirm(
+          translate('Closing dialog'),
+          translate(
+            'You have entered data in form. When dialog is closed form data would be lost.',
+          ),
+          {
+            size: 'sm',
+            positiveButton: translate('OK'),
+            negativeButton: translate('Cancel'),
+            positiveButtonVariant: 'warning',
+          },
+        );
+      } catch {
+        return;
+      }
     }
-    dispatch(closeModalDialog());
+    closeDialog();
   };
   return (
     <Modal
@@ -53,12 +57,14 @@ export const ModalRoot: FunctionComponent = () => {
       {...rest}
     >
       <ErrorBoundary fallback={ErrorMessage}>
-        {modalComponent
-          ? React.createElement(modalComponent, {
-              ...modalProps,
-              close: onHide,
-            })
-          : null}
+        <DirtyFormContext.Provider value={{ setIsDirty: setIsDirtyContext }}>
+          {modalComponent
+            ? React.createElement(modalComponent, {
+                ...modalProps,
+                close: onHide,
+              })
+            : null}
+        </DirtyFormContext.Provider>
       </ErrorBoundary>
     </Modal>
   );

@@ -1,51 +1,46 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useState } from 'react';
 
-import { getIdentityProviders } from '@waldur/administration/api';
-import { getIconUrl } from '@waldur/core/api';
-import { ENV } from '@waldur/core/config';
-import { getQueryParams } from '@waldur/core/filters';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { LanguageSelectorBox } from '@waldur/i18n/LanguageSelectorBox';
-import { FooterLinks } from '@waldur/navigation/FooterLinks';
-import { JoinOrganizationFooterLink } from '@waldur/navigation/JoinOrganizationFooterLink';
+import { getIdentityProviders } from '@/administration/api';
+import { getIconUrl } from '@/core/api';
+import { ENV } from '@/core/config';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { LanguageSelectorBox } from '@/i18n/LanguageSelectorBox';
+import { LanguageUtilsService } from '@/i18n/LanguageUtilsService';
+import { FooterLinks } from '@/navigation/footer/FooterLinks';
+import { ThemeSwitcherButton } from '@/theme/ThemeSwitcher';
 
 import { AuthHeader } from './AuthHeader';
 import { IdentityProviderSelector } from './IdentityProviderSelector';
-import { LocalLogin } from './LocalLogin';
+import { LocalLoginButton, LocalLoginForm } from './LocalLogin';
 import { PoweredBy } from './PoweredBy';
 import { useAuthFeatures } from './useAuthFeatures';
-import { useThemeFeatures } from '@waldur/theme/useThemeFeatures';
 import { UserAuthWarning } from './UserAuthWarning';
-import { getOauthURL } from './utils';
 
 import './LoginColumn.scss';
 
+type LoginView = 'providers' | 'local-login';
+
 export const LoginColumn = () => {
   const features = useAuthFeatures();
-  const themeFeatures = useThemeFeatures();
-  const imageUrl = getIconUrl('login_logo');
+  const currentLanguage = LanguageUtilsService.getCurrentLanguage();
+  const imageUrl = getIconUrl('login_logo', currentLanguage?.code);
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['IdentityProvidersConfigurations'],
     queryFn: () => getIdentityProviders(),
   });
-  const params = getQueryParams();
+  const [view, setView] = useState<LoginView>('providers');
 
-  useEffect(() => {
-    if (params['disableAutoLogin'] === '') {
-      return;
-    }
-    const provider = ENV.plugins.WALDUR_CORE.DEFAULT_IDP;
-    if (!provider) {
-      return;
-    }
-    window.location.href = getOauthURL(provider);
-  }, [params]);
+  const hasOtherProviders = data && data.length > 0;
 
   return (
     <div className="login-column">
+      <div className="login-header">
+        <LanguageSelectorBox />
+        <ThemeSwitcherButton />
+      </div>
       <div className="login-body">
         <div className="login-grid-item-container">
           <div className="login-logo mb-2">
@@ -55,37 +50,40 @@ export const LoginColumn = () => {
               style={{ maxWidth: '100%' }}
             />
           </div>
-          {themeFeatures.ShowLoginAuthHeader ? (
-            <AuthHeader />
-          ) : null}
-          {isLoading ? (
-            <LoadingSpinner />
-          ) : error ? (
-            <LoadingErred
-              message={translate('Unable to load identity providers.')}
-              loadData={refetch}
+          <AuthHeader />
+          {view === 'providers' ? (
+            <>
+              {isLoading ? (
+                <LoadingSpinner />
+              ) : error ? (
+                <LoadingErred
+                  message={translate('Unable to load identity providers.')}
+                  loadData={refetch}
+                />
+              ) : data ? (
+                <IdentityProviderSelector
+                  features={features}
+                  providers={data}
+                />
+              ) : null}
+              {features.SigninForm && (
+                <LocalLoginButton onClick={() => setView('local-login')} />
+              )}
+            </>
+          ) : (
+            <LocalLoginForm
+              onBack={
+                hasOtherProviders ? () => setView('providers') : undefined
+              }
             />
-          ) : data ? (
-            <IdentityProviderSelector features={features} providers={data} />
-          ) : null}
-          {(features.SigninForm && themeFeatures.ShowLocalSigninForm) && (
-            <LocalLogin enableSeperator={features.enableSeperator} />
           )}
           <UserAuthWarning />
           <PoweredBy />
         </div>
       </div>
-      {themeFeatures.ShowLoginFooter ? (
-        <div className="login-footer footer-top">
-          <LanguageSelectorBox />
-          <ul className="menu menu-brand justify-content-end icon-align">
-            <JoinOrganizationFooterLink loginPage />
-          </ul>
-        </div>) : null}
-      {themeFeatures.ShowLoginFooter ? (
-        <div className="login-footer">
-          <FooterLinks />
-        </div>) : null}
+      <div className="login-footer">
+        <FooterLinks />
+      </div>
     </div>
   );
 };

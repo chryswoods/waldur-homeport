@@ -1,12 +1,20 @@
 import { UIView } from '@uirouter/react';
 import { useMemo } from 'react';
-import { useSelector } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { PageBarTab } from '@waldur/navigation/types';
-import { usePageTabsTransmitter } from '@waldur/navigation/usePageTabsTransmitter';
-import { getProject } from '@waldur/workspace/selectors';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import {
+  hasActiveMatrixRoom,
+  useProjectMatrixRooms,
+} from '@/matrix/chat/useProjectMatrixRooms';
+import { isMatrixChatEnabled } from '@/matrix/utils';
+import { PageBarTab } from '@/navigation/types';
+import { usePageTabsTransmitter } from '@/navigation/usePageTabsTransmitter';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { useUser, useProject } from '@/workspace/hooks';
+
+import { useProjectPosixGroups } from './manage/useProjectPosixGroups';
 
 const ProjectGeneral = lazyComponent(() =>
   import('./manage/ProjectGeneral').then((module) => ({
@@ -18,9 +26,19 @@ const ProjectMetadata = lazyComponent(() =>
     default: module.ProjectMetadata,
   })),
 );
+const ProjectMembershipRestrictions = lazyComponent(() =>
+  import('./manage/ProjectMembershipRestrictions').then((module) => ({
+    default: module.ProjectMembershipRestrictions,
+  })),
+);
 const ProjectCredit = lazyComponent(() =>
   import('./manage/ProjectCredit').then((module) => ({
     default: module.ProjectCredit,
+  })),
+);
+const ProjectOrderAutoApproval = lazyComponent(() =>
+  import('./manage/ProjectOrderAutoApproval').then((module) => ({
+    default: module.ProjectOrderAutoApproval,
   })),
 );
 const ProjectDelete = lazyComponent(() =>
@@ -28,9 +46,42 @@ const ProjectDelete = lazyComponent(() =>
     default: module.ProjectDelete,
   })),
 );
+const ProjectMatrixChat = lazyComponent(() =>
+  import('./manage/ProjectMatrixChat').then((module) => ({
+    default: module.ProjectMatrixChat,
+  })),
+);
+const ProjectEndDateChangeRequests = lazyComponent(() =>
+  import('./manage/ProjectEndDateChangeRequests').then((module) => ({
+    default: module.ProjectEndDateChangeRequests,
+  })),
+);
+const ProjectPosixGroups = lazyComponent(() =>
+  import('./manage/ProjectPosixGroups').then((module) => ({
+    default: module.ProjectPosixGroups,
+  })),
+);
 
 export const ProjectManageContainer = () => {
-  const project = useSelector(getProject);
+  const project = useProject();
+  const user = useUser();
+  const { data: rooms } = useProjectMatrixRooms(project?.uuid);
+  const hasActiveRoom = hasActiveMatrixRoom(rooms);
+  const { data: posixGroups } = useProjectPosixGroups(project?.uuid);
+  const hasPosixGroups = Boolean(posixGroups?.length);
+
+  const canSeeOrderApproval = useMemo(() => {
+    if (!project) return false;
+    return (
+      user.is_staff ||
+      user.is_support ||
+      hasPermission(user, {
+        permission: PermissionEnum.APPROVE_ORDER,
+        projectId: project.uuid,
+        customerId: project.customer_uuid,
+      })
+    );
+  }, [user, project]);
 
   const tabs = useMemo<PageBarTab[]>(
     () =>
@@ -45,18 +96,50 @@ export const ProjectManageContainer = () => {
           component: ProjectMetadata,
           title: translate('Metadata'),
         },
+        {
+          key: 'membership-restrictions',
+          component: ProjectMembershipRestrictions,
+          title: translate('Membership restrictions'),
+        },
         (project.project_credit || project.project_credit === 0) && {
           key: 'credit',
           component: ProjectCredit,
           title: translate('Credit management'),
         },
+        canSeeOrderApproval && {
+          key: 'order-approval',
+          component: ProjectOrderAutoApproval,
+          title: translate('Order approval'),
+        },
+        !project?.is_removed && {
+          key: 'end-date-change-requests',
+          component: ProjectEndDateChangeRequests,
+          title: translate('End date change requests'),
+        },
+        hasPosixGroups && {
+          key: 'posix-identities',
+          component: ProjectPosixGroups,
+          title: translate('POSIX identities'),
+        },
+        isMatrixChatEnabled() &&
+          (user.is_staff || hasActiveRoom) && {
+            key: 'chat',
+            component: ProjectMatrixChat,
+            title: translate('Chat'),
+          },
         !project?.is_removed && {
           key: 'remove',
           component: ProjectDelete,
           title: translate('Remove'),
         },
       ].filter(Boolean),
-    [project],
+    [
+      project,
+      canSeeOrderApproval,
+      user.is_staff,
+      hasActiveRoom,
+      hasPosixGroups,
+    ],
   );
   const { tabSpec } = usePageTabsTransmitter(tabs);
 

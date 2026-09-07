@@ -2,16 +2,15 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from '@uirouter/react';
 import { useCallback } from 'react';
 import { Card, Col, Form, Row, Stack } from 'react-bootstrap';
-import { useAsync } from 'react-use';
 import { usersList, versionRetrieve } from 'waldur-js-client';
 
-import { getIconUrl, parseSelectData } from '@waldur/core/api';
-import { ENV } from '@waldur/core/config';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { SymbolsGroup } from '@waldur/customer/dashboard/SymbolsGroup';
-import { DashboardHeroLogo } from '@waldur/dashboard/hero/DashboardHeroLogo';
-import { translate } from '@waldur/i18n';
-import { getRoleFilterOptions } from '@waldur/user/support/utils';
+import { getIconUrl, parseSelectData } from '@/core/api';
+import { ENV } from '@/core/config';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { SymbolsGroup } from '@/customer/dashboard/SymbolsGroup';
+import { DashboardHeroLogo } from '@/dashboard/hero/DashboardHeroLogo';
+import { translate } from '@/i18n';
+import { getRoleFilterOptions } from '@/user/support/utils';
 
 interface AdministrationProfileProps {
   healthy?: boolean;
@@ -35,12 +34,14 @@ export const AdministrationProfile = ({
       // Health check is still loading
       return {
         label: translate('Checking...'),
-        className: 'bg-warning',
+        className: 'border border-warning text-warning',
       };
     }
     return {
       label: healthy ? translate('Healthy') : translate('Error'),
-      className: healthy ? 'bg-success' : 'bg-danger',
+      className: healthy
+        ? 'border border-success text-success'
+        : 'border border-danger text-danger',
     };
   };
 
@@ -52,21 +53,28 @@ export const AdministrationProfile = ({
     staleTime: Infinity,
   });
 
-  const { value, loading } = useAsync(() => {
-    const promises = [
-      !supportOnly &&
-        usersList({ query: { page: 1, page_size: 6, is_staff: true } }).then(
+  const { data: value, isLoading: loading } = useQuery({
+    queryKey: ['AdministrationProfile'],
+
+    queryFn: () => {
+      const promises = [
+        !supportOnly &&
+          usersList({ query: { page: 1, page_size: 6, is_staff: true } }).then(
+            parseSelectData,
+          ),
+        usersList({ query: { page: 1, page_size: 6, is_support: true } }).then(
           parseSelectData,
         ),
-      usersList({ query: { page: 1, page_size: 6, is_support: true } }).then(
-        parseSelectData,
-      ),
-    ];
+      ];
 
-    return Promise.all(promises);
+      return Promise.all(promises);
+    },
   });
 
-  const [staff, supports] = value || [];
+  const [staff, supports] = value || [
+    { options: [], totalItems: 0 },
+    { options: [], totalItems: 0 },
+  ];
 
   const goToUsers = useCallback(
     (isStaff = false, isSupport = false) => {
@@ -84,7 +92,7 @@ export const AdministrationProfile = ({
         );
       if (role.length > 0)
         Object.assign(filter, { role: JSON.stringify(role) });
-      router.stateService.go('admin-user-users', filter);
+      router.stateService.go('support-users', filter);
     },
     [router],
   );
@@ -100,7 +108,7 @@ export const AdministrationProfile = ({
               logoTopLabel={healthStatus.label}
               logoBottomLabel="Operator"
               logoTopClass={healthStatus.className}
-              logoBottomClass="bg-secondary"
+              logoBottomClass="bg-gray-400 text-white"
             />
           </Col>
           <Col>

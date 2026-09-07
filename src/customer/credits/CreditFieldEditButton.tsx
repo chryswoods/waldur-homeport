@@ -1,8 +1,6 @@
-import { useDispatch } from 'react-redux';
-
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { EditButton } from '@waldur/form/EditButton';
-import { openModalDialog } from '@waldur/modal/actions';
+import { lazyComponent } from '@/core/lazyComponent';
+import { CompactEditButton } from '@/form/CompactEditButton';
+import { useModal } from '@/modal/actions';
 
 import { EditCustomerCreditProps } from '../details/types';
 
@@ -15,9 +13,9 @@ const EditCreditFieldDialog = lazyComponent(() =>
 export const CreditFieldEditButton = (
   props: EditCustomerCreditProps & { disabled? },
 ) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const callback = () => {
-    dispatch(openModalDialog(EditCreditFieldDialog, { resolve: props }));
+    openDialog(EditCreditFieldDialog, { resolve: props });
   };
-  return <EditButton onClick={callback} size="sm" disabled={props.disabled} />;
+  return <CompactEditButton onClick={callback} disabled={props.disabled} />;
 };

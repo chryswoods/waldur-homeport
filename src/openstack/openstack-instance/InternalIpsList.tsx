@@ -5,24 +5,36 @@ import {
 } from 'waldur-js-client';
 import { OpenStackNestedPort } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { ActionsDropdownComponent } from '@waldur/table/ActionsDropdown';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { translate } from '@/i18n';
+import { ActionsDropdownComponent } from '@/table/ActionsDropdown';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
 
 import { UpdateInternalIpsAction } from './actions/update-internal-ips/UpdateInternalIpsSetAction';
-import { SetAllowedAddressPairsButton } from './SetAllowedAddressPairsButton';
+import { SetAllowedAddressPairsAction } from './SetAllowedAddressPairsAction';
 import { formatAddressList } from './utils';
 
-const RowActions = ({ row, instance }) => (
+const RowActions = ({
+  row,
+  instance,
+  refetch,
+}: {
+  row: OpenStackNestedPort;
+  instance: OpenStackInstance;
+  refetch: () => void;
+}) => (
   <ActionsDropdownComponent>
-    <SetAllowedAddressPairsButton instance={instance} port={row} />
+    <SetAllowedAddressPairsAction
+      resource={row}
+      instance={instance}
+      refetch={refetch}
+    />
   </ActionsDropdownComponent>
 );
 
 export const InternalIpsList: FunctionComponent<{
   resourceScope: OpenStackInstance;
-  refetch;
+  refetch: () => void;
 }> = ({ resourceScope, refetch }) => {
   const fetchData = useCallback(
     () =>
@@ -63,7 +75,14 @@ export const InternalIpsList: FunctionComponent<{
       verboseName={translate('ports')}
       showPageSizeSelector
       rowActions={({ row }) => (
-        <RowActions row={row} instance={resourceScope} />
+        <RowActions
+          row={row}
+          instance={resourceScope}
+          refetch={() => {
+            refetch();
+            props.fetch();
+          }}
+        />
       )}
       tableActions={
         <UpdateInternalIpsAction

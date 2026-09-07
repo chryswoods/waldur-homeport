@@ -2,8 +2,8 @@ import { CaretDownIcon } from '@phosphor-icons/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { OverlayTrigger, Popover } from 'react-bootstrap';
 
-import { TruncatedText } from '@waldur/core/TruncatedText';
-import { IBreadcrumbItem } from '@waldur/navigation/types';
+import { MiddleTruncate } from '@/core/MiddleTruncate';
+import { IBreadcrumbItem } from '@/navigation/types';
 
 import { BreadcrumbItem } from './BreadcrumbItem';
 
@@ -31,7 +31,7 @@ export const DropdownBreadcrumbItem = ({ item }: { item: IBreadcrumbItem }) => {
   return (
     <OverlayTrigger
       trigger="click"
-      placement="bottom"
+      placement="bottom-start"
       show={show}
       overlay={
         <Popover
@@ -54,17 +54,24 @@ export const DropdownBreadcrumbItem = ({ item }: { item: IBreadcrumbItem }) => {
         ellipsis={item.ellipsis}
         active={item.active}
         onClick={() => setShow((v) => !v)}
+        className="cursor-pointer"
       >
-        {item.truncate && item.text.length > 4 ? (
-          <TruncatedText
-            text={item.text}
-            padding={item.hideDropdownArrow ? 25 : 50}
-          />
+        {item.active ? (
+          // The last/active breadcrumb (e.g. resource name) stays on one line
+          // and middle-truncates ("start…end") only when it doesn't fit, so the
+          // header actions stay on screen and the suffix stays readable.
+          <MiddleTruncate text={item.text} />
+        ) : item.truncate && item.text.length > 4 ? (
+          <span className="breadcrumb-text" title={item.text}>
+            {item.text}
+          </span>
         ) : (
           item.text
-        )}{' '}
+        )}
         {!item.hideDropdownArrow && (
-          <CaretDownIcon size={18} className="svg-icon" />
+          <span className="svg-icon svg-icon-4 svg-icon-gray-600 icon-align ms-8px">
+            <CaretDownIcon weight="bold" />
+          </span>
         )}
       </BreadcrumbItem>
     </OverlayTrigger>

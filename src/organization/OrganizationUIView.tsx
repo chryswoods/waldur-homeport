@@ -6,23 +6,23 @@ import {
 } from '@uirouter/react';
 import { FunctionComponent, useMemo } from 'react';
 import { Tab, Tabs } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
 
-import { CustomerProfile } from '@waldur/customer/dashboard/CustomerProfile';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { useBreadcrumbs, usePageHero } from '@waldur/navigation/context';
-import { IBreadcrumbItem } from '@waldur/navigation/types';
-import { isDescendantOf } from '@waldur/navigation/useTabs';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
+import { CustomerProfile } from '@/customer/dashboard/CustomerProfile';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { hasProviderRouting } from '@/issues/hooks';
+import { useBreadcrumbs, usePageHero } from '@/navigation/context';
+import { usePresetBreadcrumbItems } from '@/navigation/header/breadcrumb/utils';
+import { IBreadcrumbItem } from '@/navigation/types';
+import { isDescendantOf } from '@/navigation/useTabs';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { useUser, useCustomer } from '@/workspace/hooks';
 import {
   checkIsServiceManager,
-  getCustomer,
-  getUser,
-  isOwnerOrStaff as isOwnerOrStaffSelector,
-} from '@waldur/workspace/selectors';
+  checkIsOwnerOrStaff,
+} from '@/workspace/selectors';
 
 const getDashboardState = (state: StateDeclaration) => {
   if (state.name === 'organization-manage') {
@@ -33,6 +33,8 @@ const getDashboardState = (state: StateDeclaration) => {
     return 'call-management.dashboard';
   } else if (isDescendantOf('marketplace-provider', state)) {
     return 'marketplace-provider-dashboard';
+  } else if (isDescendantOf('provider-helpdesk', state)) {
+    return 'provider-helpdesk-overview';
   }
   return '';
 };
@@ -42,8 +44,8 @@ const PageHero = ({ customer }) => {
   const goTo = (state) =>
     router.stateService.go(state, { uuid: customer.uuid });
 
-  const user = useSelector(getUser);
-  const isOwnerOrStaff = useSelector(isOwnerOrStaffSelector);
+  const user = useUser();
+  const isOwnerOrStaff = checkIsOwnerOrStaff(customer, user);
 
   const showCallManagement =
     customer?.call_managing_organization_uuid &&
@@ -52,6 +54,17 @@ const PageHero = ({ customer }) => {
   const showServiceProvider =
     customer?.is_service_provider &&
     (checkIsServiceManager(customer, user) || isOwnerOrStaff);
+
+  // Helpdesk is a distinct support-agent domain; surface it as its own mode once
+  // a helpdesk is configured. Support-agent-only visibility (a support user with
+  // no org role) needs a backend membership flag and is a follow-up; for now
+  // owners/service-managers/staff/support see it.
+  const showHelpdesk =
+    hasProviderRouting() &&
+    customer?.has_active_helpdesk &&
+    (isOwnerOrStaff ||
+      checkIsServiceManager(customer, user) ||
+      user?.is_support);
 
   const canViewCustomerManagement =
     // Can update customer details
@@ -86,7 +99,10 @@ const PageHero = ({ customer }) => {
     user?.is_support;
 
   const showTabs =
-    showCallManagement || showServiceProvider || canViewCustomerManagement;
+    showCallManagement ||
+    showServiceProvider ||
+    showHelpdesk ||
+    canViewCustomerManagement;
 
   const dashboardState = getDashboardState(router.globals.current);
 
@@ -101,22 +117,36 @@ const PageHero = ({ customer }) => {
           <Tab
             eventKey="organization.dashboard"
             title={translate('Customer')}
+            data-testid="organization-tab-customer"
           />
 
           {showCallManagement && (
             <Tab
               eventKey="call-management.dashboard"
               title={translate('Call management')}
+              data-testid="organization-tab-call-management"
             />
           )}
           {showServiceProvider && (
             <Tab
               eventKey="marketplace-provider-dashboard"
               title={translate('Service provider')}
+              data-testid="organization-tab-service-provider"
+            />
+          )}
+          {showHelpdesk && (
+            <Tab
+              eventKey="provider-helpdesk-overview"
+              title={translate('Helpdesk')}
+              data-testid="organization-tab-helpdesk"
             />
           )}
           {canViewCustomerManagement && (
-            <Tab eventKey="organization-manage" title={translate('Edit')} />
+            <Tab
+              eventKey="organization-manage"
+              title={translate('Edit')}
+              data-testid="organization-tab-edit"
+            />
           )}
         </Tabs>
       )}
@@ -131,7 +161,7 @@ const PageHero = ({ customer }) => {
 };
 
 const WithHero = (props) => {
-  const customer = useSelector(getCustomer);
+  const customer = useCustomer();
 
   if (!customer) {
     return null;
@@ -139,13 +169,11 @@ const WithHero = (props) => {
 
   usePageHero(<PageHero customer={customer} />);
 
+  const { getOrganizationsBreadcrumbItem } = usePresetBreadcrumbItems();
+
   const breadcrumbItems = useMemo<IBreadcrumbItem[]>(
     () => [
-      {
-        key: 'organizations',
-        text: translate('Organizations'),
-        to: 'organizations',
-      },
+      getOrganizationsBreadcrumbItem(),
       {
         key: 'organization',
         text: customer?.name || '',

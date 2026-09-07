@@ -1,29 +1,17 @@
-import { useDispatch } from 'react-redux';
+import { EditModalButton } from '@/core/buttons';
+import { lazyComponent } from '@/core/lazyComponent';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { EditAction } from '@waldur/form/EditAction';
-import { openModalDialog } from '@waldur/modal/actions';
-
-const ProjectTemplateEditDialog = lazyComponent(() =>
-  import('./ProjectTemplateEditDialog').then((module) => ({
-    default: module.ProjectTemplateEditDialog,
+const ProjectTemplateDialog = lazyComponent(() =>
+  import('./ProjectTemplateDialog').then((module) => ({
+    default: module.ProjectTemplateDialog,
   })),
 );
 
-export const ProjectTemplateEditButton = ({ row, refetch }) => {
-  const dispatch = useDispatch();
-  const callback = () =>
-    dispatch(
-      openModalDialog(ProjectTemplateEditDialog, {
-        resolve: {
-          initialValues: {
-            uuid: row.uuid,
-            content: row.content,
-          },
-          refetch,
-        },
-        size: 'lg',
-      }),
-    );
-  return <EditAction action={callback} size="sm" />;
-};
+export const ProjectTemplateEditButton = ({ row, refetch }) => (
+  <EditModalButton
+    dialog={ProjectTemplateDialog}
+    row={row}
+    buildResolve={(r) => ({ uuid: r.uuid, refetch })}
+    size="lg"
+  />
+);

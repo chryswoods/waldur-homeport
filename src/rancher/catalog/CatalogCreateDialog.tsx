@@ -1,15 +1,14 @@
-import { useState, useCallback } from 'react';
-import { useDispatch } from 'react-redux';
-import { reduxForm } from 'redux-form';
+import { FC } from 'react';
+import { Form } from 'react-final-form';
 import { rancherCatalogsCreate } from 'waldur-js-client';
 
-import { StringField, TextField, SecretField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { ActionDialog } from '@waldur/modal/ActionDialog';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { Resource } from '@waldur/resource/types';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { createEntity } from '@waldur/table/actions';
+import { required } from '@/core/validators';
+import { SubmitButton, StringGroup, TextGroup, SecretGroup } from '@/form';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { Resource } from '@/resource/types';
 
 interface FormData {
   name: string;
@@ -20,69 +19,86 @@ interface FormData {
   password?: string;
 }
 
-interface OwnProps {
+interface CatalogCreateDialogProps {
   resolve: {
     cluster: Resource;
   };
 }
 
-const useCatalogCreateDialog = (cluster) => {
-  const [submitting, setSubmitting] = useState(false);
-  const dispatch = useDispatch();
-  const callback = useCallback(
-    async (formData) => {
-      try {
-        setSubmitting(true);
-        const response = await rancherCatalogsCreate({
-          body: {
-            scope: cluster.url,
-            ...formData,
-          },
-        });
-        const catalog = response.data;
-        dispatch(createEntity('rancher-catalogs', catalog.uuid, catalog));
-      } catch (error) {
-        dispatch(
-          showErrorResponse(error, translate('Unable to create catalog.')),
-        );
-        setSubmitting(false);
-        return;
-      }
-      dispatch(showSuccess(translate('Catalog has been created.')));
-      dispatch(closeModalDialog());
-    },
-    [dispatch, cluster],
-  );
-  return {
-    submitting,
-    createCatalog: callback,
-  };
-};
+export const CatalogCreateDialog: FC<CatalogCreateDialogProps> = (props) => {
+  const createCatalogMutation = useManagedMutation<any, FormData, any>({
+    mutationFn: (formData) =>
+      rancherCatalogsCreate({
+        body: {
+          scope: props.resolve.cluster.url,
+          ...formData,
+        },
+      }),
+    successMessage: translate('Catalog has been created.'),
+    errorMessage: translate('Unable to create catalog.'),
+    invalidateQueries: [{ queryKey: ['table', 'rancher-catalogs'] }],
+  });
 
-export const CatalogCreateDialog = reduxForm<FormData, OwnProps>({
-  form: 'RancherCatalogCreate',
-})((props) => {
-  const { submitting, createCatalog } = useCatalogCreateDialog(
-    props.resolve.cluster,
-  );
   return (
-    <ActionDialog
-      title={translate('Create catalog')}
-      submitLabel={translate('Submit')}
-      onSubmit={props.handleSubmit(createCatalog)}
-      submitting={submitting}
-    >
-      <StringField name="name" label={translate('Name')} required={true} />
-      <TextField name="description" label={translate('Description')} />
-      <StringField
-        name="catalog_url"
-        label={translate('Catalog URL')}
-        required={true}
-      />
+    <Form<FormData>
+      onSubmit={createCatalogMutation.mutateAsync}
+      render={({ handleSubmit, invalid }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate('Create catalog')}
+            footer={
+              <>
+                <CloseDialogButton />
+                <SubmitButton
+                  submitting={createCatalogMutation.isPending}
+                  label={translate('Submit')}
+                  disabled={invalid}
+                />
+              </>
+            }
+          >
+            <div className="size-sm">
+              <StringGroup
+                name="name"
+                label={translate('Name')}
+                required={true}
+                validate={required}
+                disabled={createCatalogMutation.isPending}
+              />
+              <TextGroup
+                name="description"
+                label={translate('Description')}
+                disabled={createCatalogMutation.isPending}
+              />
+              <StringGroup
+                name="catalog_url"
+                label={translate('Catalog URL')}
+                required={true}
+                validate={required}
+                disabled={createCatalogMutation.isPending}
+              />
 
-      <StringField name="branch" label={translate('Branch')} required={true} />
-      <StringField name="username" label={translate('Username')} />
-      <SecretField name="password" label={translate('Password')} />
-    </ActionDialog>
+              <StringGroup
+                name="branch"
+                label={translate('Branch')}
+                required={true}
+                validate={required}
+                disabled={createCatalogMutation.isPending}
+              />
+              <StringGroup
+                name="username"
+                label={translate('Username')}
+                disabled={createCatalogMutation.isPending}
+              />
+              <SecretGroup
+                name="password"
+                label={translate('Password')}
+                disabled={createCatalogMutation.isPending}
+              />
+            </div>
+          </ModalDialog>
+        </form>
+      )}
+    />
   );
-});
+};

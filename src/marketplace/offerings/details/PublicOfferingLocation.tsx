@@ -1,11 +1,11 @@
 import { FunctionComponent } from 'react';
 import { Card, Col, Row } from 'react-bootstrap';
+import { ProviderOfferingDetails as Offering } from 'waldur-js-client';
 
-import { Link } from '@waldur/core/Link';
-import { translate } from '@waldur/i18n';
-import { LeafletMap } from '@waldur/map/LeafletMap';
-import { Offering } from '@waldur/marketplace/types';
-import { isExperimentalUiComponentsVisible } from '@waldur/marketplace/utils';
+import { Link } from '@/core/Link';
+import { translate } from '@/i18n';
+import { LeafletMap } from '@/map/LeafletMap';
+import { isExperimentalUiComponentsVisible } from '@/marketplace/utils';
 
 import { PublicOfferingCardTitle } from './PublicOfferingCardTitle';
 

@@ -1,15 +1,16 @@
-import { CheckIcon, XIcon } from '@phosphor-icons/react';
+import { QuestionIcon } from '@phosphor-icons/react';
 import { useCurrentStateAndParams } from '@uirouter/react';
 import { FC, useMemo } from 'react';
-import { Badge } from 'react-bootstrap';
 
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { policyPeriodOptions } from '@waldur/customer/cost-policies/utils';
-import { translate } from '@waldur/i18n';
-import { useOrganizationGroups } from '@waldur/marketplace/common/utils';
-import Table from '@waldur/table/Table';
-import { TableProps } from '@waldur/table/types';
+import { BooleanBadge } from '@/core/BooleanBadge';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { Tip } from '@/core/Tooltip';
+import { policyPeriodOptions } from '@/customer/cost-policies/utils';
+import { translate } from '@/i18n';
+import { useOrganizationGroups } from '@/marketplace/common/utils';
+import Table from '@/table/Table';
+import { TableProps } from '@/table/types';
 
 import { getOfferingPolicyActionOptions } from '../utils';
 
@@ -88,25 +89,20 @@ export const PoliciesTable: FC<TableProps> = ({ columns, ...props }) => {
             ),
         },
         {
-          title: translate('Has fired'),
-          render: ({ row }) =>
-            !row.has_fired ? (
-              <Badge
-                bg={null}
-                className="fs-8 fw-bolder lh-base badge-light-danger badge-pill"
+          title: (
+            <>
+              {translate('Action triggered')}{' '}
+              <Tip
+                id="action-triggered-tooltip"
+                label={translate(
+                  "Shows whether this policy's action has been executed (for example, pausing or downscaling) after exceeding the limit.",
+                )}
               >
-                <XIcon size={12} className="text-danger me-2" />
-                {translate('No')}
-              </Badge>
-            ) : (
-              <Badge
-                bg={null}
-                className="fs-8 fw-bolder lh-base badge-light-success badge-pill"
-              >
-                <CheckIcon size={12} className="text-success me-2" />
-                {translate('Yes')}
-              </Badge>
-            ),
+                <QuestionIcon size={18} weight="bold" />
+              </Tip>
+            </>
+          ),
+          render: ({ row }) => <BooleanBadge value={row.has_fired} />,
         },
       ]}
       title={translate('Policy')}

@@ -1,11 +1,9 @@
-import ipRegex from 'ip-regex';
-
-import { ENV } from '@waldur/core/config';
-import { required } from '@waldur/core/validators';
-import { translate } from '@waldur/i18n';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { ActionContext } from '@waldur/resource/actions/types';
+import { ENV } from '@/core/config';
+import { required } from '@/core/validators';
+import { translate } from '@/i18n';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { ActionContext } from '@/resource/actions/types';
 
 import { listToDict } from '../core/utils';
 
@@ -37,7 +35,8 @@ const PRIVATE_CIDR_PATTERN = new RegExp(
 
 const VOLUME_NAME_PATTERN = new RegExp('^[A-Za-z0-9\\-]+$');
 
-const IPv4_ADDRESS_PATTERN = ipRegex.v4({ exact: true });
+const IPv4_ADDRESS_PATTERN =
+  /^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}$/;
 
 export const validateIPv4 = (value) => {
   if (!value) {

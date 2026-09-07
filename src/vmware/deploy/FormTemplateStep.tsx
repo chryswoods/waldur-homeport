@@ -1,21 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Field } from 'redux-form';
+import { Field, useForm } from 'react-final-form';
 import { VmwareTemplate, vmwareTemplatesList } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { required } from '@waldur/core/validators';
-import { VStepperFormStepCard } from '@waldur/form/VStepperFormStep';
-import { translate } from '@waldur/i18n';
-import { BoxRadioField } from '@waldur/marketplace/deploy/steps/BoxRadioField';
-import {
-  StepCardTabs,
-  TabSpec,
-} from '@waldur/marketplace/deploy/steps/StepCardTabs';
-import { FormStepProps } from '@waldur/marketplace/deploy/types';
-import { generateSystemImageChoices } from '@waldur/marketplace/deploy/utils';
-import { isExperimentalUiComponentsVisible } from '@waldur/marketplace/utils';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { UI_STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { required } from '@/core/validators';
+import { translate } from '@/i18n';
+import { BoxRadioField } from '@/marketplace/deploy/steps/BoxRadioField';
+import { StepCardTabs, TabSpec } from '@/marketplace/deploy/steps/StepCardTabs';
+import { FormStepProps } from '@/marketplace/deploy/types';
+import { generateSystemImageChoices } from '@/marketplace/deploy/utils';
+import { isExperimentalUiComponentsVisible } from '@/marketplace/utils';
+import { VStepperFormStepCard } from '@/wizard';
 
 const tabs: TabSpec[] = [
   { title: translate('Images'), key: 'images' },
@@ -23,6 +21,7 @@ const tabs: TabSpec[] = [
 ];
 
 export const FormTemplateStep = (props: FormStepProps) => {
+  const form = useForm();
   const [tab, setTab] = useState<TabSpec>(tabs[0]);
   const showExperimentalUiComponents = isExperimentalUiComponentsVisible();
 
@@ -37,12 +36,16 @@ export const FormTemplateStep = (props: FormStepProps) => {
       props.offering.scope_uuid && props.offering.customer_uuid
         ? getAllPages((page) =>
             vmwareTemplatesList({
-              query: { page, settings_uuid: props.offering.scope_uuid },
+              query: {
+                page,
+                page_size: MAX_PAGE_SIZE,
+                settings_uuid: props.offering.scope_uuid,
+              },
             }),
           )
         : Promise.resolve([]),
 
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
 
   const choices = useMemo(() => {
@@ -58,12 +61,12 @@ export const FormTemplateStep = (props: FormStepProps) => {
 
   const onChangeImage = useCallback(
     (value: VmwareTemplate) => {
-      props.change('limits.cpu', value.cores);
-      props.change('limits.ram', value.ram / 1024);
-      props.change('limits.disk', value.disk / 1024);
-      props.change('attributes.cores_per_socket', value.cores_per_socket);
+      form.change('limits.cpu', value.cores);
+      form.change('limits.ram', value.ram / 1024);
+      form.change('limits.disk', value.disk / 1024);
+      form.change('attributes.cores_per_socket', value.cores_per_socket);
     },
-    [props.change],
+    [form],
   );
 
   // Initialize template
@@ -95,14 +98,20 @@ export const FormTemplateStep = (props: FormStepProps) => {
           {translate('There are no option to choose.')}
         </p>
       ) : (
-        <Field
-          name="attributes.template"
-          validate={[required]}
-          component={BoxRadioField}
-          choices={choices}
-          required
-          onChange={onChangeImage as any}
-        />
+        <Field name="attributes.template" validate={required}>
+          {({ input }) => (
+            <BoxRadioField
+              input={{
+                ...input,
+                onChange: (value) => {
+                  input.onChange(value);
+                  onChangeImage(value);
+                },
+              }}
+              choices={choices}
+            />
+          )}
+        </Field>
       )}
     </VStepperFormStepCard>
   );

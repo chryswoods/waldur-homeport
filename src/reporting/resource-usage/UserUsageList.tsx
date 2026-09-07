@@ -1,30 +1,39 @@
-import { FC } from 'react';
-import { useSelector } from 'react-redux';
+import { FC, useMemo } from 'react';
 import {
   ComponentUserUsage,
   marketplaceComponentUserUsagesList,
 } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { ResourceLink } from '@waldur/resource/ResourceLink';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
+import { formatDateTime } from '@/core/dateUtils';
+import { formatUsageValue } from '@/core/formatNumber';
+import { makeLastTwelveMonthsFilterPeriods } from '@/form/utils';
+import { translate } from '@/i18n';
+import { ResourceLink } from '@/resource/ResourceLink';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { Column } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
 
+import { ReportingTitle } from '../ReportingTitle';
 import { usageTableTabs } from '../utils';
 
-import { ResourceUsageFilter } from './ResourceUsageFilter';
-import { mapStateToFilter } from './ResourceUsageList';
+import { FORM_ID, ResourceUsageFilter } from './ResourceUsageFilter';
+import { selectResourceUsageFilter } from './ResourceUsageList';
 import { UsageExpandableRow } from './UserUsageExpandableRow';
 
 export const UserUsageList: FC = () => {
-  const filter = useSelector(mapStateToFilter);
-  const props = useTable({
+  const values = useFilterValues('UserUsageReports');
+  const filter = useMemo(() => selectResourceUsageFilter(values), [values]);
+
+  const tableProps = useTable({
     table: 'UserUsageReports',
+    syncFiltersToURL: true,
     fetchData: createFetcher(marketplaceComponentUserUsagesList),
     filter,
+    initialFilters: {
+      accounting_period: makeLastTwelveMonthsFilterPeriods()[0],
+    },
   });
   const columns: Array<Column<ComponentUserUsage>> = [
     {
@@ -36,7 +45,7 @@ export const UserUsageList: FC = () => {
     {
       title: translate('Client organization'),
       render: ({ row }) => <>{row.customer_name}</>,
-      filter: 'organization',
+      filter: 'customer_uuid',
       inlineFilter: (row) => ({
         name: row.customer_name,
         uuid: row.customer_uuid,
@@ -46,7 +55,7 @@ export const UserUsageList: FC = () => {
     {
       title: translate('Client project'),
       render: ({ row }) => <>{row.project_name}</>,
-      filter: 'project',
+      filter: 'project_uuid',
       inlineFilter: (row) => ({
         name: row.project_name,
         uuid: row.project_uuid,
@@ -89,7 +98,9 @@ export const UserUsageList: FC = () => {
     },
     {
       title: translate('Value'),
-      render: ({ row }) => <>{row.usage + ' ' + row.measured_unit}</>,
+      render: ({ row }) => (
+        <>{formatUsageValue(row.usage) + ' ' + row.measured_unit}</>
+      ),
       export: (row) => row.usage + ' ' + row.measured_unit,
       exportKeys: ['usage', 'measured_unit'],
     },
@@ -102,17 +113,21 @@ export const UserUsageList: FC = () => {
   ];
 
   return (
-    <Table
-      {...props}
-      columns={columns}
-      tabs={usageTableTabs}
-      verboseName={translate('Usages')}
-      showPageSizeSelector={true}
-      enableExport={true}
-      expandableRow={({ row }) => (
-        <UsageExpandableRow row={row} type="user-usage" />
-      )}
-      filters={<ResourceUsageFilter />}
-    />
+    <>
+      <ReportingTitle reportKey="user-usage" />
+      <Table
+        {...tableProps}
+        columns={columns}
+        tabs={usageTableTabs}
+        verboseName={translate('Usages')}
+        showPageSizeSelector={true}
+        enableExport={true}
+        expandableRow={({ row }) => (
+          <UsageExpandableRow row={row} type="user-usage" />
+        )}
+        filters={<ResourceUsageFilter />}
+        formId={FORM_ID}
+      />
+    </>
   );
 };

@@ -1,42 +1,85 @@
 import { useQuery } from '@tanstack/react-query';
 import { UIView, useCurrentStateAndParams } from '@uirouter/react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { usersRetrieve } from 'waldur-js-client';
 
-import { usePermissionView } from '@waldur/auth/PermissionLayout';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { UserFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { useBreadcrumbs, usePageHero } from '@waldur/navigation/context';
-import { IBreadcrumbItem, PageBarTab } from '@waldur/navigation/types';
-import { usePageTabsTransmitter } from '@waldur/navigation/usePageTabsTransmitter';
-import { UserProfileHero } from '@waldur/user/dashboard/UserProfileHero';
-import { useUser } from '@waldur/workspace/hooks';
+import { usePermissionView } from '@/auth/PermissionLayout';
+import { UI_STALE_TIME } from '@/core/constants';
+import { lazyComponent } from '@/core/lazyComponent';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures, UserFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { useBreadcrumbs, usePageHero } from '@/navigation/context';
+import { IBreadcrumbItem, PageBarTab } from '@/navigation/types';
+import { usePageTabsTransmitter } from '@/navigation/usePageTabsTransmitter';
+import { router } from '@/router';
+import { UserProfileHero } from '@/user/dashboard/UserProfileHero';
+import { arePasskeysEnabled } from '@/user/passkeys/utils';
+import { useUser } from '@/workspace/hooks';
 
+import {
+  clearBlockedNavigation,
+  getBlockedNavigation,
+  getStateLabel,
+} from './blockedNavigation';
 import { CompleteYourProfileBanner } from './CompleteYourProfileBanner';
-import { UsersService } from './UsersService';
+import { useProfileCompleteness } from './useProfileCompleteness';
 
 const UserDetailsTable = lazyComponent(() =>
-  import('@waldur/user/support/UserDetailsTable').then((module) => ({
+  import('@/user/support/UserDetailsTable').then((module) => ({
     default: module.UserDetailsTable,
   })),
 );
 const UserEditTab = lazyComponent(() =>
-  import('@waldur/user/support/UserEditTab').then((module) => ({
+  import('@/user/support/UserEditTab').then((module) => ({
     default: module.UserEditTab,
   })),
 );
 const UserTermination = lazyComponent(() =>
-  import('@waldur/user/support/UserTermination').then((module) => ({
+  import('@/user/support/UserTermination').then((module) => ({
     default: module.UserTermination,
   })),
 );
 const UserDeleteAccount = lazyComponent(() =>
-  import('@waldur/user/support/UserDeleteAccount').then((module) => ({
+  import('@/user/support/UserDeleteAccount').then((module) => ({
     default: module.UserDeleteAccount,
+  })),
+);
+const UserEvents = lazyComponent(() =>
+  import('@/user/dashboard/UserEvents').then((module) => ({
+    default: module.UserEvents,
+  })),
+);
+const KeysList = lazyComponent(() =>
+  import('@/user/keys/KeysList').then((module) => ({
+    default: module.KeysList,
+  })),
+);
+const UserOfferingList = lazyComponent(() =>
+  import('@/user/UserOfferingList').then((module) => ({
+    default: module.UserOfferingList,
+  })),
+);
+const UserAffiliationsList = lazyComponent(() =>
+  import('@/user/affiliations/UserAffiliationsList').then((module) => ({
+    default: module.UserAffiliationsList,
+  })),
+);
+const ReviewerProfileTab = lazyComponent(() =>
+  import('@/user/ReviewerProfileTab').then((module) => ({
+    default: module.ReviewerProfileTab,
+  })),
+);
+const StaffPasskeysList = lazyComponent(() =>
+  import('@/user/passkeys/StaffPasskeysList').then((module) => ({
+    default: module.StaffPasskeysList,
+  })),
+);
+const DataAccessTab = lazyComponent(() =>
+  import('@/user/data-access/DataAccessTab').then((module) => ({
+    default: module.DataAccessTab,
   })),
 );
 
@@ -53,7 +96,7 @@ export const UserManageContainer = ({ isPersonal }) => {
     queryKey: ['User', user_uuid],
     queryFn: () =>
       isPersonal ? null : usersRetrieve({ path: { uuid: user_uuid } }),
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
     refetchOnWindowFocus: false,
   });
 
@@ -72,7 +115,7 @@ export const UserManageContainer = ({ isPersonal }) => {
         : {
             key: 'users',
             text: translate('Users'),
-            to: 'admin-user-users',
+            to: 'support-users',
           },
       {
         key: 'user',
@@ -90,36 +133,133 @@ export const UserManageContainer = ({ isPersonal }) => {
 
   useBreadcrumbs(breadcrumbItems);
 
+  const profileCompleteness = useProfileCompleteness(user);
+
   const isValidUser = useMemo(
     () =>
-      user &&
-      !UsersService.mandatoryFieldsMissing(user) &&
-      Boolean(user.agreement_date),
-    [user],
+      user && profileCompleteness?.is_complete && Boolean(user.agreement_date),
+    [user, profileCompleteness],
   );
+
+  // Read once on mount: the gate stores the intent just before redirecting here.
+  const blockedPage = useMemo(() => {
+    const blocked = getBlockedNavigation();
+    return blocked
+      ? { ...blocked, label: getStateLabel(blocked.toState) }
+      : undefined;
+  }, []);
+
+  // Return the user to what they asked for, once the gate is satisfied. Only if
+  // they were *seen* blocked here: a server-side 428 can redirect someone who
+  // already looks valid, and resuming on mount would loop back into that 428.
+  const wasBlocked = useRef(false);
+  useEffect(() => {
+    if (!isPersonal || !blockedPage) {
+      return;
+    }
+    // Not loaded yet: `isValidUser` is falsy for lack of data, not because the
+    // user is actually blocked, so recording it here would be wrong.
+    if (!user || !profileCompleteness) {
+      return;
+    }
+    if (!isValidUser) {
+      wasBlocked.current = true;
+      return;
+    }
+    if (wasBlocked.current) {
+      clearBlockedNavigation();
+      router.stateService.go(blockedPage.toState, blockedPage.toParams);
+    }
+  }, [isPersonal, isValidUser, blockedPage, user, profileCompleteness]);
 
   const tabs = useMemo<PageBarTab[]>(
     () =>
       [
-        (currentUser.is_staff || currentUser.is_support || isPersonal) && {
+        (currentUser?.is_staff || currentUser?.is_support || isPersonal) && {
           key: 'user-details',
           component:
-            currentUser.is_staff || isPersonal ? UserEditTab : UserDetailsTable,
+            currentUser?.is_staff || isPersonal
+              ? UserEditTab
+              : UserDetailsTable,
           title: translate('User profile'),
         },
+        // Reviewer profile - only for personal profile when call management is enabled
+        isPersonal &&
+          isFeatureVisible(
+            MarketplaceFeatures.show_call_management_functionality,
+          ) && {
+            key: 'reviewer-profile',
+            component: ReviewerProfileTab,
+            title: translate('Reviewer profile'),
+          },
+        // Audit log - staff/support viewing other users (personal has /profile/events/)
+        (currentUser?.is_staff || currentUser?.is_support) &&
+          !isPersonal && {
+            key: 'audit-log',
+            component: UserEvents,
+            title: translate('Audit log'),
+          },
+        // SSH Keys - staff/support viewing other users (personal has /profile/keys/)
+        isFeatureVisible(UserFeatures.ssh_keys) &&
+          (currentUser?.is_staff || currentUser?.is_support) &&
+          !isPersonal && {
+            key: 'keys',
+            component: KeysList,
+            title: translate('Keys'),
+          },
+        // Remote accounts - staff/support viewing other users (personal has /profile/remote-accounts/)
+        (currentUser?.is_staff || currentUser?.is_support) &&
+          !isPersonal && {
+            key: 'remote-accounts',
+            component: UserOfferingList,
+            title: translate('Remote accounts'),
+          },
+        // Passkeys - staff viewing other users. Recovery for a lost
+        // authenticator is a staff revoke plus the user enrolling again;
+        // there are deliberately no backup codes. Staff only, not support:
+        // revoking a credential is a change, not a lookup.
+        arePasskeysEnabled() &&
+          currentUser?.is_staff &&
+          !isPersonal && {
+            key: 'passkeys',
+            component: StaffPasskeysList,
+            title: translate('Passkeys'),
+          },
+        // Roles and permissions - staff/support viewing other users (personal has affiliations in dashboard)
+        (currentUser?.is_staff || currentUser?.is_support) &&
+          !isPersonal && {
+            key: 'roles',
+            component: UserAffiliationsList,
+            title: translate('Roles and permissions'),
+          },
+        // Data access - staff/support viewing any user, or user viewing own profile
+        isFeatureVisible(UserFeatures.show_data_access) &&
+          (currentUser?.is_staff || currentUser?.is_support || isPersonal) && {
+            key: 'data-access',
+            component: DataAccessTab,
+            title: translate('Data access'),
+          },
         (!isFeatureVisible(UserFeatures.disable_user_termination) ||
-          currentUser.is_staff) && {
+          currentUser?.is_staff) && {
           key: 'termination',
-          component: isValidUser
-            ? isPersonal
-              ? UserDeleteAccount
-              : UserTermination
-            : NotAllowedTab,
+          component:
+            // Staff can always terminate other users
+            currentUser?.is_staff && !isPersonal
+              ? UserTermination
+              : isValidUser
+                ? isPersonal
+                  ? UserDeleteAccount
+                  : UserTermination
+                : NotAllowedTab,
           title: translate('Termination actions'),
-          disabled: !isValidUser,
+          // Staff viewing others: always enabled; otherwise: requires valid user
+          disabled: currentUser?.is_staff && !isPersonal ? false : !isValidUser,
+          disabledReason: !user?.agreement_date
+            ? translate('Terms of service not accepted')
+            : translate('Profile is incomplete'),
         },
       ].filter(Boolean),
-    [user, currentUser, isValidUser],
+    [user, currentUser, isValidUser, isPersonal],
   );
 
   const { tabSpec } = usePageTabsTransmitter(tabs);
@@ -136,14 +276,21 @@ export const UserManageContainer = ({ isPersonal }) => {
   );
 
   usePermissionView(() => {
-    if (isPersonal && !isValidUser) {
+    // Not before ToS is accepted: the profile form is disabled until then.
+    if (
+      isPersonal &&
+      user?.agreement_date &&
+      profileCompleteness?.is_complete === false
+    ) {
       return {
         permission: 'custom',
-        banner: <CompleteYourProfileBanner />,
+        banner: (
+          <CompleteYourProfileBanner blockedPageLabel={blockedPage?.label} />
+        ),
       };
     }
     return null;
-  }, [isPersonal, isValidUser]);
+  }, [isPersonal, user, profileCompleteness, blockedPage]);
 
   if (isLoading) {
     return <LoadingSpinner />;

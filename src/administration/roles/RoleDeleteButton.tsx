@@ -1,42 +1,42 @@
-import { TrashIcon } from '@phosphor-icons/react';
-import { useDispatch } from 'react-redux';
 import { rolesDestroy } from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
-import { formatJsxTemplate, translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
+import { ENV } from '@/core/config';
+import { formatJsxTemplate, translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { RemovalActionItem } from '@/resource/actions/RemovalActionItem';
 
 import { getRoles } from './utils';
 
 export const RoleDeleteButton = ({ row, refetch }) => {
-  const dispatch = useDispatch();
-  const openDialog = async () => {
-    try {
-      await waitForConfirmation(
-        dispatch,
-        translate('Confirmation'),
-        translate(
-          'Are you sure you want to delete the role {name}?',
-          { name: <strong>{row.name}</strong> },
-          formatJsxTemplate,
-        ),
-        { forDeletion: true },
-      );
-    } catch {
-      return;
-    }
-    await rolesDestroy({ path: { uuid: row.uuid } });
-    ENV.roles = await getRoles();
-    refetch();
-  };
+  const { mutate, isPending } = useManagedMutation<any, any, void>({
+    mutationFn: () => rolesDestroy({ path: { uuid: row.uuid } }),
+    refetch: refetch,
+
+    onSuccess: async () => {
+      ENV.roles = await getRoles();
+    },
+
+    confirmation: {
+      title: translate('Confirmation'),
+
+      body: translate(
+        'Are you sure you want to delete the role {name}?',
+        { name: <strong>{row.name}</strong> },
+        formatJsxTemplate,
+      ),
+
+      options: {
+        forDeletion: true,
+      },
+    },
+  });
+
   return (
-    <ActionItem
+    <RemovalActionItem
       title={translate('Remove')}
-      action={openDialog}
-      disabled={row.users_count > 0}
+      action={mutate}
+      disabled={isPending}
       tooltip={translate('Users should be revoked before role is removed.')}
-      iconNode={<TrashIcon weight="bold" />}
     />
   );
 };

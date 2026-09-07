@@ -1,25 +1,32 @@
-import { FunctionComponent } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
+import { FunctionComponent, useMemo } from 'react';
 import { invoicesList } from 'waldur-js-client';
 
-import { defaultCurrency } from '@waldur/core/formatCurrency';
-import { Link } from '@waldur/core/Link';
-import { translate } from '@waldur/i18n';
-import { INVOICES_TABLE } from '@waldur/invoices/constants';
-import { getActiveFixedPricePaymentProfile } from '@waldur/invoices/details/utils';
-import { MarkAsPaidButton } from '@waldur/invoices/list/MarkAsPaidButton';
-import { ActionsDropdown } from '@waldur/table/ActionsDropdown';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { Link } from '@/core/Link';
+import { translate } from '@/i18n';
+import { INVOICES_TABLE } from '@/invoices/constants';
+import { getActiveFixedPricePaymentProfile } from '@/invoices/details/utils';
+import { ActionsDropdown } from '@/table/ActionsDropdown';
+import { createFetcher } from '@/table/api';
+import {
+  InvoicesFilter,
+  InvoicesFilterFormId,
+  selectInvoicesFilter,
+} from '@/table/generated/InvoicesFilter';
+import Table from '@/table/Table';
+import { Column } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
+import { useCustomer } from '@/workspace/hooks';
 
 import { InvoicePayButton } from '../details/InvoicePayButton';
 
-import { getInvoiceStatusOptions, InvoicesFilter } from './InvoicesFilter';
+import {
+  getInvoiceStateLabel,
+  getInvoiceStatusOptions,
+} from './InvoicesFilterUtils';
+import { MarkAsPaidButton } from './MarkAsPaidButton';
 import { SendNotificationButton } from './SendNotificationButton';
 
 const RowActions = ({ row, fetch }) => (
@@ -31,10 +38,34 @@ const RowActions = ({ row, fetch }) => (
 );
 
 export const InvoicesList: FunctionComponent = () => {
-  const customer = useSelector(getCustomer);
-  const filter = useSelector(mapsStateToFilter);
+  const customer = useCustomer();
+  const values = useFilterValues(`${INVOICES_TABLE}-${customer?.uuid}`);
+  const stateFilter = useMemo(() => selectInvoicesFilter(values), [values]);
+
+  const filter = useMemo(
+    () => ({
+      ...stateFilter,
+      customer: customer?.url,
+      field: [
+        'uuid',
+        'state',
+        'due_date',
+        'month',
+        'year',
+        'invoice_date',
+        'number',
+        'price',
+        'tax',
+        'total',
+        'payment_url',
+      ],
+    }),
+    [stateFilter, customer],
+  );
+
   const props = useTable({
-    table: `${INVOICES_TABLE}-${customer.uuid}`,
+    table: `${INVOICES_TABLE}-${customer?.uuid}`,
+    syncFiltersToURL: true,
     fetchData: createFetcher(invoicesList),
     filter,
     queryField: 'number',
@@ -55,22 +86,23 @@ export const InvoicesList: FunctionComponent = () => {
     },
     {
       title: translate('State'),
-      render: ({ row }) => row.state,
+      render: ({ row }) => getInvoiceStateLabel(row.state),
       filter: 'state',
       inlineFilter: (row) => [
         getInvoiceStatusOptions().find((s) => s.value === row.state),
       ],
 
-      export: 'state',
+      export: (row) => getInvoiceStateLabel(row.state),
+      exportKeys: ['state'],
     },
     {
       title: translate('Invoice date'),
-      render: ({ row }) => row.invoice_date || 'N/A',
+      render: ({ row }) => renderFieldOrDash(row.invoice_date),
       export: 'invoice_date',
     },
     {
       title: translate('Due date'),
-      render: ({ row }) => row.due_date || 'N/A',
+      render: ({ row }) => renderFieldOrDash(row.due_date),
       export: 'due_date',
     },
   ];
@@ -103,34 +135,13 @@ export const InvoicesList: FunctionComponent = () => {
   return (
     <Table
       {...props}
+      formId={InvoicesFilterFormId}
       filters={<InvoicesFilter />}
       columns={columns}
       verboseName={translate('invoices')}
       enableExport={true}
       rowActions={RowActions}
+      showPageSizeSelector
     />
   );
 };
-
-const mapsStateToFilter = createSelector(
-  getCustomer,
-  getFormValues('InvoicesFilter'),
-  (customer, stateFilter: any) => ({
-    ...stateFilter,
-    customer: customer.url,
-    state: stateFilter?.state?.map((option) => option.value),
-    field: [
-      'uuid',
-      'state',
-      'due_date',
-      'month',
-      'year',
-      'invoice_date',
-      'number',
-      'price',
-      'tax',
-      'total',
-      'payment_url',
-    ],
-  }),
-);

@@ -1,13 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { ListGroup } from 'react-bootstrap';
 
-import { getIdentityProviders } from '@waldur/administration/api';
-import { CopyToClipboardButton } from '@waldur/core/CopyToClipboardButton';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { CancelButton } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
+import { getIdentityProviders } from '@/administration/api';
+import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
 
 export const ProviderDetailsDialog = (props) => {
   const neededProvider = props.provider.provider;
@@ -59,8 +59,7 @@ export const ProviderDetailsDialog = (props) => {
       ) : data ? (
         <ModalDialog
           title={translate('Edit user agreement')}
-          footer={<CancelButton label={translate('OK')} />}
-          closeButton
+          footer={<CloseDialogButton label={translate('OK')} />}
         >
           <ListGroup>
             {data[neededProvider] && (

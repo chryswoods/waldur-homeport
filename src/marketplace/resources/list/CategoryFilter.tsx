@@ -1,47 +1,35 @@
-import React from 'react';
-import { Props as SelectProps } from 'react-select';
-import { Field } from 'redux-form';
+import React, { useMemo } from 'react';
 import { Project } from 'waldur-js-client';
 
-import {
-  AsyncPaginate,
-  REACT_SELECT_TABLE_FILTER,
-} from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { categoryAutocomplete } from '@waldur/marketplace/common/autocompletes';
-import { Customer } from '@waldur/workspace/types';
+import { translate } from '@/i18n';
+import { categoryAutocomplete } from '@/marketplace/common/autocompletes';
+import { AsyncSelectFilter } from '@/table';
+import { Customer } from '@/workspace/types';
 
 export const CategoryFilter: React.FC<{
-  reactSelectProps?: Partial<SelectProps>;
   project?: Project;
   customer?: Customer;
-}> = (props) => (
-  <Field
-    name="category"
-    component={(fieldProps) => (
-      <AsyncPaginate
-        placeholder={translate('Select category...')}
-        loadOptions={(query: string, prevOptions, { page }) =>
-          categoryAutocomplete(
-            query,
-            prevOptions,
-            { page },
-            {
-              resource_customer_uuid: props.customer?.uuid,
-              resource_project_uuid: props.project?.uuid,
-            },
-          )
-        }
-        defaultOptions
-        getOptionValue={(option) => option.uuid}
-        getOptionLabel={(option) => option.title}
-        value={fieldProps.input.value}
-        onChange={(value) => fieldProps.input.onChange(value)}
-        noOptionsMessage={() => translate('No categories')}
-        isClearable={true}
-        {...REACT_SELECT_TABLE_FILTER}
-        {...props.reactSelectProps}
-      />
-    )}
-  />
-);
+  [key: string]: any;
+}> = (props) => {
+  const loadOptions = useMemo(
+    () =>
+      categoryAutocomplete({
+        resource_customer_uuid: props.customer?.uuid,
+        resource_project_uuid: props.project?.uuid,
+      }),
+    [props.customer?.uuid, props.project?.uuid],
+  );
+
+  return (
+    <AsyncSelectFilter
+      title={translate('Category')}
+      name="category"
+      badgeValue={(value) => value?.title}
+      placeholder={translate('Select category...')}
+      loadOptions={loadOptions}
+      getOptionValue={(option) => option.uuid}
+      getOptionLabel={(option) => option.title}
+      {...props}
+    />
+  );
+};

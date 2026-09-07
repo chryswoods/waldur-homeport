@@ -1,23 +1,22 @@
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
-import {
-  AdminAnnouncement,
-  adminAnnouncementsList,
-  AdminAnnouncementsListData,
-} from 'waldur-js-client';
+import { useMemo } from 'react';
+import { AdminAnnouncement, adminAnnouncementsList } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { StateIndicator } from '@waldur/core/StateIndicator';
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
+import { formatDateTime } from '@/core/dateUtils';
+import { StateIndicator } from '@/core/StateIndicator';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import {
+  AdminAnnouncementsFilter,
+  selectAdminAnnouncementsFilter,
+  AdminAnnouncementsFilterFormId,
+} from '@/table/generated/AdminAnnouncementsFilter';
+import Table from '@/table/Table';
+import { Column } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
 
 import { AnnouncementTypeOptions } from '../utils';
 
-import { AnnouncementFilter } from './AnnouncementFilter';
 import { AnnouncementRowActions } from './AnnouncementRowActions';
 import { AnnouncementCreateButton } from './CreateAnnouncementButton';
 
@@ -48,24 +47,17 @@ const renderStatus = ({ row }) => (
   />
 );
 
-const filtersSelector = createSelector(
-  getFormValues('AdminAnnouncementsFilter'),
-  (filterValues: any) => {
-    const result: AdminAnnouncementsListData['query'] = {};
-    if (filterValues?.type) {
-      result.type = filterValues.type.value;
-    }
-    if (filterValues?.is_active) {
-      result.is_active = filterValues.is_active.value;
-    }
-    return result;
-  },
-);
-
 export const AnnouncementsList = () => {
-  const filter = useSelector(filtersSelector);
+  const values = useFilterValues('AdminAnnouncements');
+
+  const filter = useMemo(
+    () => selectAdminAnnouncementsFilter(values),
+    [values],
+  );
+
   const tableProps = useTable({
     table: 'AdminAnnouncements',
+    syncFiltersToURL: true,
     fetchData: createFetcher(adminAnnouncementsList),
     filter,
     queryField: 'description',
@@ -128,7 +120,8 @@ export const AnnouncementsList = () => {
       rowActions={({ row }) => (
         <AnnouncementRowActions refetch={tableProps.fetch} row={row} />
       )}
-      filters={<AnnouncementFilter />}
+      filters={<AdminAnnouncementsFilter />}
+      formId={AdminAnnouncementsFilterFormId}
     />
   );
 };

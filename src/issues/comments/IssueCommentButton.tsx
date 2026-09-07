@@ -1,12 +1,12 @@
 import { PlusIcon } from '@phosphor-icons/react';
-import { FC } from 'react';
-import { Button } from 'react-bootstrap';
-import { useDispatch, useSelector } from 'react-redux';
+import { FC, useContext } from 'react';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { type RootState } from '@waldur/store/reducers';
+import { lazyComponent } from '@/core/lazyComponent';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+
+import { IssueCommentsContext } from './IssueCommentsContext';
 
 const CommentFormDialog = lazyComponent(() =>
   import('./CommentFormDialog').then((module) => ({
@@ -15,26 +15,24 @@ const CommentFormDialog = lazyComponent(() =>
 );
 
 export const IssueCommentButton: FC = () => {
-  const dispatch = useDispatch();
-  const uiDisabled = useSelector(
-    (state: RootState) =>
-      !state.issues.comments.issue?.add_comment_is_available,
-  );
+  const { openDialog } = useModal();
+  const issue = useContext(IssueCommentsContext);
+  const uiDisabled = !issue?.add_comment_is_available;
 
   const openCommentDialog = () => {
-    dispatch(openModalDialog(CommentFormDialog, { size: 'sm' }));
+    openDialog(CommentFormDialog, { resolve: { issue }, size: 'sm' });
   };
 
   return (
-    <Button
+    <SubmitButton
+      submitting={false}
+      type="button"
       variant="secondary"
       disabled={uiDisabled}
       onClick={openCommentDialog}
-    >
-      <span className="svg-icon svg-icon-2">
-        <PlusIcon weight="bold" />
-      </span>
-      {translate('Add comment')}
-    </Button>
+      label={translate('Add comment')}
+      iconNode={<PlusIcon weight="bold" />}
+      iconOnLeft
+    />
   );
 };

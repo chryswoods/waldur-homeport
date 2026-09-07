@@ -1,6 +1,6 @@
 // WARNING: This file is auto-generated from src/waldur_core/core/management/commands/print_settings_description.py
 // Do not edit it manually. All manual changes would be overridden.
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
 
 export const SettingsDescription = [
   {
@@ -42,6 +42,12 @@ export const SettingsDescription = [
         default: 'Username',
         type: 'string',
       },
+      {
+        key: 'DISCLAIMER_AREA_TEXT',
+        description: translate('Text content rendered in the disclaimer area below the footer.'),
+        default: '',
+        type: 'text_field',
+      },
     ],
   },
   {
@@ -78,22 +84,31 @@ export const SettingsDescription = [
         type: 'string',
       },
       {
+        key: 'MARKETPLACE_LAYOUT_MODE',
+        description: translate('Default marketplace layout mode.'),
+        default: 'classic',
+        type: 'choice_field',
+        options: [{ value: 'classic', label: 'Classic' }, { value: 'sidebar', label: 'Sidebar' }, { value: 'carousel', label: 'Carousel' }],
+      },
+      {
+        key: 'MARKETPLACE_CARD_STYLE',
+        description: translate('Default marketplace offering card style.'),
+        default: 'detailed',
+        type: 'choice_field',
+        options: [{ value: 'compact', label: 'Compact' }, { value: 'detailed', label: 'Detailed' }, { value: 'list', label: 'List' }, { value: 'minimal', label: 'Minimal' }],
+      },
+      {
         key: 'COUNTRIES',
         description: translate('It is used in organization creation dialog in order to limit country choices to predefined set.'),
         default: ['AL', 'AT', 'BA', 'BE', 'BG', 'CH', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'EU', 'FI', 'FR', 'GB', 'GE', 'GR', 'HR', 'HU', 'IE', 'IS', 'IT', 'LT', 'LU', 'LV', 'MC', 'MK', 'MT', 'NL', 'NO', 'PL', 'PT', 'RO', 'RS', 'SE', 'SI', 'SK', 'UA'],
         type: 'country_list_field',
+        options: [{ value: 'AW', label: 'Aruba' }, { value: 'AF', label: 'Afghanistan' }, { value: 'AO', label: 'Angola' }, { value: 'AI', label: 'Anguilla' }, { value: 'AX', label: 'Åland Islands' }, { value: 'AL', label: 'Albania' }, { value: 'AD', label: 'Andorra' }, { value: 'AE', label: 'United Arab Emirates' }, { value: 'AR', label: 'Argentina' }, { value: 'AM', label: 'Armenia' }, { value: 'AS', label: 'American Samoa' }, { value: 'AQ', label: 'Antarctica' }, { value: 'TF', label: 'French Southern Territories' }, { value: 'AG', label: 'Antigua and Barbuda' }, { value: 'AU', label: 'Australia' }, { value: 'AT', label: 'Austria' }, { value: 'AZ', label: 'Azerbaijan' }, { value: 'BI', label: 'Burundi' }, { value: 'BE', label: 'Belgium' }, { value: 'BJ', label: 'Benin' }, { value: 'BQ', label: 'Bonaire, Sint Eustatius and Saba' }, { value: 'BF', label: 'Burkina Faso' }, { value: 'BD', label: 'Bangladesh' }, { value: 'BG', label: 'Bulgaria' }, { value: 'BH', label: 'Bahrain' }, { value: 'BS', label: 'Bahamas' }, { value: 'BA', label: 'Bosnia and Herzegovina' }, { value: 'BL', label: 'Saint Barthélemy' }, { value: 'BY', label: 'Belarus' }, { value: 'BZ', label: 'Belize' }, { value: 'BM', label: 'Bermuda' }, { value: 'BO', label: 'Bolivia, Plurinational State of' }, { value: 'BR', label: 'Brazil' }, { value: 'BB', label: 'Barbados' }, { value: 'BN', label: 'Brunei Darussalam' }, { value: 'BT', label: 'Bhutan' }, { value: 'BV', label: 'Bouvet Island' }, { value: 'BW', label: 'Botswana' }, { value: 'CF', label: 'Central African Republic' }, { value: 'CA', label: 'Canada' }, { value: 'CC', label: 'Cocos (Keeling) Islands' }, { value: 'CH', label: 'Switzerland' }, { value: 'CL', label: 'Chile' }, { value: 'CN', label: 'China' }, { value: 'CI', label: 'Côte d\'Ivoire' }, { value: 'CM', label: 'Cameroon' }, { value: 'CD', label: 'Congo, The Democratic Republic of the' }, { value: 'CG', label: 'Congo' }, { value: 'CK', label: 'Cook Islands' }, { value: 'CO', label: 'Colombia' }, { value: 'KM', label: 'Comoros' }, { value: 'CV', label: 'Cabo Verde' }, { value: 'CR', label: 'Costa Rica' }, { value: 'CU', label: 'Cuba' }, { value: 'CW', label: 'Curaçao' }, { value: 'CX', label: 'Christmas Island' }, { value: 'KY', label: 'Cayman Islands' }, { value: 'CY', label: 'Cyprus' }, { value: 'CZ', label: 'Czechia' }, { value: 'DE', label: 'Germany' }, { value: 'DJ', label: 'Djibouti' }, { value: 'DM', label: 'Dominica' }, { value: 'DK', label: 'Denmark' }, { value: 'DO', label: 'Dominican Republic' }, { value: 'DZ', label: 'Algeria' }, { value: 'EC', label: 'Ecuador' }, { value: 'EG', label: 'Egypt' }, { value: 'ER', label: 'Eritrea' }, { value: 'EH', label: 'Western Sahara' }, { value: 'ES', label: 'Spain' }, { value: 'EE', label: 'Estonia' }, { value: 'ET', label: 'Ethiopia' }, { value: 'FI', label: 'Finland' }, { value: 'FJ', label: 'Fiji' }, { value: 'FK', label: 'Falkland Islands (Malvinas)' }, { value: 'FR', label: 'France' }, { value: 'FO', label: 'Faroe Islands' }, { value: 'FM', label: 'Micronesia, Federated States of' }, { value: 'GA', label: 'Gabon' }, { value: 'GB', label: 'United Kingdom' }, { value: 'GE', label: 'Georgia' }, { value: 'GG', label: 'Guernsey' }, { value: 'GH', label: 'Ghana' }, { value: 'GI', label: 'Gibraltar' }, { value: 'GN', label: 'Guinea' }, { value: 'GP', label: 'Guadeloupe' }, { value: 'GM', label: 'Gambia' }, { value: 'GW', label: 'Guinea-Bissau' }, { value: 'GQ', label: 'Equatorial Guinea' }, { value: 'GR', label: 'Greece' }, { value: 'GD', label: 'Grenada' }, { value: 'GL', label: 'Greenland' }, { value: 'GT', label: 'Guatemala' }, { value: 'GF', label: 'French Guiana' }, { value: 'GU', label: 'Guam' }, { value: 'GY', label: 'Guyana' }, { value: 'HK', label: 'Hong Kong' }, { value: 'HM', label: 'Heard Island and McDonald Islands' }, { value: 'HN', label: 'Honduras' }, { value: 'HR', label: 'Croatia' }, { value: 'HT', label: 'Haiti' }, { value: 'HU', label: 'Hungary' }, { value: 'ID', label: 'Indonesia' }, { value: 'IM', label: 'Isle of Man' }, { value: 'IN', label: 'India' }, { value: 'IO', label: 'British Indian Ocean Territory' }, { value: 'IE', label: 'Ireland' }, { value: 'IR', label: 'Iran, Islamic Republic of' }, { value: 'IQ', label: 'Iraq' }, { value: 'IS', label: 'Iceland' }, { value: 'IL', label: 'Israel' }, { value: 'IT', label: 'Italy' }, { value: 'JM', label: 'Jamaica' }, { value: 'JE', label: 'Jersey' }, { value: 'JO', label: 'Jordan' }, { value: 'JP', label: 'Japan' }, { value: 'KZ', label: 'Kazakhstan' }, { value: 'KE', label: 'Kenya' }, { value: 'KG', label: 'Kyrgyzstan' }, { value: 'KH', label: 'Cambodia' }, { value: 'KI', label: 'Kiribati' }, { value: 'KN', label: 'Saint Kitts and Nevis' }, { value: 'KR', label: 'Korea, Republic of' }, { value: 'KW', label: 'Kuwait' }, { value: 'LA', label: 'Lao People\'s Democratic Republic' }, { value: 'LB', label: 'Lebanon' }, { value: 'LR', label: 'Liberia' }, { value: 'LY', label: 'Libya' }, { value: 'LC', label: 'Saint Lucia' }, { value: 'LI', label: 'Liechtenstein' }, { value: 'LK', label: 'Sri Lanka' }, { value: 'LS', label: 'Lesotho' }, { value: 'LT', label: 'Lithuania' }, { value: 'LU', label: 'Luxembourg' }, { value: 'LV', label: 'Latvia' }, { value: 'MO', label: 'Macao' }, { value: 'MF', label: 'Saint Martin (French part)' }, { value: 'MA', label: 'Morocco' }, { value: 'MC', label: 'Monaco' }, { value: 'MD', label: 'Moldova, Republic of' }, { value: 'MG', label: 'Madagascar' }, { value: 'MV', label: 'Maldives' }, { value: 'MX', label: 'Mexico' }, { value: 'MH', label: 'Marshall Islands' }, { value: 'MK', label: 'North Macedonia' }, { value: 'ML', label: 'Mali' }, { value: 'MT', label: 'Malta' }, { value: 'MM', label: 'Myanmar' }, { value: 'ME', label: 'Montenegro' }, { value: 'MN', label: 'Mongolia' }, { value: 'MP', label: 'Northern Mariana Islands' }, { value: 'MZ', label: 'Mozambique' }, { value: 'MR', label: 'Mauritania' }, { value: 'MS', label: 'Montserrat' }, { value: 'MQ', label: 'Martinique' }, { value: 'MU', label: 'Mauritius' }, { value: 'MW', label: 'Malawi' }, { value: 'MY', label: 'Malaysia' }, { value: 'YT', label: 'Mayotte' }, { value: 'NA', label: 'Namibia' }, { value: 'NC', label: 'New Caledonia' }, { value: 'NE', label: 'Niger' }, { value: 'NF', label: 'Norfolk Island' }, { value: 'NG', label: 'Nigeria' }, { value: 'NI', label: 'Nicaragua' }, { value: 'NU', label: 'Niue' }, { value: 'NL', label: 'Netherlands' }, { value: 'NO', label: 'Norway' }, { value: 'NP', label: 'Nepal' }, { value: 'NR', label: 'Nauru' }, { value: 'NZ', label: 'New Zealand' }, { value: 'OM', label: 'Oman' }, { value: 'PK', label: 'Pakistan' }, { value: 'PA', label: 'Panama' }, { value: 'PN', label: 'Pitcairn' }, { value: 'PE', label: 'Peru' }, { value: 'PH', label: 'Philippines' }, { value: 'PW', label: 'Palau' }, { value: 'PG', label: 'Papua New Guinea' }, { value: 'PL', label: 'Poland' }, { value: 'PR', label: 'Puerto Rico' }, { value: 'KP', label: 'Korea, Democratic People\'s Republic of' }, { value: 'PT', label: 'Portugal' }, { value: 'PY', label: 'Paraguay' }, { value: 'PS', label: 'Palestine, State of' }, { value: 'PF', label: 'French Polynesia' }, { value: 'QA', label: 'Qatar' }, { value: 'RE', label: 'Réunion' }, { value: 'RO', label: 'Romania' }, { value: 'RU', label: 'Russian Federation' }, { value: 'RW', label: 'Rwanda' }, { value: 'SA', label: 'Saudi Arabia' }, { value: 'SD', label: 'Sudan' }, { value: 'SN', label: 'Senegal' }, { value: 'SG', label: 'Singapore' }, { value: 'GS', label: 'South Georgia and the South Sandwich Islands' }, { value: 'SH', label: 'Saint Helena, Ascension and Tristan da Cunha' }, { value: 'SJ', label: 'Svalbard and Jan Mayen' }, { value: 'SB', label: 'Solomon Islands' }, { value: 'SL', label: 'Sierra Leone' }, { value: 'SV', label: 'El Salvador' }, { value: 'SM', label: 'San Marino' }, { value: 'SO', label: 'Somalia' }, { value: 'PM', label: 'Saint Pierre and Miquelon' }, { value: 'RS', label: 'Serbia' }, { value: 'SS', label: 'South Sudan' }, { value: 'ST', label: 'Sao Tome and Principe' }, { value: 'SR', label: 'Suriname' }, { value: 'SK', label: 'Slovakia' }, { value: 'SI', label: 'Slovenia' }, { value: 'SE', label: 'Sweden' }, { value: 'SZ', label: 'Eswatini' }, { value: 'SX', label: 'Sint Maarten (Dutch part)' }, { value: 'SC', label: 'Seychelles' }, { value: 'SY', label: 'Syrian Arab Republic' }, { value: 'TC', label: 'Turks and Caicos Islands' }, { value: 'TD', label: 'Chad' }, { value: 'TG', label: 'Togo' }, { value: 'TH', label: 'Thailand' }, { value: 'TJ', label: 'Tajikistan' }, { value: 'TK', label: 'Tokelau' }, { value: 'TM', label: 'Turkmenistan' }, { value: 'TL', label: 'Timor-Leste' }, { value: 'TO', label: 'Tonga' }, { value: 'TT', label: 'Trinidad and Tobago' }, { value: 'TN', label: 'Tunisia' }, { value: 'TR', label: 'Türkiye' }, { value: 'TV', label: 'Tuvalu' }, { value: 'TW', label: 'Taiwan, Province of China' }, { value: 'TZ', label: 'Tanzania, United Republic of' }, { value: 'UG', label: 'Uganda' }, { value: 'UA', label: 'Ukraine' }, { value: 'UM', label: 'United States Minor Outlying Islands' }, { value: 'UY', label: 'Uruguay' }, { value: 'US', label: 'United States' }, { value: 'UZ', label: 'Uzbekistan' }, { value: 'VA', label: 'Holy See (Vatican City State)' }, { value: 'VC', label: 'Saint Vincent and the Grenadines' }, { value: 'VE', label: 'Venezuela, Bolivarian Republic of' }, { value: 'VG', label: 'Virgin Islands, British' }, { value: 'VI', label: 'Virgin Islands, U.S.' }, { value: 'VN', label: 'Viet Nam' }, { value: 'VU', label: 'Vanuatu' }, { value: 'WF', label: 'Wallis and Futuna' }, { value: 'WS', label: 'Samoa' }, { value: 'YE', label: 'Yemen' }, { value: 'ZA', label: 'South Africa' }, { value: 'ZM', label: 'Zambia' }, { value: 'ZW', label: 'Zimbabwe' }, { value: 'EU', label: 'European Union' }],
       },
     ],
   },
   {
-    description: translate('Marketplace'),
+    description: translate('Marketplace visibility & access'),
     items: [
-      {
-        key: 'THUMBNAIL_SIZE',
-        description: translate('Size of the thumbnail to generate when screenshot is uploaded for an offering.'),
-        default: '120x120',
-        type: 'string',
-      },
       {
         key: 'ANONYMOUS_USER_CAN_VIEW_OFFERINGS',
         description: translate('Allow anonymous users to see shared offerings in active, paused and archived states'),
@@ -106,6 +121,55 @@ export const SettingsDescription = [
         default: true,
         type: 'boolean',
       },
+      {
+        key: 'RESTRICTED_OFFERING_VISIBILITY_MODE',
+        description: translate('Controls offering visibility for regular users. \'show_all\': Show all shared offerings (current behavior). \'show_restricted_disabled\': Show all but mark inaccessible as disabled. \'hide_inaccessible\': Hide offerings user cannot access. \'require_membership\': Hide all unless user belongs to an organization/project.'),
+        default: 'show_all',
+        type: 'choice_field',
+        options: [{ value: 'show_all', label: 'Show all shared offerings' }, { value: 'show_restricted_disabled', label: 'Show all but mark inaccessible as disabled' }, { value: 'hide_inaccessible', label: 'Hide offerings user cannot access' }, { value: 'require_membership', label: 'Hide all unless user belongs to an organization/project' }],
+      },
+      {
+        key: 'SERVICE_ACCESS_MODE',
+        description: translate('How users reach services. \'calls\': only through calls for proposals, no marketplace navigation. \'marketplace\': the marketplace is the single entry point; calls are reached through an offering and proposals are tracked in the user profile. \'both\': marketplace and calls are browsable independently. Navigation only — the API serves the same data in every mode.'),
+        default: 'both',
+        type: 'choice_field',
+        options: [{ value: 'calls', label: 'Calls only' }, { value: 'marketplace', label: 'Marketplace only' }, { value: 'both', label: 'Marketplace and calls' }],
+      },
+      {
+        key: 'SHOW_OFFERING_COVER_IMAGE',
+        description: translate('Show offering cover image as a banner above the name on the offering page.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'ENABLE_MARKDOWN_IMAGE_UPLOAD',
+        description: translate('Allow uploading images for embedding in offering markdown descriptions.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'ENFORCE_USER_CONSENT_FOR_OFFERINGS',
+        description: translate('If True, users must have active consent to access offerings that have active Terms of Service.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'ENFORCE_OFFERING_USER_PROFILE_COMPLETENESS',
+        description: translate('If True, service providers only see offering users whose profiles have all exposed attributes filled (per OfferingUserAttributeConfig).'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'ALLOW_SERVICE_PROVIDER_OFFERING_MANAGEMENT',
+        description: translate('If true, service provider owners and managers can manage offering lifecycle (activate, pause, unpause, archive, draft, delete) without staff approval.'),
+        default: false,
+        type: 'boolean',
+      },
+    ],
+  },
+  {
+    description: translate('Marketplace notifications'),
+    items: [
       {
         key: 'NOTIFY_STAFF_ABOUT_APPROVALS',
         description: translate('If true, users with staff role are notified when request for order approval is generated'),
@@ -130,6 +194,47 @@ export const SettingsDescription = [
         default: false,
         type: 'boolean',
       },
+    ],
+  },
+  {
+    description: translate('Offerings & orders'),
+    items: [
+      {
+        key: 'THUMBNAIL_SIZE',
+        description: translate('Size of the thumbnail to generate when screenshot is uploaded for an offering.'),
+        default: '120x120',
+        type: 'string',
+      },
+      {
+        key: 'ENABLE_MARKDOWN_IMAGE_UPLOAD',
+        description: translate('Allow uploading images for embedding in offering markdown descriptions.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'MARKDOWN_IMAGE_MAX_SIZE_MB',
+        description: translate('Maximum size in megabytes for a markdown image upload.'),
+        default: 5,
+        type: 'integer',
+      },
+      {
+        key: 'DISABLED_OFFERING_TYPES',
+        description: translate('List of offering types disabled for creation and selection.'),
+        default: [],
+        type: 'multiple_choice_field',
+        options: [{ value: 'Support.OfferingTemplate', label: 'Support' }, { value: 'Marketplace.Booking', label: 'Booking' }, { value: 'Marketplace.Basic', label: 'Basic' }, { value: 'OpenStack.Tenant', label: 'OpenStack Tenant' }, { value: 'OpenStack.Instance', label: 'OpenStack Instance' }, { value: 'OpenStack.Volume', label: 'OpenStack Volume' }, { value: 'Marketplace.Rancher', label: 'Rancher' }, { value: 'VMware.VirtualMachine', label: 'VMware Virtual Machine' }, { value: 'Waldur.RemoteOffering', label: 'Remote Offering' }, { value: 'Marketplace.Script', label: 'Script' }, { value: 'Marketplace.Slurm', label: 'Site Agent' }],
+      },
+      {
+        key: 'ENABLE_ORDER_START_DATE',
+        description: translate('Allow setting start date to control when resource creation order is processed.'),
+        default: false,
+        type: 'boolean',
+      },
+    ],
+  },
+  {
+    description: translate('Marketplace development'),
+    items: [
       {
         key: 'ENABLE_MOCK_SERVICE_ACCOUNT_BACKEND',
         description: translate('Enable mock returns for the service account service'),
@@ -139,18 +244,6 @@ export const SettingsDescription = [
       {
         key: 'ENABLE_MOCK_COURSE_ACCOUNT_BACKEND',
         description: translate('Enable mock returns for the course account service'),
-        default: false,
-        type: 'boolean',
-      },
-      {
-        key: 'ENFORCE_USER_CONSENT_FOR_OFFERINGS',
-        description: translate('If True, users must have active consent to access offerings that have active Terms of Service.'),
-        default: false,
-        type: 'boolean',
-      },
-      {
-        key: 'ENABLE_ORDER_START_DATE',
-        description: translate('Allow setting start date to control when resource creation order is processed.'),
         default: false,
         type: 'boolean',
       },
@@ -164,6 +257,31 @@ export const SettingsDescription = [
         description: translate('If true, project end date field becomes mandatory when creating or updating projects.'),
         default: false,
         type: 'boolean',
+      },
+      {
+        key: 'AFFILIATION_REQUIRED_AT_PROJECT_CREATION',
+        description: translate('If true, the affiliation field is required when creating or updating projects.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'PROJECT_NAME_REGEX',
+        description: translate('Regular expression that a project name must fully match when creating or renaming a project. The whole name has to match the pattern. Leave empty to disable the check. Examples: \'^.{1,32}$\' limits the name to at most 32 characters; \'^[A-Za-z0-9 _-]{1,32}$\' also restricts it to letters, digits, spaces, underscores and hyphens; \'^[A-Za-z].{0,31}$\' additionally requires it to start with a letter.'),
+        default: '',
+        type: 'string',
+      },
+      {
+        key: 'PROJECT_NAME_REGEX_ERROR_MESSAGE',
+        description: translate('Custom validation error shown when a project name does not match PROJECT_NAME_REGEX. Leave empty to use the default message.'),
+        default: '',
+        type: 'string',
+      },
+      {
+        key: 'OPENPORTAL_MEMBERSHIP_SYNC_MODE',
+        description: translate('How to add a user to a project when an OpenPortal award lists them as a member. \'invitation\': create a pending invitation, so the user accepts, agrees to the terms and is provisioned locally before gaining access. \'direct\': create the account if it does not exist and grant the role immediately. A pending invitation is reported back to the allocating portal as a member either way, so the award reaches a consistent state without waiting for the user to act.'),
+        default: 'invitation',
+        type: 'choice_field',
+        options: [{ value: 'invitation', label: 'Invite the user and wait for them to accept' }, { value: 'direct', label: 'Add the user to the project immediately' }],
       },
     ],
   },
@@ -182,6 +300,12 @@ export const SettingsDescription = [
         default: 1,
         type: 'integer',
       },
+      {
+        key: 'CHECK_FOR_UPDATES',
+        description: translate('If true, the version endpoint queries GitHub for the latest released Waldur version. Disable in deployments without outbound internet access to avoid failed requests to api.github.com.'),
+        default: true,
+        type: 'boolean',
+      },
     ],
   },
   {
@@ -191,7 +315,8 @@ export const SettingsDescription = [
         key: 'SCRIPT_RUN_MODE',
         description: translate('Type of jobs deployment. Valid values: "docker" for simple docker deployment, "k8s" for Kubernetes-based one'),
         default: 'docker',
-        type: 'string',
+        type: 'choice_field',
+        options: [{ value: 'docker', label: 'Docker' }, { value: 'k8s', label: 'Kubernetes' }],
       },
       {
         key: 'DOCKER_CLIENT',
@@ -220,7 +345,7 @@ export const SettingsDescription = [
       {
         key: 'DOCKER_IMAGES',
         description: translate('Key is command to execute script, value is a dictionary of image name and command.'),
-        default: {'python': {'image': 'python:3.11-alpine', 'command': 'python'}, 'shell': {'image': 'alpine:3', 'command': 'sh'}, 'ansible': {'image': 'alpine/ansible:2.18.6', 'command': 'ansible-playbook'}},
+        default: {'python': {'image': 'python:3.12-alpine', 'command': 'python'}, 'shell': {'image': 'alpine:3', 'command': 'sh'}, 'ansible': {'image': 'alpine/ansible:2.18.6', 'command': 'ansible-playbook'}},
         type: 'dict_field',
       },
       {
@@ -271,10 +396,17 @@ export const SettingsDescription = [
         type: 'integer',
       },
       {
+        key: 'MAINTENANCE_ANNOUNCEMENT_TRAILING_BUFFER_MINUTES',
+        description: translate('Minutes the announcement banner stays visible after maintenance completes'),
+        default: 60,
+        type: 'integer',
+      },
+      {
         key: 'MAINTENANCE_ANNOUNCEMENT_NOTIFY_SYSTEM',
-        description: translate('How maintenance notifications are delivered. Choices: AdminAnnouncement or BroadcastMessage.'),
+        description: translate('How maintenance notifications are delivered.'),
         default: ['AdminAnnouncement'],
-        type: 'list_field',
+        type: 'multiple_choice_field',
+        options: [{ value: 'AdminAnnouncement', label: 'AdminAnnouncement' }, { value: 'BroadcastMessage', label: 'BroadcastMessage' }],
       },
     ],
   },
@@ -312,9 +444,17 @@ export const SettingsDescription = [
     items: [
       {
         key: 'SIDEBAR_STYLE',
-        description: translate('Style of sidebar. Possible values: dark, light, accent.'),
+        description: translate('Style of sidebar.'),
         default: 'dark',
-        type: 'string',
+        type: 'choice_field',
+        options: [{ value: 'primary', label: 'Primary' }, { value: 'accent', label: 'Dark primary' }, { value: 'accent-light', label: 'Light primary' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }, { value: 'auto', label: 'Match theme' }],
+      },
+      {
+        key: 'FONT_FAMILY',
+        description: translate('Font family used in the UI.'),
+        default: 'Inter',
+        type: 'choice_field',
+        options: [{ value: 'Inter', label: 'Inter' }, { value: 'Maven Pro', label: 'Maven Pro' }],
       },
       {
         key: 'BRAND_COLOR',
@@ -331,14 +471,44 @@ export const SettingsDescription = [
     ],
   },
   {
-    description: translate('Images'),
+    description: translate('Login page'),
     items: [
       {
-        key: 'SITE_LOGO',
-        description: translate('The image used in marketplace order header.'),
-        default: '',
-        type: 'image_field',
+        key: 'LOGIN_PAGE_LAYOUT',
+        description: translate('Login page layout style.'),
+        default: 'split-screen',
+        type: 'choice_field',
+        options: [{ value: 'split-screen', label: 'Split-screen' }, { value: 'centered-card', label: 'Centered-card' }, { value: 'minimal', label: 'Minimal' }, { value: 'full-hero', label: 'Full-hero' }, { value: 'gradient', label: 'Gradient' }, { value: 'stacked', label: 'Stacked' }, { value: 'right-split', label: 'Right-split' }, { value: 'glassmorphism', label: 'Glassmorphism' }, { value: 'neumorphism', label: 'Neumorphism' }, { value: 'animated-gradient', label: 'Animated-gradient' }, { value: 'video-background', label: 'Video-background' }, { value: 'bottom-sheet', label: 'Bottom-sheet' }, { value: 'tabbed', label: 'Tabbed' }, { value: 'wizard', label: 'Wizard' }, { value: 'stats', label: 'Stats' }, { value: 'news', label: 'News' }, { value: 'carousel', label: 'Carousel' }, { value: 'logo-watermark', label: 'Logo-watermark' }, { value: 'brand-pattern', label: 'Brand-pattern' }, { value: 'duotone', label: 'Duotone' }, { value: 'diagonal', label: 'Diagonal' }, { value: 'time-based', label: 'Time-based' }, { value: 'seasonal', label: 'Seasonal' }, { value: 'weather', label: 'Weather' }],
       },
+      {
+        key: 'LOGIN_PAGE_VIDEO_URL',
+        description: translate('Video URL for the video-background login page layout. Supports MP4 format. Leave empty to use default sample video.'),
+        default: '',
+        type: 'url_field',
+      },
+      {
+        key: 'LOGIN_PAGE_STATS',
+        description: translate('Stats displayed in the Stats login page layout. List of objects with \'value\' and \'label\' keys, e.g., [{\'value\': \'10K+\', \'label\': \'Active Users\'}, {\'value\': \'99.9%\', \'label\': \'Uptime\'}].'),
+        default: [],
+        type: 'json_list_field',
+      },
+      {
+        key: 'LOGIN_PAGE_CAROUSEL_SLIDES',
+        description: translate('Carousel slides displayed in the Carousel login page layout. List of objects with \'title\' and \'subtitle\' keys, e.g., [{\'title\': \'Welcome\', \'subtitle\': \'Get started with our platform\'}].'),
+        default: [],
+        type: 'json_list_field',
+      },
+      {
+        key: 'LOGIN_PAGE_NEWS',
+        description: translate('News items displayed in the News login page layout. List of objects with \'date\', \'title\', \'description\', and \'tag\' keys. Supported tags: Feature, Update, Security, Announcement, Maintenance. Example: [{\'date\': \'Jan 2025\', \'title\': \'New Feature\', \'description\': \'Description here\', \'tag\': \'Feature\'}].'),
+        default: [],
+        type: 'json_list_field',
+      },
+    ],
+  },
+  {
+    description: translate('Images'),
+    items: [
       {
         key: 'SIDEBAR_LOGO',
         description: translate('The image rendered at the top of sidebar menu in HomePort.'),
@@ -388,6 +558,12 @@ export const SettingsDescription = [
         type: 'image_field',
       },
       {
+        key: 'LOGIN_LOGO_MULTILINGUAL',
+        description: translate('Language-specific login logos. Dict mapping language codes to image paths, e.g., {\'de\': \'path/to/german_logo.png\'}. Falls back to LOGIN_LOGO if requested language not found.'),
+        default: {},
+        type: 'multilingual_image_field',
+      },
+      {
         key: 'FAVICON',
         description: translate('A custom favicon .png image file'),
         default: '',
@@ -405,6 +581,12 @@ export const SettingsDescription = [
         default: '',
         type: 'image_field',
       },
+      {
+        key: 'DISCLAIMER_AREA_LOGO',
+        description: translate('The logo image rendered in the disclaimer area below the footer.'),
+        default: '',
+        type: 'image_field',
+      },
     ],
   },
   {
@@ -418,15 +600,52 @@ export const SettingsDescription = [
       },
       {
         key: 'WALDUR_SUPPORT_ACTIVE_BACKEND_TYPE',
-        description: translate('Type of support backend. Possible values: atlassian, zammad, smax.'),
+        description: translate('Type of support backend. Possible values: basic, atlassian, zammad, smax.'),
         default: 'atlassian',
-        type: 'string',
+        type: 'choice_field',
+        options: [{ value: 'basic', label: 'Basic' }, { value: 'atlassian', label: 'Atlassian' }, { value: 'zammad', label: 'Zammad' }, { value: 'smax', label: 'SMAX' }],
       },
       {
         key: 'WALDUR_SUPPORT_DISPLAY_REQUEST_TYPE',
         description: translate('Toggler for request type displaying'),
         default: true,
         type: 'boolean',
+      },
+      {
+        key: 'WALDUR_SUPPORT_PROVIDER_ROUTING_ENABLED',
+        description: translate('Enable automatic routing of tickets to provider helpdesks.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'WALDUR_SUPPORT_AUTO_ASSIGN',
+        description: translate('Enable automatic assignment of tickets to support users.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'WALDUR_SUPPORT_AUTO_ASSIGN_STRATEGY',
+        description: translate('Strategy for auto-assignment. Possible values: least_loaded, round_robin.'),
+        default: 'least_loaded',
+        type: 'string',
+      },
+      {
+        key: 'WALDUR_SUPPORT_SLA_ENABLED',
+        description: translate('Enable SLA deadline tracking for the basic support backend.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'WALDUR_SUPPORT_SLA_RESPONSE_HOURS',
+        description: translate('SLA deadline for first response in hours.'),
+        default: 4,
+        type: 'integer',
+      },
+      {
+        key: 'WALDUR_SUPPORT_SLA_RESOLUTION_HOURS',
+        description: translate('SLA deadline for issue resolution in hours.'),
+        default: 24,
+        type: 'integer',
       },
     ],
   },
@@ -504,18 +723,6 @@ export const SettingsDescription = [
         description: translate('Comma-separated list of file extenstions not allowed for attachment.'),
         default: '',
         type: 'string',
-      },
-      {
-        key: 'ATLASSIAN_ISSUE_TYPES',
-        description: translate('Comma-separated list of enabled issue types. First type is the default one.'),
-        default: 'Informational, Service Request, Change Request, Incident',
-        type: 'string',
-      },
-      {
-        key: 'ATLASSIAN_SUPPORT_TYPE_MAPPING',
-        description: translate('Mapping from frontend issue types to backend request types'),
-        default: {'Informational': 'Get IT help', 'Service Request': 'Request new software', 'Change Request': 'Change Request', 'Incident': 'Report a system problem'},
-        type: 'dict_field',
       },
       {
         key: 'ATLASSIAN_AFFECTED_RESOURCE_FIELD',
@@ -637,6 +844,12 @@ export const SettingsDescription = [
         default: false,
         type: 'boolean',
       },
+      {
+        key: 'JIRA_WEBHOOK_SHARED_SECRET',
+        description: translate('Shared secret expected in the X-Webhook-Secret header of inbound JIRA webhook deliveries. If empty, authentication is not enforced and the receiver accepts unauthenticated requests (legacy behaviour). Configure your JIRA automation/webhook to send the same value to enable authentication.'),
+        default: '',
+        type: 'secret_field',
+      },
     ],
   },
   {
@@ -662,9 +875,10 @@ export const SettingsDescription = [
       },
       {
         key: 'ZAMMAD_ARTICLE_TYPE',
-        description: translate('Type of a comment. Default is email because it allows support to reply to tickets directly in Zammad<https://docs.zammad.org/en/latest/api/ticket/articles.html#articles/>'),
+        description: translate('Type of a comment.'),
         default: 'email',
-        type: 'string',
+        type: 'choice_field',
+        options: [{ value: 'email', label: 'email' }, { value: 'phone', label: 'phone' }, { value: 'web', label: 'web' }, { value: 'note', label: 'note' }, { value: 'sms', label: 'sms' }, { value: 'chat', label: 'chat' }, { value: 'fax', label: 'fax' }, { value: 'twitter status', label: 'twitter status' }, { value: 'twitter direct-message', label: 'twitter direct-message' }, { value: 'facebook feed post', label: 'facebook feed post' }, { value: 'facebook feed comment', label: 'facebook feed comment' }, { value: 'telegram personal-message', label: 'telegram personal-message' }],
       },
       {
         key: 'ZAMMAD_COMMENT_MARKER',
@@ -683,6 +897,12 @@ export const SettingsDescription = [
         description: translate('Time in minutes. Time in minutes while comment deletion is available <https://github.com/zammad/zammad/issues/2687/>, <https://github.com/zammad/zammad/issues/3086/>'),
         default: 5,
         type: 'integer',
+      },
+      {
+        key: 'ZAMMAD_WEBHOOK_SHARED_SECRET',
+        description: translate('Shared secret expected in the X-Webhook-Secret header of inbound Zammad webhook deliveries. If empty, authentication is not enforced and the receiver accepts unauthenticated requests (legacy behaviour).'),
+        default: '',
+        type: 'secret_field',
       },
     ],
   },
@@ -761,6 +981,18 @@ export const SettingsDescription = [
         default: true,
         type: 'boolean',
       },
+      {
+        key: 'SMAX_CERTIFICATE',
+        description: translate('Custom CA certificate (PEM format) used to verify the TLS connection to the SMAX server. When set, it overrides the default CA bundle. Ignored if SSL verification is disabled.'),
+        default: '',
+        type: 'text_field',
+      },
+      {
+        key: 'SMAX_WEBHOOK_SHARED_SECRET',
+        description: translate('Shared secret expected in the X-Webhook-Secret header of inbound SMAX webhook deliveries. If empty, authentication is not enforced and the receiver accepts unauthenticated requests (legacy behaviour).'),
+        default: '',
+        type: 'secret_field',
+      },
     ],
   },
   {
@@ -771,6 +1003,120 @@ export const SettingsDescription = [
         description: translate('Review duration in days.'),
         default: 7,
         type: 'integer',
+      },
+      {
+        key: 'DEFAULT_PROPOSAL_REQUIRED_FIELDS',
+        description: translate('Project details fields a new call requires by default. Applied when the call is created; changing this never alters an existing call.'),
+        default: ['project_summary'],
+        type: 'multiple_choice_field',
+        options: [{ value: 'project_summary', label: 'Summary' }, { value: 'description', label: 'Description' }, { value: 'science_sub_domain', label: 'Science domain' }, { value: 'supporting_documentation', label: 'Supporting documentation' }],
+      },
+      {
+        key: 'DEFAULT_PROPOSAL_HIDDEN_FIELDS',
+        description: translate('Project details fields a new call does not ask for at all. Applied when the call is created; changing this never alters an existing call.'),
+        default: [],
+        type: 'multiple_choice_field',
+        options: [{ value: 'project_summary', label: 'Summary' }, { value: 'description', label: 'Description' }, { value: 'science_sub_domain', label: 'Science domain' }, { value: 'supporting_documentation', label: 'Supporting documentation' }],
+      },
+      {
+        key: 'REVIEWER_PROFILES_ENABLED',
+        description: translate('Enable reviewer profile management features.'),
+        default: true,
+        type: 'boolean',
+      },
+      {
+        key: 'COI_DETECTION_ENABLED',
+        description: translate('Enable conflict of interest detection features.'),
+        default: true,
+        type: 'boolean',
+      },
+      {
+        key: 'COI_DISCLOSURE_REQUIRED',
+        description: translate('Require reviewers to submit COI disclosure before reviewing proposals.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'AUTOMATED_MATCHING_ENABLED',
+        description: translate('Enable automated reviewer-proposal matching algorithms.'),
+        default: true,
+        type: 'boolean',
+      },
+      {
+        key: 'COI_COAUTHORSHIP_LOOKBACK_YEARS',
+        description: translate('Default number of years to look back for co-authorship COI detection.'),
+        default: 5,
+        type: 'integer',
+      },
+      {
+        key: 'COI_COAUTHORSHIP_THRESHOLD_PAPERS',
+        description: translate('Default number of co-authored papers to trigger a COI.'),
+        default: 2,
+        type: 'integer',
+      },
+      {
+        key: 'COI_INSTITUTIONAL_LOOKBACK_YEARS',
+        description: translate('Default number of years after leaving institution before COI expires.'),
+        default: 3,
+        type: 'integer',
+      },
+    ],
+  },
+  {
+    description: translate('ORCID integration settings'),
+    items: [
+      {
+        key: 'ORCID_CLIENT_ID',
+        description: translate('ORCID OAuth2 Client ID for reviewer profile integration.'),
+        default: '',
+        type: 'string',
+      },
+      {
+        key: 'ORCID_CLIENT_SECRET',
+        description: translate('ORCID OAuth2 Client Secret.'),
+        default: '',
+        type: 'secret_field',
+      },
+      {
+        key: 'ORCID_REDIRECT_URI',
+        description: translate('ORCID OAuth2 Redirect URI. Typically {HOMEPORT_URL}/orcid-callback/'),
+        default: '',
+        type: 'url_field',
+      },
+      {
+        key: 'ORCID_API_URL',
+        description: translate('ORCID API Base URL. Use https://pub.sandbox.orcid.org/v3.0 for testing.'),
+        default: 'https://pub.orcid.org/v3.0',
+        type: 'url_field',
+      },
+      {
+        key: 'ORCID_AUTH_URL',
+        description: translate('ORCID OAuth Authorization URL. Use https://sandbox.orcid.org/oauth for testing.'),
+        default: 'https://orcid.org/oauth',
+        type: 'url_field',
+      },
+      {
+        key: 'ORCID_SANDBOX_MODE',
+        description: translate('Use ORCID sandbox environment for testing. When enabled, uses sandbox URLs automatically.'),
+        default: false,
+        type: 'boolean',
+      },
+    ],
+  },
+  {
+    description: translate('Publication API settings'),
+    items: [
+      {
+        key: 'SEMANTIC_SCHOLAR_API_KEY',
+        description: translate('Semantic Scholar API Key for publication imports. Optional but recommended for higher rate limits.'),
+        default: '',
+        type: 'secret_field',
+      },
+      {
+        key: 'CROSSREF_MAILTO',
+        description: translate('Email address for CrossRef API polite pool. Provides higher rate limits.'),
+        default: '',
+        type: 'email_field',
       },
     ],
   },
@@ -791,13 +1137,13 @@ export const SettingsDescription = [
       {
         key: 'LANGUAGE_CHOICES',
         description: translate('List of enabled languages'),
-        default: 'en,et,lt,lv,ru,it,de,da,sv,es,fr,nb,ar,cs',
+        default: 'en,et,lt,lv,ru,it,de,da,sv,es,fr,nb,ar,cs,hr,km',
         type: 'string',
       },
     ],
   },
   {
-    description: translate('User settings'),
+    description: translate('Authentication settings'),
     items: [
       {
         key: 'AUTO_APPROVE_USER_TOS',
@@ -806,22 +1152,11 @@ export const SettingsDescription = [
         type: 'boolean',
       },
       {
-        key: 'ENABLE_STRICT_CHECK_ACCEPTING_INVITATION',
-        description: translate('If true, user email in Waldur database and in invitatation must strictly match.'),
-        default: false,
-        type: 'boolean',
-      },
-      {
-        key: 'INVITATION_DISABLE_MULTIPLE_ROLES',
-        description: translate('Do not allow user to grant multiple roles in the same project or organization using invitation.'),
-        default: false,
-        type: 'boolean',
-      },
-      {
         key: 'DEFAULT_IDP',
         description: translate('Triggers authentication flow at once.'),
         default: '',
-        type: 'string',
+        type: 'choice_field',
+        options: [{ value: '', label: 'Not configured' }, { value: 'tara', label: 'TARA' }, { value: 'eduteams', label: 'eduTEAMS' }, { value: 'keycloak', label: 'Keycloak' }],
       },
       {
         key: 'DEACTIVATE_USER_IF_NO_ROLES',
@@ -831,13 +1166,135 @@ export const SettingsDescription = [
       },
       {
         key: 'OIDC_BLOCK_CREATION_OF_UNINVITED_USERS',
-        description: translate('If true, block creation of an account on OIDC login if user email is not provided or provided and is not in the list of one of the active invitations.'),
+        description: translate('If true, block creation of an account on OIDC login if user email is not provided or provided and is not in the list of one of the active invitations or matching active group invitation email patterns.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'OIDC_BLOCK_CREATION_OF_UNINVITED_USERS_RESPONSE_MESSAGE',
+        description: translate('The message to show when OIDC account creation is blocked for uninvited users. URLs are rendered as clickable links; include the scheme (e.g. https://example.com) so bare URLs are linked.'),
+        default: 'Account creation is blocked for uninvited users.',
+        type: 'text_field',
+      },
+      {
+        key: 'OIDC_ALLOWED_USER_EMAIL_PATTERNS',
+        description: translate('Comma-separated list of regular expressions matched against the user email, e.g. \'.*@example\.com\'. Only has an effect when OIDC_BLOCK_CREATION_OF_UNINVITED_USERS is enabled. When non-empty, a user whose email matches any of the patterns may sign up without an invitation, and existing users must keep matching in order to log in - except staff and support users, users holding at least one unexpired role, users with a pending invitation and users matching an autoprovisioning rule, which are always allowed. Only interactive logins are gated; background identity synchronisation is not. Patterns must match the whole email and are case-insensitive. Note: values are split on commas, so a pattern cannot contain a comma - \'{n,m}\' quantifiers are not supported, repeat the expression instead.'),
+        default: [],
+        type: 'list_field',
+      },
+      {
+        key: 'OIDC_BLOCKED_LOGIN_RESPONSE_MESSAGE',
+        description: translate('The message to show when an existing account is refused at login because its email no longer matches OIDC_ALLOWED_USER_EMAIL_PATTERNS. Kept separate from the account creation message so a long-standing user is not told their account cannot be created. URLs are rendered as clickable links; include the scheme (e.g. https://example.com) so bare URLs are linked.'),
+        default: 'Access to this deployment is restricted.',
+        type: 'text_field',
+      },
+      {
+        key: 'OIDC_MATCHMAKING_BY_EMAIL',
+        description: translate('If true, when OIDC login fails to find a user by the primary lookup field, attempt a secondary lookup by email before creating a new user. On successful email match, the user\'s primary lookup field is updated to the OIDC claim value.'),
         default: false,
         type: 'boolean',
       },
       {
         key: 'OIDC_ACCESS_TOKEN_ENABLED',
         description: translate('If true, OIDC complete view returns access token instead of Waldur token'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'REMOTE_EDUTEAMS_REFRESH_TOKEN',
+        description: translate('Rotating OAuth2 refresh token for remote eduTEAMS API access. Automatically updated by the periodic token rotation task. If empty, falls back to REMOTE_EDUTEAMS_REFRESH_TOKEN from Django settings.'),
+        default: '',
+        type: 'secret_field',
+      },
+    ],
+  },
+  {
+    description: translate('Invitation settings'),
+    items: [
+      {
+        key: 'ENABLE_STRICT_CHECK_ACCEPTING_INVITATION',
+        description: translate('If true, user email in Waldur database and in invitatation must strictly match.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'INVITATION_DISABLE_MULTIPLE_ROLES',
+        description: translate('Do not allow user to accept multiple roles within the same scope (project or organization) using invitation. When enabled, users can still accept invitations to different scopes but cannot have multiple roles in the same scope.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'ONLY_ONE_PROJECT_MANAGER',
+        description: translate('If true, a project may have at most one active project manager (PROJECT.MANAGER).'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'INVITATION_ALLOWED_FIELDS',
+        description: translate('Fields that can be provided in invitations for email personalization. These are NOT copied to user profile.'),
+        default: ['full_name', 'organization', 'job_title'],
+        type: 'multiple_choice_field',
+        options: [{ value: 'username', label: 'Username' }, { value: 'registration_method', label: 'Registration method' }, { value: 'first_name', label: 'First name' }, { value: 'last_name', label: 'Last name' }, { value: 'full_name', label: 'Full name' }, { value: 'email', label: 'Email' }, { value: 'phone_number', label: 'Phone number' }, { value: 'organization', label: 'Organization' }, { value: 'job_title', label: 'Job title' }, { value: 'affiliations', label: 'Affiliations' }, { value: 'gender', label: 'Gender' }, { value: 'personal_title', label: 'Personal title' }, { value: 'birth_date', label: 'Birth date' }, { value: 'place_of_birth', label: 'Place of birth' }, { value: 'address', label: 'Address' }, { value: 'country_of_residence', label: 'Country of residence' }, { value: 'nationality', label: 'Nationality' }, { value: 'nationalities', label: 'Nationalities' }, { value: 'organization_country', label: 'Organization country' }, { value: 'organization_type', label: 'Organization type' }, { value: 'organization_registry_code', label: 'Organization registry code' }, { value: 'organization_vat_code', label: 'Organization VAT code' }, { value: 'organization_address', label: 'Organization address' }, { value: 'eduperson_assurance', label: 'Eduperson assurance' }, { value: 'civil_number', label: 'Civil number' }, { value: 'identity_source', label: 'Identity source' }, { value: 'active_isds', label: 'Active identity sources' }, { value: 'uid_number', label: 'UID number' }, { value: 'primary_gid', label: 'Primary GID' }],
+      },
+    ],
+  },
+  {
+    description: translate('User profile settings'),
+    items: [
+      {
+        key: 'DEFAULT_OFFERING_USER_ATTRIBUTES',
+        description: translate('Default user attributes exposed to service providers (OfferingUser API) when no explicit config exists.'),
+        default: ['username', 'full_name', 'email'],
+        type: 'multiple_choice_field',
+        options: [{ value: 'username', label: 'Username' }, { value: 'registration_method', label: 'Registration method' }, { value: 'first_name', label: 'First name' }, { value: 'last_name', label: 'Last name' }, { value: 'full_name', label: 'Full name' }, { value: 'email', label: 'Email' }, { value: 'phone_number', label: 'Phone number' }, { value: 'organization', label: 'Organization' }, { value: 'job_title', label: 'Job title' }, { value: 'affiliations', label: 'Affiliations' }, { value: 'gender', label: 'Gender' }, { value: 'personal_title', label: 'Personal title' }, { value: 'birth_date', label: 'Birth date' }, { value: 'place_of_birth', label: 'Place of birth' }, { value: 'address', label: 'Address' }, { value: 'country_of_residence', label: 'Country of residence' }, { value: 'nationality', label: 'Nationality' }, { value: 'nationalities', label: 'Nationalities' }, { value: 'organization_country', label: 'Organization country' }, { value: 'organization_type', label: 'Organization type' }, { value: 'organization_registry_code', label: 'Organization registry code' }, { value: 'organization_vat_code', label: 'Organization VAT code' }, { value: 'organization_address', label: 'Organization address' }, { value: 'eduperson_assurance', label: 'Eduperson assurance' }, { value: 'civil_number', label: 'Civil number' }, { value: 'identity_source', label: 'Identity source' }, { value: 'active_isds', label: 'Active identity sources' }, { value: 'uid_number', label: 'UID number' }, { value: 'primary_gid', label: 'Primary GID' }],
+      },
+      {
+        key: 'DEFAULT_CALL_USER_ATTRIBUTES',
+        description: translate('Default applicant attributes exposed to call reviewers when no explicit CallApplicantVisibilityConfig exists.'),
+        default: ['username', 'full_name', 'email'],
+        type: 'multiple_choice_field',
+        options: [{ value: 'username', label: 'Username' }, { value: 'registration_method', label: 'Registration method' }, { value: 'first_name', label: 'First name' }, { value: 'last_name', label: 'Last name' }, { value: 'full_name', label: 'Full name' }, { value: 'email', label: 'Email' }, { value: 'phone_number', label: 'Phone number' }, { value: 'organization', label: 'Organization' }, { value: 'job_title', label: 'Job title' }, { value: 'affiliations', label: 'Affiliations' }, { value: 'gender', label: 'Gender' }, { value: 'personal_title', label: 'Personal title' }, { value: 'birth_date', label: 'Birth date' }, { value: 'place_of_birth', label: 'Place of birth' }, { value: 'address', label: 'Address' }, { value: 'country_of_residence', label: 'Country of residence' }, { value: 'nationality', label: 'Nationality' }, { value: 'nationalities', label: 'Nationalities' }, { value: 'organization_country', label: 'Organization country' }, { value: 'organization_type', label: 'Organization type' }, { value: 'organization_registry_code', label: 'Organization registry code' }, { value: 'organization_vat_code', label: 'Organization VAT code' }, { value: 'organization_address', label: 'Organization address' }, { value: 'eduperson_assurance', label: 'Eduperson assurance' }, { value: 'civil_number', label: 'Civil number' }, { value: 'identity_source', label: 'Identity source' }, { value: 'active_isds', label: 'Active identity sources' }, { value: 'uid_number', label: 'UID number' }, { value: 'primary_gid', label: 'Primary GID' }],
+      },
+      {
+        key: 'ENABLED_USER_PROFILE_ATTRIBUTES',
+        description: translate('List of enabled user profile attributes. Controls IdP sync and UI display.'),
+        default: ['phone_number', 'organization', 'job_title', 'affiliations'],
+        type: 'multiple_choice_field',
+        options: [{ value: 'username', label: 'Username' }, { value: 'registration_method', label: 'Registration method' }, { value: 'first_name', label: 'First name' }, { value: 'last_name', label: 'Last name' }, { value: 'full_name', label: 'Full name' }, { value: 'email', label: 'Email' }, { value: 'phone_number', label: 'Phone number' }, { value: 'organization', label: 'Organization' }, { value: 'job_title', label: 'Job title' }, { value: 'affiliations', label: 'Affiliations' }, { value: 'gender', label: 'Gender' }, { value: 'personal_title', label: 'Personal title' }, { value: 'birth_date', label: 'Birth date' }, { value: 'place_of_birth', label: 'Place of birth' }, { value: 'address', label: 'Address' }, { value: 'country_of_residence', label: 'Country of residence' }, { value: 'nationality', label: 'Nationality' }, { value: 'nationalities', label: 'Nationalities' }, { value: 'organization_country', label: 'Organization country' }, { value: 'organization_type', label: 'Organization type' }, { value: 'organization_registry_code', label: 'Organization registry code' }, { value: 'organization_vat_code', label: 'Organization VAT code' }, { value: 'organization_address', label: 'Organization address' }, { value: 'eduperson_assurance', label: 'Eduperson assurance' }, { value: 'civil_number', label: 'Civil number' }, { value: 'identity_source', label: 'Identity source' }, { value: 'active_isds', label: 'Active identity sources' }, { value: 'uid_number', label: 'UID number' }, { value: 'primary_gid', label: 'Primary GID' }],
+      },
+      {
+        key: 'MANDATORY_USER_ATTRIBUTES',
+        description: translate('List of user profile attributes that are mandatory.'),
+        default: [],
+        type: 'multiple_choice_field',
+        options: [{ value: 'username', label: 'Username' }, { value: 'registration_method', label: 'Registration method' }, { value: 'first_name', label: 'First name' }, { value: 'last_name', label: 'Last name' }, { value: 'full_name', label: 'Full name' }, { value: 'email', label: 'Email' }, { value: 'phone_number', label: 'Phone number' }, { value: 'organization', label: 'Organization' }, { value: 'job_title', label: 'Job title' }, { value: 'affiliations', label: 'Affiliations' }, { value: 'gender', label: 'Gender' }, { value: 'personal_title', label: 'Personal title' }, { value: 'birth_date', label: 'Birth date' }, { value: 'place_of_birth', label: 'Place of birth' }, { value: 'address', label: 'Address' }, { value: 'country_of_residence', label: 'Country of residence' }, { value: 'nationality', label: 'Nationality' }, { value: 'nationalities', label: 'Nationalities' }, { value: 'organization_country', label: 'Organization country' }, { value: 'organization_type', label: 'Organization type' }, { value: 'organization_registry_code', label: 'Organization registry code' }, { value: 'organization_vat_code', label: 'Organization VAT code' }, { value: 'organization_address', label: 'Organization address' }, { value: 'eduperson_assurance', label: 'Eduperson assurance' }, { value: 'civil_number', label: 'Civil number' }, { value: 'identity_source', label: 'Identity source' }, { value: 'active_isds', label: 'Active identity sources' }, { value: 'uid_number', label: 'UID number' }, { value: 'primary_gid', label: 'Primary GID' }],
+      },
+      {
+        key: 'ENFORCE_MANDATORY_USER_ATTRIBUTES',
+        description: translate('If True, users with incomplete mandatory attributes will be blocked from most API endpoints until they complete their profile.'),
+        default: false,
+        type: 'boolean',
+      },
+    ],
+  },
+  {
+    description: translate('Data privacy settings'),
+    items: [
+      {
+        key: 'USER_DATA_ACCESS_LOGGING_ENABLED',
+        description: translate('Enable logging of user profile data access events for GDPR compliance.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'USER_DATA_ACCESS_LOG_RETENTION_DAYS',
+        description: translate('Number of days to retain user data access logs before automatic cleanup.'),
+        default: 90,
+        type: 'integer',
+      },
+      {
+        key: 'USER_DATA_ACCESS_LOG_SELF_ACCESS',
+        description: translate('Log when users access their own profile data. Disabled by default to reduce log volume.'),
         default: false,
         type: 'boolean',
       },
@@ -878,15 +1335,15 @@ export const SettingsDescription = [
       },
       {
         key: 'FREEIPA_USERNAME_PREFIX',
-        description: translate('Prefix to be appended to all usernames created in FreeIPA by Waldur'),
+        description: translate('Prefix to be appended to all usernames created in FreeIPA by Waldur. It marks which accounts are managed by Waldur, so it may not be empty.'),
         default: 'waldur_',
-        type: 'string',
+        type: 'non_empty_field',
       },
       {
         key: 'FREEIPA_GROUPNAME_PREFIX',
-        description: translate('Prefix to be appended to all group names created in FreeIPA by Waldur'),
+        description: translate('Prefix to be appended to all group names created in FreeIPA by Waldur. It marks which groups are managed by Waldur, so it may not be empty.'),
         default: 'waldur_',
-        type: 'string',
+        type: 'non_empty_field',
       },
       {
         key: 'FREEIPA_BLACKLISTED_USERNAMES',
@@ -903,49 +1360,145 @@ export const SettingsDescription = [
     ],
   },
   {
-    description: translate('OIDC auth settings'),
+    description: translate('SCIM Entitlements (outbound push)'),
+    items: [
+      {
+        key: 'SCIM_MEMBERSHIP_SYNC_ENABLED',
+        description: translate('Enable SCIM entitlement synchronization to external identity provider.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'SCIM_API_URL',
+        description: translate('Base URL of the SCIM API service.'),
+        default: '',
+        type: 'string',
+      },
+      {
+        key: 'SCIM_API_KEY',
+        description: translate('SCIM API key for X-API-Key header.'),
+        default: '',
+        type: 'secret_field',
+      },
+      {
+        key: 'SCIM_URN_NAMESPACE',
+        description: translate('URN namespace for SCIM entitlements.'),
+        default: '',
+        type: 'string',
+      },
+    ],
+  },
+  {
+    description: translate('SCIM Identity Provider'),
+    items: [
+      {
+        key: 'SCIM_INBOUND_ENABLED',
+        description: translate('Enable inbound SCIM 2.0 service provider at /scim/v2/. Allows external identity providers (Okta, Entra ID, Keycloak) to provision users and groups.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'SCIM_INBOUND_SOURCE_NAME',
+        description: translate('Source label written to User.attribute_sources for inbound SCIM writes. Used by the multi-source attribute merge to track ownership.'),
+        default: 'scim:default',
+        type: 'string',
+      },
+      {
+        key: 'SCIM_INBOUND_ALLOWED_ATTRIBUTES',
+        description: translate('User attributes settable via inbound SCIM.'),
+        default: ['first_name', 'last_name', 'email', 'organization', 'affiliations'],
+        type: 'multiple_choice_field',
+        options: [{ value: 'username', label: 'Username' }, { value: 'registration_method', label: 'Registration method' }, { value: 'first_name', label: 'First name' }, { value: 'last_name', label: 'Last name' }, { value: 'full_name', label: 'Full name' }, { value: 'email', label: 'Email' }, { value: 'phone_number', label: 'Phone number' }, { value: 'organization', label: 'Organization' }, { value: 'job_title', label: 'Job title' }, { value: 'affiliations', label: 'Affiliations' }, { value: 'gender', label: 'Gender' }, { value: 'personal_title', label: 'Personal title' }, { value: 'birth_date', label: 'Birth date' }, { value: 'place_of_birth', label: 'Place of birth' }, { value: 'address', label: 'Address' }, { value: 'country_of_residence', label: 'Country of residence' }, { value: 'nationality', label: 'Nationality' }, { value: 'nationalities', label: 'Nationalities' }, { value: 'organization_country', label: 'Organization country' }, { value: 'organization_type', label: 'Organization type' }, { value: 'organization_registry_code', label: 'Organization registry code' }, { value: 'organization_vat_code', label: 'Organization VAT code' }, { value: 'organization_address', label: 'Organization address' }, { value: 'eduperson_assurance', label: 'Eduperson assurance' }, { value: 'civil_number', label: 'Civil number' }, { value: 'identity_source', label: 'Identity source' }, { value: 'active_isds', label: 'Active identity sources' }, { value: 'uid_number', label: 'UID number' }, { value: 'primary_gid', label: 'Primary GID' }],
+      },
+      {
+        key: 'SCIM_INBOUND_SSH_KEYS_ENABLED',
+        description: translate('Allow inbound SCIM to manage user SSH public keys via the sshPublicKeys attribute of the Waldur User extension. When enabled, SCIM is authoritative: a full-replace (PUT / PATCH replace) that omits a key deletes it, including keys the user added via the UI. Off by default because SSH keys grant access.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'SCIM_PULL_API_URL',
+        description: translate('Base URL for outbound SCIM pull (fetching user attributes from an external IdP).'),
+        default: '',
+        type: 'string',
+      },
+      {
+        key: 'SCIM_PULL_API_KEY',
+        description: translate('Bearer token for outbound SCIM pull.'),
+        default: '',
+        type: 'secret_field',
+      },
+      {
+        key: 'SCIM_PULL_SOURCE_NAME',
+        description: translate('Source label written to User.attribute_sources for attributes pulled from a remote SCIM directory.'),
+        default: 'scim:pull',
+        type: 'string',
+      },
+    ],
+  },
+  {
+    description: translate('API token authentication'),
     items: [
       {
         key: 'OIDC_AUTH_URL',
-        description: translate('OIDC authentication endpoint URL.'),
+        description: translate('OIDC authorization endpoint URL. Reserved for future OAuth 2.0 authorization code flow integration.'),
         default: '',
         type: 'string',
       },
       {
         key: 'OIDC_INTROSPECTION_URL',
-        description: translate('OIDC introspection endpoint URL for validating access tokens.'),
+        description: translate('RFC 7662 Token Introspection endpoint URL. Used to validate API bearer tokens. When a client sends Authorization: Bearer <token>, Waldur calls this endpoint to verify the token is active.'),
         default: '',
         type: 'string',
       },
       {
         key: 'OIDC_CLIENT_ID',
-        description: translate('Client ID for authenticating against the introspection endpoint.'),
+        description: translate('Client ID for HTTP Basic authentication when calling the token introspection endpoint. Required together with OIDC_CLIENT_SECRET and OIDC_INTROSPECTION_URL.'),
         default: '',
         type: 'string',
       },
       {
         key: 'OIDC_CLIENT_SECRET',
-        description: translate('Client secret for authenticating against the introspection endpoint.'),
+        description: translate('Client secret for HTTP Basic authentication when calling the token introspection endpoint. Required together with OIDC_CLIENT_ID and OIDC_INTROSPECTION_URL.'),
         default: '',
-        type: 'string',
+        type: 'secret_field',
       },
       {
         key: 'OIDC_USER_FIELD',
-        description: translate('Field name from the introspection response to identify the user (e.g., \'username\', \'email\', \'client_id\').'),
+        description: translate('Field name from the introspection response JSON used to identify the Waldur user. Common values: \'username\', \'email\', \'sub\', \'client_id\'. The value is matched against User.username.'),
         default: 'username',
         type: 'string',
       },
       {
         key: 'OIDC_CACHE_TIMEOUT',
-        description: translate('Number of seconds to cache token introspection results.'),
+        description: translate('Seconds to cache successful token introspection results. Reduces load on the introspection endpoint. Set to 0 to disable caching. Default: 300 (5 minutes).'),
         default: 300,
         type: 'integer',
+      },
+      {
+        key: 'OIDC_DEFAULT_LOGOUT_URL',
+        description: translate('Default logout URL used as fallback when IdentityProvider does not have a logout_url set. This allows configuring a global logout endpoint for OIDC providers that don\'t expose end_session_endpoint in their discovery document.'),
+        default: '',
+        type: 'url_field',
+      },
+      {
+        key: 'WALDUR_AUTH_SOCIAL_ROLE_CLAIM',
+        description: translate('OAuth/OIDC token claim name containing user roles for automatic staff/support assignment. If the claim contains \'staff\', user gets is_staff=True. If it contains \'support\', user gets is_support=True. Leave empty to disable role synchronization from identity provider.'),
+        default: '',
+        type: 'string',
       },
     ],
   },
   {
     description: translate('Onboarding settings'),
     items: [
+      {
+        key: 'ONBOARDING_VALIDATION_METHODS',
+        description: translate('List of automatic validation methods available for this portal.'),
+        default: [],
+        type: 'multiple_choice_field',
+        options: [{ value: 'ariregister', label: 'ariregister' }, { value: 'wirtschaftscompass', label: 'wirtschaftscompass' }, { value: 'bolagsverket', label: 'bolagsverket' }, { value: 'dnb_se', label: 'dnb_se' }, { value: 'dnb_no', label: 'dnb_no' }, { value: 'dnb_dk', label: 'dnb_dk' }, { value: 'dnb_fi', label: 'dnb_fi' }],
+      },
       {
         key: 'ONBOARDING_VERIFICATION_EXPIRY_HOURS',
         description: translate('Number of hours after which onboarding verifications expire.'),
@@ -962,7 +1515,7 @@ export const SettingsDescription = [
         key: 'ONBOARDING_ARIREGISTER_USERNAME',
         description: translate('Username for Estonian Äriregister API authentication.'),
         default: '',
-        type: 'text_field',
+        type: 'string',
       },
       {
         key: 'ONBOARDING_ARIREGISTER_PASSWORD',
@@ -974,6 +1527,736 @@ export const SettingsDescription = [
         key: 'ONBOARDING_ARIREGISTER_TIMEOUT',
         description: translate('Timeout in seconds for Estonian Äriregister API requests.'),
         default: 30,
+        type: 'integer',
+      },
+      {
+        key: 'ONBOARDING_WICO_API_URL',
+        description: translate('WirtschaftsCompass API server URL'),
+        default: 'https://api.wirtschaftscompass.at/',
+        type: 'url_field',
+      },
+      {
+        key: 'ONBOARDING_WICO_TOKEN',
+        description: translate('WirtschaftsCompass API token'),
+        default: '',
+        type: 'secret_field',
+      },
+      {
+        key: 'ONBOARDING_BOLAGSVERKET_API_URL',
+        description: translate('Sweden Business Register API server URL'),
+        default: 'https://gw-accept2.api.bolagsverket.se/',
+        type: 'url_field',
+      },
+      {
+        key: 'ONBOARDING_BOLAGSVERKET_TOKEN_API_URL',
+        description: translate('Bolagsverket OAuth2 token server base URL'),
+        default: 'https://portal-accept2.api.bolagsverket.se/',
+        type: 'url_field',
+      },
+      {
+        key: 'ONBOARDING_BOLAGSVERKET_CLIENT_ID',
+        description: translate('Sweden Business Register API client identifier'),
+        default: '',
+        type: 'string',
+      },
+      {
+        key: 'ONBOARDING_BOLAGSVERKET_CLIENT_SECRET',
+        description: translate('Sweden Business Register API client secret'),
+        default: '',
+        type: 'secret_field',
+      },
+      {
+        key: 'ONBOARDING_BREG_API_URL',
+        description: translate('Norway Business Register API server URL'),
+        default: 'https://data.brreg.no/',
+        type: 'url_field',
+      },
+      {
+        key: 'ONBOARDING_DNB_API_URL',
+        description: translate('Dun & Bradstreet (Bisnode) Credit Data API base URL'),
+        default: 'https://sandbox-api.bisnode.com/credit-data-companies/v2',
+        type: 'url_field',
+      },
+      {
+        key: 'ONBOARDING_DNB_RTS_API_URL',
+        description: translate('Dun & Bradstreet (Bisnode) Nordic Right to Sign API base URL'),
+        default: 'https://sandbox-api.bisnode.com/nordic-rts/v1',
+        type: 'url_field',
+      },
+      {
+        key: 'ONBOARDING_DNB_TOKEN_URL',
+        description: translate('Dun & Bradstreet OAuth2 token endpoint URL'),
+        default: 'https://login.bisnode.com/as/token.oauth2',
+        type: 'url_field',
+      },
+      {
+        key: 'ONBOARDING_DNB_CLIENT_ID',
+        description: translate('Dun & Bradstreet API client identifier'),
+        default: '',
+        type: 'string',
+      },
+      {
+        key: 'ONBOARDING_DNB_CLIENT_SECRET',
+        description: translate('Dun & Bradstreet API client secret'),
+        default: '',
+        type: 'secret_field',
+      },
+    ],
+  },
+  {
+    description: translate('AI assistant settings'),
+    items: [
+      {
+        key: 'AI_ASSISTANT_NAME',
+        description: translate('Display name for the AI Assistant persona (e.g. \'Mari\', \'Waldur Assistant\').'),
+        default: 'Waldur Assistant',
+        type: 'string',
+      },
+      {
+        key: 'AI_ASSISTANT_ENABLED',
+        description: translate('Enable AI Assistant feature and calls to the inference service.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'AI_ASSISTANT_ENABLED_ROLES',
+        description: translate('Controls which user roles can access the AI Assistant. \'disabled\': No role-based access. \'staff\': Staff users only. \'staff_and_support\': Staff and support users. \'all\': All authenticated users. \'anonymous\': All users including anonymous (enables the public anonymous chat endpoint).'),
+        default: 'disabled',
+        type: 'choice_field',
+        options: [{ value: 'disabled', label: 'Disabled' }, { value: 'staff', label: 'Staff users' }, { value: 'staff_and_support', label: 'Staff and support users' }, { value: 'all', label: 'All users' }, { value: 'anonymous', label: 'All users including anonymous' }],
+      },
+      {
+        key: 'AI_ASSISTANT_BACKEND_TYPE',
+        description: translate('Type of AI Assistant backend. For example: vllm, openai, ollama.'),
+        default: 'vllm',
+        type: 'string',
+      },
+      {
+        key: 'AI_ASSISTANT_API_URL',
+        description: translate('Base URL for AI Assistant service API.'),
+        default: '',
+        type: 'url_field',
+      },
+      {
+        key: 'AI_ASSISTANT_API_TOKEN',
+        description: translate('API key for authenticating with the AI Assistant service.'),
+        default: '',
+        type: 'secret_field',
+      },
+      {
+        key: 'AI_ASSISTANT_MODEL',
+        description: translate('Name of the AI Assistant model to use for inference.'),
+        default: 'qwen3.5-122b-nothinking',
+        type: 'string',
+      },
+      {
+        key: 'AI_ASSISTANT_SYSTEM_PROMPT_CUSTOM_INSTRUCTIONS',
+        description: translate('Additional instructions injected into the AI Assistant system prompt. Use this for organisation-specific context, terminology, FAQ content, or behavioural guidelines. Supports {assistant_name} and {organization} placeholders. Overridden by the active SystemPrompt record when set.'),
+        default: '',
+        type: 'text_field',
+      },
+      {
+        key: 'AI_ASSISTANT_COMPLETION_KWARGS',
+        description: translate('Override keyword arguments merged on top of provider defaults for AI Assistant chat completion. Supported keys: temperature, top_p, top_k, max_tokens, max_completion_tokens, presence_penalty, frequency_penalty, repetition_penalty, stop, seed, reasoning_effort, extra_body. Leave empty to use provider defaults.'),
+        default: {},
+        type: 'dict_field',
+      },
+      {
+        key: 'AI_ASSISTANT_STREAM_TIMEOUT_SECONDS',
+        description: translate('Hard timeout in seconds for a full streaming request including LLM completion.'),
+        default: 120,
+        type: 'integer',
+      },
+      {
+        key: 'AI_ASSISTANT_TOKEN_LIMIT_DAILY',
+        description: translate('Per-actor daily token cap (authenticated OR anonymous). -1 means unlimited.'),
+        default: -1,
+        type: 'integer',
+      },
+      {
+        key: 'AI_ASSISTANT_TOKEN_LIMIT_WEEKLY',
+        description: translate('Per-actor (authenticated OR anonymous) weekly token cap. -1 means unlimited.'),
+        default: -1,
+        type: 'integer',
+      },
+      {
+        key: 'AI_ASSISTANT_TOKEN_LIMIT_MONTHLY',
+        description: translate('Per-actor (authenticated OR anonymous) monthly token cap. -1 means unlimited.'),
+        default: -1,
+        type: 'integer',
+      },
+      {
+        key: 'AI_ASSISTANT_GLOBAL_DAILY_TOKEN_BUDGET',
+        description: translate('Site-wide daily token cap across all assistant traffic (auth + anonymous). -1 means unlimited.'),
+        default: 5000000,
+        type: 'integer',
+      },
+      {
+        key: 'AI_ASSISTANT_GLOBAL_REQUESTS_PER_MINUTE',
+        description: translate('Site-wide burst cap across all assistant traffic.'),
+        default: 60,
+        type: 'integer',
+      },
+      {
+        key: 'AI_ASSISTANT_SESSION_RETENTION_DAYS',
+        description: translate('Number of days to retain AI Assistant sessions before automatic deletion. Set to -1 to disable automatic cleanup.'),
+        default: 90,
+        type: 'integer',
+      },
+      {
+        key: 'AI_ASSISTANT_HISTORY_LIMIT',
+        description: translate('Maximum number of past messages included in the AI Assistant context window.'),
+        default: 50,
+        type: 'integer',
+      },
+      {
+        key: 'AI_ASSISTANT_INJECTION_ALLOWLIST',
+        description: translate('Comma-separated allowlist phrases that bypass injection detection.'),
+        default: '',
+        type: 'string',
+      },
+      {
+        key: 'ANONYMOUS_CHAT_USER_SLUG_SALT',
+        description: translate('Scrypt salt for per-IP user_slug derivation. Empty disables slug computation (interactions are written without it).'),
+        default: '',
+        type: 'secret_field',
+      },
+      {
+        key: 'ANONYMOUS_CHAT_FEEDBACK_TOKEN_SECRET',
+        description: translate('HMAC-SHA256 secret for /feedback/ anti-replay tokens. Loss of secrecy invalidates all in-flight feedback submissions.'),
+        default: '',
+        type: 'secret_field',
+      },
+      {
+        key: 'ANONYMOUS_CHAT_CATALOG_MAX_ENTRIES',
+        description: translate('Hard cap on the number of offerings injected into the anonymous assistant\'s system prompt catalog summary. Past this, drop the tail.'),
+        default: 50,
+        type: 'integer',
+      },
+      {
+        key: 'ANONYMOUS_CHAT_REVIEW_ENABLED',
+        description: translate('Master toggle for the nightly LLM-as-judge review of completed anonymous sessions. On by default — cost is bounded by ANONYMOUS_CHAT_REVIEW_DAILY_TOKEN_BUDGET.'),
+        default: true,
+        type: 'boolean',
+      },
+      {
+        key: 'ANONYMOUS_CHAT_REVIEW_DAILY_TOKEN_BUDGET',
+        description: translate('Independent budget for the LLM judge so review can\'t starve user-facing traffic. Reuses AI_ASSISTANT_API_URL/TOKEN/MODEL.'),
+        default: 2000000,
+        type: 'integer',
+      },
+      {
+        key: 'ANONYMOUS_CHAT_ARTIFACT_RETENTION_DAYS',
+        description: translate('Days of inactivity after which pseudonymous bookkeeping rows (SessionBinding, AnonymousChatBudget) are purged. Active blocks are always retained until they expire. Set to -1 to disable.'),
+        default: 30,
+        type: 'integer',
+      },
+    ],
+  },
+  {
+    description: translate('Software catalog general'),
+    items: [
+      {
+        key: 'SOFTWARE_CATALOG_UPDATE_EXISTING_PACKAGES',
+        description: translate('Update existing packages during catalog refresh'),
+        default: true,
+        type: 'boolean',
+      },
+      {
+        key: 'SOFTWARE_CATALOG_CLEANUP_ENABLED',
+        description: translate('Enable automatic cleanup of old catalog data'),
+        default: true,
+        type: 'boolean',
+      },
+      {
+        key: 'SOFTWARE_CATALOG_RETENTION_DAYS',
+        description: translate('Number of days to retain old catalog versions'),
+        default: 90,
+        type: 'integer',
+      },
+    ],
+  },
+  {
+    description: translate('Software catalog EESSI'),
+    items: [
+      {
+        key: 'SOFTWARE_CATALOG_EESSI_UPDATE_ENABLED',
+        description: translate('Enable automated daily updates for EESSI software catalog'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'SOFTWARE_CATALOG_EESSI_VERSION',
+        description: translate('EESSI catalog version to load (auto-detect if empty)'),
+        default: '',
+        type: 'string',
+      },
+      {
+        key: 'SOFTWARE_CATALOG_EESSI_API_URL',
+        description: translate('Base URL for EESSI API data'),
+        default: 'https://www.eessi.io/api_data/data/',
+        type: 'string',
+      },
+      {
+        key: 'SOFTWARE_CATALOG_EESSI_INCLUDE_EXTENSIONS',
+        description: translate('Include extension packages (Python, R packages, etc.) from EESSI'),
+        default: true,
+        type: 'boolean',
+      },
+    ],
+  },
+  {
+    description: translate('Software catalog Spack'),
+    items: [
+      {
+        key: 'SOFTWARE_CATALOG_SPACK_UPDATE_ENABLED',
+        description: translate('Enable automated daily updates for Spack software catalog'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'SOFTWARE_CATALOG_SPACK_VERSION',
+        description: translate('Spack catalog version to load (auto-detect if empty)'),
+        default: '',
+        type: 'string',
+      },
+      {
+        key: 'SOFTWARE_CATALOG_SPACK_DATA_URL',
+        description: translate('URL for Spack repology.json data'),
+        default: 'https://raw.githubusercontent.com/spack/packages.spack.io/refs/heads/gh-pages/data/repology.json',
+        type: 'string',
+      },
+    ],
+  },
+  {
+    description: translate('System Logging'),
+    items: [
+      {
+        key: 'SYSTEM_LOG_ENABLED',
+        description: translate('Enable storing system logs (API, Worker, Beat) in the database for staff viewing.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'SYSTEM_LOG_MAX_ROWS_PER_SOURCE',
+        description: translate('Maximum number of log rows to keep per source (api, worker, beat). Oldest rows are deleted when exceeded.'),
+        default: 5000,
+        type: 'integer',
+      },
+      {
+        key: 'OPENSTACK_LOG_CALLS_ENABLED',
+        description: translate('Emit one log line per OpenStack HTTP call on logger `waldur_openstack.calls` (method, host+path, status, elapsed ms, originating backend action). Useful for diagnosing slow tenant operations; off by default because chatty under steady-state load.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'OPENSTACK_LOG_CALLS_THRESHOLD_MS',
+        description: translate('When OPENSTACK_LOG_CALLS_ENABLED is on, only emit lines for calls slower than this many milliseconds. 0 logs every call. Errors are always logged regardless of this threshold.'),
+        default: 0,
+        type: 'integer',
+      },
+    ],
+  },
+  {
+    description: translate('Table Growth Monitoring'),
+    items: [
+      {
+        key: 'TABLE_GROWTH_MONITORING_ENABLED',
+        description: translate('Enable table growth monitoring to detect potential data leaks from bugs.'),
+        default: true,
+        type: 'boolean',
+      },
+      {
+        key: 'TABLE_GROWTH_WEEKLY_THRESHOLD_PERCENT',
+        description: translate('Alert if a table grows by more than this percentage in a week.'),
+        default: 50,
+        type: 'integer',
+      },
+      {
+        key: 'TABLE_GROWTH_MONTHLY_THRESHOLD_PERCENT',
+        description: translate('Alert if a table grows by more than this percentage in a month.'),
+        default: 200,
+        type: 'integer',
+      },
+      {
+        key: 'TABLE_GROWTH_RETENTION_DAYS',
+        description: translate('Number of days to retain table size history data.'),
+        default: 90,
+        type: 'integer',
+      },
+      {
+        key: 'TABLE_GROWTH_MIN_SIZE_BYTES',
+        description: translate('Minimum table size in bytes (default 1MB) to monitor. Smaller tables are ignored.'),
+        default: 1048576,
+        type: 'integer',
+      },
+    ],
+  },
+  {
+    description: translate('User Revision History'),
+    items: [
+      {
+        key: 'USER_REVISION_RETENTION_DAYS',
+        description: translate('Delete user profile revision history older than this many days. Set to 0 to keep it forever.'),
+        default: 730,
+        type: 'integer',
+      },
+      {
+        key: 'USER_REVISION_KEEP_MINIMUM',
+        description: translate('Always keep at least this many most recent revisions per user, however old they are. Must be above 0, otherwise pruning can erase a user\'s history entirely.'),
+        default: 20,
+        type: 'integer',
+      },
+    ],
+  },
+  {
+    description: translate('User Actions'),
+    items: [
+      {
+        key: 'USER_ACTIONS_ENABLED',
+        description: translate('Enable user actions notification system.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'USER_ACTIONS_PENDING_ORDER_HOURS',
+        description: translate('Hours before pending order becomes a user action item (1-168).'),
+        default: 24,
+        type: 'integer',
+      },
+      {
+        key: 'USER_ACTIONS_HIGH_URGENCY_NOTIFICATION',
+        description: translate('Send digest notification if user has high urgency actions.'),
+        default: true,
+        type: 'boolean',
+      },
+      {
+        key: 'USER_ACTIONS_NOTIFICATION_THRESHOLD',
+        description: translate('Send digest notification if user has more than N actions.'),
+        default: 5,
+        type: 'integer',
+      },
+      {
+        key: 'USER_ACTIONS_EXECUTION_RETENTION_DAYS',
+        description: translate('Number of days to keep action execution history.'),
+        default: 90,
+        type: 'integer',
+      },
+      {
+        key: 'USER_ACTIONS_DEFAULT_EXPIRATION_REMINDERS',
+        description: translate('Default reminder schedule (days before expiration) for expiring resources. Can be overridden per offering via plugin_options.resource_expiration_reminders.'),
+        default: [30, 14, 7, 1],
+        type: 'list_field',
+      },
+    ],
+  },
+  {
+    description: translate('Arrow Integration'),
+    items: [
+      {
+        key: 'ARROW_AUTO_RECONCILIATION',
+        description: translate('Auto-apply compensations when Arrow validates billing'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'ARROW_SYNC_INTERVAL_HOURS',
+        description: translate('Billing sync interval in hours'),
+        default: 6,
+        type: 'integer',
+      },
+      {
+        key: 'ARROW_CONSUMPTION_SYNC_ENABLED',
+        description: translate('Enable real-time consumption sync from Arrow API'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'ARROW_CONSUMPTION_SYNC_INTERVAL_HOURS',
+        description: translate('Consumption sync interval in hours (default: hourly)'),
+        default: 1,
+        type: 'integer',
+      },
+      {
+        key: 'ARROW_BILLING_CHECK_INTERVAL_HOURS',
+        description: translate('Billing export check interval in hours for reconciliation'),
+        default: 6,
+        type: 'integer',
+      },
+    ],
+  },
+  {
+    description: translate('SLURM Policy'),
+    items: [
+      {
+        key: 'SLURM_POLICY_EVALUATION_LOG_RETENTION_DAYS',
+        description: translate('Number of days to retain SLURM policy evaluation log entries before automatic cleanup.'),
+        default: 90,
+        type: 'integer',
+      },
+    ],
+  },
+  {
+    description: translate('Usage Polling'),
+    items: [
+      {
+        key: 'USAGE_POLL_RECORD_RETENTION_MONTHS',
+        description: translate('Number of months to retain usage poll records before automatic cleanup.'),
+        default: 3,
+        type: 'integer',
+      },
+    ],
+  },
+  {
+    description: translate('Identity Bridge'),
+    items: [
+      {
+        key: 'FEDERATED_IDENTITY_SYNC_ENABLED',
+        description: translate('Enable the Identity Bridge API for push-based ISD user attribute synchronization.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'FEDERATED_IDENTITY_SYNC_ALLOWED_ATTRIBUTES',
+        description: translate('User attributes settable via Identity Bridge.'),
+        default: ['first_name', 'last_name', 'email', 'organization', 'affiliations'],
+        type: 'multiple_choice_field',
+        options: [{ value: 'username', label: 'Username' }, { value: 'registration_method', label: 'Registration method' }, { value: 'first_name', label: 'First name' }, { value: 'last_name', label: 'Last name' }, { value: 'full_name', label: 'Full name' }, { value: 'email', label: 'Email' }, { value: 'phone_number', label: 'Phone number' }, { value: 'organization', label: 'Organization' }, { value: 'job_title', label: 'Job title' }, { value: 'affiliations', label: 'Affiliations' }, { value: 'gender', label: 'Gender' }, { value: 'personal_title', label: 'Personal title' }, { value: 'birth_date', label: 'Birth date' }, { value: 'place_of_birth', label: 'Place of birth' }, { value: 'address', label: 'Address' }, { value: 'country_of_residence', label: 'Country of residence' }, { value: 'nationality', label: 'Nationality' }, { value: 'nationalities', label: 'Nationalities' }, { value: 'organization_country', label: 'Organization country' }, { value: 'organization_type', label: 'Organization type' }, { value: 'organization_registry_code', label: 'Organization registry code' }, { value: 'organization_vat_code', label: 'Organization VAT code' }, { value: 'organization_address', label: 'Organization address' }, { value: 'eduperson_assurance', label: 'Eduperson assurance' }, { value: 'civil_number', label: 'Civil number' }, { value: 'identity_source', label: 'Identity source' }, { value: 'active_isds', label: 'Active identity sources' }, { value: 'uid_number', label: 'UID number' }, { value: 'primary_gid', label: 'Primary GID' }],
+      },
+      {
+        key: 'FEDERATED_IDENTITY_AUTHORITATIVE_ISD',
+        description: translate('ISD source identifier that is authoritative for FEDERATED_IDENTITY_LOCKED_FIELDS (e.g. \'isd:efp\'). When set and present in a user\'s active ISDs, other identity sources (eduTEAMS, OIDC logins, ...) cannot overwrite the locked fields on sync. Empty disables the protection.'),
+        default: '',
+        type: 'string',
+      },
+      {
+        key: 'FEDERATED_IDENTITY_LOCKED_FIELDS',
+        description: translate('User attributes that only FEDERATED_IDENTITY_AUTHORITATIVE_ISD may set. Other identity sources cannot overwrite these once the authoritative ISD has asserted the user (e.g. first_name, last_name). Empty disables the protection.'),
+        default: [],
+        type: 'multiple_choice_field',
+        options: [{ value: 'username', label: 'Username' }, { value: 'registration_method', label: 'Registration method' }, { value: 'first_name', label: 'First name' }, { value: 'last_name', label: 'Last name' }, { value: 'full_name', label: 'Full name' }, { value: 'email', label: 'Email' }, { value: 'phone_number', label: 'Phone number' }, { value: 'organization', label: 'Organization' }, { value: 'job_title', label: 'Job title' }, { value: 'affiliations', label: 'Affiliations' }, { value: 'gender', label: 'Gender' }, { value: 'personal_title', label: 'Personal title' }, { value: 'birth_date', label: 'Birth date' }, { value: 'place_of_birth', label: 'Place of birth' }, { value: 'address', label: 'Address' }, { value: 'country_of_residence', label: 'Country of residence' }, { value: 'nationality', label: 'Nationality' }, { value: 'nationalities', label: 'Nationalities' }, { value: 'organization_country', label: 'Organization country' }, { value: 'organization_type', label: 'Organization type' }, { value: 'organization_registry_code', label: 'Organization registry code' }, { value: 'organization_vat_code', label: 'Organization VAT code' }, { value: 'organization_address', label: 'Organization address' }, { value: 'eduperson_assurance', label: 'Eduperson assurance' }, { value: 'civil_number', label: 'Civil number' }, { value: 'identity_source', label: 'Identity source' }, { value: 'active_isds', label: 'Active identity sources' }, { value: 'uid_number', label: 'UID number' }, { value: 'primary_gid', label: 'Primary GID' }],
+      },
+      {
+        key: 'FEDERATED_IDENTITY_DEACTIVATION_POLICY',
+        description: translate('When to deactivate a federated user.'),
+        default: 'any_isd_removed',
+        type: 'choice_field',
+        options: [{ value: 'all_isds_removed', label: 'All ISDs removed' }, { value: 'any_isd_removed', label: 'Any ISD removal' }],
+      },
+    ],
+  },
+  {
+    description: translate('Project Digest'),
+    items: [
+      {
+        key: 'ENABLE_PROJECT_DIGEST',
+        description: translate('Enable project digest email notifications for organizations.'),
+        default: false,
+        type: 'boolean',
+      },
+    ],
+  },
+  {
+    description: translate('SSH keys'),
+    items: [
+      {
+        key: 'SSH_KEY_ALLOWED_TYPES',
+        description: translate('List of allowed SSH key types. Empty list means all types are allowed.'),
+        default: ['ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'ssh-rsa', 'sk-ssh-ed25519@openssh.com', 'sk-ecdsa-sha2-nistp256@openssh.com'],
+        type: 'multiple_choice_field',
+        options: [{ value: 'ssh-ed25519', label: 'ssh-ed25519' }, { value: 'ecdsa-sha2-nistp256', label: 'ecdsa-sha2-nistp256' }, { value: 'ecdsa-sha2-nistp384', label: 'ecdsa-sha2-nistp384' }, { value: 'ecdsa-sha2-nistp521', label: 'ecdsa-sha2-nistp521' }, { value: 'ssh-rsa', label: 'ssh-rsa' }, { value: 'sk-ssh-ed25519@openssh.com', label: 'sk-ssh-ed25519@openssh.com' }, { value: 'sk-ecdsa-sha2-nistp256@openssh.com', label: 'sk-ecdsa-sha2-nistp256@openssh.com' }],
+      },
+      {
+        key: 'SSH_KEY_MIN_RSA_KEY_SIZE',
+        description: translate('Minimum allowed RSA key size in bits. Set to 0 to disable the check.'),
+        default: 2048,
+        type: 'integer',
+      },
+      {
+        key: 'ENABLE_ISSUES_FOR_USER_SSH_KEY_CHANGES',
+        description: translate('If true, a support ticket is created when a user adds or removes an SSH public key.'),
+        default: false,
+        type: 'boolean',
+      },
+    ],
+  },
+  {
+    description: translate('Reporting'),
+    items: [
+      {
+        key: 'ENABLED_REPORTING_SCREENS',
+        description: translate('Select which reporting screens should be visible to users. Uncheck to disable specific reports.'),
+        default: ['resource-usage', 'user-usage', 'quotas', 'usage-monitoring', 'usage-trends', 'organization-summary', 'project-detail', 'resources-geography', 'project-classification', 'usage-by-customer', 'usage-by-org-type', 'usage-by-creator', 'call-performance', 'review-progress', 'resource-demand', 'capacity', 'provider-overview', 'provider-revenue', 'provider-orders', 'provider-resources', 'provider-customers', 'provider-offerings', 'openstack-instances', 'offering-usage', 'user-analytics', 'user-demographics', 'user-organizations', 'user-affiliations', 'user-roles', 'growth', 'revenue', 'pricelist', 'orders', 'offering-costs', 'maintenance-overview', 'provisioning-stats'],
+        type: 'multiple_choice_field',
+        options: [{ value: 'resource-usage', label: 'Resources: Usage' }, { value: 'user-usage', label: 'Resources: Usage by user' }, { value: 'quotas', label: 'Resources: Quotas' }, { value: 'usage-monitoring', label: 'Resources: Usage monitoring' }, { value: 'usage-trends', label: 'Resources: Usage trends' }, { value: 'organization-summary', label: 'Resources: Organization summary' }, { value: 'project-detail', label: 'Resources: Project detail' }, { value: 'resources-geography', label: 'Resources: Geographic distribution' }, { value: 'project-classification', label: 'Resources: Project classification' }, { value: 'usage-by-customer', label: 'Resources: Usage by customer' }, { value: 'usage-by-org-type', label: 'Resources: Usage by organization type' }, { value: 'usage-by-creator', label: 'Resources: Usage by creator' }, { value: 'call-performance', label: 'Proposals: Call performance' }, { value: 'review-progress', label: 'Proposals: Review progress' }, { value: 'resource-demand', label: 'Proposals: Resource demand' }, { value: 'capacity', label: 'Provider: Capacity' }, { value: 'provider-overview', label: 'Provider: Provider overview' }, { value: 'provider-revenue', label: 'Provider: Provider revenue' }, { value: 'provider-orders', label: 'Provider: Provider orders' }, { value: 'provider-resources', label: 'Provider: Provider resources' }, { value: 'provider-customers', label: 'Provider: Provider customers' }, { value: 'provider-offerings', label: 'Provider: Provider offerings' }, { value: 'openstack-instances', label: 'Provider: OpenStack instances' }, { value: 'offering-usage', label: 'Provider: Offering component usage' }, { value: 'user-analytics', label: 'Users: Analytics' }, { value: 'user-demographics', label: 'Users: Demographics' }, { value: 'user-organizations', label: 'Users: Organizations' }, { value: 'user-affiliations', label: 'Users: Affiliations' }, { value: 'user-roles', label: 'Users: Role distribution' }, { value: 'growth', label: 'Financial: Growth' }, { value: 'revenue', label: 'Financial: Monthly revenue' }, { value: 'pricelist', label: 'Financial: Pricelist' }, { value: 'orders', label: 'Financial: Orders' }, { value: 'offering-costs', label: 'Financial: Offering costs' }, { value: 'maintenance-overview', label: 'Operations: Maintenance overview' }, { value: 'provisioning-stats', label: 'Operations: Provisioning statistics' }],
+      },
+    ],
+  },
+  {
+    description: translate('POSIX ID pools'),
+    items: [
+      {
+        key: 'POSIX_ID_POOL_UTILIZATION_THRESHOLD',
+        description: translate('Utilization percentage of a POSIX ID pool namespace that triggers a warning event.'),
+        default: 90,
+        type: 'integer',
+      },
+    ],
+  },
+  {
+    description: translate('Affiliates'),
+    items: [
+      {
+        key: 'AFFILIATES_ENABLED',
+        description: translate('Enable the affiliate program: staff-configured affiliate links, fee accrual from finalized invoices, and the customer-affiliates API.'),
+        default: false,
+        type: 'boolean',
+      },
+    ],
+  },
+  {
+    description: translate('Matrix chat'),
+    items: [
+      {
+        key: 'MATRIX_ENABLED',
+        description: translate('Enable Matrix chat integration.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'MATRIX_HOMESERVER_URL',
+        description: translate('Matrix homeserver base URL, e.g. https://matrix.example.com'),
+        default: '',
+        type: 'url_field',
+      },
+      {
+        key: 'MATRIX_HOMESERVER_PUBLIC_URL',
+        description: translate('Matrix homeserver URL used by browser clients. Falls back to MATRIX_HOMESERVER_URL when blank. Set this when the homeserver is reachable from servers and browsers at different addresses (e.g. a Docker-internal name vs. a public Caddy-proxied URL).'),
+        default: '',
+        type: 'url_field',
+      },
+      {
+        key: 'MATRIX_HOMESERVER_DOMAIN',
+        description: translate('Matrix homeserver domain name, e.g. matrix.example.com'),
+        default: '',
+        type: 'string',
+      },
+      {
+        key: 'MATRIX_APPSERVICE_AS_TOKEN',
+        description: translate('Application service token for authenticating to the homeserver.'),
+        default: '',
+        type: 'secret_field',
+      },
+      {
+        key: 'MATRIX_APPSERVICE_HS_TOKEN',
+        description: translate('Homeserver token for authenticating webhook requests.'),
+        default: '',
+        type: 'secret_field',
+      },
+      {
+        key: 'MATRIX_APPSERVICE_SENDER_LOCALPART',
+        description: translate('Localpart for the appservice bot user.'),
+        default: 'waldur-bot',
+        type: 'string',
+      },
+      {
+        key: 'MATRIX_HISTORY_EXPORT_ENABLED',
+        description: translate('Enable periodic history export of Matrix rooms.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'MATRIX_EXPORT_MEDIA',
+        description: translate('Include media files when exporting Matrix room history.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'MATRIX_USER_REGISTRATION_SECRET',
+        description: translate('Shared secret for Matrix user registration.'),
+        default: '',
+        type: 'secret_field',
+      },
+      {
+        key: 'MATRIX_USER_ID_FORMAT',
+        description: translate('Format for generating Matrix user IDs: username, uuid, or email_local.'),
+        default: 'username',
+        type: 'string',
+      },
+      {
+        key: 'MATRIX_LOGIN_METHOD',
+        description: translate('Login method for Matrix credentials: password, token, or oidc.'),
+        default: 'token',
+        type: 'string',
+      },
+      {
+        key: 'MATRIX_OIDC_PROVIDER_URL',
+        description: translate('OIDC provider URL for Matrix SSO login.'),
+        default: '',
+        type: 'url_field',
+      },
+      {
+        key: 'MATRIX_LIVEKIT_KEY',
+        description: translate('LiveKit API key for the Element Call SFU (Calls observability tab).'),
+        default: '',
+        type: 'string',
+      },
+      {
+        key: 'MATRIX_LIVEKIT_SECRET',
+        description: translate('LiveKit API secret used to mint the admin token.'),
+        default: '',
+        type: 'secret_field',
+      },
+      {
+        key: 'MATRIX_LIVEKIT_URL',
+        description: translate('Internal LiveKit base URL. Falls back to http://livekit:7880 when blank.'),
+        default: '',
+        type: 'url_field',
+      },
+    ],
+  },
+  {
+    description: translate('Personal Access Tokens'),
+    items: [
+      {
+        key: 'PAT_ENABLED',
+        description: translate('Enable Personal Access Token authentication.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'PAT_MAX_LIFETIME_DAYS',
+        description: translate('Maximum PAT lifetime in days.'),
+        default: 365,
+        type: 'integer',
+      },
+      {
+        key: 'PAT_MAX_TOKENS_PER_USER',
+        description: translate('Maximum number of active PATs per user.'),
+        default: 20,
+        type: 'integer',
+      },
+      {
+        key: 'PAT_MAX_ACL_ENTRIES',
+        description: translate('Maximum number of network ACL entries per personal access token.'),
+        default: 20,
+        type: 'integer',
+      },
+      {
+        key: 'PAT_MAX_AUDIT_EVENTS_PER_HOUR',
+        description: translate('Maximum audit events a single personal access token may generate per hour, counted separately for source-address changes and for rejections. Bounds the event table against a caller who holds one valid token and rotates source addresses.'),
+        default: 50,
+        type: 'integer',
+      },
+    ],
+  },
+  {
+    description: translate('Site Agent Logs'),
+    items: [
+      {
+        key: 'SITE_AGENT_LOG_MAX_ROWS_PER_IDENTITY',
+        description: translate('Maximum number of log rows to keep per agent identity. Oldest rows are deleted when exceeded.'),
+        default: 10000,
         type: 'integer',
       },
     ],

@@ -1,0 +1,315 @@
+import { QuestionIcon } from '@phosphor-icons/react';
+import { useQuery } from '@tanstack/react-query';
+import { FC, useMemo } from 'react';
+import {
+  myAssignmentBatchesList,
+  myAssignmentBatchesRetrieve,
+  MyAssignmentBatch,
+  MyAssignmentItem,
+} from 'waldur-js-client';
+
+import { Badge } from '@/core/Badge';
+import { FAST_STALE_TIME } from '@/core/constants';
+import { formatDateTime } from '@/core/dateUtils';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { Tip } from '@/core/Tooltip';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import { ExpandableContainer } from '@/table/ExpandableContainer';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+
+import { AcceptAssignmentAction } from './AcceptAssignmentAction';
+import { DeclineAssignmentAction } from './DeclineAssignmentAction';
+import { ReviewerProfileSummaryCard } from './ReviewerProfileSummaryCard';
+import { ReviewStatsWidgets } from './ReviewStatsWidgets';
+import { useMyReviewsTabs } from './tabs';
+
+const StatusBadge: FC<{ status: string; statusDisplay: string }> = ({
+  status,
+  statusDisplay,
+}) => {
+  const variant = useMemo(() => {
+    switch (status) {
+      case 'pending':
+        return 'warning';
+      case 'accepted':
+        return 'success';
+      case 'declined':
+        return 'danger';
+      case 'coi_blocked':
+        return 'info';
+      default:
+        return 'secondary';
+    }
+  }, [status]);
+
+  return (
+    <Badge variant={variant} size="sm" pill outline>
+      {statusDisplay}
+    </Badge>
+  );
+};
+
+interface AssignmentItemActionsProps {
+  item: MyAssignmentItem;
+  batchUuid: string;
+}
+
+const AssignmentItemActions: FC<AssignmentItemActionsProps> = ({
+  item,
+  batchUuid,
+}) => {
+  if (item.status !== 'pending') {
+    return null;
+  }
+
+  return (
+    <div className="d-flex gap-2">
+      <AcceptAssignmentAction item={item} batchUuid={batchUuid} />
+      <DeclineAssignmentAction item={item} batchUuid={batchUuid} />
+    </div>
+  );
+};
+
+interface BatchExpandableRowProps {
+  row: MyAssignmentBatch;
+}
+
+const BatchExpandableRow: FC<BatchExpandableRowProps> = ({ row }) => {
+  const { data: batch, isLoading } = useQuery({
+    queryKey: ['myAssignmentBatchDetail', row.uuid],
+    queryFn: () =>
+      myAssignmentBatchesRetrieve({ path: { uuid: row.uuid } }).then(
+        (r) => r.data,
+      ),
+    staleTime: FAST_STALE_TIME,
+  });
+
+  if (isLoading) {
+    return (
+      <ExpandableContainer>
+        <LoadingSpinner />
+      </ExpandableContainer>
+    );
+  }
+
+  if (!batch) {
+    return (
+      <ExpandableContainer>
+        <p className="text-muted">{translate('No data available.')}</p>
+      </ExpandableContainer>
+    );
+  }
+
+  return (
+    <ExpandableContainer>
+      {batch.manager_notes && (
+        <div className="mb-3 p-3 bg-light rounded">
+          <strong>{translate('Notes from manager')}:</strong>
+          <p className="mb-0 mt-1">{batch.manager_notes}</p>
+        </div>
+      )}
+
+      <div className="table-responsive">
+        <table className="table table-bordered align-middle">
+          <thead>
+            <tr>
+              <th>{translate('Proposal')}</th>
+              <th>{translate('Status')}</th>
+              <th>{translate('Affinity')}</th>
+              <th>{translate('COI')}</th>
+              <th>{translate('Actions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {batch.items.map((item) => (
+              <tr key={item.uuid}>
+                <td>
+                  <div className="fw-bold">{item.proposal_name}</div>
+                  <small className="text-muted">{item.proposal_slug}</small>
+                  {item.proposal_summary && (
+                    <p className="text-muted small mt-1 mb-0">
+                      {item.proposal_summary}
+                    </p>
+                  )}
+                </td>
+                <td>
+                  <StatusBadge
+                    status={item.status}
+                    statusDisplay={item.status_display}
+                  />
+                </td>
+                <td>
+                  {item.affinity_score !== null
+                    ? `${Math.round(item.affinity_score * 100)}%`
+                    : '-'}
+                </td>
+                <td>
+                  {item.has_coi ? (
+                    <span className="d-inline-flex align-items-center gap-1">
+                      <Badge variant="danger" size="sm" outline>
+                        {translate('COI detected')}
+                      </Badge>
+                      <Tip
+                        id={`coi-help-${item.uuid}`}
+                        label={translate(
+                          'A potential conflict of interest was detected for this proposal. It may be blocked from assignment.',
+                        )}
+                      >
+                        <QuestionIcon
+                          size={14}
+                          className="text-muted"
+                          weight="bold"
+                        />
+                      </Tip>
+                    </span>
+                  ) : (
+                    <span className="text-muted">-</span>
+                  )}
+                </td>
+                <td>
+                  <AssignmentItemActions item={item} batchUuid={row.uuid} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </ExpandableContainer>
+  );
+};
+
+const BatchStatusBadge: FC<{ status: string; statusDisplay: string }> = ({
+  status,
+  statusDisplay,
+}) => {
+  const variant = useMemo(() => {
+    switch (status) {
+      case 'draft':
+        return 'secondary';
+      case 'sent':
+        return 'primary';
+      case 'responded':
+        return 'success';
+      case 'expired':
+        return 'warning';
+      case 'cancelled':
+        return 'danger';
+      default:
+        return 'secondary';
+    }
+  }, [status]);
+
+  return (
+    <Badge variant={variant} size="sm" pill outline>
+      {statusDisplay}
+    </Badge>
+  );
+};
+
+export const MyAssignmentsPage: FC = () => {
+  const tabs = useMyReviewsTabs();
+
+  const filter = useMemo(
+    () => ({
+      status: ['sent'],
+    }),
+    [],
+  );
+
+  const tableProps = useTable({
+    table: 'MyAssignmentBatchesTable',
+    fetchData: createFetcher(myAssignmentBatchesList),
+    filter,
+    queryField: 'call_name',
+  });
+
+  return (
+    <div className="d-flex flex-column" style={{ gap: 16 }}>
+      <ReviewerProfileSummaryCard />
+      <ReviewStatsWidgets />
+
+      <Table<MyAssignmentBatch>
+        {...tableProps}
+        title={translate('My reviews')}
+        tabs={tabs}
+        columns={[
+          {
+            id: 'call',
+            title: translate('Call'),
+            render: ({ row }) => (
+              <span className="fw-bold">{row.call_name}</span>
+            ),
+            keys: ['call_name'],
+          },
+          {
+            id: 'status',
+            title: translate('Status'),
+            render: ({ row }) => (
+              <BatchStatusBadge
+                status={row.status}
+                statusDisplay={row.status_display}
+              />
+            ),
+            keys: ['status', 'status_display'],
+          },
+          {
+            id: 'items',
+            title: translate('Proposals'),
+            render: ({ row }) => (
+              <div>
+                <span className="text-warning fw-bold">
+                  {row.items_pending_count}
+                </span>
+                <span className="text-muted"> / {row.items_count}</span>
+                <small className="text-muted ms-1">
+                  {translate('pending')}
+                </small>
+              </div>
+            ),
+            keys: ['items_count', 'items_pending_count'],
+          },
+          {
+            id: 'sent_at',
+            title: translate('Sent'),
+            render: ({ row }) => <>{formatDateTime(row.sent_at)}</>,
+            keys: ['sent_at'],
+          },
+          {
+            id: 'expires_at',
+            title: translate('Expires'),
+            render: ({ row }) => (
+              <>
+                {row.expires_at ? formatDateTime(row.expires_at) : '-'}
+                {row.is_expired && (
+                  <span className="d-inline-flex align-items-center gap-1 ms-1">
+                    <Badge variant="danger" size="sm" outline>
+                      {translate('Expired')}
+                    </Badge>
+                    <Tip
+                      id={`expired-help-${row.uuid}`}
+                      label={translate(
+                        'The response window for this assignment batch has passed.',
+                      )}
+                    >
+                      <QuestionIcon
+                        size={14}
+                        className="text-muted"
+                        weight="bold"
+                      />
+                    </Tip>
+                  </span>
+                )}
+              </>
+            ),
+            keys: ['expires_at', 'is_expired'],
+          },
+        ]}
+        verboseName={translate('assignment batches')}
+        expandableRow={BatchExpandableRow}
+        hasQuery
+      />
+    </div>
+  );
+};

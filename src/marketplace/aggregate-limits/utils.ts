@@ -1,14 +1,37 @@
 import { useMemo } from 'react';
 import { ComponentsUsageStats } from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
-import { DEFAULT_PRIMARY_COLORS } from '@waldur/core/constants';
-import { generateBrandColors } from '@waldur/core/generateColors';
-import { CHART_BAR_ROUNDING } from '@waldur/dashboard/constants';
-import { translate } from '@waldur/i18n';
+import { generateBrandColors } from 'waldur-design-tokens';
+
+import { getBrandColor } from '@/core/utils';
+import { CHART_BAR_ROUNDING } from '@/dashboard/constants';
+import { translate } from '@/i18n';
 
 interface ChartResult {
   options: any;
+}
+
+type ComponentStats = ComponentsUsageStats['components'][number];
+
+export function getComponentKey(component: ComponentStats): string {
+  return `${component.type}__${component.billing_type}`;
+}
+
+export function getComponentDisplayName(
+  component: ComponentStats,
+  allComponents: ComponentStats[],
+): string {
+  const sameNameCount = allComponents.filter(
+    (c) => c.name === component.name,
+  ).length;
+  if (sameNameCount > 1) {
+    const suffix =
+      component.billing_type === 'limit'
+        ? translate('limit-based')
+        : translate('usage-based');
+    return `${component.name} (${suffix})`;
+  }
+  return component.name;
 }
 
 export function useAggregateLimitChart(
@@ -28,11 +51,12 @@ export function useAggregateLimitChart(
       return null;
     }
 
-    const brand =
-      ENV.plugins.WALDUR_CORE.BRAND_COLOR || DEFAULT_PRIMARY_COLORS[600];
+    const brand = getBrandColor();
     const brandColors = generateBrandColors(brand);
 
-    const xAxisData = components.map((component) => component.name);
+    const xAxisData = components.map((component) =>
+      getComponentDisplayName(component, components),
+    );
 
     const usageData = [];
     const remainingData = [];
@@ -83,10 +107,7 @@ export function useAggregateLimitChart(
         },
         formatter: function (params) {
           const usageBar = params[0];
-          const compIndex = components.findIndex(
-            (c) => c.name === usageBar.name,
-          );
-          const component = components[compIndex];
+          const component = components[usageBar.dataIndex];
 
           if (!component) {
             return '';
@@ -121,14 +142,14 @@ export function useAggregateLimitChart(
           color: '#555',
         },
         itemGap: 8,
-        left: '0%',
-        align: 'left',
+        top: 0,
+        right: 0,
       },
       grid: {
         left: 35,
         right: '0%',
         bottom: limit ? '0%' : '5%',
-        top: 30,
+        top: 40,
         containLabel: true,
       },
       xAxis: {
@@ -157,12 +178,6 @@ export function useAggregateLimitChart(
             if (value >= 1000000) return value / 1000000 + 'M';
             if (value >= 1000) return value / 1000 + 'K';
             return value;
-          },
-        },
-        splitLine: {
-          lineStyle: {
-            type: 'dashed',
-            opacity: 0.6,
           },
         },
       },
@@ -195,10 +210,11 @@ export function useAggregateLimitChart(
             focus: 'series',
           },
           itemStyle: {
+            // NOTE: There is a gap between the stacks due to borderRadius. There is currently no solution for this for now.
             borderRadius: [CHART_BAR_ROUNDING, CHART_BAR_ROUNDING, 0, 0],
           },
           data: usageData,
-          color: brandColors[500],
+          color: brandColors[300],
         },
         {
           name: translate('Limit'),
@@ -211,7 +227,7 @@ export function useAggregateLimitChart(
             borderRadius: [CHART_BAR_ROUNDING, CHART_BAR_ROUNDING, 0, 0],
           },
           data: remainingData,
-          color: brandColors[200],
+          color: '#d0d5dd', // gray-300
         },
       ],
     };

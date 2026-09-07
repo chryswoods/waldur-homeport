@@ -1,30 +1,39 @@
 import { useMemo } from 'react';
 
-import { Link } from '@waldur/core/Link';
-import { translate } from '@waldur/i18n';
-import { Field } from '@waldur/resource/summary';
-import { SUPPORT_OFFERING_TYPE } from '@waldur/support/constants';
+import { Badge } from '@/core/Badge';
+import { Link } from '@/core/Link';
+import { translate } from '@/i18n';
+import { Field } from '@/resource/summary';
+import { SUPPORT_OFFERING_TYPE } from '@/support/constants';
 
-export const OrderDetailsQuickBody = ({ order }) => {
-  const label = useMemo(() => {
-    switch (order.type) {
-      case 'Create':
-        return translate('Provision new resource');
-      case 'Update':
-        if (order.attributes.old_limits) {
-          return translate('Update limits for an existing resource');
-        } else {
-          return translate('Update plan for an existing resource');
-        }
-      case 'Terminate':
-        return translate('Terminate an existing resource');
-      default:
-        return 'N/A';
-    }
-  }, [order]);
+import { getOrderType } from '../utils';
+
+export const OrderDetailsQuickBody = ({
+  order,
+  space = undefined,
+  autoWidth = false,
+}) => {
+  const typeBadge = useMemo(() => getOrderType(order), [order]);
+  const extraFieldProps = autoWidth
+    ? {
+        labelClass: 'w-100px',
+        labelCol: 'auto',
+        valueCol: 'auto',
+      }
+    : {};
+
   return (
     <>
-      <Field label={translate('Type')} value={label} />
+      <Field
+        label={translate('Type')}
+        value={
+          <Badge variant={typeBadge.variant} size="sm" pill outline>
+            {typeBadge.label}
+          </Badge>
+        }
+        space={space}
+        {...(extraFieldProps as any)}
+      />
       {order.offering_type === SUPPORT_OFFERING_TYPE && order.issue && (
         <Field
           label={translate('Issue')}
@@ -36,6 +45,8 @@ export const OrderDetailsQuickBody = ({ order }) => {
               className="text-link"
             />
           }
+          space={space}
+          {...(extraFieldProps as any)}
         />
       )}
     </>

@@ -1,16 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { useSelector } from 'react-redux';
+import { useFormState } from 'react-final-form';
 import { remoteWaldurApiRemoteCustomers } from 'waldur-js-client';
 
-import { required } from '@waldur/core/validators';
-import { FormContainer, SelectField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
+import { SHORT_STALE_TIME } from '@/core/constants';
+import { required } from '@/core/validators';
+import { SelectGroup } from '@/form';
+import { translate } from '@/i18n';
 
 import { ErredRemoteConnection } from './ErredRemoteConnection';
-import { importOfferingSelector } from './selectors';
+import { OfferingImportFormData } from './types';
 
 export const SelectOrganizationTab = () => {
-  const formData = useSelector(importOfferingSelector);
+  const { values: formData } = useFormState<OfferingImportFormData>();
   const {
     isLoading,
     error,
@@ -29,17 +30,13 @@ export const SelectOrganizationTab = () => {
       );
     },
 
-    staleTime: 60 * 1000,
+    staleTime: SHORT_STALE_TIME,
     retry: false,
   });
 
   return (
-    <FormContainer
-      submitting={false}
-      clearOnUnmount={false}
-      className="size-lg"
-    >
-      <SelectField
+    <div className="size-lg">
+      <SelectGroup
         name="customer"
         label={translate('Organization')}
         description={translate(
@@ -50,8 +47,8 @@ export const SelectOrganizationTab = () => {
         getOptionValue={(option) => option.uuid}
         getOptionLabel={(option) => option.name}
         validate={required}
+        disabled={false}
       />
-
       {isLoading ? null : error ? (
         <ErredRemoteConnection
           error={error}
@@ -62,6 +59,6 @@ export const SelectOrganizationTab = () => {
           {translate('There are no organizations yet.')}
         </p>
       ) : null}
-    </FormContainer>
+    </div>
   );
 };

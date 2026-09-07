@@ -218,6 +218,7 @@ class DrawerComponent {
 
   private _createOverlay = () => {
     if (this._getOption('overlay') === true) {
+      this._deleteOverlay();
       this.overlayElement = document.createElement('DIV');
       const elementZIndex = getCSS(this.element, 'z-index');
       if (elementZIndex) {
@@ -298,9 +299,18 @@ class DrawerComponent {
   public static hideAll = () => {
     const oldInstances = DrawerStore.getAllInstances();
     oldInstances.forEach((dr) => {
+      if (DrawerComponent.isReactManaged(dr.element)) {
+        return;
+      }
       dr.hide();
     });
   };
+
+  // React-owned drawers (DrawerContext) manage their own open/close lifecycle.
+  // Blind global sweeps must skip them, or a route/layout change during the
+  // initial load slams shut a drawer the user just opened.
+  private static isReactManaged = (element: HTMLElement): boolean =>
+    element.getAttribute('data-kt-drawer-managed') === 'react';
 
   public static updateAll = () => {
     const oldInstances = DrawerStore.getAllInstances();
@@ -319,6 +329,9 @@ class DrawerComponent {
         drawer = new DrawerComponent(item, defaultDrawerOptions);
       }
       drawer.element = item;
+      if (DrawerComponent.isReactManaged(item)) {
+        return;
+      }
       drawer.hide();
     });
   }

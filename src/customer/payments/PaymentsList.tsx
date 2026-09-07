@@ -1,24 +1,23 @@
 import { FunctionComponent, useMemo } from 'react';
-import { useSelector } from 'react-redux';
 import { Payment, paymentsList, PaymentsListData } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { PAYMENTS_TABLE } from '@waldur/customer/details/constants';
-import { PaymentInvoiceRenderer } from '@waldur/customer/payments/PaymentInvoiceRenderer';
-import { PaymentProofRenderer } from '@waldur/customer/payments/PaymentProofRenderer';
-import { translate } from '@waldur/i18n';
-import { getActivePaymentProfile } from '@waldur/invoices/details/utils';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { formatDateTime } from '@/core/dateUtils';
+import { PAYMENTS_TABLE } from '@/customer/details/constants';
+import { PaymentInvoiceRenderer } from '@/customer/payments/PaymentInvoiceRenderer';
+import { PaymentProofRenderer } from '@/customer/payments/PaymentProofRenderer';
+import { translate } from '@/i18n';
+import { getActivePaymentProfile } from '@/invoices/details/utils';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { Column } from '@/table/types';
+import { useTable } from '@/table/useTable';
+import { useCustomer } from '@/workspace/hooks';
 
 import { CreatePaymentButton } from './CreatePaymentButton';
 import { PaymentActions } from './PaymentActions';
 
 export const PaymentsList: FunctionComponent = () => {
-  const customer = useSelector(getCustomer);
+  const customer = useCustomer();
   const profile = useMemo(
     () => getActivePaymentProfile(customer.payment_profiles),
     [customer],
@@ -72,7 +71,12 @@ export const PaymentsList: FunctionComponent = () => {
       columns={columns}
       verboseName={translate('payments')}
       showPageSizeSelector={true}
-      tableActions={<CreatePaymentButton activePaymentProfile={profile} />}
+      tableActions={
+        <CreatePaymentButton
+          activePaymentProfile={profile}
+          refetch={props.fetch}
+        />
+      }
       rowActions={({ row }) => (
         <PaymentActions refetch={props.fetch} row={row} />
       )}

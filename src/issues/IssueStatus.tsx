@@ -1,4 +1,5 @@
-import { Badge } from '@waldur/core/Badge';
+import { Badge } from '@/core/Badge';
+import { renderFieldOrDash } from '@/table/utils';
 
 const STATUS_COLORS = {
   Open: 'primary',
@@ -7,14 +8,19 @@ const STATUS_COLORS = {
   Resolved: 'default',
 };
 
-export const IssueStatus = ({ status }) => (
-  <Badge
-    variant={STATUS_COLORS[status] || 'default'}
-    outline
-    pill
-    size="sm"
-    className="flex-shrink-0"
-  >
-    {status || 'N/A'}
-  </Badge>
-);
+export const IssueStatus = ({ status }) => {
+  if (!status) {
+    return <>{renderFieldOrDash(status)}</>;
+  }
+  return (
+    <Badge
+      variant={STATUS_COLORS[status] || 'default'}
+      size="sm"
+      pill
+      outline
+      className="flex-shrink-0"
+    >
+      {status}
+    </Badge>
+  );
+};

@@ -1,24 +1,14 @@
-import { screen, render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { ENV } from '@waldur/core/config';
-import { useModal } from '@waldur/modal/hooks';
+import { ENV } from '@/core/config';
 
 import { OpenStackTenantSummary } from './OpenStackTenantSummary';
 
-// Mock ENV configuration
-vi.mock('@waldur/core/config', () => ({
-  ENV: {
-    plugins: {
-      WALDUR_OPENSTACK: {
-        TENANT_CREDENTIALS_VISIBLE: true,
-      },
-      WALDUR_CORE: {},
-    },
-  },
-}));
-vi.mock('@waldur/modal/hooks');
+ENV.plugins.WALDUR_OPENSTACK = {
+  TENANT_CREDENTIALS_VISIBLE: true,
+} as any;
 
 const mockTenant = {
   name: 'Test tenant',
@@ -51,9 +41,6 @@ const mockTenant = {
 };
 
 describe('OpenStackTenantSummary', () => {
-  beforeEach(() => {
-    vi.mocked(useModal).mockReturnValue({ openDialog: vi.fn() } as any);
-  });
   it('renders basic tenant information', () => {
     render(<OpenStackTenantSummary resource={mockTenant as any} />);
 

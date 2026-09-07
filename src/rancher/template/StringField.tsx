@@ -1,7 +1,7 @@
 import React from 'react';
 import { FormControl } from 'react-bootstrap';
 
-import { FieldError } from '@waldur/form';
+import { FieldError } from '@/form';
 
 import { FieldProps } from '../types';
 
@@ -9,7 +9,7 @@ import { DecoratedField } from './DecoratedField';
 
 const renderControl = (props) => (
   <>
-    <FormControl {...props.input} />
+    <FormControl id={props.id} {...props.input} />
     {props.meta.error && props.meta.touched && (
       <FieldError error={props.meta.error} />
     )}

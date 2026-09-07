@@ -2,11 +2,11 @@ import { CaretDownIcon, PlusCircleIcon } from '@phosphor-icons/react';
 import { Dropdown } from 'react-bootstrap';
 import { useSelector } from 'react-redux';
 
-import { translate } from '@waldur/i18n';
-import { InvitationCreateButton } from '@waldur/invitations/actions/create/InvitationCreateButton';
-import { GroupInvitationCreateButton } from '@waldur/invitations/actions/GroupInvitationCreateButton';
-import { getTableState } from '@waldur/table/selectors';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { translate } from '@/i18n';
+import { InvitationCreateButton } from '@/invitations/actions/create/InvitationCreateButton';
+import { GroupInvitationCreateButton } from '@/invitations/actions/GroupInvitationCreateButton';
+import { getTableState } from '@/table/selectors';
+import { useCustomer } from '@/workspace/hooks';
 
 import { ServiceAccountCreateButton } from '../service-accounts/ServiceAccountCreateAction';
 
@@ -17,7 +17,7 @@ interface TeamDropdownActionsProps {
 }
 
 export const TeamDropdownActions = ({ refetch }: TeamDropdownActionsProps) => {
-  const customer = useSelector(getCustomer);
+  const customer = useCustomer();
   const tableState = useSelector(
     getTableState('marketplace-customer-service-accounts'),
   );
@@ -26,7 +26,11 @@ export const TeamDropdownActions = ({ refetch }: TeamDropdownActionsProps) => {
     tableState?.pagination?.resultCount >= customer.max_service_accounts;
   return (
     <Dropdown placement="bottom-end">
-      <Dropdown.Toggle variant="primary" className="no-arrow btn-icon-right">
+      <Dropdown.Toggle
+        variant="primary"
+        size="lg"
+        className="no-arrow btn-icon-right"
+      >
         <span className="svg-icon svg-icon-2">
           <PlusCircleIcon weight="bold" />
         </span>

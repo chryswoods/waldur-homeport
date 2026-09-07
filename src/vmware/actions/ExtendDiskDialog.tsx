@@ -1,20 +1,33 @@
 import { FC } from 'react';
-import { useDispatch } from 'react-redux';
 import { vmwareDisksExtend } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ResourceActionDialog } from '@waldur/resource/actions/ResourceActionDialog';
-import { ActionDialogProps } from '@waldur/resource/actions/types';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
+import { translate } from '@/i18n';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ResourceActionDialog } from '@/resource/actions/ResourceActionDialog';
+import { ActionDialogProps } from '@/resource/actions/types';
 
 export const ExtendDiskDialog: FC<ActionDialogProps> = ({
   resolve: { resource, refetch },
 }) => {
-  const dispatch = useDispatch();
+  const mutation = useManagedMutation<any, any, { size: number }>({
+    mutationFn: (formData) =>
+      vmwareDisksExtend({
+        path: { uuid: resource.uuid },
+        body: { size: formData.size },
+      }),
+
+    successMessage: translate('Disk extension has been scheduled.'),
+    errorMessage: translate('Unable to extend disk.'),
+    refetch: refetch,
+  });
+
   return (
     <ResourceActionDialog
       dialogTitle={translate('Extend disk')}
+      dialogSubtitle={
+        <ScopeSubtitle label={translate('Disk name')} name={resource.name} />
+      }
       formFields={[
         {
           label: translate('Size'),
@@ -22,23 +35,7 @@ export const ExtendDiskDialog: FC<ActionDialogProps> = ({
         },
       ]}
       initialValues={{ size: resource.size }}
-      submitForm={async (formData) => {
-        try {
-          await vmwareDisksExtend({
-            path: { uuid: resource.uuid },
-            body: { size: formData.size },
-          });
-          dispatch(
-            showSuccess(translate('Disk extension has been scheduled.')),
-          );
-          dispatch(closeModalDialog());
-          if (refetch) {
-            await refetch();
-          }
-        } catch (e) {
-          dispatch(showErrorResponse(e, translate('Unable to extend disk.')));
-        }
-      }}
+      submitForm={mutation.mutateAsync}
     />
   );
 };

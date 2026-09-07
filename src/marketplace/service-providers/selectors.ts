@@ -1,15 +1,13 @@
-import { createSelector } from 'reselect';
+import { Customer, User } from 'waldur-js-client';
 
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { getCustomer, getUser } from '@waldur/workspace/selectors';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
 
-export const canRegisterServiceProviderForCustomer = createSelector(
-  getUser,
-  getCustomer,
-  (user, customer) =>
-    hasPermission(user, {
-      permission: PermissionEnum.REGISTER_SERVICE_PROVIDER,
-      customerId: customer.uuid,
-    }),
-);
+export const canRegisterServiceProviderForCustomer = (
+  user: User,
+  customer: Customer,
+) =>
+  hasPermission(user, {
+    permission: PermissionEnum.REGISTER_SERVICE_PROVIDER,
+    customerId: customer.uuid,
+  });

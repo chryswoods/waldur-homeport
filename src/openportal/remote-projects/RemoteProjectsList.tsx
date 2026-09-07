@@ -1,54 +1,46 @@
-import { ChatTeardropTextIcon } from '@phosphor-icons/react';
-import { useDispatch, useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
+import { useMemo } from 'react';
 import { openportalRemoteProjectsList } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { Link } from '@waldur/core/Link';
-import { Tip } from '@waldur/core/Tooltip';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { useTitle } from '@waldur/navigation/title';
-import Table from '@waldur/table/Table';
-import { createFetcher } from '@waldur/table/api';
-import { DASH_ESCAPE_CODE } from '@waldur/table/constants';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { getCustomer, isOwnerOrStaff, isSupport } from '@waldur/workspace/selectors';
+import { formatDateTime } from '@/core/dateUtils';
+import { Link } from '@/core/Link';
+import { Tip } from '@/core/Tooltip';
+import { translate } from '@/i18n';
+import { useTitle } from '@/navigation/title';
+import { createFetcher } from '@/table/api';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
+import {
+  OpenportalRemoteProjectsFilter,
+  selectOpenportalRemoteProjectsFilter,
+  OpenportalRemoteProjectsFilterFormId,
+} from '@/table/generated/OpenportalRemoteProjectsFilter';
+import Table from '@/table/Table';
+import { Column } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
+import { useCustomer, useUser } from '@/workspace/hooks';
+import { checkIsOwnerOrStaff } from '@/workspace/selectors';
 
 import { RemoteProjectActions } from './RemoteProjectActions';
-import { RemoteProjectNotesDialog } from './RemoteProjectNotesDialog';
 import { RemoteProjectStateField } from './RemoteProjectStateField';
-import { RemoteProjectsFilter } from './RemoteProjectsFilter';
-
-const mapStateToFilter = createSelector(
-  getFormValues('remoteProjectsFilter'),
-  getCustomer,
-  (userFilter: any, customer) => {
-    const filter: any = { customer_uuid: customer?.uuid };
-    if (Array.isArray(userFilter?.state) && userFilter.state.length > 0) {
-      filter.state = userFilter.state.map((opt) => opt.value);
-    }
-    return filter;
-  },
-);
-
-const selectCanEdit = createSelector(
-  isOwnerOrStaff,
-  isSupport,
-  (ownerOrStaff, support) => ownerOrStaff || support,
-);
 
 export const RemoteProjectsList = () => {
   useTitle(translate('Remote Projects'), '', 'browser');
 
-  const dispatch = useDispatch();
-  const filter = useSelector(mapStateToFilter);
-  const canEdit = useSelector(selectCanEdit);
+  const customer = useCustomer();
+  const user = useUser();
+  const canEdit = checkIsOwnerOrStaff(customer, user) || user?.is_support;
+
+  const values = useFilterValues('RemoteProjectsList');
+
+  const filter = useMemo(() => {
+    const selected = selectOpenportalRemoteProjectsFilter(values);
+    return { ...selected, customer_uuid: customer?.uuid };
+  }, [values, customer?.uuid]);
 
   const tableProps = useTable({
     table: 'RemoteProjectsList',
+    syncFiltersToURL: true,
     fetchData: createFetcher(openportalRemoteProjectsList),
     queryField: 'query',
     filter,
@@ -70,41 +62,16 @@ export const RemoteProjectsList = () => {
       id: 'project',
     },
     {
-      title: translate('Notes'),
-      render: ({ row }) => {
-        const count = ((row.award_details as any)?.notes ?? row.notes ?? []).length;
-        return (
-          <button
-            className="btn btn-sm btn-light-primary btn-icon-text"
-            onClick={(e) => {
-              e.currentTarget.blur();
-              dispatch(
-                openModalDialog(RemoteProjectNotesDialog as any, {
-                  resolve: { row, refetch: tableProps.fetch },
-                  size: 'md',
-                } as any),
-              );
-            }}
-          >
-            <ChatTeardropTextIcon className="me-1" />
-            {count}
-          </button>
-        );
-      },
-      keys: ['notes'],
-      id: 'notes',
-    },
-    {
       title: translate('Destination'),
       orderField: 'destination',
-      render: ({ row }) => row.destination || DASH_ESCAPE_CODE,
+      render: ({ row }) => renderFieldOrDash(row.destination),
       keys: ['destination'],
       id: 'destination',
     },
     {
       title: translate('Identifier'),
       orderField: 'identifier',
-      render: ({ row }) => row.identifier || DASH_ESCAPE_CODE,
+      render: ({ row }) => renderFieldOrDash(row.identifier),
       keys: ['identifier'],
       optional: true,
       id: 'identifier',
@@ -113,23 +80,35 @@ export const RemoteProjectsList = () => {
       title: translate('State'),
       orderField: 'state',
       render: ({ row }) =>
-        row.state ? (
-          <Tip id={`state-${row.uuid}`} label={row.error_message}>
-            <RemoteProjectStateField state={row.state} />
+        row.error_message ? (
+          <Tip
+            id={`remote-project-state-${row.uuid}`}
+            label={row.error_message}
+          >
+            <RemoteProjectStateField project={row} />
           </Tip>
-        ) : DASH_ESCAPE_CODE,
+        ) : (
+          <RemoteProjectStateField project={row} />
+        ),
       keys: ['state', 'error_message'],
       id: 'state',
     },
     {
+      title: translate('Notes'),
+      render: ({ row }) => (row.notes ?? []).length,
+      keys: ['notes'],
+      optional: true,
+      id: 'notes',
+    },
+    {
       title: translate('Current allocation'),
-      render: ({ row }) => row.current_allocation ?? DASH_ESCAPE_CODE,
+      render: ({ row }) => renderFieldOrDash(row.current_allocation),
       keys: ['current_allocation'],
       id: 'current_allocation',
     },
     {
       title: translate('Pending allocation'),
-      render: ({ row }) => row.pending_allocation ?? DASH_ESCAPE_CODE,
+      render: ({ row }) => renderFieldOrDash(row.pending_allocation),
       keys: ['pending_allocation'],
       optional: true,
       id: 'pending_allocation',
@@ -138,7 +117,11 @@ export const RemoteProjectsList = () => {
       title: translate('Last contact'),
       orderField: 'last_contact_time',
       render: ({ row }) =>
-        row.last_contact_time ? formatDateTime(row.last_contact_time) : DASH_ESCAPE_CODE,
+        row.last_contact_time ? (
+          <>{formatDateTime(row.last_contact_time)}</>
+        ) : (
+          DASH_ESCAPE_CODE
+        ),
       keys: ['last_contact_time'],
       optional: true,
       id: 'last_contact',
@@ -146,8 +129,9 @@ export const RemoteProjectsList = () => {
     {
       title: translate('Created'),
       orderField: 'created',
-      render: ({ row }) =>
-        row.created ? formatDateTime(row.created) : DASH_ESCAPE_CODE,
+      render: ({ row }) => (
+        <>{row.created ? formatDateTime(row.created) : DASH_ESCAPE_CODE}</>
+      ),
       keys: ['created'],
       optional: true,
       id: 'created',
@@ -158,7 +142,7 @@ export const RemoteProjectsList = () => {
     <Table
       {...tableProps}
       columns={columns}
-      verboseName={translate('remote projects')}
+      verboseName={translate('Remote Projects')}
       title={translate('Remote Projects')}
       showPageSizeSelector={true}
       standalone
@@ -167,7 +151,7 @@ export const RemoteProjectsList = () => {
       tableActions={
         <Link
           state="organization-remote-projects-audit"
-          className="btn btn-sm btn-outline-primary"
+          buttonVariant="outline-primary"
         >
           {translate('Audit Log')}
         </Link>
@@ -179,7 +163,8 @@ export const RemoteProjectsList = () => {
             )
           : undefined
       }
-      filters={<RemoteProjectsFilter />}
+      filters={<OpenportalRemoteProjectsFilter />}
+      formId={OpenportalRemoteProjectsFilterFormId}
     />
   );
 };

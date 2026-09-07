@@ -6,14 +6,14 @@ import {
   OpenstackFloatingIpsListData,
 } from 'waldur-js-client';
 
-import { Link } from '@waldur/core/Link';
-import { translate } from '@waldur/i18n';
-import { ActionButtonResource } from '@waldur/resource/actions/ActionButtonResource';
-import { ResourceState } from '@waldur/resource/state/ResourceState';
-import { ResourceSummary } from '@waldur/resource/summary/ResourceSummary';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { Link } from '@/core/Link';
+import { translate } from '@/i18n';
+import { ActionButtonResource } from '@/resource/actions/ActionButtonResource';
+import { ResourceState } from '@/resource/state/ResourceState';
+import { ResourceSummary } from '@/resource/summary/ResourceSummary';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
 
 import { INSTANCE_TYPE } from '../constants';
 import { CreateFloatingIpAction } from '../openstack-tenant/actions/CreateFloatingIpAction';
@@ -39,10 +39,12 @@ export const FloatingIpsList: FunctionComponent<{ resourceScope }> = ({
         'service_name',
         'runtime_state',
         'address',
+        'external_address',
         'instance_uuid',
         'instance_name',
         'project_uuid',
         'port_fixed_ips',
+        'backend_id',
       ],
     }),
     [resourceScope],
@@ -59,6 +61,7 @@ export const FloatingIpsList: FunctionComponent<{ resourceScope }> = ({
         {
           title: translate('Floating IP'),
           render: ({ row }) => <>{row.name}</>,
+          copyField: (row) => row.name || '',
         },
         {
           title: translate('State'),
@@ -73,6 +76,10 @@ export const FloatingIpsList: FunctionComponent<{ resourceScope }> = ({
                 : 'N/A'}
             </>
           ),
+          copyField: (row) =>
+            row.port_fixed_ips && row.port_fixed_ips.length > 0
+              ? row.port_fixed_ips.map((fip) => fip.ip_address).join(', ')
+              : '',
         },
         {
           title: translate('Instance'),
@@ -82,7 +89,7 @@ export const FloatingIpsList: FunctionComponent<{ resourceScope }> = ({
             }
             return (
               <Link
-                state="resource-details"
+                state="marketplace-resource-details"
                 params={{
                   uuid: row.project_uuid,
                   resource_uuid: row.instance_uuid,

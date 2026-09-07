@@ -1,15 +1,22 @@
 import { CalendarBlankIcon } from '@phosphor-icons/react';
-import { useSelector, useDispatch } from 'react-redux';
-import { marketplaceResourcesPartialUpdate } from 'waldur-js-client';
+import { useQuery } from '@tanstack/react-query';
+import {
+  marketplaceResourcesOfferingRetrieve,
+  marketplaceResourcesSetEndDate,
+} from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { ActionItemType } from '@waldur/resource/actions/types';
-import { getUser } from '@waldur/workspace/selectors';
+import { STALE_TIME } from '@/core/constants';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { ActionItemType } from '@/resource/actions/types';
+import { useUser } from '@/workspace/hooks';
+
+import { ResourceAction } from './constants';
+import { getMarketplaceResourceUuid } from './utils';
 
 const EditResourceEndDateDialog = lazyComponent(() =>
   import('./EditResourceEndDateDialog').then((module) => ({
@@ -24,29 +31,42 @@ export const EditResourceEndDateAction: ActionItemType = ({
 }) => {
   const _resource = marketplaceResource || resource;
 
-  const dispatch = useDispatch();
-  const user = useSelector(getUser);
+  const { openDialog } = useModal();
+  const user = useUser();
+
+  const resourceUuid = getMarketplaceResourceUuid(_resource);
+
+  const { data: offering } = useQuery({
+    queryKey: ['resource-offering', resourceUuid],
+    queryFn: () =>
+      marketplaceResourcesOfferingRetrieve({
+        path: { uuid: resourceUuid },
+      }).then((response) => response.data),
+    enabled: Boolean(resourceUuid),
+    staleTime: STALE_TIME,
+    refetchOnWindowFocus: false,
+  });
+
+  const hasPrepaidComponents = offering?.components?.some(
+    (c) => c.is_prepaid === true,
+  );
 
   const callback = () =>
-    dispatch(
-      openModalDialog(EditResourceEndDateDialog, {
-        resolve: {
-          resource: _resource,
-          refetch,
-          updateEndDate: (uuid, end_date) =>
-            marketplaceResourcesPartialUpdate({
-              path: { uuid },
-              body: { end_date },
-            }),
-        },
-      }),
-    );
+    openDialog(EditResourceEndDateDialog, {
+      resolve: {
+        resource: _resource,
+        refetch,
+        updateEndDate: (uuid, end_date) =>
+          marketplaceResourcesSetEndDate({
+            path: { uuid },
+            body: { end_date },
+          }),
+      },
+    });
 
+  // Setting the date takes this one permission. Everyone else — project
+  // managers included — asks via RequestEndDateChangeAction.
   if (
-    !hasPermission(user, {
-      permission: PermissionEnum.SET_RESOURCE_END_DATE,
-      customerId: _resource.provider_uuid,
-    }) &&
     !hasPermission(user, {
       permission: PermissionEnum.SET_RESOURCE_END_DATE,
       customerId: _resource.customer_uuid,
@@ -54,11 +74,19 @@ export const EditResourceEndDateAction: ActionItemType = ({
   ) {
     return null;
   }
+
+  // For prepaid resources, only staff can manually change end date
+  if (hasPrepaidComponents && !user.is_staff) {
+    return null;
+  }
+
   return (
     <ActionItem
       title={translate('Set termination date')}
       action={callback}
       iconNode={<CalendarBlankIcon weight="bold" />}
+      actionId={ResourceAction.EDIT_TERMINATION_DATE}
+      resource={_resource}
     />
   );
 };

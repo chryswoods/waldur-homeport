@@ -1,16 +1,22 @@
 import { useCallback, useMemo } from 'react';
-import { OpenStackFlavor, openstackFlavorsList } from 'waldur-js-client';
+import { useFormState } from 'react-final-form';
+import {
+  OpenStackFlavor,
+  openstackFlavorsList,
+  Offering,
+} from 'waldur-js-client';
 
-import { formatFilesize } from '@waldur/core/utils';
-import { required } from '@waldur/core/validators';
-import { translate } from '@waldur/i18n';
-import { DeployFormData } from '@waldur/marketplace/common/types';
-import { Offering } from '@waldur/marketplace/types';
-import { TENANT_TYPE } from '@waldur/openstack/constants';
-import { QuotaUsageBarChart } from '@waldur/quotas/QuotaUsageBarChart';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { UI_STALE_TIME } from '@/core/constants';
+import { formatFilesize } from '@/core/utils';
+import { required } from '@/core/validators';
+import { translate } from '@/i18n';
+import { DeployFormData } from '@/marketplace/common/types';
+import { TENANT_TYPE } from '@/openstack/constants';
+import { QuotaUsageBarChart } from '@/quotas/QuotaUsageBarChart';
+import { createFetcher } from '@/table/api';
+import { PAGE_SIZE_FULL } from '@/table/constants';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
 
 import { flavorValidator } from '../utils';
 
@@ -37,7 +43,7 @@ export const FlavorTable = ({
     table: 'deploy-openstack-flavors',
     fetchData: createFetcher(openstackFlavorsList),
     filter,
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
 
   const { vcpuQuota, ramQuota } = useQuotasData(offering);
@@ -55,11 +61,11 @@ export const FlavorTable = ({
       if (limit.ram === -1 && limit.vcpu === -1) {
         return undefined;
       }
-      if (!value || !limit) return undefined;
+      if (!value || !limit || !formData) return undefined;
       const errors = [];
 
       if (
-        formData.attributes?.image &&
+        formData?.attributes?.image &&
         flavorValidator({ image: formData.attributes?.image }, value)
       ) {
         errors.push(
@@ -76,6 +82,16 @@ export const FlavorTable = ({
       return errors.length > 0 ? errors : undefined;
     },
     [limit, vcpuQuota.usage, ramQuota.usage],
+  );
+
+  const { values: formValues } = useFormState<DeployFormData>({
+    subscription: { values: true },
+  });
+
+  const rowClass = useCallback(
+    ({ row }: { row: OpenStackFlavor }) =>
+      exceeds(row, formValues) ? 'text-muted' : '',
+    [exceeds, formValues],
   );
 
   return (
@@ -124,7 +140,10 @@ export const FlavorTable = ({
       hoverable
       fieldType="radio"
       fieldName={fieldName}
-      validate={[required, exceeds]}
+      validate={required}
+      rowValidate={exceeds}
+      rowClass={rowClass}
+      initialPageSize={PAGE_SIZE_FULL * 5}
     />
   );
 };

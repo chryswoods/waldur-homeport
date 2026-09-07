@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { FC } from 'react';
 
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
+import { STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
 import {
   getBackendHealthStatus,
   isWorking,
-} from '@waldur/navigation/BackendHealthStatusIndicator';
+} from '@/navigation/footer/BackendHealthStatusIndicator';
 
 import { AdministrationProfile } from './AdministrationProfile';
 import { AdminStatistics } from './AdminStatistics';
@@ -17,7 +18,7 @@ export const AdministrationDashboard: FC = () => {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['HealthStatus'],
     queryFn: () => getBackendHealthStatus(),
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_TIME,
   });
 
   const healthy = data ? isWorking(data) : undefined;

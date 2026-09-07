@@ -1,11 +1,12 @@
 import { FC } from 'react';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { StateIndicator } from '@waldur/core/StateIndicator';
-import { translate } from '@waldur/i18n';
-import { Call } from '@waldur/proposals/types';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { formatDateTime } from '@/core/dateUtils';
+import { StateIndicator } from '@/core/StateIndicator';
+import { translate } from '@/i18n';
+import { Call } from '@/proposals/types';
+import { createClientPaginatedFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
 
 import { RoundExpandableRow } from '../update/rounds/RoundExpandableRow';
 import { getRoundsWithStatus } from '../utils';
@@ -17,11 +18,9 @@ interface CallRoundsListProps {
 export const CallRoundsList: FC<CallRoundsListProps> = (props) => {
   const tableProps = useTable({
     table: 'PublicCallRoundsList',
-    fetchData: () =>
-      Promise.resolve({
-        rows: getRoundsWithStatus(props.call.rounds),
-        resultCount: props.call.rounds.length,
-      }),
+    fetchData: createClientPaginatedFetcher(
+      getRoundsWithStatus(props.call.rounds),
+    ),
   });
 
   return (
@@ -30,8 +29,9 @@ export const CallRoundsList: FC<CallRoundsListProps> = (props) => {
       id="rounds"
       columns={[
         {
-          title: translate('Round name'),
-          render: ({ row }) => row.name,
+          title: translate('Round ID'),
+          render: ({ row }) => row.slug,
+          copyField: (row) => row.slug,
         },
         {
           title: translate('Start date'),

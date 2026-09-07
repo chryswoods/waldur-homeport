@@ -1,0 +1,108 @@
+// This file is auto-generated. Do not edit manually.
+
+import { FunctionComponent } from 'react';
+import {
+  FinancialReportsListData,
+  ServiceProvider,
+  marketplaceServiceProvidersList,
+} from 'waldur-js-client';
+
+import { createLoadOptions } from '@/form/select/createLoadOptions';
+import { translate } from '@/i18n';
+import { AsyncSelectFilter, SelectFilter } from '@/table';
+
+export const AccountingIsRunningOptions: AccountingIsRunningOption[] = [
+  {
+    label: translate('Not running accounting'),
+    value: false,
+  },
+  {
+    label: translate('Running accounting'),
+    value: true,
+  },
+  {
+    label: translate('All'),
+    value: 'undefined',
+  },
+];
+export interface AccountingIsRunningOption {
+  label: string;
+  value: any;
+}
+
+export const FinancialReportsFilter: FunctionComponent<
+  FinancialReportsFilterProps
+> = (props) => (
+  <>
+    <AsyncSelectFilter
+      title={translate('Service provider')}
+      name="customer"
+      getValueLabel={(value: ServiceProvider) => value?.customer_name}
+      placeholder={translate('Service provider')}
+      loadOptions={createLoadOptions(
+        marketplaceServiceProvidersList,
+        'customer_keyword',
+      )}
+      defaultOptions
+      getOptionValue={(option: ServiceProvider) =>
+        String(option.customer_uuid || '')
+      }
+      getOptionLabel={(option: ServiceProvider) =>
+        String(option.customer_name || '')
+      }
+      isClearable={true}
+    />
+    <SelectFilter
+      title={translate('Accounting period')}
+      name="accounting_period"
+      getValueLabel={(value: any) => value?.label}
+      placeholder={translate('Accounting period')}
+      options={props.accountingPeriods}
+      isClearable={true}
+    />
+    <SelectFilter
+      title={translate('Accounting is running')}
+      name="accounting_is_running"
+      getValueLabel={(value: AccountingIsRunningOption) => value?.label}
+      placeholder={translate('Show with running accounting')}
+      options={AccountingIsRunningOptions}
+      getOptionValue={(option: AccountingIsRunningOption) =>
+        String(option.value)
+      }
+      getOptionLabel={(option: AccountingIsRunningOption) => option.label}
+      isClearable={true}
+    />
+  </>
+);
+
+export const FinancialReportsFilterFormId = 'FinancialReportsFilter';
+
+interface FinancialReportsFilterProps {
+  accountingPeriods?: any[];
+}
+
+export interface FinancialReportsFilterFormData {
+  customer: ServiceProvider;
+  accounting_period: any;
+  accounting_is_running: AccountingIsRunningOption;
+}
+
+type FinancialReportsFilterQuery = FinancialReportsListData['query'];
+
+export const selectFinancialReportsFilter = (
+  values?: Partial<FinancialReportsFilterFormData>,
+): FinancialReportsFilterQuery => {
+  const filter: FinancialReportsFilterQuery = {} as any;
+  if (values) {
+    if (values.customer) {
+      filter.customer_uuid = values.customer.customer_uuid;
+    }
+    if (values.accounting_period) {
+      Object.assign(filter, values.accounting_period.value);
+    }
+    if (values.accounting_is_running) {
+      filter.accounting_is_running = values.accounting_is_running.value;
+    }
+  }
+  return filter;
+};

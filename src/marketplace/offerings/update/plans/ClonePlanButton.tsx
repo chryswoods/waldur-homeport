@@ -1,11 +1,10 @@
 import { CopyIcon } from '@phosphor-icons/react';
 import { FunctionComponent } from 'react';
 import { Dropdown } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
 
 import { ADD_PLAN_FORM_ID } from './constants';
 
@@ -20,19 +19,17 @@ export const ClonePlanButton: FunctionComponent<{
   plan;
   refetch;
 }> = ({ offering, plan, refetch }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const callback = () => {
-    dispatch(
-      openModalDialog(ClonePlanDialog, {
-        resolve: { offering, plan, refetch },
-        formId: ADD_PLAN_FORM_ID,
-        size: 'lg',
-      }),
-    );
+    openDialog(ClonePlanDialog, {
+      resolve: { offering, plan, refetch },
+      formId: ADD_PLAN_FORM_ID,
+      size: 'lg',
+    });
   };
   return (
     <Dropdown.Item onClick={callback}>
-      <CopyIcon size={18} /> {translate('Clone')}
+      <CopyIcon size={18} weight="bold" /> {translate('Clone')}
     </Dropdown.Item>
   );
 };

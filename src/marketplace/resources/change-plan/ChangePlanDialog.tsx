@@ -1,18 +1,18 @@
+import { useQuery } from '@tanstack/react-query';
 import React from 'react';
 import { Field, Form } from 'react-final-form';
-import { useAsync } from 'react-use';
 import { marketplaceResourcesSwitchPlan } from 'waldur-js-client';
 
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { SubmitButton } from '@waldur/form';
-import { ChoicesTable } from '@waldur/form/ChoicesTable';
-import { translate } from '@waldur/i18n';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { useModal } from '@waldur/modal/hooks';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { usePermission } from '@waldur/permissions/hooks';
-import { useNotify } from '@waldur/store/hooks';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { FormFooter } from '@/form';
+import { ChoicesTable } from '@/form/ChoicesTable';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { useUser } from '@/workspace/hooks';
 
 import { FetchedData, loadData } from './utils';
 
@@ -26,57 +26,53 @@ interface ChangePlanDialogProps {
 }
 
 const ChangePlanComponent = (props: FetchedData & { refetch? }) => {
-  const hasPemission = usePermission();
-  const orderCanBeApproved = hasPemission({
+  const user = useUser();
+
+  const orderCanBeApproved = hasPermission(user, {
     permission: PermissionEnum.APPROVE_ORDER,
     customerId: props.resource.customer_uuid,
     projectId: props.resource.project_uuid,
   });
 
-  const { showErrorResponse, showSuccess } = useNotify();
-  const { closeDialog } = useModal();
-
-  const handleSwitchPlan = async (data) => {
-    try {
-      await marketplaceResourcesSwitchPlan({
+  const switchPlanMutation = useManagedMutation<any, any, any>({
+    mutationFn: (data) =>
+      marketplaceResourcesSwitchPlan({
         path: { uuid: props.resource.uuid },
         body: { plan: data.plan.url },
-      });
-      showSuccess(
-        translate('Resource plan change request has been submitted.'),
-      );
-      closeDialog();
-      if (props.refetch) {
-        await props.refetch();
-      }
-    } catch (error) {
-      showErrorResponse(
-        error,
-        translate('Unable to submit plan change request.'),
-      );
-    }
-  };
+      }),
+    successMessage: translate(
+      'Resource plan change request has been submitted.',
+    ),
+    errorMessage: translate('Unable to submit plan change request.'),
+    refetch: props.refetch,
+  });
 
   return (
     <Form
-      onSubmit={handleSwitchPlan}
+      onSubmit={(values) =>
+        switchPlanMutation.mutateAsync(values).catch(() => {
+          /* error handled by useManagedMutation */
+        })
+      }
       initialValues={props.initialValues}
-      render={({ handleSubmit, submitting }) => (
+      render={({ handleSubmit }) => (
         <form onSubmit={handleSubmit}>
           <ModalDialog
             title={translate('Change resource plan')}
+            subtitle={
+              <ScopeSubtitle
+                label={translate('Resource name')}
+                name={props.resource.name}
+              />
+            }
             footer={
-              <>
-                <CloseDialogButton />
-                <SubmitButton
-                  submitting={submitting}
-                  label={
-                    orderCanBeApproved
-                      ? translate('Submit')
-                      : translate('Request for a change')
-                  }
-                />
-              </>
+              <FormFooter
+                submitLabel={
+                  orderCanBeApproved
+                    ? translate('Submit')
+                    : translate('Request for a change')
+                }
+              />
             }
           >
             {props.resource.plan_name ? (
@@ -116,19 +112,13 @@ const ChangePlanComponent = (props: FetchedData & { refetch? }) => {
 export const ChangePlanDialog: React.FC<ChangePlanDialogProps> = ({
   resolve: { resource, refetch },
 }) => {
-  const asyncState = useAsync(
-    () => loadData(resource.marketplace_resource_uuid),
-    [resource.marketplace_resource_uuid],
-  );
-  return asyncState.value ? (
-    <ChangePlanComponent
-      resource={asyncState.value.resource}
-      choices={asyncState.value.choices}
-      columns={asyncState.value.columns}
-      initialValues={asyncState.value.initialValues}
-      refetch={refetch}
-    />
-  ) : asyncState.loading ? (
+  const asyncState = useQuery({
+    queryKey: ['ChangePlanDialog', resource.marketplace_resource_uuid],
+    queryFn: () => loadData(resource.marketplace_resource_uuid),
+  });
+  return asyncState.data ? (
+    <ChangePlanComponent {...asyncState.data} refetch={refetch} />
+  ) : asyncState.isLoading ? (
     <ModalDialog title={translate('Change resource plan')}>
       <LoadingSpinner />
     </ModalDialog>

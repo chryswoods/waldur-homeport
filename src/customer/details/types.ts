@@ -1,18 +1,17 @@
-import { CustomerCredit } from 'waldur-js-client';
+import { CustomerCredit, ServiceProvider } from 'waldur-js-client';
 
-import { ServiceProvider } from '@waldur/marketplace/types';
-import { Customer } from '@waldur/workspace/types';
+import { Customer } from '@/workspace/types';
 
 export interface CustomerEditPanelProps {
   customer: Customer;
-  callback(formData, dispatch): Promise<any>;
+  callback(formData): Promise<any>;
   canUpdate?: boolean;
 }
 
 export interface EditCustomerProps {
   customer: Customer | ServiceProvider;
   name: string;
-  callback(formData, dispatch): Promise<any>;
+  callback(formData): Promise<any>;
 }
 
 export interface EditCustomerCreditProps {

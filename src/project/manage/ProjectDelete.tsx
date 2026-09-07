@@ -1,11 +1,9 @@
-import { TrashIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
-import { Button } from 'react-bootstrap';
 import { Project } from 'waldur-js-client';
 
-import { Panel } from '@waldur/core/Panel';
-import { Tip } from '@waldur/core/Tooltip';
-import { translate } from '@waldur/i18n';
+import { Panel } from '@/core/Panel';
+import { translate } from '@/i18n';
+import { RemovalActionButton } from '@/table/RemovalActionButton';
 
 import { useProjectDelete } from '../useProjectDelete';
 
@@ -21,26 +19,16 @@ export const ProjectDelete: FC<ProjectDeleteProps> = ({ project }) => {
       title={translate('Delete project')}
       cardBordered
       actions={
-        project.is_removed ? (
-          <Tip
-            label={translate('Project has already been removed')}
-            id="delete-disabled-tooltip"
-          >
-            <Button variant="danger" onClick={callback} disabled={!canDelete}>
-              <span className="svg-icon svg-icon-2">
-                <TrashIcon weight="bold" />
-              </span>
-              {translate('Delete')}
-            </Button>
-          </Tip>
-        ) : (
-          <Button variant="danger" onClick={callback} disabled={!canDelete}>
-            <span className="svg-icon svg-icon-2">
-              <TrashIcon weight="bold" />
-            </span>
-            {translate('Delete')}
-          </Button>
-        )
+        <RemovalActionButton
+          action={callback}
+          title={translate('Delete')}
+          disabled={!canDelete}
+          tooltip={
+            project.is_removed
+              ? translate('Project has already been removed')
+              : undefined
+          }
+        />
       }
     >
       <ul className="text-gray-700">

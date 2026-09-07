@@ -1,12 +1,12 @@
-import { Field, Form } from 'react-final-form';
-import { useDispatch } from 'react-redux';
+import { Form } from 'react-bootstrap';
+import { Form as ReactFinalForm } from 'react-final-form';
 import { userAgreementsPartialUpdate } from 'waldur-js-client';
 
-import { FormGroup, SubmitButton, TextField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showSuccess } from '@waldur/store/notify';
+import { ENV } from '@/core/config';
+import { MarkdownGroup, SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
 interface UserAgreementsEditDialogOwnProps {
   resolve: {
@@ -20,24 +20,28 @@ const agreementTypeLabelMap = {
   tos: translate('Terms of service'),
 };
 
+const getLanguageLabel = (code: string) => {
+  if (!code) return translate('Default');
+  const lang = ENV.languageChoices.find((l) => l.code === code);
+  return lang?.label || code;
+};
+
 export const UserAgreementsEditDialog = ({
   resolve,
 }: UserAgreementsEditDialogOwnProps) => {
-  const dispatch = useDispatch();
-
-  const onSubmit = async (formValues) => {
-    await userAgreementsPartialUpdate({
-      path: { uuid: formValues.uuid },
-      body: formValues,
-    });
-    await resolve.refetch();
-    dispatch(showSuccess(translate('User agreement was updated')));
-    dispatch(closeModalDialog());
-  };
+  const updateMutation = useManagedMutation<any, any, any>({
+    mutationFn: (formValues) =>
+      userAgreementsPartialUpdate({
+        path: { uuid: formValues.uuid },
+        body: formValues,
+      }),
+    successMessage: translate('User agreement was updated'),
+    refetch: resolve.refetch,
+  });
 
   return (
-    <Form
-      onSubmit={onSubmit}
+    <ReactFinalForm
+      onSubmit={(values) => updateMutation.mutateAsync(values)}
       initialValues={resolve.initialValues}
       render={({ handleSubmit, submitting }) => (
         <form onSubmit={handleSubmit}>
@@ -47,17 +51,20 @@ export const UserAgreementsEditDialog = ({
               <SubmitButton submitting={submitting} label={translate('Save')} />
             }
           >
-            <Field
+            <div className="mb-7">
+              <Form.Label>{translate('Language')}</Form.Label>
+              <p className="form-control-plaintext">
+                {getLanguageLabel(resolve.initialValues.language)}
+              </p>
+            </div>
+            <MarkdownGroup
               name="content"
-              component={FormGroup as any}
               label={
                 agreementTypeLabelMap[
                   resolve.initialValues.agreement_type.toLowerCase()
                 ]
               }
-            >
-              <TextField style={{ height: '520px' }} />
-            </Field>
+            />
           </ModalDialog>
         </form>
       )}

@@ -1,21 +1,31 @@
-import store from '@waldur/store/store';
+import store from '@/store/store';
 
-import { MatomoInstance } from './afterBootstrap';
+import { clearAuthCache, resolvePostLoginTarget } from './auth/authNavigation';
 import * as AuthService from './auth/AuthService';
-import { RedirectStorage } from './core/StorageManager';
+import { MatomoInstance } from './core/matomo';
+import {
+  GroupInvitationTokenStorage,
+  RedirectStorage,
+} from './core/StorageManager';
 import { cleanObject } from './core/utils';
+import { DrawerService } from './drawer/actions';
 import { setPrevParams, setPrevState } from './error/utils';
 import { isFeatureVisible } from './features/connect';
 import { MarketplaceFeatures } from './FeaturesEnums';
-import { tryAcceptInvitation } from './invitations/tryAcceptInvitation';
-import { tryJoinOrganization } from './invitations/tryJoinOrganization';
-import { closeModalDialog } from './modal/actions';
+import { translate } from './i18n';
+import { ModalService } from './modal/actions';
 import { router } from './router';
+import { NotifyService } from './store/notify';
+import {
+  clearBlockedNavigation,
+  isResumableState,
+} from './user/blockedNavigation';
 import { UsersService } from './user/UsersService';
 
 export function attachTransitions() {
   router.transitionService.onSuccess({}, function () {
-    store.dispatch(closeModalDialog());
+    ModalService.close();
+    DrawerService.close();
   });
 
   router.transitionService.onSuccess({}, function () {
@@ -26,48 +36,84 @@ export function attachTransitions() {
     }
   });
 
+  // Check profile validity for ALL authenticated users, regardless of route auth setting
   router.transitionService.onBefore(
     {
-      to: (state) =>
-        state.data && state.data.auth && AuthService.isAuthenticated(),
+      to: () => AuthService.isAuthenticated(),
     },
     async (transition) => {
+      // Allow access to profile management and auth-related states
+      const allowedStates = [
+        'profile-manage',
+        'profile-manage-container',
+        'about',
+        'errorPage',
+        'invitation-accept',
+        'invitation-approve',
+        'invitation-reject',
+        'supportFeedback',
+        'user-email-change',
+        'login',
+        'logout',
+        'home.login_completed',
+        'home.oauth_login_completed',
+        'home.login_failed',
+        'home.logout_completed',
+        'home.logout_failed',
+        // The enrollment interstitial itself, or the hook below would send
+        // the user to the page they are already on, forever.
+        'profile-passkeys-required',
+      ];
+      const toStateName = transition.to().name;
+      if (
+        allowedStates.some(
+          (name) => toStateName === name || toStateName.startsWith(name + '.'),
+        )
+      ) {
+        return;
+      }
+
+      // Preserve group invitation token before potential redirect to profile-manage
+      if (toStateName === 'user-group-invitation') {
+        const token = transition.params().token;
+        if (token) {
+          GroupInvitationTokenStorage.set(token);
+        }
+      }
+
       try {
-        const result = await UsersService.isCurrentUserValid();
-        if (result) {
+        // The gate rules (passkey enforcement first, then profile validity)
+        // live in resolvePostLoginTarget so the login flow and this guard can
+        // never disagree about where a user must go first. Kept as a single
+        // hook: transitions.test.ts locates the profile-validity hook as "the
+        // first onBefore with a `to` criteria", so adding a second one ahead
+        // of it silently retargets that test at the wrong callback.
+        const user = await UsersService.getCurrentUser();
+        const target = resolvePostLoginTarget(user, {
+          toState: toStateName,
+          toParams: transition.params(),
+        });
+        if (target.toState === toStateName) {
           return;
         }
-        if (transition.to().name == 'profile-manage') {
-          return;
-        }
-        return transition.router.stateService.target('profile-manage');
-      } catch (error: any) {
-        // If the error has already been handled by the error interceptor, don't redirect to error page
-        if (error?._handled401) {
-          // Return false to abort the transition - the interceptor has already called localLogout
-          // which will redirect to login
-          return false;
-        }
-
-        // Check if it's a 401/authentication error in multiple possible formats:
-        // 1. error.detail.status === 401 (from router errors)
-        // 2. error.response.status === 401 (from HTTP errors)
-        // 3. error.detail === "Invalid token." (from API client errors)
-        const is401Error =
-          error?.detail?.status === 401 ||
-          error?.response?.status === 401 ||
-          (typeof error?.detail === 'string' &&
-           (error.detail.includes('Invalid token') ||
-            error.detail.includes('Authentication credentials') ||
-            error.detail.includes('Not authenticated')));
-
-        if (is401Error) {
+        return transition.router.stateService.target(target.toState);
+      } catch {
+        // No token any more: the request answered 401 and the response
+        // interceptor has already logged out and started its own transition
+        // to `login` (onSessionExpired in core/authCoreSetup.ts). A redirect
+        // from here would enter `login` a second time — ui-router builds a
+        // redirect from this transition's original `from` path, unaware that
+        // the interceptor's transition already finished — and the login view
+        // config registered twice is only unregistered once on the next
+        // login, so the landing page stays on screen while the address bar
+        // already shows the destination. Remember where the user was going
+        // and let the interceptor's transition land alone.
+        if (!AuthService.isAuthenticated()) {
           RedirectStorage.set({
-            toState: transition.to().name,
-            toParams: transition.to().params,
+            toState: toStateName,
+            toParams: cleanObject(transition.params()),
           });
-          AuthService.clearAuthCache();
-          return transition.router.stateService.target('login');
+          return false;
         }
         return transition.router.stateService.target('errorPage.serverError');
       }
@@ -83,6 +129,20 @@ export function attachTransitions() {
         state.data && state.data.auth && !AuthService.isAuthenticated(),
     },
     (transition) => {
+      const toStateName = transition.to().name;
+
+      // Show message and store token for group invitation
+      if (toStateName === 'user-group-invitation') {
+        const token = transition.params().token;
+        if (token) {
+          GroupInvitationTokenStorage.set(token);
+          NotifyService.warning(
+            translate('Authentication required'),
+            translate('Please log in to request access to this organization.'),
+          );
+        }
+      }
+
       // If `catalogue_only` feature is enabled, user should be redirected to marketplace landing page.
       if (isFeatureVisible(MarketplaceFeatures.catalogue_only)) {
         return transition.router.stateService.target(
@@ -111,7 +171,7 @@ export function attachTransitions() {
     (transition) => transition.router.stateService.target('profile.details'),
   );
   // If state data has `feature` field and this feature is disabled,
-  // user is redirected to 404 error page.
+  // user is redirected to the feature-disabled empty state.
 
   router.transitionService.onStart(
     {
@@ -122,12 +182,15 @@ export function attachTransitions() {
     },
     (transition) =>
       transition.router.stateService.target(
-        transition.options().custom?.fallbackState || 'errorPage.notFound',
+        transition.options().custom?.fallbackState ||
+          'errorPage.featureDisabled',
+        undefined,
+        { location: false },
       ),
   );
 
   // Check resolvers before entering to a state
-  router.transitionService.onBefore({}, (transition) => {
+  router.transitionService.onBefore({}, async (transition) => {
     const toState = transition.to();
 
     const getAllStates = (state) => {
@@ -144,16 +207,23 @@ export function attachTransitions() {
     // Get all parent states
     const states = getAllStates(toState);
 
-    // check need for fetchCustomer
-    const needsCustomer = states.some((state) =>
-      Array.isArray(state.resolve)
-        ? state.resolve?.some((resolver) => resolver.token === 'fetchCustomer')
-        : false,
+    // Permission predicates run synchronously in the onStart hook below but
+    // may depend on data produced by async resolvers. Awaiting those tokens
+    // here ensures a fresh deep-link doesn't evaluate permissions against
+    // undefined state.
+    const awaitedTokens = ['fetchCustomer', 'project'].filter((token) =>
+      states.some((state) =>
+        Array.isArray(state.resolve)
+          ? state.resolve?.some((resolver) => resolver.token === token)
+          : false,
+      ),
     );
 
-    if (!needsCustomer) return;
+    if (awaitedTokens.length === 0) return;
 
-    return transition.injector().getAsync('fetchCustomer');
+    await Promise.all(
+      awaitedTokens.map((token) => transition.injector().getAsync(token)),
+    );
   });
 
   router.transitionService.onStart(
@@ -172,7 +242,7 @@ export function attachTransitions() {
     },
     (transition) =>
       transition.router.stateService.target(
-        transition.options().custom?.fallbackState || 'errorPage.notFound',
+        transition.options().custom?.fallbackState || 'errorPage.noPermission',
       ),
   );
 
@@ -185,13 +255,37 @@ export function attachTransitions() {
         toState: transition.to().name,
         toParams: transition.to().params,
       });
-      AuthService.clearAuthCache();
+      clearAuthCache();
       return transition.router.stateService.target('login');
+    }
+    if (error && error.detail) {
+      if (error.detail.status === 403) {
+        return transition.router.stateService.target('errorPage.noPermission');
+      }
+      if (error.detail.status === 428) {
+        // HTTP 428 Precondition Required - user profile incomplete with enforcement enabled
+        return transition.router.stateService.target('profile-manage');
+      }
+      if (error.detail.status === 500) {
+        return transition.router.stateService.target('errorPage.severError');
+      }
+      if (error.detail.status === 503) {
+        return transition.router.stateService.target(
+          'errorPage.serviceNotAvailable',
+        );
+      }
     }
     if (error && error['redirectTo'] && error['status'] !== -1) {
       return transition.router.stateService.target(error['redirectTo']);
     } else {
-      return transition.router.stateService.target('errorPage.notFound');
+      // `location: false` keeps the address that produced the error; the
+      // error states have no url of their own, so the address bar would
+      // otherwise be rewritten to '/' while the 404 page is displayed.
+      return transition.router.stateService.target(
+        'errorPage.notFound',
+        undefined,
+        { location: false },
+      );
     }
   });
 
@@ -203,16 +297,10 @@ export function attachTransitions() {
     }
   });
 
+  // Reaching a gated page means the user is through the gate: intent is spent.
   router.transitionService.onSuccess({}, (transition) => {
-    if (AuthService.isAuthenticated() && !transition.to().data?.skipAuth) {
-      if (router.urlService.path().split('/')[1] !== 'user-group-invitations') {
-        tryAcceptInvitation();
-      }
-
-      // If it comes from the login page, check selected group invitation
-      if (!transition.from().name) {
-        tryJoinOrganization();
-      }
+    if (isResumableState(transition.to().name)) {
+      clearBlockedNavigation();
     }
   });
 
@@ -222,9 +310,14 @@ export function attachTransitions() {
     }
   });
 
+  // Remember the last page worth returning to after an expired session.
+  // isResumableState skips profile, error, login and home states, so gate
+  // pages (profile-manage, the passkey interstitial) — where the user was
+  // *sent*, not where they were going — are never stored as a destination.
   router.transitionService.onSuccess({}, (transition) => {
     if (
       transition.to().data?.auth &&
+      isResumableState(transition.to().name) &&
       !Object.prototype.hasOwnProperty.call(transition.params(), 'toState')
     ) {
       RedirectStorage.set({

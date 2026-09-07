@@ -1,9 +1,8 @@
 import { FunctionComponent } from 'react';
-import { Props as SelectProps } from 'react-select';
-import { Field } from 'redux-form';
+import { Field } from 'react-final-form';
 
-import { Select } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
+import { Select } from '@/form/select';
+import { translate } from '@/i18n';
 
 export const getOptions = () => [
   { value: undefined, label: translate('All') },
@@ -12,25 +11,23 @@ export const getOptions = () => [
 ];
 
 interface AccountingRunningFieldProps {
-  reactSelectProps?: Partial<SelectProps>;
+  reactSelectProps?: any;
 }
 
 export const AccountingRunningField: FunctionComponent<
   AccountingRunningFieldProps
-> = (props) => (
-  <Field
-    name="accounting_is_running"
-    component={(prop) => (
-      <Select
-        placeholder={translate('Show with running accounting')}
-        value={prop.input.value}
-        onChange={(value) => prop.input.onChange(value)}
-        options={getOptions()}
-        isClearable={false}
-        className="accounting-period-selector metronic-select-container"
-        classNamePrefix="metronic-select"
-        {...props.reactSelectProps}
-      />
-    )}
-  />
-);
+> = (props) => {
+  const renderField = (prop) => (
+    <Select
+      placeholder={translate('Show with running accounting')}
+      value={prop.input.value}
+      onChange={(value) => prop.input.onChange(value)}
+      options={getOptions()}
+      isClearable={false}
+      className="accounting-period-selector"
+      {...props.reactSelectProps}
+    />
+  );
+
+  return <Field name="accounting_is_running" component={renderField} />;
+};

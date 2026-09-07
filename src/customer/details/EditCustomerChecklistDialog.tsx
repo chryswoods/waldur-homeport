@@ -1,107 +1,120 @@
 import { useQuery } from '@tanstack/react-query';
 import { pick } from 'lodash-es';
-import { useCallback } from 'react';
-import { connect } from 'react-redux';
-import { SubmissionError, reduxForm } from 'redux-form';
-import { checklistsAdminList } from 'waldur-js-client';
+import { useCallback, useMemo } from 'react';
+import { Form } from 'react-final-form';
+import { checklistsAdminList, customersPartialUpdate } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { SelectField, SubmitButton } from '@waldur/form';
-import { FormContainer } from '@waldur/form/FormContainer';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
+import { getAllPages } from '@/core/api';
+import { UI_STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { SubmitButton, SelectGroup } from '@/form';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { useSetCustomer } from '@/workspace/hooks';
 
-import { EDIT_CUSTOMER_FORM_ID } from './constants';
 import { EditCustomerProps } from './types';
 
 type FormData = Record<string, any>;
 
-export const EditCustomerChecklistDialog = connect<
-  {},
-  {},
-  { resolve: EditCustomerProps }
->((_, ownProps) => ({
-  initialValues: {
-    ...pick(ownProps.resolve.customer, ownProps.resolve.name),
-  },
-}))(
-  reduxForm<FormData, { resolve: EditCustomerProps }>({
-    form: EDIT_CUSTOMER_FORM_ID,
-  })((props) => {
-    const processRequest = useCallback(
-      (values: FormData, dispatch) => {
-        return props.resolve
-          .callback(values, dispatch)
-          .then(() => {
-            dispatch(closeModalDialog());
-          })
-          .catch((e) => {
-            if (e.response && e.response.status === 400) {
-              throw new SubmissionError(e.response.data);
+export const EditCustomerChecklistDialog = ({
+  resolve,
+}: {
+  resolve: EditCustomerProps;
+}) => {
+  const setCurrentCustomer = useSetCustomer();
+
+  const initialValues = useMemo(
+    () => pick(resolve.customer, resolve.name),
+    [resolve.customer, resolve.name],
+  );
+
+  const { mutateAsync } = useManagedMutation({
+    mutationFn: (values: FormData) =>
+      customersPartialUpdate({
+        path: { uuid: resolve.customer.uuid },
+        body: values,
+      }),
+    onSuccess: (response) => {
+      if (response.data?.uuid === resolve.customer.uuid) {
+        setCurrentCustomer(response.data);
+      }
+    },
+    successMessage: translate('Organization updated successfully'),
+    invalidateQueries: [{ queryKey: ['checklistAdmin'] }],
+  });
+
+  const onSubmit = useCallback(
+    (values: FormData) => {
+      return mutateAsync(values).catch((e) => {
+        if (e.response && e.response.status === 400) {
+          return e.response.data;
+        }
+      });
+    },
+    [mutateAsync],
+  );
+
+  const { isLoading, error, data, refetch } = useQuery({
+    queryKey: ['checklistsAdminMetadata'],
+    queryFn: () =>
+      getAllPages((page) =>
+        checklistsAdminList({
+          query: { page, checklist_type: 'project_metadata' },
+        }),
+      ),
+    staleTime: UI_STALE_TIME,
+  });
+
+  return (
+    <Form
+      onSubmit={onSubmit}
+      initialValues={initialValues}
+      render={({ handleSubmit, submitting, invalid, dirty }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            headerLess
+            footer={
+              <>
+                <CloseDialogButton className="flex-equal" />
+                <SubmitButton
+                  disabled={invalid || !dirty}
+                  submitting={submitting}
+                  label={translate('Confirm')}
+                  className="btn btn-primary flex-equal"
+                />
+              </>
             }
-          });
-      },
-      [props.resolve.callback],
-    );
-
-    const { isLoading, error, data, refetch } = useQuery({
-      queryKey: ['checklistsAdminMetadata'],
-      queryFn: () =>
-        getAllPages((page) => checklistsAdminList({ query: { page } })).then(
-          (checklists) =>
-            checklists.filter(
-              (item) => item.checklist_type === 'project_metadata',
-            ),
-        ),
-      staleTime: 3 * 60 * 1000,
-    });
-
-    return (
-      <form onSubmit={props.handleSubmit(processRequest)}>
-        <ModalDialog
-          headerLess
-          bodyClassName="pb-2"
-          footerClassName="border-0 pt-0 gap-2"
-          footer={
-            <>
-              <CloseDialogButton className="flex-grow-1" />
-              <SubmitButton
-                disabled={props.invalid || !props.dirty}
-                submitting={props.submitting}
-                label={translate('Confirm')}
-                className="btn btn-primary flex-grow-1"
-              />
-            </>
-          }
-        >
-          <FormContainer submitting={props.submitting}>
-            {isLoading ? (
-              <LoadingSpinner />
-            ) : error ? (
-              <LoadingErred
-                loadData={refetch}
-                message={translate('Unable to load organization groups.')}
-              />
-            ) : (
-              <SelectField
-                name="project_metadata_checklist"
-                label={translate('Assigned checklist')}
-                options={data}
-                getOptionLabel={(option) =>
-                  option.name +
-                  ` (${translate('{count} questions', { count: option.questions_count })})`
-                }
-                getOptionValue={(option) => option.uuid}
-                simpleValue
-              />
-            )}
-          </FormContainer>
-        </ModalDialog>
-      </form>
-    );
-  }),
-);
+          >
+            <div className="size-sm">
+              {isLoading ? (
+                <LoadingSpinner />
+              ) : error ? (
+                <LoadingErred
+                  loadData={refetch}
+                  message={translate('Unable to load organization groups.')}
+                />
+              ) : (
+                <SelectGroup
+                  name="project_metadata_checklist"
+                  label={translate('Assigned checklist')}
+                  options={data}
+                  getOptionLabel={(option) =>
+                    option.name +
+                    ` (${translate('{count} questions', { count: option.questions_count })})`
+                  }
+                  getOptionValue={(option) => option.uuid}
+                  simpleValue
+                  spaceless
+                  disabled={submitting}
+                />
+              )}
+            </div>
+          </ModalDialog>
+        </form>
+      )}
+    />
+  );
+};

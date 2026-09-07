@@ -1,75 +1,72 @@
 import { useQuery } from '@tanstack/react-query';
 import { FunctionComponent, useMemo } from 'react';
+import { useFormState } from 'react-final-form';
 import { marketplacePublicOfferingsRetrieve } from 'waldur-js-client';
 
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { FormContainer } from '@waldur/form';
-import { WizardForm, WizardFormStepProps } from '@waldur/form/WizardForm';
-import { translate } from '@waldur/i18n';
-import { PlanDescriptionButton } from '@waldur/marketplace/details/plan/PlanDescriptionButton';
-import { PlanSelectField } from '@waldur/marketplace/details/plan/PlanSelectField';
-import { TabbedPlanComponents } from '@waldur/marketplace/details/plan/TabbedPlanComponents';
+import { UI_STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { PlanDescriptionButton } from '@/marketplace/details/plan/PlanDescriptionButton';
+import { PlanSelectField } from '@/marketplace/details/plan/PlanSelectField';
+import { TabbedPlanComponents } from '@/marketplace/details/plan/TabbedPlanComponents';
+import { WizardForm, WizardFormStepProps } from '@/wizard';
 
 export const WizardFormSecondPage: FunctionComponent<WizardFormStepProps> = (
   props,
 ) => {
+  const { values } = useFormState({
+    subscription: { values: true },
+  });
+
+  const { offering, plan, limits } = values;
+  const queryData = useQuery({
+    queryKey: ['offering', offering?.uuid],
+
+    queryFn: () =>
+      marketplacePublicOfferingsRetrieve({
+        path: { uuid: offering.uuid },
+      }).then((response) => response.data),
+
+    staleTime: UI_STALE_TIME,
+  });
+
+  const plans = useMemo(
+    () =>
+      queryData.data?.plans
+        ? queryData.data.plans.filter((plan) => plan.archived === false)
+        : [],
+    [queryData.data],
+  );
   return (
     <WizardForm {...props}>
-      {(wizardProps) => {
-        const { offering, plan, limits } = wizardProps.formValues;
-
-        const queryData = useQuery({
-          queryKey: ['offering', offering?.uuid],
-
-          queryFn: () =>
-            marketplacePublicOfferingsRetrieve({
-              path: { uuid: offering.uuid },
-            }).then((response) => response.data),
-
-          staleTime: 3 * 60 * 1000,
-        });
-
-        const plans = useMemo(
-          () =>
-            queryData.data?.plans
-              ? queryData.data.plans.filter((plan) => plan.archived === false)
-              : [],
-          [queryData.data],
-        );
-
-        return queryData.isLoading ? (
-          <LoadingSpinner />
-        ) : queryData.isError ? (
-          <LoadingErred loadData={queryData.refetch} />
-        ) : (
-          <FormContainer
-            submitting={wizardProps.submitting}
-            clearOnUnmount={false}
-            className="size-lg"
-          >
-            <p>
-              <strong>{translate('Offering')}: </strong>
-              {queryData.data.category_title} / {queryData.data.name}
-            </p>
-            {plans.length && (
-              <>
-                <div className="d-flex gap-6 pb-6 border-bottom mb-7">
-                  <div className="flex-grow-1">
-                    <PlanSelectField plans={plans} />
-                  </div>
-                  <PlanDescriptionButton formId={props.form} />
+      {queryData.isLoading ? (
+        <LoadingSpinner />
+      ) : queryData.isError ? (
+        <LoadingErred loadData={queryData.refetch} />
+      ) : (
+        <div className="size-lg">
+          <p>
+            <strong>{translate('Offering')}: </strong>
+            {queryData.data.category_title} / {queryData.data.name}
+          </p>
+          {plans.length && (
+            <>
+              <div className="d-flex gap-6 pb-6 border-bottom mb-7">
+                <div className="flex-grow-1">
+                  <PlanSelectField plans={plans} />
                 </div>
-                <TabbedPlanComponents
-                  offering={queryData.data}
-                  plan={plan}
-                  limits={limits}
-                />
-              </>
-            )}
-          </FormContainer>
-        );
-      }}
+                <PlanDescriptionButton />
+              </div>
+              <TabbedPlanComponents
+                offering={queryData.data}
+                plan={plan}
+                limits={limits}
+              />
+            </>
+          )}
+        </div>
+      )}
     </WizardForm>
   );
 };

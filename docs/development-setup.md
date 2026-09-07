@@ -19,13 +19,15 @@ This guide covers development environment setup, build configuration, and essent
 - `yarn format:fix` - Auto-format code with Prettier
 - `yarn style:check` - Check SCSS/CSS styles with Stylelint
 - `yarn deps:unused` - Check for unused dependencies with Knip
-- `yarn tsc` - Typescript type check
+- `yarn tsgo` - Typescript type check
 
 ### Testing
 
+For detailed testing standards and strategy, see [Testing Standards & Strategy](testing.md).
+
 - `yarn test` - Run unit tests with Vitest
-- `yarn ci:test` - Run full integration test suite with Cypress
-- `yarn ci:run` - Run Cypress tests headless
+- `yarn test:e2e` - Run Playwright E2E tests
+- `yarn test:visual` - Run Playwright visual regression tests
 
 ### Dependency Management
 
@@ -181,6 +183,57 @@ For containerized development:
 
 ### IDE Configuration
 
-- TypeScript support with path mapping for `@waldur/*` imports
+- TypeScript support with path mapping for `@/*` imports
 - ESLint and Prettier integration for code formatting
 - Vitest integration for test running and debugging
+
+## Browser Debugging with MCP Chrome DevTools
+
+When debugging the frontend application using MCP Chrome DevTools:
+
+### Authentication
+
+- **Default Staff Credentials**: Username `staff`, password `demo`
+- **Token Setup**: Set the authentication token in localStorage:
+
+  ```javascript
+  localStorage.setItem('waldur/auth/token', 'your-token-here');
+  ```
+
+### Testing Removed Projects
+
+Use URLs with `include_terminated=true`:
+
+```text
+http://localhost:8001/projects/{uuid}/?include_terminated=true
+http://localhost:8001/projects/{uuid}/manage/?include_terminated=true&tab=general
+```
+
+### Common MCP Commands
+
+- `mcp__chrome-devtools__take_snapshot` - Get page structure
+- `mcp__chrome-devtools__evaluate_script` - Run JavaScript in browser
+- `mcp__chrome-devtools__list_console_messages` - Check for errors
+- `mcp__chrome-devtools__navigate_page` - Navigate to specific URLs
+
+### Debugging Tips
+
+- Always set the auth token before navigating to protected pages
+- Use `console.log` statements in components for debugging state
+- Check network requests to verify API calls are working correctly
+- Use `take_snapshot` to verify UI changes are applied
+
+## Translation Management
+
+### Commands
+
+- `yarn i18n:analyze <lang>` - Analyze translation quality (e.g., `yarn i18n:analyze et`)
+- `yarn i18n:check` - Check translation completeness
+- `yarn i18n:validate` - Validate translation file syntax
+- `yarn i18n:extract` - Extract translatable strings from source
+
+### Supported Languages
+
+27 languages with specialized analyzers: Estonian (et), Russian (ru), Norwegian (nb), German (de), Spanish (es), French (fr), Italian (it), Polish (pl), Czech (cs), Lithuanian (lt), Latvian (lv), Bulgarian (bg), Slovenian (sl), Greek (el), Dutch (nl), and more.
+
+Use `yarn i18n:analyze --help` to see all available languages.

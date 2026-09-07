@@ -1,21 +1,20 @@
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useDispatch } from 'react-redux';
+import { useFormState } from 'react-final-form';
 import { useToggle } from 'react-use';
 import { Customer } from 'waldur-js-client';
 
-import { Badge } from '@waldur/core/Badge';
-import { WizardForm, WizardFormStepProps } from '@waldur/form/WizardForm';
-import { translate } from '@waldur/i18n';
-import { SkipErrorsCheck } from '@waldur/project/import/SkipErrorsCheck';
-import { showError } from '@waldur/store/notify';
-import Table from '@waldur/table/Table';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { renderFieldOrDash } from '@waldur/table/utils';
+import { Badge } from '@/core/Badge';
+import { translate } from '@/i18n';
+import { SkipErrorsCheck } from '@/project/import/SkipErrorsCheck';
+import { useNotify } from '@/store/notify';
+import Table, { TableColumns } from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
+import { WizardForm, WizardFormStepProps } from '@/wizard';
 
 import {
-  customerOptionalFields,
   deleteDuplicateRecords,
+  getCustomerOptionalFields,
   parseOrganizationsFile,
   validateOrganizationCreation,
 } from './utils';
@@ -30,14 +29,14 @@ const statusMessages = {
 const StatusField = ({ row }) => {
   const validate = validateOrganizationCreation(row);
   return (
-    <Badge variant={validate.valid ? 'success' : 'danger'} outline pill>
+    <Badge variant={validate.valid ? 'success' : 'danger'} pill outline>
       {validate.valid ? translate('OK') : statusMessages[validate.errors[0]]}
     </Badge>
   );
 };
 
 export const Step3PreviewAndImport: FC<WizardFormStepProps> = (props) => {
-  const dispatch = useDispatch();
+  const { showError } = useNotify();
   const [data, setData] = useState<Customer[]>([]);
   const [skipErrors, setSkipErrors] = useToggle(false);
 
@@ -46,7 +45,7 @@ export const Step3PreviewAndImport: FC<WizardFormStepProps> = (props) => {
       const _file = acceptedFiles[0];
 
       if (!_file) {
-        dispatch(showError('No file has been imported'));
+        showError(translate('No file has been imported'));
         return;
       }
       parseOrganizationsFile(_file).then((_data) => {
@@ -56,18 +55,16 @@ export const Step3PreviewAndImport: FC<WizardFormStepProps> = (props) => {
           'email',
         ]);
         if (duplicates) {
-          dispatch(
-            showError(
-              translate('{count} duplicate records were removed.', {
-                count: duplicates,
-              }),
-            ),
+          showError(
+            translate('{count} duplicate records were removed.', {
+              count: duplicates,
+            }),
           );
         }
         setData(rows);
       });
     },
-    [dispatch, setData],
+    [setData, showError],
   );
 
   const refToolbar = useRef<HTMLDivElement>(null);
@@ -88,29 +85,28 @@ export const Step3PreviewAndImport: FC<WizardFormStepProps> = (props) => {
     queryField: 'query',
   });
 
-  const columns = useMemo<Column<Customer>[]>(
-    () =>
-      [
-        {
-          title: translate('Organization name'),
-          render: ({ row }) => renderFieldOrDash(row.name),
-        },
-        {
-          title: translate('Email'),
-          render: ({ row }) => renderFieldOrDash(row.email),
-        },
-        ...customerOptionalFields.map(
-          (field) =>
-            data.some((record) => Boolean(record[field.key])) && {
-              title: field.title,
-              render: ({ row }) => renderFieldOrDash(row[field.key]),
-            },
-        ),
-        {
-          title: translate('Status'),
-          render: StatusField,
-        },
-      ].filter(Boolean),
+  const columns = useMemo<TableColumns<Customer>>(
+    () => [
+      {
+        title: translate('Organization name'),
+        render: ({ row }) => renderFieldOrDash(row.name),
+      },
+      {
+        title: translate('Email'),
+        render: ({ row }) => renderFieldOrDash(row.email),
+      },
+      ...getCustomerOptionalFields().map(
+        (field) =>
+          data.some((record) => Boolean(record[field.key])) && {
+            title: field.title,
+            render: ({ row }) => renderFieldOrDash(row[field.key]),
+          },
+      ),
+      {
+        title: translate('Status'),
+        render: StatusField,
+      },
+    ],
     [data],
   );
 
@@ -139,54 +135,47 @@ export const Step3PreviewAndImport: FC<WizardFormStepProps> = (props) => {
     return null;
   }, [data]);
 
+  const { values } = useFormState({ subscription: { values: true } });
+  const file = values?.file;
+
+  useEffect(() => {
+    if (file?.length > 0) {
+      parseCsvFile(file);
+    }
+  }, []);
   return (
     <WizardForm
       {...props}
       submitDisabled={!!tooltip && !skipErrors}
-      submitTooltip={!skipErrors && tooltip}
+      submitTooltip={(!skipErrors && tooltip) || undefined}
     >
-      {(wizardProps) => {
-        const file = wizardProps.formValues?.file;
-
-        useEffect(() => {
-          if (file?.length > 0) {
-            parseCsvFile(file);
+      <div>
+        <div className="d-flex justify-content-start mb-3">
+          <div ref={refToolbar}>{/* Portal destination */}</div>
+        </div>
+        <div className="d-flex justify-content-between text-muted mb-3">
+          <span>
+            {data.length} {translate('Organizations')}
+          </span>
+          <span>{translate('Verify your data before importing')}</span>
+        </div>
+        <Table
+          {...tableProps}
+          columns={columns}
+          verboseName={translate('Organizations')}
+          hasActionBar={false}
+          fullWidth
+          cardBordered={false}
+          minHeight="auto"
+          portal={{ toolbar: refToolbar?.current }}
+          hasQuery
+          footer={
+            Boolean(tooltip && data?.length) && (
+              <SkipErrorsCheck checked={skipErrors} onChange={setSkipErrors} />
+            )
           }
-        }, []);
-
-        return (
-          <div>
-            <div className="d-flex justify-content-start mb-3">
-              <div ref={refToolbar}>{/* Portal destination */}</div>
-            </div>
-            <div className="d-flex justify-content-between text-muted mb-3">
-              <span>
-                {data.length} {translate('Organizations')}
-              </span>
-              <span>{translate('Verify your data before importing')}</span>
-            </div>
-            <Table
-              {...tableProps}
-              columns={columns}
-              verboseName={translate('Organizations')}
-              hasActionBar={false}
-              fullWidth
-              cardBordered={false}
-              minHeight="auto"
-              portal={{ toolbar: refToolbar?.current }}
-              hasQuery
-              footer={
-                Boolean(tooltip && data?.length) && (
-                  <SkipErrorsCheck
-                    checked={skipErrors}
-                    onChange={setSkipErrors}
-                  />
-                )
-              }
-            />
-          </div>
-        );
-      }}
+        />
+      </div>
     </WizardForm>
   );
 };

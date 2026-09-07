@@ -1,19 +1,16 @@
 import { CheckCircleIcon } from '@phosphor-icons/react';
-import { useMutation } from '@tanstack/react-query';
-import { FC } from 'react';
-import { useSelector } from 'react-redux';
+import { FC, useCallback } from 'react';
 import { marketplaceOrdersApproveByConsumer } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { LoadingSpinnerIcon } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { useModal } from '@waldur/modal/hooks';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { useNotify } from '@waldur/store/hooks';
-import { wrapTooltip } from '@waldur/table/ActionButton';
-import { getUser } from '@waldur/workspace/selectors';
+import { lazyComponent } from '@/core/lazyComponent';
+import { LoadingSpinnerSimple } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { useUser } from '@/workspace/hooks';
 
 import { OrderActionProps } from './types';
 
@@ -25,36 +22,42 @@ const UploadPurchaseOrderDialog = lazyComponent(() =>
 
 export const ApproveByConsumerButton: FC<
   OrderActionProps & { className?: string }
-> = ({ order, offering, as, className, refetch }) => {
-  const user = useSelector(getUser);
+> = ({ order, offering, as, className, refetch, size }) => {
+  const user = useUser();
   const { openDialog } = useModal();
-  const { showSuccess, showErrorResponse } = useNotify();
-  const { mutate, isPending: isLoading } = useMutation({
-    mutationFn: async () => {
-      try {
-        await marketplaceOrdersApproveByConsumer({
-          path: { uuid: order.uuid },
-        });
-        if (refetch) {
-          await refetch();
-        }
-        showSuccess(translate('Order has been approved.'));
-      } catch (error) {
-        showErrorResponse(error, translate('Unable to approve order.'));
-      }
-    },
+
+  const { mutate, isPending: isLoading } = useManagedMutation<any, any, void>({
+    mutationFn: () =>
+      marketplaceOrdersApproveByConsumer({
+        path: { uuid: order.uuid },
+      }),
+    refetch,
+    successMessage: translate('Order has been approved.'),
+    errorMessage: translate('Unable to approve order.'),
   });
-  const callback = () => {
-    if (offering?.plugin_options['enable_purchase_order_upload']) {
+
+  const callback = useCallback(() => {
+    if (
+      // An order can arrive with the document already on it — a proposal
+      // collects the purchase order from the applicant and hands it to the
+      // order it allocates. Asking again would make the approver find a second
+      // copy, and the dialog's upload replaces the one already there.
+      !order.attachment &&
+      (offering?.plugin_options?.enable_purchase_order_upload ||
+        offering?.plugin_options?.require_purchase_order_upload)
+    ) {
       openDialog(UploadPurchaseOrderDialog, {
         order,
         refetch,
-        required: offering?.plugin_options['require_purchase_order_upload'],
+        required: Boolean(
+          offering?.plugin_options?.require_purchase_order_upload,
+        ),
       });
     } else {
       mutate();
     }
-  };
+  }, [offering, openDialog, order, refetch, mutate]);
+
   if (
     !hasPermission(user, {
       permission: PermissionEnum.APPROVE_ORDER,
@@ -64,22 +67,20 @@ export const ApproveByConsumerButton: FC<
   ) {
     return null;
   }
-  return wrapTooltip(
-    translate('You need approval to finish purchasing of services.'),
-    <>
-      {isLoading ? (
-        <LoadingSpinnerIcon className="me-1" />
-      ) : (
-        <ActionItem
-          as={as}
-          className={className + ' w-100'}
-          title={translate('Approve')}
-          action={callback}
-          disabled={isLoading}
-          iconNode={<CheckCircleIcon weight="bold" />}
-          size="sm"
-        />
-      )}
-    </>,
+
+  return isLoading ? (
+    <LoadingSpinnerSimple className="me-1" />
+  ) : (
+    <ActionItem
+      as={as}
+      className={className}
+      title={translate('Approve')}
+      action={callback}
+      disabled={isLoading}
+      variant="secondary"
+      iconNode={<CheckCircleIcon weight="bold" />}
+      tooltip={translate('You need approval to finish purchasing of services.')}
+      size={size}
+    />
   );
 };

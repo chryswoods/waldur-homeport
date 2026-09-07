@@ -1,13 +1,13 @@
 import { useCallback } from 'react';
 import { Answer, Project, QuestionWithAnswer } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { EditButton } from '@waldur/form/EditButton';
-import { translate } from '@waldur/i18n';
-import { useModal } from '@waldur/modal/hooks';
+import { lazyComponent } from '@/core/lazyComponent';
+import { CompactEditButton } from '@/form/CompactEditButton';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
 
 const AnswerFormDialog = lazyComponent(() =>
-  import('@waldur/marketplace-checklist/AnswerFormDialog').then((module) => ({
+  import('@/marketplace-checklist/AnswerFormDialog').then((module) => ({
     default: module.AnswerFormDialog,
   })),
 );
@@ -35,5 +35,5 @@ export const MetadataEditButton = ({
     });
   }, [project, question]);
 
-  return <EditButton onClick={callback} size="sm" />;
+  return <CompactEditButton onClick={callback} variant="secondary" />;
 };

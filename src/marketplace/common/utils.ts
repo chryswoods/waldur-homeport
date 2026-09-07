@@ -1,12 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { useSelector } from 'react-redux';
 import { organizationGroupsList } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { translate } from '@waldur/i18n';
-import { getUser } from '@waldur/workspace/selectors';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { STALE_TIME } from '@/core/constants';
+import { translate } from '@/i18n';
+import { useUser } from '@/workspace/hooks';
 
-// See also: https://github.com/erikras/redux-form/issues/1852
 export const parseIntField = (value) => parseInt(value, 10) || 0;
 export const formatIntField = (value) => (value ? value.toString() : 0);
 export const validateNonNegative = (value) =>
@@ -81,21 +80,22 @@ export function getBillingPeriods(unit: string): BillingPeriodDescription {
 }
 
 export const useOrganizationGroups = () => {
-  const user = useSelector(getUser);
+  const user = useUser();
 
   const query = useQuery({
     queryKey: ['organizationGroups'],
 
     queryFn: () =>
-      getAllPages((page) => organizationGroupsList({ query: { page } })).then(
-        (items) =>
-          items.map((item) => ({
-            ...item,
-            value: item.url,
-          })),
+      getAllPages((page) =>
+        organizationGroupsList({ query: { page, page_size: MAX_PAGE_SIZE } }),
+      ).then((items) =>
+        items.map((item) => ({
+          ...item,
+          value: item.url,
+        })),
       ),
 
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_TIME,
   });
 
   const disabled = query.data?.length === 0 && !user.is_staff;

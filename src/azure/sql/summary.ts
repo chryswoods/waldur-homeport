@@ -1,5 +1,7 @@
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { ResourceSummaryConfiguration } from '@waldur/resource/summary/types';
+import { lazyComponent } from '@/core/lazyComponent';
+import { ResourceSummaryConfiguration } from '@/resource/summary/types';
+
+import { AZURE_SQL_TYPE } from '../constants';
 
 const AzureSQLDatabaseSummary = lazyComponent(() =>
   import('./AzureSQLDatabaseSummary').then((module) => ({
@@ -14,7 +16,7 @@ const AzureSQLServerSummary = lazyComponent(() =>
 
 export const AzureSQLServerSummaryConfiguration: ResourceSummaryConfiguration =
   {
-    type: 'Azure.SQLServer',
+    type: AZURE_SQL_TYPE,
     component: AzureSQLServerSummary,
   };
 

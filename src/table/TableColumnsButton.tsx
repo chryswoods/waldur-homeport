@@ -13,15 +13,25 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { DotsSixVerticalIcon, GearIcon } from '@phosphor-icons/react';
+import {
+  ArrowCounterClockwiseIcon,
+  DotsSixVerticalIcon,
+  GearIcon,
+} from '@phosphor-icons/react';
 import { FC, useMemo, useState } from 'react';
-import { Button, Dropdown, OverlayTrigger, Popover } from 'react-bootstrap';
+import {
+  Button,
+  Dropdown,
+  FormCheck,
+  OverlayTrigger,
+  Popover,
+} from 'react-bootstrap';
 
-import { FilterBox } from '@waldur/form/FilterBox';
-import { translate } from '@waldur/i18n';
+import { CompactIconButton } from '@/core/buttons/IconButton';
+import { Tip } from '@/core/Tooltip';
+import { FilterBox } from '@/form/FilterBox';
+import { translate } from '@/i18n';
 
-import CheckboxIcon from './Checkbox.svg';
-import CheckboxEmptyIcon from './CheckboxEmpty.svg';
 import { COLUMN_ACTIONS_KEY } from './constants';
 import { TableProps } from './types';
 
@@ -36,22 +46,20 @@ const SortableItem = (props) => {
 
   return (
     <div
-      className="dropdown-item"
+      className="dropdown-item d-flex align-items-center"
       ref={setNodeRef}
       style={style}
       {...attributes}
       {...listeners}
     >
-      <span className="svg-icon svg-icon-2 svg-icon-gray me-3">
-        <DotsSixVerticalIcon size={32} />
-      </span>{' '}
-      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
-      <span
-        className="svg-icon svg-icon-2 svg-icon-transparent me-3"
-        onClick={props.onClick}
-      >
-        {props.isActive ? <CheckboxIcon /> : <CheckboxEmptyIcon />}
+      <span className="svg-icon svg-icon-4 svg-icon-gray">
+        <DotsSixVerticalIcon weight="bold" />
       </span>
+      <FormCheck
+        className="form-check form-check-custom form-check-sm min-h-auto svg-icon"
+        checked={props.isActive}
+        onChange={props.onClick}
+      />
       {props.title}
     </div>
   );
@@ -64,6 +72,7 @@ const ColumnsPopover = ({
   swapColumns,
   columnPositions,
   hasActions,
+  resetColumns,
 }) => {
   const [query, setQuery] = useState('');
 
@@ -113,9 +122,17 @@ const ColumnsPopover = ({
           type="search"
           placeholder={translate('Search...')}
           onChange={(e) => setQuery(e.target.value)}
+          rightAction={
+            <CompactIconButton
+              iconNode={<ArrowCounterClockwiseIcon weight="bold" />}
+              tooltip={translate('Reset settings to default')}
+              onClick={resetColumns}
+              variant="text-secondary"
+            />
+          }
         />
       </div>
-      <div className="mh-300px overflow-auto">
+      <div className="mh-300px overflow-auto pb-2">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -138,14 +155,18 @@ const ColumnsPopover = ({
         </DndContext>
 
         {hasActions && (
-          <Dropdown.Item onClick={() => toggleColumn(COLUMN_ACTIONS_KEY)}>
-            <span className="svg-icon svg-icon-2 svg-icon-transparent me-3">
-              {activeColumns[COLUMN_ACTIONS_KEY] ? (
-                <CheckboxIcon />
-              ) : (
-                <CheckboxEmptyIcon />
-              )}
-            </span>
+          <Dropdown.Item
+            onClick={() =>
+              toggleColumn(COLUMN_ACTIONS_KEY, { keys: [COLUMN_ACTIONS_KEY] })
+            }
+            className="d-flex align-items-center"
+          >
+            <FormCheck
+              key={activeColumns[COLUMN_ACTIONS_KEY]}
+              className="form-check form-check-custom form-check-sm min-h-auto svg-icon"
+              checked={activeColumns[COLUMN_ACTIONS_KEY]}
+              onChange={(e) => e.preventDefault()}
+            />
             {translate('Actions')}
           </Dropdown.Item>
         )}
@@ -160,35 +181,60 @@ export const TableColumnButton: FC<TableProps> = ({
   toggleColumn,
   swapColumns,
   columnPositions,
+  initColumnPositions,
+  resetColumns,
   rowActions,
   mode,
-}) => (
-  <OverlayTrigger
-    trigger="click"
-    placement="bottom"
-    overlay={
-      <Popover id="TableColumnButton">
-        <ColumnsPopover
-          columns={columns}
-          activeColumns={activeColumns}
-          toggleColumn={toggleColumn}
-          swapColumns={swapColumns}
-          columnPositions={columnPositions}
-          hasActions={Boolean(rowActions)}
-        />
-      </Popover>
+}) => {
+  const handleReset = () => {
+    resetColumns();
+    initColumnPositions(columns.map((column) => column.id));
+    // Re-run the same initialization Table.tsx uses on mount:
+    // column.optional === true → hidden by default; otherwise → visible.
+    columns.forEach((column) => {
+      toggleColumn(column.id, column, column.optional ? false : true);
+    });
+    if (rowActions) {
+      toggleColumn(COLUMN_ACTIONS_KEY, { keys: [] }, true);
     }
-    rootClose
-  >
-    <Button
-      disabled={mode !== 'table'}
-      variant="tertiary"
-      size="lg"
-      className="btn-icon"
+  };
+  return (
+    <OverlayTrigger
+      trigger="click"
+      placement="bottom"
+      overlay={
+        <Popover id="TableColumnButton">
+          <ColumnsPopover
+            columns={columns}
+            activeColumns={activeColumns}
+            toggleColumn={toggleColumn}
+            swapColumns={swapColumns}
+            columnPositions={columnPositions}
+            hasActions={Boolean(rowActions)}
+            resetColumns={handleReset}
+          />
+        </Popover>
+      }
+      rootClose
     >
-      <span className="svg-icon svg-icon-2">
-        <GearIcon weight="bold" />
+      <span className="d-inline-flex">
+        <Tip
+          label={translate('Toggle visible columns')}
+          id="table-columns-button-tip"
+        >
+          <Button
+            disabled={mode !== 'table'}
+            variant="tertiary"
+            size="lg"
+            className="btn-icon"
+            aria-label={translate('Toggle visible columns')}
+          >
+            <span className="svg-icon svg-icon-2">
+              <GearIcon weight="bold" />
+            </span>
+          </Button>
+        </Tip>
       </span>
-    </Button>
-  </OverlayTrigger>
-);
+    </OverlayTrigger>
+  );
+};

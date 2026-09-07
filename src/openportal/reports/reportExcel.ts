@@ -1,7 +1,7 @@
 /**
  * Multi-sheet Excel export for ProjectUsageReport and ProjectStorageReport.
  *
- * Uses the same JSZip-based XLSX approach as @waldur/table/exporters/excel,
+ * Uses the same JSZip-based XLSX approach as @/table/exporters/excel,
  * extended to support multiple worksheets.
  *
  * Usage report sheets:
@@ -25,11 +25,11 @@
  */
 
 import JSZip from 'jszip';
+import type { ProjectAccountingSummary } from 'waldur-js-client';
 
-import { SharedStrings, getSheetData } from '@waldur/table/exporters/excel';
-import { saveFile } from '@waldur/table/exporters/saveFile';
-
-import { ProjectAccountingSummary } from 'waldur-js-client';
+import { translate } from '@/i18n';
+import { SharedStrings, getSheetData } from '@/table/exporters/excel';
+import { saveFile } from '@/table/exporters/saveFile';
 
 import { ProjectStorageReport } from './ProjectStorageReport';
 import { ProjectUsageReport } from './ProjectUsageReport';
@@ -181,7 +181,10 @@ async function downloadMultiSheetExcel(
     if (onProgress) onProgress(i + 1, sheets.length);
     // Small yield to allow React to re-render the progress
     await new Promise((r) => setTimeout(r, 0));
-    zip.file(`xl/worksheets/sheet${i + 1}.xml`, buildSheetXml(ss, sheets[i].rows));
+    zip.file(
+      `xl/worksheets/sheet${i + 1}.xml`,
+      buildSheetXml(ss, sheets[i].rows),
+    );
   }
 
   zip.file('xl/sharedStrings.xml', ss.serialize());
@@ -197,7 +200,10 @@ async function downloadMultiSheetExcel(
 
 // ── Usage report ─────────────────────────────────────────────────────────────
 
-function buildUsageSheets(reports: ProjectUsageReport[], nameMaps?: NameMaps): SheetSpec[] {
+function buildUsageSheets(
+  reports: ProjectUsageReport[],
+  nameMaps?: NameMaps,
+): SheetSpec[] {
   // Combine all reports for the per-day/per-user sheets
   const report =
     reports.length === 1 ? reports[0] : ProjectUsageReport.combine(reports);
@@ -209,14 +215,19 @@ function buildUsageSheets(reports: ProjectUsageReport[], nameMaps?: NameMaps): S
   // Resolve user display names
   const userLabels = users.map((u) => {
     const uid = report.localToIdentifier[u];
-    return (uid && nameMaps?.user?.[uid]) ? nameMaps.user[uid] : u;
+    return uid && nameMaps?.user?.[uid] ? nameMaps.user[uid] : u;
   });
 
   const round2 = (n: number) => +n.toFixed(2);
 
   // ── Sheet 1: Daily totals ─────────────────────────────────────────────────
   const dailyTotals: any[][] = [
-    ['Date', 'Total usage (h)', 'Total jobs', 'Avg wait (min)'],
+    [
+      translate('Date'),
+      translate('Total usage (h)'),
+      translate('Total jobs'),
+      translate('Avg wait (min)'),
+    ],
     ...dates.map((date) => {
       const daily = report.getReport(date);
       if (!daily) return [date, 0, 0, ''];
@@ -233,7 +244,12 @@ function buildUsageSheets(reports: ProjectUsageReport[], nameMaps?: NameMaps): S
   // ── Sheet 2: Monthly totals ───────────────────────────────────────────────
   const months = [...new Set(dates.map((d) => d.slice(0, 7)))].sort();
   const monthlyTotals: any[][] = [
-    ['Month', 'Total usage (h)', 'Total jobs', 'Avg wait (min)'],
+    [
+      translate('Month'),
+      translate('Total usage (h)'),
+      translate('Total jobs'),
+      translate('Avg wait (min)'),
+    ],
     ...months.map((month) => {
       const monthDates = dates.filter((d) => d.startsWith(month));
       let totalSec = 0;
@@ -258,11 +274,13 @@ function buildUsageSheets(reports: ProjectUsageReport[], nameMaps?: NameMaps): S
 
   // ── Sheet 3: Usage by user (hours) ───────────────────────────────────────
   const usageByUser: any[][] = [
-    ['Date', ...userLabels, 'Total (h)'],
+    [translate('Date'), ...userLabels, translate('Total (h)')],
     ...dates.map((date) => {
       const daily = report.getReport(date);
       const vals = users.map((u) =>
-        round2(secondsToHours((daily?.usageForUser(u) ?? { seconds: 0 }).seconds)),
+        round2(
+          secondsToHours((daily?.usageForUser(u) ?? { seconds: 0 }).seconds),
+        ),
       );
       return [date, ...vals, round2(vals.reduce((s, v) => s + v, 0))];
     }),
@@ -270,7 +288,7 @@ function buildUsageSheets(reports: ProjectUsageReport[], nameMaps?: NameMaps): S
 
   // ── Sheet 4: Jobs by user ─────────────────────────────────────────────────
   const jobsByUser: any[][] = [
-    ['Date', ...userLabels, 'Total'],
+    [translate('Date'), ...userLabels, translate('Total')],
     ...dates.map((date) => {
       const daily = report.getReport(date);
       const vals = users.map((u) => daily?.userJobCounts[u] ?? 0);
@@ -280,7 +298,7 @@ function buildUsageSheets(reports: ProjectUsageReport[], nameMaps?: NameMaps): S
 
   // ── Sheet 5: Average wait by user (minutes) ───────────────────────────────
   const waitByUser: any[][] = [
-    ['Date', ...userLabels, 'Total avg (min)'],
+    [translate('Date'), ...userLabels, translate('Total avg (min)')],
     ...dates.map((date) => {
       const daily = report.getReport(date);
       const vals = users.map((u) => {
@@ -304,7 +322,9 @@ function buildUsageSheets(reports: ProjectUsageReport[], nameMaps?: NameMaps): S
   // ── Per-project sheets (only when multiple distinct projects) ─────────────
   // Built before per-user sheets so they appear first in the workbook.
   const distinctProjects = [...new Set(reports.map((r) => r.project))].sort();
-  const projectLabels = distinctProjects.map((p) => nameMaps?.project?.[p] ?? p);
+  const projectLabels = distinctProjects.map(
+    (p) => nameMaps?.project?.[p] ?? p,
+  );
   const projectSheets: SheetSpec[] = [];
   if (distinctProjects.length > 1) {
     // Build a map: project → combined report for that project
@@ -317,13 +337,11 @@ function buildUsageSheets(reports: ProjectUsageReport[], nameMaps?: NameMaps): S
       );
     }
 
-    const allDates = [
-      ...new Set(reports.flatMap((r) => r.dates)),
-    ].sort();
+    const allDates = [...new Set(reports.flatMap((r) => r.dates))].sort();
 
     // Usage by project (daily)
     const usageByProject: any[][] = [
-      ['Date', ...projectLabels, 'Total (h)'],
+      [translate('Date'), ...projectLabels, translate('Total (h)')],
       ...allDates.map((date) => {
         const vals = distinctProjects.map((proj) => {
           const pr = byProject.get(proj);
@@ -337,7 +355,7 @@ function buildUsageSheets(reports: ProjectUsageReport[], nameMaps?: NameMaps): S
 
     // Jobs by project (daily)
     const jobsByProject: any[][] = [
-      ['Date', ...projectLabels, 'Total'],
+      [translate('Date'), ...projectLabels, translate('Total')],
       ...allDates.map((date) => {
         const vals = distinctProjects.map((proj) => {
           const pr = byProject.get(proj);
@@ -350,21 +368,26 @@ function buildUsageSheets(reports: ProjectUsageReport[], nameMaps?: NameMaps): S
 
     // Wait by project (daily)
     const waitByProject: any[][] = [
-      ['Date', ...projectLabels, 'Total avg (min)'],
+      [translate('Date'), ...projectLabels, translate('Total avg (min)')],
       ...allDates.map((date) => {
         const vals = distinctProjects.map((proj) => {
           const pr = byProject.get(proj);
           if (!pr) return '';
           const daily = pr.getReport(date);
           if (!daily || daily.numJobs === 0) return '';
-          if (isDayWaitSpurious(daily.totalWaitSeconds, daily.numJobs)) return '';
+          if (isDayWaitSpurious(daily.totalWaitSeconds, daily.numJobs))
+            return '';
           return Math.round(daily.totalWaitSeconds / daily.numJobs / 60);
         });
         let grandJobs = 0;
         let grandWait = 0;
         for (const proj of distinctProjects) {
           const daily = byProject.get(proj)?.getReport(date);
-          if (!daily || isDayWaitSpurious(daily.totalWaitSeconds, daily.numJobs)) continue;
+          if (
+            !daily ||
+            isDayWaitSpurious(daily.totalWaitSeconds, daily.numJobs)
+          )
+            continue;
           grandJobs += daily.numJobs;
           grandWait += daily.totalWaitSeconds;
         }
@@ -376,24 +399,33 @@ function buildUsageSheets(reports: ProjectUsageReport[], nameMaps?: NameMaps): S
       }),
     ];
 
-    projectSheets.push({ name: 'Usage by project', rows: usageByProject });
-    projectSheets.push({ name: 'Jobs by project', rows: jobsByProject });
-    projectSheets.push({ name: 'Wait by project', rows: waitByProject });
+    projectSheets.push({
+      name: translate('Usage by project'),
+      rows: usageByProject,
+    });
+    projectSheets.push({
+      name: translate('Jobs by project'),
+      rows: jobsByProject,
+    });
+    projectSheets.push({
+      name: translate('Wait by project'),
+      rows: waitByProject,
+    });
   }
 
   const sheets: SheetSpec[] = [
-    { name: 'Daily totals', rows: dailyTotals },
-    { name: 'Monthly totals', rows: monthlyTotals },
+    { name: translate('Daily totals'), rows: dailyTotals },
+    { name: translate('Monthly totals'), rows: monthlyTotals },
     ...projectSheets,
-    { name: 'Usage by user', rows: usageByUser },
-    { name: 'Jobs by user', rows: jobsByUser },
-    { name: 'Wait by user', rows: waitByUser },
+    { name: translate('Usage by user'), rows: usageByUser },
+    { name: translate('Jobs by user'), rows: jobsByUser },
+    { name: translate('Wait by user'), rows: waitByUser },
   ];
 
   // ── Per-component sheets ──────────────────────────────────────────────────
   for (const comp of components) {
     const compRows: any[][] = [
-      ['Date', ...userLabels, 'Total (h)'],
+      [translate('Date'), ...userLabels, translate('Total (h)')],
       ...dates.map((date) => {
         const daily = report.getReport(date);
         const vals = users.map((u) =>
@@ -406,12 +438,20 @@ function buildUsageSheets(reports: ProjectUsageReport[], nameMaps?: NameMaps): S
         return [date, ...vals, round2(vals.reduce((s, v) => s + v, 0))];
       }),
     ];
-    sheets.push({ name: `Comp ${comp}`.slice(0, 31), rows: compRows });
+    sheets.push({
+      name: translate('Comp {name}', { name: comp }).slice(0, 31),
+      rows: compRows,
+    });
   }
 
   // ── Project members sheet ────────────────────────────────────────────────
   const memberRows: any[][] = [
-    ['Project name', 'Project identifier', 'User name', 'User identifier'],
+    [
+      translate('Project name'),
+      translate('Project identifier'),
+      translate('User name'),
+      translate('User identifier'),
+    ],
   ];
   for (const projId of [...new Set(reports.map((r) => r.project))].sort()) {
     const projName = nameMaps?.project?.[projId] ?? projId;
@@ -429,31 +469,34 @@ function buildUsageSheets(reports: ProjectUsageReport[], nameMaps?: NameMaps): S
       memberRows.push([projName, projId, nameMaps?.user?.[uid] ?? local, uid]);
     }
   }
-  sheets.unshift({ name: 'Project members', rows: memberRows });
+  sheets.unshift({ name: translate('Project members'), rows: memberRows });
 
   // ── Mappings sheet (identifier → display name) ───────────────────────────
   if (nameMaps) {
-    const mappingRows: any[][] = [['Type', 'Display Name', 'Identifier']];
+    const mappingRows: any[][] = [
+      [translate('Type'), translate('Display Name'), translate('Identifier')],
+    ];
     if (nameMaps.offering) {
       for (const [id, name] of Object.entries(nameMaps.offering)) {
-        mappingRows.push(['Offering', name, id]);
+        mappingRows.push([translate('Offering'), name, id]);
       }
     }
     if (nameMaps.project) {
       for (const [id, name] of Object.entries(nameMaps.project)) {
-        mappingRows.push(['Project', name, id]);
+        mappingRows.push([translate('Project'), name, id]);
       }
     }
     if (nameMaps.user) {
       // Build reverse map: UserIdentifier → local_username for display
       const localToUid = report.localToIdentifier;
       for (const [id, name] of Object.entries(nameMaps.user)) {
-        const localUser = Object.entries(localToUid).find(([, uid]) => uid === id)?.[0] ?? id;
-        mappingRows.push(['User', name, localUser]);
+        const localUser =
+          Object.entries(localToUid).find(([, uid]) => uid === id)?.[0] ?? id;
+        mappingRows.push([translate('User'), name, localUser]);
       }
     }
     if (mappingRows.length > 1) {
-      sheets.unshift({ name: 'Mappings', rows: mappingRows });
+      sheets.unshift({ name: translate('Mappings'), rows: mappingRows });
     }
   }
 
@@ -476,22 +519,32 @@ const GB = 1024 ** 3;
 // 6 decimal places: precise to ~1 KB, prevents small values rounding to zero
 const toGB = (bytes: number) => +(bytes / GB).toFixed(6);
 
-function buildStorageSheets(report: ProjectStorageReport, nameMaps?: NameMaps): SheetSpec[] {
+function buildStorageSheets(
+  report: ProjectStorageReport,
+  nameMaps?: NameMaps,
+): SheetSpec[] {
   const uids = report.userIdentifiers();
   // Use mapped full_name if available, otherwise local_username
-  const displayNames = uids.map((uid) =>
-    nameMaps?.user?.[uid] ?? (report.users[uid] ?? uid),
+  const displayNames = uids.map(
+    (uid) => nameMaps?.user?.[uid] ?? report.users[uid] ?? uid,
   );
   const dates = report.dates;
   const volumes = report.volumes();
 
   // ── Sheet 1: Snapshot — current quota state per user/volume ──────────────
   const snapshotRows: any[][] = [
-    ['Type', 'User', 'Volume', 'Usage (GB)', 'Limit (GB)', '% Used'],
+    [
+      translate('Type'),
+      translate('User'),
+      translate('Volume'),
+      translate('Usage (GB)'),
+      translate('Limit (GB)'),
+      translate('% Used'),
+    ],
   ];
   for (const [vol, q] of Object.entries(report.projectQuotas)) {
     snapshotRows.push([
-      'Project',
+      translate('Project'),
       '-',
       vol,
       toGB(q.usageBytes),
@@ -500,10 +553,10 @@ function buildStorageSheets(report: ProjectStorageReport, nameMaps?: NameMaps): 
     ]);
   }
   for (const uid of uids) {
-    const displayName = nameMaps?.user?.[uid] ?? (report.users[uid] ?? uid);
+    const displayName = nameMaps?.user?.[uid] ?? report.users[uid] ?? uid;
     for (const [vol, q] of Object.entries(report.quotaForUser(uid))) {
       snapshotRows.push([
-        'User',
+        translate('User'),
         displayName,
         vol,
         toGB(q.usageBytes),
@@ -515,7 +568,7 @@ function buildStorageSheets(report: ProjectStorageReport, nameMaps?: NameMaps): 
 
   // ── Sheet 2: Daily user totals (GB) ──────────────────────────────────────
   const dailyTotals: any[][] = [
-    ['Date', ...displayNames, 'Total (GB)'],
+    [translate('Date'), ...displayNames, translate('Total (GB)')],
     ...dates.map((date) => {
       const daily = report.getReport(date);
       let totalBytes = 0;
@@ -535,7 +588,7 @@ function buildStorageSheets(report: ProjectStorageReport, nameMaps?: NameMaps): 
   // ── Sheet 3: Monthly user totals (last reading per month) ─────────────────
   const allMonths = [...new Set(dates.map((d) => d.slice(0, 7)))].sort();
   const monthlyTotals: any[][] = [
-    ['Month', ...displayNames, 'Total (GB)'],
+    [translate('Month'), ...displayNames, translate('Total (GB)')],
     ...allMonths.map((month) => {
       const monthDates = dates.filter((d) => d.startsWith(month));
       const lastDate = monthDates[monthDates.length - 1];
@@ -555,15 +608,15 @@ function buildStorageSheets(report: ProjectStorageReport, nameMaps?: NameMaps): 
   ];
 
   const sheets: SheetSpec[] = [
-    { name: 'Snapshot', rows: snapshotRows },
-    { name: 'Daily user totals', rows: dailyTotals },
-    { name: 'Monthly user totals', rows: monthlyTotals },
+    { name: translate('Snapshot'), rows: snapshotRows },
+    { name: translate('Daily user totals'), rows: dailyTotals },
+    { name: translate('Monthly user totals'), rows: monthlyTotals },
   ];
 
   // ── Per-volume sheets ─────────────────────────────────────────────────────
   for (const vol of volumes) {
     const volRows: any[][] = [
-      ['Date', 'Project (GB)', ...displayNames],
+      [translate('Date'), translate('Project (GB)'), ...displayNames],
       ...dates.map((date) => {
         const daily = report.getReport(date);
         const projectGB = toGB(daily?.projectQuotas[vol]?.usageBytes ?? 0);
@@ -573,24 +626,29 @@ function buildStorageSheets(report: ProjectStorageReport, nameMaps?: NameMaps): 
         return [date, projectGB, ...userVals];
       }),
     ];
-    sheets.push({ name: `Vol ${vol}`.slice(0, 31), rows: volRows });
+    sheets.push({
+      name: translate('Vol {name}', { name: vol }).slice(0, 31),
+      rows: volRows,
+    });
   }
 
   // ── Mappings sheet ────────────────────────────────────────────────────────
   if (nameMaps) {
-    const mappingRows: any[][] = [['Type', 'Display Name', 'Identifier']];
+    const mappingRows: any[][] = [
+      [translate('Type'), translate('Display Name'), translate('Identifier')],
+    ];
     if (nameMaps.offering) {
       for (const [id, name] of Object.entries(nameMaps.offering)) {
-        mappingRows.push(['Offering', name, id]);
+        mappingRows.push([translate('Offering'), name, id]);
       }
     }
     if (nameMaps.user) {
       for (const [uid, name] of Object.entries(nameMaps.user)) {
-        mappingRows.push(['User', name, report.users[uid] ?? uid]);
+        mappingRows.push([translate('User'), name, report.users[uid] ?? uid]);
       }
     }
     if (mappingRows.length > 1) {
-      sheets.unshift({ name: 'Mappings', rows: mappingRows });
+      sheets.unshift({ name: translate('Mappings'), rows: mappingRows });
     }
   }
 
@@ -631,12 +689,12 @@ function buildAllocationSheets(
   // ── Sheet 1: Summary ──────────────────────────────────────────────────────
   const summaryRows: any[][] = [
     [
-      'Project',
-      'Start date',
-      'End date',
-      `Total ${currencyName} awarded`,
-      `Total ${currencyName} spent`,
-      `Remaining ${currencyName}`,
+      translate('Project'),
+      translate('Start date'),
+      translate('End date'),
+      translate('Total {currency} awarded', { currency: currencyName }),
+      translate('Total {currency} spent', { currency: currencyName }),
+      translate('Remaining {currency}', { currency: currencyName }),
     ],
     ...summaries.map((s) => {
       const spent = parseNum(s.total_spend) + parseNum(s.current_month_spend);
@@ -652,7 +710,9 @@ function buildAllocationSheets(
     }),
   ];
 
-  const sheets: SheetSpec[] = [{ name: 'Summary', rows: summaryRows }];
+  const sheets: SheetSpec[] = [
+    { name: translate('Summary'), rows: summaryRows },
+  ];
 
   // ── Sheet 2: Burn-down ────────────────────────────────────────────────────
   const today = new Date();
@@ -687,7 +747,10 @@ function buildAllocationSheets(
       return { remaining, end, totalDays };
     });
 
-    const remainingAt = (pd: typeof projectData[0], refDate: Date): number => {
+    const remainingAt = (
+      pd: (typeof projectData)[0],
+      refDate: Date,
+    ): number => {
       if (refDate >= pd.end) return 0;
       const daysLeft = pd.totalDays - daysBetweenLocal(today, refDate);
       return round2(Math.max(0, (pd.remaining * daysLeft) / pd.totalDays));
@@ -702,19 +765,27 @@ function buildAllocationSheets(
     }
 
     const burnRows: any[][] = [
-      ['Date', ...projectNames, `Total ${currencyName} remaining`],
+      [
+        translate('Date'),
+        ...projectNames,
+        translate('Total {currency} remaining', { currency: currencyName }),
+      ],
       ...dates.map((dateStr) => {
         const d = new Date(dateStr);
         const vals = projectData.map((pd) => remainingAt(pd, d));
         return [dateStr, ...vals, round2(vals.reduce((s, v) => s + v, 0))];
       }),
     ];
-    sheets.push({ name: 'Burn-down (daily)', rows: burnRows });
+    sheets.push({ name: translate('Burn-down (daily)'), rows: burnRows });
 
     // ── Monthly burn-down sheet ───────────────────────────────────────────
     // Sample remaining at the last day of each month (capped before maxEnd).
     const monthRows: any[][] = [
-      ['Month', ...projectNames, `Total ${currencyName} remaining`],
+      [
+        translate('Month'),
+        ...projectNames,
+        translate('Total {currency} remaining', { currency: currencyName }),
+      ],
     ];
     const cursor = new Date(today.getFullYear(), today.getMonth(), 1);
     cursor.setHours(0, 0, 0, 0);
@@ -731,11 +802,15 @@ function buildAllocationSheets(
       ]);
       cursor.setMonth(cursor.getMonth() + 1);
     }
-    sheets.push({ name: 'Burn-down (monthly)', rows: monthRows });
+    sheets.push({ name: translate('Burn-down (monthly)'), rows: monthRows });
 
     // ── Consumption (daily) sheet ─────────────────────────────────────────
     const consumptionDailyRows: any[][] = [
-      ['Date', ...projectNames, `Total ${currencyName} / day`],
+      [
+        translate('Date'),
+        ...projectNames,
+        translate('Total {currency} / day', { currency: currencyName }),
+      ],
       ...dates.map((dateStr) => {
         const d = new Date(dateStr);
         const vals = projectData.map((pd) => {
@@ -745,13 +820,24 @@ function buildAllocationSheets(
         return [dateStr, ...vals, round2(vals.reduce((s, v) => s + v, 0))];
       }),
     ];
-    sheets.push({ name: 'Consumption (daily)', rows: consumptionDailyRows });
+    sheets.push({
+      name: translate('Consumption (daily)'),
+      rows: consumptionDailyRows,
+    });
 
     // ── Consumption (monthly) sheet ───────────────────────────────────────
     const consumptionMonthRows: any[][] = [
-      ['Month', ...projectNames, `Total ${currencyName} / month`],
+      [
+        translate('Month'),
+        ...projectNames,
+        translate('Total {currency} / month', { currency: currencyName }),
+      ],
     ];
-    const consumptionCursor = new Date(today.getFullYear(), today.getMonth(), 1);
+    const consumptionCursor = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      1,
+    );
     consumptionCursor.setHours(0, 0, 0, 0);
     while (consumptionCursor < maxEnd) {
       const monthLabel = toDateStrLocal(consumptionCursor).slice(0, 7);
@@ -780,7 +866,10 @@ function buildAllocationSheets(
       ]);
       consumptionCursor.setMonth(consumptionCursor.getMonth() + 1);
     }
-    sheets.push({ name: 'Consumption (monthly)', rows: consumptionMonthRows });
+    sheets.push({
+      name: translate('Consumption (monthly)'),
+      rows: consumptionMonthRows,
+    });
   }
 
   return sheets;
@@ -796,11 +885,9 @@ export async function downloadAllocationExcel(
   await downloadMultiSheetExcel(`${title}.xlsx`, sheets, onProgress);
 }
 
-// ── JSON download ─────────────────────────────────────────────────────────────
-
-export function downloadJson(items: object[], filename: string): void {
-  const blob = new Blob([JSON.stringify(items, null, 2)], {
+export function downloadJson(data: any, title: string): void {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
     type: 'application/json',
   });
-  saveFile(blob, filename);
+  saveFile(blob, `${title}.json`);
 }

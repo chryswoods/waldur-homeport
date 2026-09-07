@@ -1,63 +1,39 @@
-import { configurationRetrieve } from 'waldur-js-client';
+import {
+  describeConfigError,
+  fetchRuntimeConfig,
+  getApiUrlFromMeta,
+} from 'waldur-runtime-config';
 
-import { afterBootstrap } from '@waldur/afterBootstrap';
-import { ENV } from '@waldur/core/config';
+import { afterBootstrap } from '@/afterBootstrap';
+import { ENV } from '@/core/config';
 
 import { initApiClient } from './api';
+import { setupAuthCore } from './authCoreSetup';
 
-const getApiUrl = () =>
-  document.querySelector('meta[name="api-url"]').getAttribute('content');
-
-const parseLanguages = (inputValue) => {
-  const languageLabels = inputValue.reduce(
-    (result, [code, label]) => ({
-      ...result,
-      [code]: label,
-    }),
-    {},
-  );
-  return inputValue
-    .map((language) => language[0])
-    .map((code) => ({
-      code,
-      label: languageLabels[code],
-    }));
-};
-
-export async function loadConfig() {
-  const restApi = getApiUrl();
+/**
+ * Fetches the backend's public configuration (branding, feature flags,
+ * language choices, plugin settings) and populates ENV. Pure data loading,
+ * no DOM/analytics/router side effects — kept separate from afterBootstrap's
+ * composition so the two concerns can be reasoned about independently.
+ */
+async function loadPublicConfig() {
+  setupAuthCore();
+  const restApi = getApiUrlFromMeta();
   if (restApi === '__API_URL__') {
     throw new Error('API URL is not configured');
   }
   ENV.apiEndpoint = restApi;
   initApiClient();
   try {
-    const { LANGUAGES, LANGUAGE_CODE, FEATURES, ...plugins } = (
-      await configurationRetrieve({ auth: null, parseAs: 'json' })
-    ).data as any;
-    Object.assign(ENV, {
-      plugins,
-      languageChoices: parseLanguages(LANGUAGES),
-      defaultLanguage: LANGUAGE_CODE,
-      FEATURES,
-    });
+    const config = await fetchRuntimeConfig();
+    Object.assign(ENV, config);
   } catch (error) {
-    if (error instanceof TypeError) {
-      throw new Error(
-        `Unable to fetch server configuration. Please check if you can connect to ${ENV.apiEndpoint} from your browser and contact support if the error continues.`,
-      );
-    } else if (error instanceof SyntaxError) {
-      throw new Error(
-        `Unable to fetch server configuration. Server does not return valid JSON.`,
-      );
-    } else if (error.response?.status >= 400) {
-      throw new Error(
-        `Unable to fetch server configuration. Error message: ${error.statusText}`,
-      );
-    } else {
-      throw new Error(error);
-    }
+    throw describeConfigError(error, ENV.apiEndpoint);
   }
+}
+
+export async function loadConfig() {
+  await loadPublicConfig();
   afterBootstrap();
   return true;
 }

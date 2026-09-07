@@ -1,17 +1,17 @@
 import { DownloadSimpleIcon } from '@phosphor-icons/react';
+import { useQuery } from '@tanstack/react-query';
 import { FunctionComponent } from 'react';
-import { Button } from 'react-bootstrap';
-import { useAsync } from 'react-use';
 import {
   marketplacePlanComponentsList,
   PlanComponent,
   PublicOfferingDetails,
 } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { LoadingSpinnerIcon } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import exportExcel from '@waldur/table/exporters/excel';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { LoadingSpinnerSimple } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { ActionButton } from '@/table/ActionButton';
+import exportExcel from '@/table/exporters/excel';
 
 interface ExportFullPriceListProps {
   offering: PublicOfferingDetails;
@@ -52,42 +52,44 @@ export const ExportFullPriceList: FunctionComponent<
   ExportFullPriceListProps
 > = ({ offering }) => {
   const {
-    loading,
+    isLoading: loading,
     error,
-    value: components,
-  } = useAsync(async () => {
-    const components = await getAllPages((page) =>
-      marketplacePlanComponentsList({
-        query: {
-          page,
-          offering_uuid: offering.uuid,
-        },
-      }),
-    );
-    components.map((plan) => {
-      if (plan.billing_type !== 'limit') return plan;
-      if (plan.amount === 0) plan.amount = 1;
-      return plan;
-    });
-    return components;
-  }, [offering]);
+    data: components,
+  } = useQuery({
+    queryKey: ['ExportFullPriceList', offering],
+
+    queryFn: async () => {
+      const components = await getAllPages((page) =>
+        marketplacePlanComponentsList({
+          query: {
+            page,
+            page_size: MAX_PAGE_SIZE,
+            offering_uuid: offering.uuid,
+          },
+        }),
+      );
+      components.map((plan) => {
+        if (plan.billing_type !== 'limit') return plan;
+        if (plan.amount === 0) plan.amount = 1;
+        return plan;
+      });
+      return components;
+    },
+  });
 
   return (
     <div className="exportFullPriceList">
       {loading ? (
-        <LoadingSpinnerIcon />
+        <LoadingSpinnerSimple />
       ) : error ? (
         <>{translate('Unable to load full price list')}</>
       ) : components ? (
-        <Button
+        <ActionButton
           variant="tertiary"
-          onClick={() => onExport(offering.name, components)}
-        >
-          <span className="svg-icon svg-icon-2">
-            <DownloadSimpleIcon weight="bold" />
-          </span>
-          {translate('Download full price list')}
-        </Button>
+          action={() => onExport(offering.name, components)}
+          iconNode={<DownloadSimpleIcon weight="bold" />}
+          title={translate('Download full price list')}
+        />
       ) : null}
     </div>
   );

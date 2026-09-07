@@ -1,47 +1,28 @@
-import { Field, reduxForm } from 'redux-form';
+import { FC } from 'react';
 
-import { AccountingPeriodField } from '@waldur/customer/list/AccountingPeriodField';
-import { StringField } from '@waldur/form';
-import { REACT_SELECT_TABLE_FILTER } from '@waldur/form/themed-select';
-import { makeLastTwelveMonthsFilterPeriods } from '@waldur/form/utils';
-import { translate } from '@waldur/i18n';
-import { TableFilterItem } from '@waldur/table/TableFilterItem';
+import { AccountingPeriodFilter } from '@/customer/list/AccountingPeriodFilter';
+import { makeLastTwelveMonthsFilterPeriods } from '@/form/utils';
+import { translate } from '@/i18n';
+import { StringFilter } from '@/table';
+
+export const RESOURCE_USAGE_FILTER_FORM_ID = 'ResourceUsageFilterForm';
 
 const options = makeLastTwelveMonthsFilterPeriods();
 
-const PureResourceUsageFilter = () => {
+export const ResourceUsageFilter: FC = () => {
   return (
     <>
-      <TableFilterItem
+      <StringFilter
         name="username"
         title={translate('Username')}
         instantApply={false}
-      >
-        <Field
-          name="username"
-          placeholder={translate('Search by username')}
-          component={StringField}
-        />
-      </TableFilterItem>
-      <TableFilterItem
-        title={translate('Date')}
+        placeholder={translate('Search by username')}
+      />
+      <AccountingPeriodFilter
         name="billing_period"
-        badgeValue={(value) => value?.label}
-        ellipsis={false}
-      >
-        <AccountingPeriodField
-          options={options}
-          name="billing_period"
-          reactSelectProps={REACT_SELECT_TABLE_FILTER}
-        />
-      </TableFilterItem>
+        title={translate('Date')}
+        options={options}
+      />
     </>
   );
 };
-
-const enhance = reduxForm({
-  form: 'ResourceUsageFilterForm',
-  destroyOnUnmount: false,
-});
-
-export const ResourceUsageFilter = enhance(PureResourceUsageFilter);

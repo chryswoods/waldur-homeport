@@ -2,28 +2,33 @@ import { GlobeSimpleIcon, GraduationCapIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import {
+  InvoiceCostItem,
   invoiceItemsCostsList,
-  KindEnum,
+  ProjectKindEnum,
   marketplaceProjectEstimatedCostPoliciesList,
+  marketplaceProjectOrderAutoApprovalsList,
   projectCreditsList,
 } from 'waldur-js-client';
-import { defaultCurrency } from '@waldur/core/formatCurrency';
-import { getCostPolicyActionOptions } from '@waldur/customer/cost-policies/utils';
-import { getLineChartOptions } from '@waldur/dashboard/chart';
+
+import { SHORT_STALE_TIME, STALE_TIME } from '@/core/constants';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { getCostPolicyActionOptions } from '@/customer/cost-policies/utils';
+import { getLineChartOptions } from '@/dashboard/chart';
 import {
   formatProjectCostChart,
   getTeamSizeChart,
   getCreditChartAndOptions,
   getCostChartAndOptions,
-} from '@waldur/dashboard/utils';
-import { translate } from '@waldur/i18n';
-import { isExperimentalUiComponentsVisible } from '@waldur/marketplace/utils';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { Project, User } from '@waldur/workspace/types';
+} from '@/dashboard/utils';
+import { translate } from '@/i18n';
+import { isExperimentalUiComponentsVisible } from '@/marketplace/utils';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { useUser, useProject } from '@/workspace/hooks';
+import { Project, User } from '@/workspace/types';
 
 async function getProjectCostData(project: Project) {
-  const [invoices, costPolicies] = await Promise.all([
+  const [invoices, costPolicies, autoApprovalRules] = await Promise.all([
     invoiceItemsCostsList({
       query: {
         project_uuid: project.uuid,
@@ -38,19 +43,27 @@ async function getProjectCostData(project: Project) {
         page_size: 3,
       },
     }).then((response) => response.data),
+    marketplaceProjectOrderAutoApprovalsList({
+      query: { project_uuid: project.uuid },
+    }).then((response) => response.data),
   ]);
-  return { invoices, costPolicies };
+  return {
+    invoices,
+    costPolicies,
+    autoApprovalRule: autoApprovalRules?.[0] ?? null,
+  };
 }
 
 export function useProjectCostChart(project: Project) {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['ProjectCostData', project?.uuid],
     queryFn: () => (project ? getProjectCostData(project) : null),
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_TIME,
+    enabled: Boolean(project),
   });
 
   const chartData = useMemo(() => {
-    if (!data) return { chart: null, options: null };
+    if (!data) return { chart: null, options: null, currentMonthItems: null };
     const chart = formatProjectCostChart(data.invoices);
 
     const hlines = (data.costPolicies || []).map((item) => {
@@ -59,7 +72,7 @@ export function useProjectCostChart(project: Project) {
         ? defaultCurrency(item.project_credit)
         : null;
 
-      const totalCost = item.limit_cost + (item.project_credit || 0);
+      const totalCost = item.limit_cost + (Number(item.project_credit) || 0);
       const totalCostFormatted = defaultCurrency(totalCost);
       const action = getCostPolicyActionOptions().find(
         (option) => option.value === item.actions,
@@ -75,7 +88,21 @@ export function useProjectCostChart(project: Project) {
       };
     });
 
-    return getCostChartAndOptions(chart, hlines);
+    if (data.autoApprovalRule?.enabled) {
+      const limit = parseFloat(data.autoApprovalRule.monthly_cost_limit);
+      hlines.push({
+        label: `${translate('Auto-approval limit')}: ${defaultCurrency(limit)} / ${translate('month')}`,
+        value: limit,
+      });
+    }
+
+    // Extract items from the current month invoice entry
+    const currentMonthEntry = data.invoices.find(
+      (inv) => inv.items && inv.items.length > 0,
+    );
+    const currentMonthItems: InvoiceCostItem[] = currentMonthEntry?.items || [];
+
+    return { ...getCostChartAndOptions(chart, hlines), currentMonthItems };
   }, [data]);
 
   return {
@@ -84,6 +111,7 @@ export function useProjectCostChart(project: Project) {
     refetch,
     chart: chartData?.chart,
     options: chartData?.options,
+    currentMonthItems: chartData?.currentMonthItems,
   };
 }
 
@@ -94,9 +122,10 @@ export function useProjectCreditChart(project: Project) {
     error: costError,
     refetch: refetchCost,
   } = useQuery({
-    queryKey: ['ProjectCostData', project.uuid],
-    queryFn: () => getProjectCostData(project),
-    staleTime: 5 * 60 * 1000,
+    queryKey: ['ProjectCostData', project?.uuid],
+    queryFn: () => (project ? getProjectCostData(project) : null),
+    staleTime: STALE_TIME,
+    enabled: Boolean(project),
   });
 
   const {
@@ -113,7 +142,8 @@ export function useProjectCreditChart(project: Project) {
       }).then((response) => response.data.length > 0 && response.data[0]),
 
     refetchOnWindowFocus: false,
-    staleTime: 60 * 1000,
+    staleTime: SHORT_STALE_TIME,
+    enabled: Boolean(project),
   });
 
   const chartData = useMemo(() => {
@@ -123,6 +153,7 @@ export function useProjectCreditChart(project: Project) {
 
   return {
     credit: creditData,
+    costPolicies: costData?.costPolicies || [],
     isLoading: isCostLoading || isCreditLoading,
     error: costError || creditError,
     refetch: () => {
@@ -155,31 +186,31 @@ export const canEditProject = (user: User, context: { customer?; project? }) =>
     projectId: context?.project?.uuid,
   });
 
-export const userHasProjectPermission = (permission) => (state) => {
-  const user = state?.workspace?.user;
-  const projectId = state?.workspace?.project?.uuid;
+export const useHasProjectPermission = (permission) => {
+  const user = useUser();
+  const project = useProject();
 
   return hasPermission(user, {
-    projectId,
+    projectId: project?.uuid,
     permission,
   });
 };
 
 export const projectKindOptions = (): Partial<
-  Record<KindEnum, { value: KindEnum; label; color; component }>
+  Record<ProjectKindEnum, { value: ProjectKindEnum; label; color; icon }>
 > => {
   const baseOptions = {
     default: {
-      value: 'default' as KindEnum,
+      value: 'default' as ProjectKindEnum,
       label: translate('Regular'),
       color: 'default',
-      component: null,
+      icon: null,
     },
     course: {
-      value: 'course' as KindEnum,
+      value: 'course' as ProjectKindEnum,
       label: translate('Course'),
-      color: 'warning',
-      component: GraduationCapIcon,
+      color: 'pink',
+      icon: GraduationCapIcon,
     },
   };
 
@@ -187,10 +218,10 @@ export const projectKindOptions = (): Partial<
     return {
       ...baseOptions,
       public: {
-        value: 'public' as KindEnum,
+        value: 'public' as ProjectKindEnum,
         label: translate('Public'),
         color: 'blue',
-        component: GlobeSimpleIcon,
+        icon: GlobeSimpleIcon,
       },
     };
   }

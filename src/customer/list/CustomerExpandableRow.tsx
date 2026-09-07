@@ -1,23 +1,27 @@
+import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { memo } from 'react';
-import { useSelector } from 'react-redux';
-import { useAsync } from 'react-use';
-import { formValueSelector } from 'redux-form';
+import { useFormState } from 'react-final-form';
 import { invoicesList } from 'waldur-js-client';
 
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { AgreementInfo } from '@waldur/invoices/list/AgreementInfo';
-import { InvoicesStatsList } from '@waldur/invoices/list/InvoicesStatsList';
-import { type RootState } from '@waldur/store/reducers';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { AgreementInfo } from '@/invoices/list/AgreementInfo';
+import { InvoicesStatsList } from '@/invoices/list/InvoicesStatsList';
+import { FinancialReportsFilterFormData } from '@/table/generated/FinancialReportsFilter';
 
 export const CustomerExpandableRow = memo((props: any) => {
-  const accountingPeriod = useSelector((state: RootState) =>
-    formValueSelector('customerListFilter')(state, 'accounting_period'),
-  );
+  const { values } = useFormState<FinancialReportsFilterFormData>();
+  const accountingPeriod = values?.accounting_period;
   const now = DateTime.now().startOf('month');
-  const { loading, error, value } = useAsync(
-    () =>
+  const {
+    isLoading: loading,
+    error,
+    data: value,
+  } = useQuery({
+    queryKey: ['CustomerExpandableRow', props.row, accountingPeriod],
+
+    queryFn: () =>
       invoicesList({
         query: {
           customer_uuid: props.row.uuid,
@@ -25,8 +29,7 @@ export const CustomerExpandableRow = memo((props: any) => {
           month: accountingPeriod ? accountingPeriod.value.month : now.month,
         },
       }).then((response) => response.data[0]),
-    [props.row, accountingPeriod],
-  );
+  });
   if (loading) {
     return <LoadingSpinner />;
   } else if (error) {

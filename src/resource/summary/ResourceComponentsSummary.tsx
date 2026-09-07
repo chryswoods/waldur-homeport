@@ -1,37 +1,58 @@
 import { useQuery } from '@tanstack/react-query';
 import { FC } from 'react';
 import { Col, Row } from 'react-bootstrap';
-import { marketplaceResourcesOfferingRetrieve } from 'waldur-js-client';
-import { Resource } from 'waldur-js-client';
+import {
+  marketplaceProviderOfferingsRetrieve,
+  marketplaceResourcesOfferingRetrieve,
+  Resource,
+  ProviderOfferingDetails,
+  PublicOfferingDetails,
+} from 'waldur-js-client';
 
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { ResourceComponentItem } from '@waldur/marketplace/resources/details/ResourceComponentItem';
+import { SHORT_STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { ResourceComponentItem } from '@/marketplace/resources/details/ResourceComponentItem';
 
 interface ResourceComponentsSummaryProps {
   resource: Resource;
+  context?: 'provider' | 'customer';
 }
 
 export const ResourceComponentsSummary: FC<ResourceComponentsSummaryProps> = ({
   resource,
+  context = 'customer',
 }) => {
+  const useProviderEndpoint = context === 'provider';
+
   const {
     data: offering,
     isLoading,
     error,
     refetch,
-  } = useQuery({
-    queryKey: ['resource-offering-components', resource.uuid],
+  } = useQuery<
+    Pick<ProviderOfferingDetails | PublicOfferingDetails, 'components'>
+  >({
+    queryKey: [
+      'resource-offering-components',
+      resource.uuid,
+      useProviderEndpoint ? 'provider' : 'customer',
+    ],
+    queryFn: () => {
+      if (useProviderEndpoint) {
+        return marketplaceProviderOfferingsRetrieve({
+          path: { uuid: resource.offering_uuid },
+          query: { field: ['components'] },
+        }).then((response) => response.data);
+      }
 
-    queryFn: () =>
-      marketplaceResourcesOfferingRetrieve({
+      return marketplaceResourcesOfferingRetrieve({
         path: { uuid: resource.uuid },
-        // @ts-ignore
         query: { field: ['components'] },
-      }).then((response) => response.data),
-
+      }).then((response) => response.data);
+    },
     refetchOnWindowFocus: false,
-    staleTime: 60 * 1000,
+    staleTime: SHORT_STALE_TIME,
   });
 
   if (isLoading) {

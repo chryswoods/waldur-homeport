@@ -5,11 +5,14 @@
  */
 
 import {
-  DailyStorageReportJson,
-  ProjectStorageReportJson,
-  QuotaJson,
-  StorageReportApiItem,
-} from './types';
+  DailyStorageReport as DailyStorageReportJson,
+  ProjectStorageReport as ProjectStorageReportJson,
+  OpenPortalQuota as QuotaJson,
+  CachedProjectStorageReport as StorageReportApiItem,
+} from 'waldur-js-client';
+
+import { translate } from '@/i18n';
+
 import { formatStorageBytes, parseStorageBytes } from './storage';
 
 // ─── Quota ────────────────────────────────────────────────────────────────────
@@ -58,7 +61,7 @@ export class Quota {
   get limitFormatted(): string {
     return isFinite(this.limitBytes)
       ? formatStorageBytes(this.limitBytes)
-      : 'Unlimited';
+      : translate('Unlimited');
   }
 
   /** Human-readable usage string e.g. "24.00 KB". */
@@ -74,7 +77,7 @@ export class Quota {
  * Appears as values of ProjectStorageReport.daily_reports.
  * Same shape as ProjectStorageReport but without the `users` identity map.
  */
-export class DailyStorageReport {
+class DailyStorageReport {
   constructor(
     readonly date: string,
     private readonly json: DailyStorageReportJson,
@@ -91,7 +94,10 @@ export class DailyStorageReport {
   /** Volume → Quota for the project on this day. */
   get projectQuotas(): Record<string, Quota> {
     return Object.fromEntries(
-      Object.entries(this.json.project_quotas).map(([v, q]) => [v, new Quota(q)]),
+      Object.entries(this.json.project_quotas).map(([v, q]) => [
+        v,
+        new Quota(q),
+      ]),
     );
   }
 
@@ -100,7 +106,9 @@ export class DailyStorageReport {
     return Object.fromEntries(
       Object.entries(this.json.user_quotas).map(([uid, vols]) => [
         uid,
-        Object.fromEntries(Object.entries(vols).map(([v, q]) => [v, new Quota(q)])),
+        Object.fromEntries(
+          Object.entries(vols).map(([v, q]) => [v, new Quota(q)]),
+        ),
       ]),
     );
   }
@@ -182,7 +190,10 @@ export class ProjectStorageReport {
   /** Volume → Quota for the project as a whole. */
   get projectQuotas(): Record<string, Quota> {
     return Object.fromEntries(
-      Object.entries(this.json.project_quotas).map(([v, q]) => [v, new Quota(q)]),
+      Object.entries(this.json.project_quotas).map(([v, q]) => [
+        v,
+        new Quota(q),
+      ]),
     );
   }
 
@@ -250,7 +261,9 @@ export class ProjectStorageReport {
         if (!project_quotas[vol]) {
           project_quotas[vol] = { ...q };
         } else {
-          const existing = parseStorageBytes(project_quotas[vol].usage ?? '0 B');
+          const existing = parseStorageBytes(
+            project_quotas[vol].usage ?? '0 B',
+          );
           const incoming = parseStorageBytes(q.usage ?? '0 B');
           project_quotas[vol] = {
             ...project_quotas[vol],
@@ -265,7 +278,9 @@ export class ProjectStorageReport {
           if (!user_quotas[uid][vol]) {
             user_quotas[uid][vol] = { ...q };
           } else {
-            const existing = parseStorageBytes(user_quotas[uid][vol].usage ?? '0 B');
+            const existing = parseStorageBytes(
+              user_quotas[uid][vol].usage ?? '0 B',
+            );
             const incoming = parseStorageBytes(q.usage ?? '0 B');
             user_quotas[uid][vol] = {
               ...user_quotas[uid][vol],
@@ -292,7 +307,8 @@ export class ProjectStorageReport {
         users,
         project_quotas,
         user_quotas,
-        daily_reports: Object.keys(daily_reports).length > 0 ? daily_reports : undefined,
+        daily_reports:
+          Object.keys(daily_reports).length > 0 ? daily_reports : undefined,
       },
       {
         ...first.apiItem,

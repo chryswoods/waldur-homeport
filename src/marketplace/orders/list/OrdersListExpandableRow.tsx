@@ -1,16 +1,16 @@
 import { FunctionComponent } from 'react';
 import { OrderDetails } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { OrderNameField } from '@waldur/marketplace/orders/list/OrderNameField';
-import { OrderStateCell } from '@waldur/marketplace/orders/list/OrderStateCell';
-import { OrderTypeCell } from '@waldur/marketplace/orders/list/OrderTypeCell';
-import { ResourceNameField } from '@waldur/marketplace/orders/list/ResourceNameField';
-import { Field } from '@waldur/resource/summary';
-import { ExpandableContainer } from '@waldur/table/ExpandableContainer';
-import { renderFieldOrDash } from '@waldur/table/utils';
-
-import { OrderProviderActions } from '../actions/OrderProviderActions';
+import { FormattedHtml } from '@/core/FormattedHtml';
+import { FileDownloader } from '@/form/upload/FileDownloader';
+import { translate } from '@/i18n';
+import { OrderNameField } from '@/marketplace/orders/list/OrderNameField';
+import { OrderStateCell } from '@/marketplace/orders/list/OrderStateCell';
+import { OrderTypeCell } from '@/marketplace/orders/list/OrderTypeCell';
+import { ResourceNameField } from '@/marketplace/orders/list/ResourceNameField';
+import { Field } from '@/resource/summary';
+import { ExpandableContainer } from '@/table/ExpandableContainer';
+import { renderFieldOrDash } from '@/table/utils';
 
 export const OrdersListExpandableRow: FunctionComponent<{
   row: OrderDetails;
@@ -38,11 +38,43 @@ export const OrdersListExpandableRow: FunctionComponent<{
       value={renderFieldOrDash(order.plan_name)}
     />
 
-    {order.state === 'pending-provider' && (
+    {order.attachment ? (
       <Field
-        label={translate('Actions')}
-        value={<OrderProviderActions order={order} />}
+        label={translate('Purchase order')}
+        value={
+          <FileDownloader url={order.attachment} name={translate('PDF file')} />
+        }
       />
-    )}
+    ) : null}
+
+    {order.request_comment ? (
+      <Field label={translate('PO reference')} value={order.request_comment} />
+    ) : null}
+
+    {order.provider_message ? (
+      <Field
+        label={translate('Provider message')}
+        value={<FormattedHtml html={order.provider_message} />}
+      />
+    ) : null}
+
+    {order.consumer_message ? (
+      <Field
+        label={translate('Customer response')}
+        value={<FormattedHtml html={order.consumer_message} />}
+      />
+    ) : null}
+
+    {order.consumer_message_attachment ? (
+      <Field
+        label={translate('Customer attachment')}
+        value={
+          <FileDownloader
+            url={order.consumer_message_attachment}
+            name={translate('PDF file')}
+          />
+        }
+      />
+    ) : null}
   </ExpandableContainer>
 );

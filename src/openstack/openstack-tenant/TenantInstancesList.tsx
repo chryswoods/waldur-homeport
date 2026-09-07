@@ -5,17 +5,18 @@ import {
   OpenstackInstancesListData,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { AddResourceButton } from '@waldur/marketplace/resources/actions/AddResourceButton';
-import { ModalActionsRouter } from '@waldur/marketplace/resources/actions/ModalActionsRouter';
-import { IPList } from '@waldur/resource/IPList';
-import { ResourceName } from '@waldur/resource/ResourceName';
-import { ResourceState } from '@waldur/resource/state/ResourceState';
-import { ResourceSummary } from '@waldur/resource/summary/ResourceSummary';
-import { ResourceSummaryField } from '@waldur/resource/summary/VirtualMachineSummary';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { translate } from '@/i18n';
+import { AddResourceButton } from '@/marketplace/resources/actions/AddResourceButton';
+import { ModalActionsRouter } from '@/marketplace/resources/actions/ModalActionsRouter';
+import { HypervisorPlacementMapButton } from '@/openstack/openstack-tenant/HypervisorPlacementMapButton';
+import { IPList } from '@/resource/IPList';
+import { ResourceName } from '@/resource/ResourceName';
+import { ResourceState } from '@/resource/state/ResourceState';
+import { ResourceSummary } from '@/resource/summary/ResourceSummary';
+import { ResourceSummaryField } from '@/resource/summary/VirtualMachineSummary';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
 
 import { INSTANCE_TYPE } from '../constants';
 
@@ -46,6 +47,7 @@ export const TenantInstancesList: FunctionComponent<{ resourceScope }> = ({
         'start_time',
         'volumes',
         'security_groups',
+        'server_group',
         'backend_id',
         'marketplace_resource_uuid',
         'key_name',
@@ -89,10 +91,13 @@ export const TenantInstancesList: FunctionComponent<{ resourceScope }> = ({
       title={translate('Instances')}
       verboseName={translate('instances')}
       tableActions={
-        <AddResourceButton
-          resource={resourceScope}
-          offeringType={INSTANCE_TYPE}
-        />
+        <>
+          <HypervisorPlacementMapButton tenantUuid={resourceScope.uuid} />
+          <AddResourceButton
+            resource={resourceScope}
+            offeringType={INSTANCE_TYPE}
+          />
+        </>
       }
       rowActions={({ row }) => (
         <ModalActionsRouter

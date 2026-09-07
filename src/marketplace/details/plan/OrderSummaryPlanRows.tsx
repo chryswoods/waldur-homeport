@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
-import { useSelector } from 'react-redux';
+import { LimitPeriodEnum } from 'waldur-js-client';
 
-import { defaultCurrency } from '@waldur/core/formatCurrency';
-import { translate } from '@waldur/i18n';
-import { getActiveFixedPricePaymentProfile } from '@waldur/invoices/details/utils';
-import { CheckoutPricingRow } from '@waldur/marketplace/deploy/CheckoutPricingRow';
-import { concealPricesSelector } from '@waldur/marketplace/deploy/utils';
-import { Customer } from '@waldur/workspace/types';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { getActiveFixedPricePaymentProfile } from '@/invoices/details/utils';
+import { CheckoutPricingRow } from '@/marketplace/deploy/CheckoutPricingRow';
+import { Customer } from '@/workspace/types';
 
 import { Component, PricesData } from './types';
 import { useComponentsDetailPrices } from './utils';
@@ -18,15 +19,30 @@ interface OrderSummaryPlanRowsProps {
   concealPrices?: boolean;
 }
 
-const getRowLabel = (component: Component) =>
-  `${component.name} ${component.amount} ${component.measured_unit}`;
+const getRowLabel = (component: Component) => {
+  const qty = component.displayAmount ?? component.amount;
+  const base = `${component.name} ${qty} ${component.measured_unit}`;
+  if (component.displayAmount != null && component.durationInMonths) {
+    return `${base} × ${translate('{count} months', { count: component.durationInMonths })}`;
+  }
+  return base;
+};
+
+const getPerLimitPeriod = (limitPeriod: LimitPeriodEnum) =>
+  limitPeriod === 'annual'
+    ? translate('/year')
+    : limitPeriod === 'quarterly'
+      ? translate('/quarter')
+      : limitPeriod === 'month'
+        ? translate('/mo')
+        : '';
 
 export const OrderSummaryPlanRows = (props: OrderSummaryPlanRowsProps) => {
   const activeFixedPriceProfile =
     props.customer &&
     getActiveFixedPricePaymentProfile(props.customer.payment_profiles);
   const shouldConcealPrices =
-    useSelector(concealPricesSelector) || props.concealPrices;
+    isFeatureVisible(MarketplaceFeatures.conceal_prices) || props.concealPrices;
 
   const { periodic, oneTime } = useComponentsDetailPrices(props.priceData);
 
@@ -42,8 +58,16 @@ export const OrderSummaryPlanRows = (props: OrderSummaryPlanRowsProps) => {
     ...oneTime.totalLimitedRows,
   ];
 
-  const total =
-    periodic.periodicTotal[monthlyPriceIndex] + oneTime.oneTimeTotal;
+  const totalDiscount = useMemo(
+    () =>
+      props.priceData.components.reduce(
+        (sum, c) => sum + (c.discountAmount || 0),
+        0,
+      ),
+    [props.priceData.components],
+  );
+
+  const total = periodic.total + oneTime.oneTimeTotal;
 
   return (
     <>
@@ -61,7 +85,7 @@ export const OrderSummaryPlanRows = (props: OrderSummaryPlanRowsProps) => {
                 <CheckoutPricingRow
                   key={i}
                   label={row.name}
-                  value={`${row.amount} ${row.measured_unit}`}
+                  value={`${row.displayAmount ?? row.amount} ${row.measured_unit}`}
                 />
               ))}
         </div>
@@ -73,7 +97,10 @@ export const OrderSummaryPlanRows = (props: OrderSummaryPlanRowsProps) => {
                 <CheckoutPricingRow
                   key={i}
                   label={getRowLabel(row)}
-                  value={defaultCurrency(row.prices[monthlyPriceIndex]) + '/mo'}
+                  value={
+                    defaultCurrency(row.prices[monthlyPriceIndex]) +
+                    getPerLimitPeriod('month')
+                  }
                 />
               ))
             : periodic.fixedRows.map((row, i) => (
@@ -84,14 +111,20 @@ export const OrderSummaryPlanRows = (props: OrderSummaryPlanRowsProps) => {
                 />
               ))}
           {!shouldConcealPrices
-            ? periodic.periodicLimitedRows.map((row, i) => (
+            ? periodic.limitedRows.map((row, i) => (
                 <CheckoutPricingRow
                   key={i}
                   label={getRowLabel(row)}
-                  value={defaultCurrency(row.prices[monthlyPriceIndex]) + '/mo'}
+                  value={
+                    defaultCurrency(
+                      row.limit_period === 'month'
+                        ? (row.prices[monthlyPriceIndex] ?? row.subTotal)
+                        : row.subTotal,
+                    ) + getPerLimitPeriod(row.limit_period as LimitPeriodEnum)
+                  }
                 />
               ))
-            : periodic.periodicLimitedRows.map((row, i) => (
+            : periodic.limitedRows.map((row, i) => (
                 <CheckoutPricingRow
                   key={i}
                   label={row.name}
@@ -112,10 +145,18 @@ export const OrderSummaryPlanRows = (props: OrderSummaryPlanRowsProps) => {
           <CheckoutPricingRow
             label={translate('Monthly cost')}
             value={
-              defaultCurrency(periodic.periodicTotal[monthlyPriceIndex]) + '/mo'
+              defaultCurrency(periodic.totalPeriods[monthlyPriceIndex]) +
+              getPerLimitPeriod('month')
             }
           />
         )}
+      {totalDiscount > 0 && !shouldConcealPrices && (
+        <CheckoutPricingRow
+          label={translate('Volume discount savings')}
+          value={'-' + defaultCurrency(totalDiscount)}
+          className="text-success"
+        />
+      )}
       {!shouldConcealPrices && props.hasTotal && (
         <CheckoutPricingRow
           label={translate('Total')}

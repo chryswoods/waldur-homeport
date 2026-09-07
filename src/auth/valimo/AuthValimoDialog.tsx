@@ -1,35 +1,29 @@
 import { SignInIcon } from '@phosphor-icons/react';
-import { useRouter } from '@uirouter/react';
 import { useState } from 'react';
 import { Form, InputGroup } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
+import { Form as FinalForm, Field } from 'react-final-form';
 import { useMountedState } from 'react-use';
-import { Field, reduxForm } from 'redux-form';
 import {
   AuthResult,
   authValimoCreate,
   authValimoResult,
 } from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
-import { wait } from '@waldur/core/utils';
-import { InputField } from '@waldur/form/InputField';
-import { translate } from '@waldur/i18n';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showError, showErrorResponse } from '@waldur/store/notify';
+import { ENV } from '@/core/config';
+import { wait } from '@/core/utils';
+import { SubmitButton } from '@/form';
+import { InputField } from '@/form/InputField';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useNotify } from '@/store/notify';
 
+import { redirectOnSuccess } from '../authNavigation';
 import { loginUser } from '../AuthService';
-import { SubmitButton } from '../SubmitButton';
 
-export const AuthValimoDialog = reduxForm({ form: 'AuthValimoDialog' })(({
-  submitting,
-  invalid,
-  handleSubmit,
-}) => {
+export const AuthValimoDialog = () => {
   const [challengeCode, setChallengeCode] = useState<string>();
-  const dispatch = useDispatch();
-  const router = useRouter();
+  const { showError, showErrorResponse } = useNotify();
   const isMounted = useMountedState();
 
   const pollAuthResult = async (authResultId: string) => {
@@ -47,27 +41,25 @@ export const AuthValimoDialog = reduxForm({ form: 'AuthValimoDialog' })(({
     return result;
   };
 
-  const parseAuthResult = (result: AuthResult) => {
+  const parseAuthResult = async (result: AuthResult) => {
     if (!isMounted()) {
       return;
     }
     if (result.state === 'OK') {
-      loginUser(result.token, 'valimo');
-      router.stateService.go('profile.details');
+      await loginUser(result.token, 'valimo');
+      await redirectOnSuccess();
     } else if (result.state === 'Canceled') {
       if (result.details === 'User is not registered.') {
-        dispatch(showError(result.details));
+        showError(result.details);
         return;
       }
       const message = translate(
         'Authentication with Mobile ID has been canceled by user or timed out. Details:',
       );
-      dispatch(showError(message + result.details));
+      showError(message + result.details);
     } else {
-      dispatch(
-        showError(
-          translate('Unexpected exception happened during login process.'),
-        ),
+      showError(
+        translate('Unexpected exception happened during login process.'),
       );
     }
   };
@@ -83,55 +75,62 @@ export const AuthValimoDialog = reduxForm({ form: 'AuthValimoDialog' })(({
       }).then((r) => r.data);
       setChallengeCode(message);
       const authResult = await pollAuthResult(uuid);
-      parseAuthResult(authResult);
+      await parseAuthResult(authResult);
     } catch (error) {
-      dispatch(
-        showErrorResponse(
-          error,
-          translate('Unable to authenticate using Mobile ID.'),
-        ),
+      showErrorResponse(
+        error,
+        translate('Unable to authenticate using Mobile ID.'),
       );
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(authenticateValimo)}>
-      <ModalDialog
-        title={translate('Authenticate using Mobile ID')}
-        footer={
-          <>
-            <CloseDialogButton />
-            <SubmitButton invalid={invalid} submitting={submitting}>
-              <span className="svg-icon svg-icon-2">
-                <SignInIcon />
-              </span>{' '}
-              {translate('Sign in')}
-            </SubmitButton>
-          </>
-        }
-      >
-        <Form.Group>
-          <Form.Label>{translate('Mobile phone number')}</Form.Label>
-          <InputGroup>
-            <InputGroup.Text>
-              {ENV.plugins.WALDUR_AUTH_VALIMO.MOBILE_PREFIX}
-            </InputGroup.Text>
-            <Field
-              type="tel"
-              name="phoneNumber"
-              required={true}
-              component={InputField}
-              disabled={submitting}
-            />
-          </InputGroup>
-        </Form.Group>
-        {challengeCode && (
-          <Form.Group>
-            <Form.Label>{translate('Challenge code')}</Form.Label>
-            <p>{challengeCode}</p>
-          </Form.Group>
-        )}
-      </ModalDialog>
-    </form>
+    <FinalForm
+      onSubmit={authenticateValimo}
+      render={({ handleSubmit, submitting, invalid }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate('Authenticate using Mobile ID')}
+            footer={
+              <>
+                <CloseDialogButton />
+                <SubmitButton invalid={invalid} submitting={submitting}>
+                  <span className="svg-icon svg-icon-2">
+                    <SignInIcon weight="bold" />
+                  </span>{' '}
+                  {translate('Sign in')}
+                </SubmitButton>
+              </>
+            }
+          >
+            <Form.Group>
+              <Form.Label>{translate('Mobile phone number')}</Form.Label>
+              <InputGroup>
+                <InputGroup.Text>
+                  {ENV.plugins.WALDUR_AUTH_VALIMO.MOBILE_PREFIX}
+                </InputGroup.Text>
+                <Field name="phoneNumber" required={true}>
+                  {({ input, meta }) => (
+                    <InputField
+                      input={input}
+                      meta={meta}
+                      type="tel"
+                      required={true}
+                      disabled={submitting}
+                    />
+                  )}
+                </Field>
+              </InputGroup>
+            </Form.Group>
+            {challengeCode && (
+              <Form.Group>
+                <Form.Label>{translate('Challenge code')}</Form.Label>
+                <p>{challengeCode}</p>
+              </Form.Group>
+            )}
+          </ModalDialog>
+        </form>
+      )}
+    />
   );
-});
+};

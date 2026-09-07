@@ -18,6 +18,7 @@ interface ModelCard1Props {
   placeholder?: ReactNode;
   footer?: ReactNode;
   clickable?: boolean;
+  onClick?: () => void;
 }
 
 export const ModelCard1: FC<ModelCard1Props> = ({
@@ -29,6 +30,7 @@ export const ModelCard1: FC<ModelCard1Props> = ({
       'model-card-1 card-bordered h-100 overflow-hidden',
       props.clickable && 'cursor-pointer border-hover-brand',
     )}
+    onClick={props.onClick}
   >
     {(props.image || props.placeholder) && (
       <div className="h-85px d-flex flex-center border-bottom">
@@ -61,11 +63,18 @@ export const ModelCard1: FC<ModelCard1Props> = ({
             {getAbbreviation(props.title, 3)}
           </ImagePlaceholder>
         )}
-        <div className={'ellipsis-lines-' + ellipsisLines}>
+        <div
+          className={classNames(
+            'ellipsis-lines-' + ellipsisLines,
+            'flex-grow-1',
+            'model-card-title-container',
+          )}
+        >
           <Card.Title
             className={classNames(
               'fs-4 fw-bold',
               'ellipsis-lines-' + ellipsisLines,
+              'model-card-title',
               !props.subtitle && 'mb-0',
             )}
           >

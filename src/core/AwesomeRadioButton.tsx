@@ -1,10 +1,10 @@
 import { QuestionIcon } from '@phosphor-icons/react';
 import classNames from 'classnames';
 import { FunctionComponent } from 'react';
-import { FormLabel } from 'react-bootstrap';
+import { Form, FormLabel } from 'react-bootstrap';
 
-import { FormField } from '@waldur/form/types';
-import { Choice } from '@waldur/marketplace/offerings/types';
+import { FormField } from '@/form/types';
+import { Choice } from '@/marketplace/offerings/types';
 
 import { Tip } from './Tooltip';
 
@@ -12,12 +12,18 @@ interface AwesomeRadioButtonProps extends FormField {
   choices: Choice[];
   direction?: 'vertical' | 'horizontal';
   justify?: 'start' | 'center' | 'end' | 'between' | 'around';
+  size?: 'sm' | 'lg';
+  // Bootstrap gap scale (0-5) between rows in vertical layout. Opt-in so the
+  // default stacking of existing consumers is unchanged.
+  gap?: number;
 }
 
 export const AwesomeRadioButton: FunctionComponent<AwesomeRadioButtonProps> = ({
   choices,
   direction = 'vertical',
   justify = 'start',
+  size,
+  gap,
   ...props
 }) => {
   // Use the input name for generating unique IDs for each radio button
@@ -45,38 +51,54 @@ export const AwesomeRadioButton: FunctionComponent<AwesomeRadioButtonProps> = ({
         className={classNames({
           'd-flex flex-wrap gap-3': direction === 'horizontal',
           [`justify-content-${justify}`]: direction === 'horizontal',
+          'd-flex flex-column': direction === 'vertical' && gap != null,
+          [`gap-${gap}`]: direction === 'vertical' && gap != null,
         })}
       >
         {choices.map((choice, index) => {
           const choiceId = `${groupName}-${choice.value}-${index}`;
           return (
-            <div
+            <Form.Check
               key={choiceId}
-              className={classNames(
-                'form-check form-check-custom form-check-solid',
-                {
-                  // This replicates the old "center" behavior where items grow to fill space
-                  'flex-grow-1':
-                    direction === 'horizontal' && justify === 'center',
-                },
-              )}
+              type="radio"
+              id={choiceId}
+              className={classNames('form-check-custom form-check-start', {
+                // This replicates the old "center" behavior where items grow to fill space
+                'flex-grow-1':
+                  direction === 'horizontal' && justify === 'center',
+                [`form-check-${size}`]: !!size,
+              })}
             >
-              <input
-                {...props.input} // Spreads name, onBlur, onChange, etc.
-                className="form-check-input"
+              <Form.Check.Input
                 type="radio"
-                id={choiceId}
+                name={props.input.name}
+                onBlur={props.input.onBlur}
+                onFocus={props.input.onFocus}
                 value={choice.value}
                 checked={props.input?.value === choice.value}
+                onChange={() => {
+                  props.input.onChange(choice.value);
+                }}
                 disabled={props.disabled}
               />
-              <label className="form-check-label" htmlFor={choiceId}>
-                <span className="fw-bold d-block">{choice.label}</span>
+              <Form.Check.Label htmlFor={choiceId}>
+                <span className="d-flex align-items-center gap-2">
+                  <span>{choice.label}</span>
+                  {Boolean(choice.tooltip) && (
+                    <Tip
+                      id={`${choiceId}-tip`}
+                      label={choice.tooltip}
+                      className="text-muted"
+                    >
+                      <QuestionIcon weight="regular" size={16} />
+                    </Tip>
+                  )}
+                </span>
                 {Boolean(choice.description) && (
-                  <span className="text-muted">{choice.description}</span>
+                  <Form.Text>{choice.description}</Form.Text>
                 )}
-              </label>
-            </div>
+              </Form.Check.Label>
+            </Form.Check>
           );
         })}
       </div>
