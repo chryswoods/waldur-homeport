@@ -242,20 +242,35 @@ Three things the fork did in code are better done in mastermind settings now:
   were in code deleted here.
 
 Three call sites cast their query object because the published
-`waldur-js-client` lags the resynced mastermind branch. All three carry a
-comment pointing here. They can be simplified once a client generated from
-the resynced schema is published:
+`waldur-js-client` lagged the resynced mastermind branch. All three carried a
+comment pointing here, and all three are now resolved against an SDK generated
+locally from mastermind at `7ecfbd17`:
 
-| Call site | Missing from the client |
-| --- | --- |
-| `openportal/reports/OrganisationAllocationTab.tsx` | `include_offering_names`, and `offering_names` on the response |
-| `project/ProjectProfile.tsx` | `project_uuid` on the proposals list |
-| `customer/team/CustomerUsersList.tsx` | `slug` in `CustomerUserFieldEnum` |
+| Call site | Was missing from the client | Resolution |
+| --- | --- | --- |
+| `openportal/reports/OrganisationAllocationTab.tsx` | `include_offering_names`, and `offering_names` on the response | cast dropped; uses `ProjectAccountingSummary` directly |
+| `project/ProjectProfile.tsx` | `project_uuid` on the proposals list | proposals section removed — see below |
+| `customer/team/CustomerUsersList.tsx` | `slug` in `CustomerUserFieldEnum` | cast dropped; `'slug'` moved into the typed `mandatoryFields` array |
 
-The second of these is a correction to the plan's section 6, which concluded
+The second of these was a correction to the plan's section 6, which concluded
 that every field dropped with the local proposal work sat inside
-`src/proposals`. `ProjectProfile` is outside it and depends on the proposals
+`src/proposals`. `ProjectProfile` is outside it and depended on the proposals
 list's `project_uuid` filter.
+
+That dependency turned out to be unsatisfiable rather than merely lagging.
+`ProposalFilter.project_uuid` was added by mastermind's `d882786c` and removed
+again by `66bc113c` ("Reset residual local changes in the proposal app to
+upstream"), so the regenerated schema offers no route at all from a project to
+its proposals. Without the filter the query reads as unfiltered and the card
+listed every proposal in the deployment — a data leak, not a cosmetic bug.
+Restoring it would mean putting that one line back into the proposal app and
+giving up the "proposal app stays pure upstream" decision.
+
+**Decision: the proposals section is removed from `ProjectProfile`.** This
+deployment does not surface proposals, so there is nothing to show and no
+reason to carry a fork delta in the proposal app for it. `ProjectProfile.test.ts`
+went with it. Should a later deployment need the card back, the change is the
+single filter field in mastermind plus a revert of `35d8d25ed4` here.
 
 One upstream bug found and fixed here, worth offering back: upstream's
 `src/echarts/index.ts` does not register the `dataZoom` component or the
