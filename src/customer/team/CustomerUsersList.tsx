@@ -34,17 +34,9 @@ const mandatoryFields: CustomersUsersListData['query']['field'] = [
   'role_name',
   'username',
   'projects',
-];
-
-// The CustomerUserSerializer returns slug (structure/serializers.py), but the
-// published waldur-js-client's CustomerUserFieldEnum does not list it yet —
-// the same lag as the accounting summary and the proposals project filter, see
-// docs/guides/resync-decisions.md section 3. Needed by the show_slug_as_id
-// column in TeamTableComponent.
-const mandatoryFieldsWithSlug = [
-  ...mandatoryFields,
+  // Needed by the show_slug_as_id column in TeamTableComponent.
   'slug',
-] as CustomersUsersListData['query']['field'];
+];
 
 export const CustomerUsersList: FunctionComponent = () => {
   const values = useFilterValues('customer-users');
@@ -60,7 +52,7 @@ export const CustomerUsersList: FunctionComponent = () => {
     }),
     queryField: 'user_keyword',
     filter,
-    mandatoryFields: mandatoryFieldsWithSlug,
+    mandatoryFields,
   });
 
   // The "Team" page contains several other pages. We have to check the access permissions to this page here.

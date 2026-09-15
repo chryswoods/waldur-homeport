@@ -37,10 +37,7 @@ import {
   Tab,
   Tabs,
 } from 'react-bootstrap';
-import type {
-  OpenportalAccountingSummaryListData,
-  ProjectAccountingSummary,
-} from 'waldur-js-client';
+import type { ProjectAccountingSummary } from 'waldur-js-client';
 import {
   openportalAccountingSummaryList,
   projectsList,
@@ -574,22 +571,6 @@ const ProjectAutocompleteDialog: FC<ProjectAutocompleteDialogProps> = ({
   );
 };
 
-/**
- * The resynced mastermind branch serves an extra `offering_names` field on
- * each summary when the request asks for it, and accepts an
- * `include_offering_names` query parameter to switch it on. Neither is in the
- * published waldur-js-client yet, so both are described locally and the query
- * is cast at the call site. See docs/guides/resync-decisions.md section 3 —
- * remove all three once a client generated from the resynced schema ships.
- */
-type SummaryWithOfferings = ProjectAccountingSummary & {
-  offering_names?: string[];
-};
-
-type AccountingSummaryQuery = NonNullable<
-  OpenportalAccountingSummaryListData['query']
-> & { include_offering_names?: boolean };
-
 // ── Offering filter dialog ────────────────────────────────────────────────────
 
 interface OfferingFilterDialogProps {
@@ -858,9 +839,9 @@ export const OrganisationAllocationTab: FC = () => {
       // previous key would be read back without it and silently show no
       // offerings to filter by.
       const cacheKey = `alloc-summaries-v2-${customer!.uuid}`;
-      const cached = getCached<SummaryWithOfferings[]>(cacheKey, TTL.LISTS);
+      const cached = getCached<ProjectAccountingSummary[]>(cacheKey, TTL.LISTS);
       if (cached) return cached;
-      let allItems: SummaryWithOfferings[] = [];
+      let allItems: ProjectAccountingSummary[] = [];
       let page = 1;
       let totalPages: number | undefined;
       setSummariesProgress({
@@ -875,7 +856,7 @@ export const OrganisationAllocationTab: FC = () => {
             page_size: 100,
             page,
             include_offering_names: true,
-          } as AccountingSummaryQuery,
+          },
         });
         allItems = allItems.concat(result.data);
         if (page === 1) {
