@@ -135,18 +135,11 @@ mv /tmp/FeaturesDescription.ts "$WH2_PATH/src/features/FeaturesDescription.ts"
 mv /tmp/SettingsDescription.ts "$WH2_PATH/src/SettingsDescription.ts"
 mv /tmp/PermissionOptions.tsx "$WH2_PATH/src/administration/roles/PermissionOptions.tsx"
 
-# Prettier-format the generated files. The Django generators do not emit
-# prettier-clean output, so without this the repo's `format:check`
-# (prettier --check) fails in CI on every MR built after a regeneration.
-echo "      Formatting generated files with Prettier..."
-cd "$WH2_PATH"
-./node_modules/.bin/prettier --write \
-  src/permissions/enums.ts \
-  src/EventsEnums.ts \
-  src/FeaturesEnums.ts \
-  src/features/FeaturesDescription.ts \
-  src/SettingsDescription.ts \
-  src/administration/roles/PermissionOptions.tsx
+# No formatting pass here: all six generated files are listed in
+# .prettierignore, so `prettier --write` on them is silently a no-op (it
+# honours the ignore file even for explicitly named paths) and the repo's
+# `format:check` skips them too. The generators' own output is what is
+# committed, which keeps a regeneration diff free of formatting noise.
 
 echo ""
 echo "=== Done! ==="
