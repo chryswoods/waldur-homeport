@@ -38,7 +38,10 @@ const ManagedProjectCard: FC<{ mp: ManagedProject; project: Project }> = ({
   const details = mp.details;
   const embargo = embargoedUntil(mp);
   const unit = allocationUnit(details.allocation);
-  const projectLinkUrl = details.project_link?.url;
+  // The button beside the card reads "Go to award", so it links to the award
+  // on the funder's system, not to project_link — which points at the project
+  // page on the awarding portal and is a different destination.
+  const awardUrl = details.award?.url;
   const breakdown =
     details.breakdown && Object.keys(details.breakdown).length > 0
       ? details.breakdown
@@ -105,8 +108,8 @@ const ManagedProjectCard: FC<{ mp: ManagedProject; project: Project }> = ({
             )}
           </div>
 
-          {projectLinkUrl && (
-            <ExternalCardLink url={projectLinkUrl}>
+          {awardUrl && (
+            <ExternalCardLink url={awardUrl}>
               {translate('Go to')}
               <br />
               {translate('award')}
