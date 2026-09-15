@@ -1,22 +1,24 @@
 import { useQuery } from '@tanstack/react-query';
 import { FC } from 'react';
 import { Col } from 'react-bootstrap';
-import type { ManagedProject, Project } from 'waldur-js-client';
+import {
+  type ManagedProject,
+  openportalManagedProjectAccountingSummaryList,
+  type Project,
+} from 'waldur-js-client';
 
 import { AlertItem } from '@/core/AlertItem';
+import { STALE_TIME } from '@/core/constants';
 import { formatDate } from '@/core/dateUtils';
+import { defaultCurrency } from '@/core/formatCurrency';
 import { Panel } from '@/core/Panel';
 import { translate } from '@/i18n';
 
 import {
-  allocationUnit,
   ExternalCardLink,
-  formatUsage,
-  usagePercent,
+  percentOf,
   UsageProgressBar,
 } from '../allocationUsage';
-import { fetchUsageReports } from '../reports/api';
-import { ProjectUsageReport } from '../reports/ProjectUsageReport';
 
 import { embargoedUntil } from './utils';
 
@@ -25,11 +27,24 @@ interface Props {
   project: Project;
 }
 
-// Matches the Usage Report tab's cache TTL expectation: shows a same-day total
-// without re-fetching the full report history on every dashboard load. Manually
-// refetching on the Usage Report tab (project.openportal-reports) updates the
-// same react-query cache entry, so this widget picks up the fresh total too.
-const USAGE_STALE_TIME = 12 * 60 * 60 * 1000;
+/**
+ * The award's allocation and the usage counted against it, both on the credits
+ * scale the rest of the accounting UI uses.
+ *
+ * Keyed by project rather than by award: the endpoint reports the award
+ * currently attached to a project, so where a project shows more than one card
+ * react-query serves them all from one request.
+ */
+const useAwardAccounting = (projectUuid: string) =>
+  useQuery({
+    queryKey: ['openportal-managed-project-accounting-summary', projectUuid],
+    queryFn: () =>
+      openportalManagedProjectAccountingSummaryList({
+        query: { project_uuid: projectUuid },
+      }).then((response) => response.data?.[0] ?? null),
+    enabled: Boolean(projectUuid),
+    staleTime: STALE_TIME,
+  });
 
 const ManagedProjectCard: FC<{ mp: ManagedProject; project: Project }> = ({
   mp,
@@ -37,7 +52,6 @@ const ManagedProjectCard: FC<{ mp: ManagedProject; project: Project }> = ({
 }) => {
   const details = mp.details;
   const embargo = embargoedUntil(mp);
-  const unit = allocationUnit(details.allocation);
   // The button beside the card reads "Go to award", so it links to the award
   // on the funder's system, not to project_link — which points at the project
   // page on the awarding portal and is a different destination.
@@ -47,31 +61,27 @@ const ManagedProjectCard: FC<{ mp: ManagedProject; project: Project }> = ({
       ? details.breakdown
       : null;
 
-  const { data: usageReports } = useQuery({
-    queryKey: ['openportal-usage-reports', project.uuid],
-    queryFn: () => fetchUsageReports({ project_uuid: project.uuid }),
-    enabled: Boolean(project.uuid),
-    staleTime: USAGE_STALE_TIME,
-  });
+  const { data: accounting } = useAwardAccounting(project.uuid);
 
-  const usedHours =
-    usageReports === undefined
-      ? undefined
-      : usageReports.length > 0
-        ? ProjectUsageReport.combine(usageReports).totalUsageHours()
-        : 0;
+  // allocation_credits is null when the award has no resolvable project
+  // template or no allocation to convert, in which case there is a usage
+  // figure but nothing to measure it against.
+  const allocationCredits = accounting?.allocation_credits ?? null;
+  const showAccounting = Boolean(accounting?.has_award);
 
   return (
     <Col md={6} sm={12} className="mb-5">
       <Panel cardBordered>
         <div className="d-flex align-items-stretch gap-3">
           <div className="flex-grow-1 d-flex flex-column gap-3">
-            {details.allocation && (
+            {showAccounting && allocationCredits !== null && (
               <div>
                 <div className="fs-6 text-muted fw-bold mb-1">
                   {translate('Allocation')}
                 </div>
-                <div className="display-6 fw-boldest">{details.allocation}</div>
+                <div className="display-6 fw-boldest">
+                  {defaultCurrency(allocationCredits)}
+                </div>
                 {breakdown && (
                   <div className="mt-1 fs-7 text-muted">
                     {Object.entries(breakdown).map(([k, v]) => (
@@ -83,18 +93,31 @@ const ManagedProjectCard: FC<{ mp: ManagedProject; project: Project }> = ({
                 )}
               </div>
             )}
-            {usedHours !== undefined && (
+            {showAccounting && accounting && (
               <div>
                 <div className="fs-6 text-muted fw-bold mb-1">
                   {translate('Used')}
                 </div>
                 <div className="display-6 fw-boldest">
-                  {formatUsage(usedHours)}
-                  {unit ? ` ${unit}` : ''}
+                  {defaultCurrency(accounting.usage_credits)}
                 </div>
-                <UsageProgressBar
-                  percent={usagePercent(usedHours, details.allocation)}
-                />
+                {allocationCredits !== null && (
+                  <>
+                    <UsageProgressBar
+                      percent={percentOf(
+                        accounting.usage_credits,
+                        allocationCredits,
+                      )}
+                    />
+                    {accounting.remaining_credits !== null && (
+                      <div className="fs-8 text-muted mt-1">
+                        {translate('{amount} remaining', {
+                          amount: defaultCurrency(accounting.remaining_credits),
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
             {embargo && (

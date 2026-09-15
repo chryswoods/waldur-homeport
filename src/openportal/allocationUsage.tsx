@@ -22,15 +22,32 @@ export const allocationUnit = (
 const allocationTotal = (allocationString: string | null | undefined): number =>
   parseFloat(allocationString?.trim().split(/\s+/)[0] ?? '0') || 0;
 
-/** Usage as a percentage of the allocation, capped at 100. */
+/**
+ * Usage as a percentage of a total, capped at 100. Zero when there is no
+ * usable total, so a missing allocation reads as an empty bar rather than
+ * dividing by zero.
+ */
+export const percentOf = (
+  used: number,
+  total: number | null | undefined,
+): number => {
+  if (!total || total <= 0) return 0;
+  return Math.min(100, (used / total) * 100);
+};
+
+/**
+ * Usage as a percentage of the first allocation string that carries a number.
+ * For awards whose allocation is free text; where the API gives a number
+ * already, use percentOf directly.
+ */
 export const usagePercent = (
   used: number,
   ...allocationStrings: Array<string | null | undefined>
-): number => {
-  const total = allocationStrings.map(allocationTotal).find((n) => n > 0) ?? 0;
-  if (!total) return 0;
-  return Math.min(100, (used / total) * 100);
-};
+): number =>
+  percentOf(
+    used,
+    allocationStrings.map(allocationTotal).find((n) => n > 0) ?? 0,
+  );
 
 /** Trims trailing zeroes off a usage figure: 12.50 -> "12.5", 12.00 -> "12". */
 export const formatUsage = (hours: number): string =>
