@@ -4,18 +4,11 @@ import {
   GlobeSimpleIcon,
   GraduationCapIcon,
 } from '@phosphor-icons/react';
-import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { Stack } from 'react-bootstrap';
-import {
-  type Proposal,
-  type ProposalProposalsListData,
-  Project,
-  proposalProposalsList,
-} from 'waldur-js-client';
+import { Project } from 'waldur-js-client';
 
 import { Badge } from '@/core/Badge';
-import { STALE_TIME } from '@/core/constants';
 import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
 import { formatDate } from '@/core/dateUtils';
 import { Link } from '@/core/Link';
@@ -29,20 +22,6 @@ import { checkIsOwnerOrStaff } from '@/workspace/selectors';
 
 import { ProjectActions } from './dashboard/ProjectActions';
 import { useProjectAwardDetails } from './useProjectAwardDetails';
-
-/**
- * Whether a proposal really belongs to this project.
- *
- * Waldur hyperlinks relations, so `proposal.project` is a URL ending in the
- * project's uuid. Checked against the last path segment rather than with a
- * substring match, so one uuid cannot match another URL that merely contains
- * it.
- */
-export const belongsToProject = (
-  proposal: Proposal,
-  projectUuid: string,
-): boolean =>
-  Boolean(proposal.project?.replace(/\/$/, '').endsWith(`/${projectUuid}`));
 
 /** An award or call reference: a link when it carries a URL, plain text otherwise. */
 const AwardReference = ({
@@ -194,38 +173,8 @@ const ProjectEndDate = ({ project }: ProjectProfileProps) => {
 export const ProjectProfile = ({ project }: ProjectProfileProps) => {
   const abbreviation = useMemo(() => getItemAbbreviation(project), [project]);
 
-  // The proposals this project came from, and the OpenPortal award backing it.
-  // Both give the user a way back to where the project was granted.
-  const { data: proposals } = useQuery({
-    queryKey: ['project-proposals', project.uuid],
-    queryFn: () =>
-      proposalProposalsList({
-        // project_uuid is served by the resynced mastermind branch
-        // (proposal/filters.py) but is not in the published
-        // waldur-js-client's query type yet, so the query is cast. Same
-        // situation as the accounting summary — see
-        // docs/guides/resync-decisions.md section 3. Remove the cast once a
-        // client generated from the resynced schema ships.
-        query: {
-          project_uuid: project.uuid,
-          page_size: 100,
-        } as NonNullable<ProposalProposalsListData['query']>,
-      }).then((response) =>
-        // Fail closed. The generated client drops an undefined query value
-        // silently and the API ignores a filter it does not recognise, so a
-        // project_uuid that fails to land turns this call into "list every
-        // proposal the user may see" — which then renders as though all of
-        // them belonged to this project. Re-checking each row against the
-        // project makes the worst case an empty list rather than a wrong one.
-        // A no-op whenever the server did apply the filter.
-        (response.data ?? []).filter((proposal) =>
-          belongsToProject(proposal, project.uuid),
-        ),
-      ),
-    enabled: Boolean(project?.uuid),
-    staleTime: STALE_TIME,
-  });
-
+  // The OpenPortal award backing this project, giving the user a way back to
+  // where it was granted.
   const { data: awardDetails } = useProjectAwardDetails(project.uuid);
 
   return (
@@ -291,29 +240,6 @@ export const ProjectProfile = ({ project }: ProjectProfileProps) => {
           >
             {translate('Apply for a renewal')} &rarr;
           </a>
-        </Stack>
-      )}
-      {proposals && proposals.length > 0 && (
-        <Stack direction="horizontal" className="gap-3 mt-2">
-          <span className="fw-semibold text-dark">
-            {proposals.length === 1
-              ? translate('Proposal')
-              : translate('Proposals')}
-            :
-          </span>
-          {proposals.map((proposal, index) => (
-            <span key={proposal.uuid}>
-              <Link
-                state="call-management.proposal-details"
-                params={{
-                  proposal_uuid: proposal.uuid,
-                  uuid: project.customer_uuid,
-                }}
-                label={proposal.slug}
-              />
-              {index < proposals.length - 1 && ', '}
-            </span>
-          ))}
         </Stack>
       )}
     </PublicDashboardHero>
