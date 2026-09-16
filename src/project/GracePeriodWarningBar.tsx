@@ -2,7 +2,11 @@ import { WarningCircleIcon } from '@phosphor-icons/react';
 import { useCurrentStateAndParams } from '@uirouter/react';
 import { FC } from 'react';
 
-import { formatDate } from '@/core/dateUtils';
+import {
+  daysUntilAccessEnds,
+  formatDate,
+  lastAccessDate,
+} from '@/core/dateUtils';
 import { FeaturedIcon } from '@/core/FeaturedIcon';
 import { translate } from '@/i18n';
 import { useProject } from '@/workspace/hooks';
@@ -29,6 +33,10 @@ export const GracePeriodWarningBar: FC = () => {
 
   const endDate = formatDate(project.end_date);
   const effectiveEndDate = formatDate(project.effective_end_date);
+  // The resources go at the *start* of effective_end_date, so the last day
+  // they can be used is the day before — which is the day to put in front of
+  // users, not the deletion date.
+  const lastActiveDate = formatDate(lastAccessDate(project.effective_end_date));
 
   return (
     <div className="layout-warning-bar bar-warning">
@@ -53,8 +61,8 @@ export const GracePeriodWarningBar: FC = () => {
           ) : (
             <GracePeriodMessage
               endDate={endDate}
-              effectiveEndDate={effectiveEndDate}
-              effectiveEndDateObj={effectiveEndDateObj}
+              lastActiveDate={lastActiveDate}
+              daysRemaining={daysUntilAccessEnds(project.effective_end_date)}
             />
           )}
         </p>
@@ -65,16 +73,9 @@ export const GracePeriodWarningBar: FC = () => {
 
 const GracePeriodMessage: FC<{
   endDate: string;
-  effectiveEndDate: string;
-  effectiveEndDateObj: Date;
-}> = ({ endDate, effectiveEndDate, effectiveEndDateObj }) => {
-  const daysRemaining = Math.max(
-    0,
-    Math.ceil(
-      (effectiveEndDateObj.getTime() - new Date().getTime()) /
-        (1000 * 60 * 60 * 24),
-    ),
-  );
+  lastActiveDate: string;
+  daysRemaining: number;
+}> = ({ endDate, lastActiveDate, daysRemaining }) => {
   const urgencyClass =
     daysRemaining <= 3
       ? 'text-danger fw-bold'
@@ -86,13 +87,17 @@ const GracePeriodMessage: FC<{
     <>
       <strong className="fw-bold">{translate('Grace period active')}: </strong>
       {translate(
-        'This project ended on {endDate}. Resources will remain active until {effectiveEndDate}.',
-        { endDate, effectiveEndDate },
+        'This project ended on {endDate}. Resources will remain active until the end of {lastActiveDate}.',
+        { endDate, lastActiveDate },
       )}{' '}
       <span className={urgencyClass}>
-        {translate('{daysRemaining} days remaining', {
-          daysRemaining: String(daysRemaining),
-        })}
+        {daysRemaining <= 0
+          ? translate('Today is the last day')
+          : daysRemaining === 1
+            ? translate('1 day remaining')
+            : translate('{daysRemaining} days remaining', {
+                daysRemaining: String(daysRemaining),
+              })}
       </span>
       .
     </>

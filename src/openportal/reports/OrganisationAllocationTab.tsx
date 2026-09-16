@@ -46,6 +46,7 @@ import {
 import { getNextPageUrl } from '@/core/api';
 import { Badge } from '@/core/Badge';
 import { ENV } from '@/core/config';
+import { daysUntilAccessEnds } from '@/core/dateUtils';
 import { EChart } from '@/core/EChart';
 import { LoadingErred } from '@/core/LoadingErred';
 import { Tip } from '@/core/Tooltip';
@@ -2042,11 +2043,9 @@ export const OrganisationAllocationTab: FC = () => {
                             (spent / (totalAlloc || 1)) *
                             100
                           ).toFixed(1);
-                          const today = DateTime.now().startOf('day');
-                          const end = DateTime.fromISO(s.end_date!).startOf(
-                            'day',
-                          );
-                          const days = daysBetween(today, end);
+                          // Access ends *at* end_date, so count to the last
+                          // usable day rather than to the date itself.
+                          const days = daysUntilAccessEnds(s.end_date!);
                           return (
                             <li key={s.project_uuid} className="mb-1">
                               <a

@@ -1,6 +1,10 @@
 import { QuestionIcon } from '@phosphor-icons/react';
 
-import { formatRelative } from '@/core/dateUtils';
+import {
+  formatDate,
+  formatRelativeEndDate,
+  lastAccessDate,
+} from '@/core/dateUtils';
 import { Tip } from '@/core/Tooltip';
 import { WarnTip } from '@/core/WarnTip';
 import { translate } from '@/i18n';
@@ -24,16 +28,23 @@ export const EndDateField = ({ resource }) => {
 
   const tooltipContent = (
     <div className="flex-grow-1">
+      {/* Spelled out because the countdown beside the termination date runs to
+          this day, not to the date itself, and that is worth being able to
+          check. */}
+      <div>
+        {translate('Last day of access')}:{' '}
+        {formatDate(lastAccessDate(effectiveDate))}
+      </div>
       {ownEndDate && (
         <div>
           {translate('Resource termination date')}: {ownEndDate} (
-          {formatRelative(ownEndDate)})
+          {formatRelativeEndDate(ownEndDate)})
         </div>
       )}
       {projectEndDate && (
         <div>
           {translate('Project end date')}: {projectEndDate} (
-          {formatRelative(projectEndDate)})
+          {formatRelativeEndDate(projectEndDate)})
         </div>
       )}
     </div>
@@ -44,7 +55,7 @@ export const EndDateField = ({ resource }) => {
       label={translate('Termination date')}
       value={
         <span className={isPastDate ? 'text-danger' : ''}>
-          {effectiveDate} ({formatRelative(effectiveDate)}) &nbsp;
+          {effectiveDate} ({formatRelativeEndDate(effectiveDate)}) &nbsp;
           {ownEndDate && ownEndDate > effectiveDate ? (
             <WarnTip
               id={resource.uuid}

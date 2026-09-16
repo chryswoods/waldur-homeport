@@ -1,6 +1,6 @@
 # Bugs found in upstream, with fixes carried in this fork
 
-Five defects in `waldur/waldur-homeport` that this fork has already fixed
+Six defects in `waldur/waldur-homeport` that this fork has already fixed
 locally, written up so they can be discussed with the upstream maintainers and,
 if they agree, offered back as patches.
 
@@ -13,7 +13,7 @@ if they agree, offered back as patches.
 | Fork branch carrying the fixes | `claude/waldur-homeport-resync-ttwxn2` |
 | How they were found | Resyncing this fork onto upstream, September 2026 |
 
-All five are present in both the newest release candidate and the current
+All six are present in both the newest release candidate and the current
 development head, so none of them is something upstream has already fixed and
 not yet tagged.
 
@@ -334,6 +334,93 @@ value={template.content ?? template.original_content}
 
 in both places. `is_content_overridden` is also available if the UI should
 distinguish a customised template from a default one.
+
+---
+
+## 6. End-date countdowns are one day long
+
+**Severity:** medium — users plan around a day of access they do not have.
+**Fork fix:** see `src/core/dateUtils.ts` (`lastAccessDate`,
+`daysUntilAccessEnds`, `formatRelativeEndDate`) and its three call sites.
+
+### What is wrong
+
+An end date in Waldur is **exclusive**: on the date itself, access is already
+gone. From `waldur_core/structure/models.py`:
+
+```python
+@property
+def is_expired(self):
+    effective_end_date = self.get_effective_end_date()
+    return effective_end_date and effective_end_date <= timezone.now().date()
+```
+
+Note `<=`. A project whose `effective_end_date` is 30 Sep is expired **on** 30
+Sep, and its resources are gone. The last day anyone can use it is 29 Sep.
+
+The frontend counts to the end date itself, so every countdown is one day long
+and every "until" sentence names a day that is already too late:
+
+- `src/project/GracePeriodWarningBar.tsx:71-77` computes
+  `Math.ceil((effectiveEndDate - now) / 86400000)`, and line 89 renders
+  "Resources will remain active until {effectiveEndDate}". On 16 Sep, for an
+  effective end of 30 Sep, the bar reads:
+
+  > Grace period active: This project ended on 31 Aug 2026. Resources will
+  > remain active until 30 Sep 2026. 14 days remaining.
+
+  The resources are deleted at the start of 30 Sep. The true reading is
+  "until the end of 29 Sep 2026. 13 days remaining."
+
+- `src/project/ProjectLifecycleBadge.tsx:41` and `:60` compute the same way,
+  giving "In grace, 14d left" and "Ends in 14d" for the same project. Line 67's
+  "Ends today" fires on the end date, by which time the project has ended.
+
+- `src/marketplace/resources/details/EndDateField.tsx` passes the termination
+  date and both tooltip dates through `formatRelative`, giving
+  "30 Sep 2026 (in 14 days)".
+
+### Why it matters
+
+This is the failure mode users actually hit. People read "ends 30 Sep" as "I
+have until the 30th", schedule the last of their work for that day, and find
+the project gone when they arrive. For a grace period the cost is not an
+inconvenience: the grace period exists so people can copy their data out, and
+the banner is the thing telling them how long they have to do it.
+
+The error is small enough to be invisible in review and large enough to matter
+in practice, because it is always in the direction of promising more time than
+exists.
+
+### Suggested fix
+
+Count to the last day of access rather than to the end date, and phrase
+"until" sentences against that day. In this fork that is three helpers in
+`src/core/dateUtils.ts`:
+
+```ts
+export const lastAccessDate = (endDate: DateInput): DateTime =>
+  parseDate(endDate).startOf('day').minus({ days: 1 });
+
+export const daysUntilAccessEnds = (endDate: DateInput): number => ...
+export const formatRelativeEndDate: DateFormatter = ...
+```
+
+with the three call sites above using them, and the zero case worded ("Today
+is the last day", "Last day") rather than shown as "0 days remaining".
+
+### Worth checking alongside
+
+`Project.is_in_grace_period` uses `today <= effective_end_date` while
+`is_expired` uses `effective_end_date <= today`, so on the effective end date
+itself **both** are true. The frontend happens to resolve this in the right
+order (`GracePeriodWarningBar` tests `isExpired` first), but the model is
+ambiguous about a date that should belong to exactly one state.
+
+Separately, with a non-zero grace period `is_in_grace_period` requires
+`end_date < today`, so on `end_date` a project is neither active-with-warning
+nor in grace. This fork treats `end_date` as exclusive everywhere for
+consistency; upstream may want to decide that boundary deliberately.
 
 ---
 
