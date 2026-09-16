@@ -10,7 +10,7 @@ import { Project } from 'waldur-js-client';
 
 import { Badge } from '@/core/Badge';
 import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
-import { formatDate } from '@/core/dateUtils';
+import { daysUntilAccessEnds, formatDate } from '@/core/dateUtils';
 import { Link } from '@/core/Link';
 import { PublicDashboardHero } from '@/dashboard/hero/PublicDashboardHero';
 import { isFeatureVisible } from '@/features/connect';
@@ -131,9 +131,11 @@ const ProjectEndDate = ({ project }: ProjectProfileProps) => {
   const effectiveEndDateObj = project.effective_end_date
     ? new Date(project.effective_end_date)
     : endDateObj;
-  const daysToEnd = Math.ceil(
-    (endDateObj.getTime() - today.getTime()) / 86400000,
-  );
+  // Counts run to the last day of access, which is the day before the end
+  // date — see the end-dates-are-exclusive note in @/core/dateUtils. The
+  // "expired N days ago" count below is unaffected: it measures from the day
+  // access was actually lost, which is the effective end date itself.
+  const daysToEnd = daysUntilAccessEnds(project.end_date);
   const daysSinceEffectiveEnd = Math.floor(
     (today.getTime() - effectiveEndDateObj.getTime()) / 86400000,
   );
@@ -144,11 +146,14 @@ const ProjectEndDate = ({ project }: ProjectProfileProps) => {
     className = 'text-warning fw-semibold';
     const daysLeft = Math.max(
       0,
-      Math.ceil((effectiveEndDateObj.getTime() - today.getTime()) / 86400000),
+      daysUntilAccessEnds(project.effective_end_date),
     );
-    suffix = translate('(in grace period, {n} days left)', {
-      n: String(daysLeft),
-    });
+    suffix =
+      daysLeft === 0
+        ? translate('(in grace period, last day)')
+        : translate('(in grace period, {n} days left)', {
+            n: String(daysLeft),
+          });
   } else if (daysSinceEffectiveEnd > 0) {
     className = 'text-danger fw-semibold';
     suffix = translate('(expired {n} days ago)', {
@@ -158,7 +163,7 @@ const ProjectEndDate = ({ project }: ProjectProfileProps) => {
     className = 'text-warning fw-semibold';
     suffix =
       daysToEnd === 0
-        ? translate('(today)')
+        ? translate('(last day)')
         : translate('(in {n} days)', { n: String(daysToEnd) });
   }
 

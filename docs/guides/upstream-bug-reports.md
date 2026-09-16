@@ -380,6 +380,11 @@ and every "until" sentence names a day that is already too late:
   date and both tooltip dates through `formatRelative`, giving
   "30 Sep 2026 (in 14 days)".
 
+- `src/project/ProjectProfile.tsx:136` and `:145` repeat the calculation a
+  third time for the dashboard hero, so the hero and the warning bar disagree
+  by a day about the same project: "End date: 31 Aug 2026 (in grace period,
+  14 days left)" under a bar reading "13 days remaining".
+
 ### Why it matters
 
 This is the failure mode users actually hit. People read "ends 30 Sep" as "I
