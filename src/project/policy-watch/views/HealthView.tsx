@@ -96,20 +96,33 @@ const CreditMetrics: FC<{ data: PolicyWatchData }> = ({ data }) => {
     applyAsMinimalConsumption: data.creditTerms?.applyAsMinimalConsumption,
   });
 
+  // With an award attached, its accounting is what the project is measured
+  // against, and ProjectCredit.value is a month-lagging derivative of it.
+  const fromAward = data.creditBreakdown?.source === 'award';
+  const remainingValue = fromAward
+    ? data.creditBreakdown.remaining
+    : runway.credit.value;
+
   const stats = [
     {
       label: translate('Remaining'),
       icon: (
         <MetricTip
           id="credit-remaining"
-          label={translate(
-            'Credit still available to this project. It is drawn down as usage is compensated each month, and set to zero if the credit reaches its end date.',
-          )}
+          label={
+            fromAward
+              ? translate(
+                  'Allocation still available on the award backing this project: what the award granted, less the usage counted against it. This is the same figure as the award card above.',
+                )
+              : translate(
+                  'Credit still available to this project. It is drawn down as usage is compensated each month, and set to zero if the credit reaches its end date.',
+                )
+          }
         />
       ),
       value: (
         <Metric
-          value={defaultCurrency(runway.credit.value)}
+          value={defaultCurrency(remainingValue)}
           caption={
             data.creditBreakdown
               ? translate('of {granted} allocated', {

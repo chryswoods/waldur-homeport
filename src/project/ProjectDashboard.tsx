@@ -406,7 +406,12 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
           quota rather than credit, so they are not tied to an allocation; each
           view ships behind its own dashboard.usage_* feature flag and the
           section renders nothing until an operator enables one. */}
-      {showBillingInfo && <ProjectCreditHealthBlock project={project} />}
+      {showBillingInfo && (
+        <ProjectCreditHealthBlock
+          project={project}
+          hasAward={hasAnyManagedProjects}
+        />
+      )}
       <UsageViewsSection project={project} />
     </>
   );

@@ -1,14 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
 import { FC } from 'react';
 import { Col } from 'react-bootstrap';
-import {
-  type ManagedProject,
-  openportalManagedProjectAccountingSummaryList,
-  type Project,
-} from 'waldur-js-client';
+import { type ManagedProject, type Project } from 'waldur-js-client';
 
 import { AlertItem } from '@/core/AlertItem';
-import { STALE_TIME } from '@/core/constants';
 import { formatDate } from '@/core/dateUtils';
 import { defaultCurrency } from '@/core/formatCurrency';
 import { Panel } from '@/core/Panel';
@@ -19,6 +13,7 @@ import {
   percentOf,
   UsageProgressBar,
 } from '../allocationUsage';
+import { useProjectAccountingSummary } from '../useProjectAccountingSummary';
 
 import { embargoedUntil } from './utils';
 
@@ -26,25 +21,6 @@ interface Props {
   managedProjects: ManagedProject[];
   project: Project;
 }
-
-/**
- * The award's allocation and the usage counted against it, both on the credits
- * scale the rest of the accounting UI uses.
- *
- * Keyed by project rather than by award: the endpoint reports the award
- * currently attached to a project, so where a project shows more than one card
- * react-query serves them all from one request.
- */
-const useAwardAccounting = (projectUuid: string) =>
-  useQuery({
-    queryKey: ['openportal-managed-project-accounting-summary', projectUuid],
-    queryFn: () =>
-      openportalManagedProjectAccountingSummaryList({
-        query: { project_uuid: projectUuid },
-      }).then((response) => response.data?.[0] ?? null),
-    enabled: Boolean(projectUuid),
-    staleTime: STALE_TIME,
-  });
 
 const ManagedProjectCard: FC<{ mp: ManagedProject; project: Project }> = ({
   mp,
@@ -61,7 +37,7 @@ const ManagedProjectCard: FC<{ mp: ManagedProject; project: Project }> = ({
       ? details.breakdown
       : null;
 
-  const { data: accounting } = useAwardAccounting(project.uuid);
+  const { data: accounting } = useProjectAccountingSummary(project.uuid);
 
   // allocation_credits is null when the award has no resolvable project
   // template or no allocation to convert, in which case there is a usage

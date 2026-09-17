@@ -182,8 +182,21 @@ export interface CreditBreakdown {
   /** Credit forfeited without buying anything: the ledger's `minimal_draw` and
    *  `expiry` rows. Hard to recover. */
   lost: number;
-  /** Current remaining balance (ProjectCredit.value). */
+  /** Current remaining balance. */
   remaining: number;
+  /**
+   * Which accounting these figures came from.
+   *
+   * 'ledger' is Waldur's own: a balance drawn down month by month, read from
+   * the credit transactions.
+   *
+   * 'award' is the OpenPortal award accounting, a running total of what the
+   * award granted against what has been used. Where an award exists it is the
+   * authority, because OpenPortal writes `ProjectCredit.value` directly without
+   * recording ledger rows — so a ledger-derived breakdown would report a
+   * project that has consumed most of its award as 0% consumed.
+   */
+  source: 'ledger' | 'award';
 }
 
 export interface PolicyWatchData {

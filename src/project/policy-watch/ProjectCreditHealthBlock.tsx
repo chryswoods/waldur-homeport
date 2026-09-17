@@ -4,6 +4,7 @@ import { Col, Row } from 'react-bootstrap';
 import { projectCreditsList } from 'waldur-js-client';
 
 import { SHORT_STALE_TIME } from '@/core/constants';
+import { useProjectAccountingSummary } from '@/openportal/useProjectAccountingSummary';
 import { Project } from '@/workspace/types';
 
 import { usePolicyWatchData } from './usePolicyWatchData';
@@ -11,6 +12,12 @@ import { HealthView } from './views/HealthView';
 
 interface Props {
   project: Project;
+  /**
+   * True when the project is backed by an OpenPortal award, so its figures come
+   * from the award ("absolute") accounting rather than Waldur's credit ledger.
+   * Decided by the dashboard, which already establishes it for the award card.
+   */
+  hasAward?: boolean;
 }
 
 /**
@@ -22,7 +29,7 @@ interface Props {
  * hit mounts the inner component whose hook fans out to policies, resources,
  * invoices and organization credit.
  */
-export const ProjectCreditHealthBlock: FC<Props> = ({ project }) => {
+export const ProjectCreditHealthBlock: FC<Props> = ({ project, hasAward }) => {
   const { data: credit } = useQuery({
     queryKey: ['policy-watch-project-credit', project?.uuid],
     queryFn: () =>
@@ -37,11 +44,23 @@ export const ProjectCreditHealthBlock: FC<Props> = ({ project }) => {
   if (!credit) {
     return null;
   }
-  return <CreditHealth project={project} />;
+  return <CreditHealth project={project} hasAward={hasAward} />;
 };
 
-const CreditHealth: FC<Props> = ({ project }) => {
-  const data = usePolicyWatchData(project);
+const CreditHealth: FC<Props> = ({ project, hasAward }) => {
+  // Shares the award card's request rather than adding one: same query key.
+  const { data: awardAccounting } = useProjectAccountingSummary(
+    project?.uuid,
+    Boolean(hasAward),
+  );
+  // Passed whenever an award is attached, including when its allocation does
+  // not resolve: that is still enough to know the credit ledger is not this
+  // project's accounting, and a breakdown with nothing to show is better than
+  // one that is wrong.
+  const data = usePolicyWatchData(
+    project,
+    awardAccounting?.has_award ? awardAccounting : null,
+  );
 
   if (data.isLoading || data.hasError || !data.runway.credit) {
     return null;

@@ -1,4 +1,7 @@
-import { CreditTransaction } from 'waldur-js-client';
+import {
+  CreditTransaction,
+  ManagedProjectAccountingSummary,
+} from 'waldur-js-client';
 
 import { CreditBreakdown } from './types';
 
@@ -62,5 +65,44 @@ export const buildCreditBreakdown = (
   const used = Math.max(0, drawnAgainstUsage - reversed);
   const lost = Math.max(0, forfeited);
 
-  return { used, lost, remaining, granted: used + lost + remaining };
+  return {
+    used,
+    lost,
+    remaining,
+    granted: used + lost + remaining,
+    source: 'ledger',
+  };
+};
+
+/**
+ * The same split, taken from the OpenPortal award accounting instead of the
+ * ledger.
+ *
+ * `granted` is the award's allocation rather than a sum of the parts, because
+ * here it is a stated figure rather than something inferred: the award says what
+ * it granted. Nothing is forfeited — the award accounting has no equivalent of
+ * the minimal-consumption floor or of credit expiring unspent — so `lost` is
+ * zero and the card drops that segment rather than showing a permanent 0%.
+ *
+ * `remaining` comes from the endpoint rather than being computed here, so the
+ * figure matches the award card on the same dashboard exactly.
+ */
+export const awardCreditBreakdown = (
+  summary: ManagedProjectAccountingSummary,
+): CreditBreakdown | null => {
+  // Null when the award has no resolvable project template or no allocation to
+  // convert: there is a usage figure but nothing to measure it against, and a
+  // breakdown against a zero allocation would read as a fully spent award.
+  const granted = summary.allocation_credits;
+  if (granted == null) {
+    return null;
+  }
+  const used = summary.usage_credits ?? 0;
+  return {
+    granted,
+    used,
+    lost: 0,
+    remaining: summary.remaining_credits ?? granted - used,
+    source: 'award',
+  };
 };

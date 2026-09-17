@@ -31,6 +31,10 @@ export const CreditBreakdownCard: FC<Props> = ({ breakdown }) => {
   // Theme colors, matching the app's chart convention (brand green = the
   // consumed/primary series, gray-300 = remaining/inactive, danger = negative).
   const c = getWatchColors();
+  // The award accounting has no forfeiture: no minimum-draw floor, and an
+  // allocation that is not used is simply not used. Keeping a permanently zero
+  // "Lost" badge would imply the award can forfeit and happens not to have.
+  const fromAward = breakdown.source === 'award';
   const segments: Segment[] = [
     {
       key: 'used',
@@ -38,9 +42,11 @@ export const CreditBreakdownCard: FC<Props> = ({ breakdown }) => {
       value: used,
       color: c.brand300,
       variant: 'success',
-      hint: translate('Credit consumed against real usage.'),
+      hint: fromAward
+        ? translate('Usage counted against the award, converted to credits.')
+        : translate('Credit consumed against real usage.'),
     },
-    {
+    !fromAward && {
       key: 'lost',
       label: translate('Lost'),
       value: lost,
@@ -56,9 +62,11 @@ export const CreditBreakdownCard: FC<Props> = ({ breakdown }) => {
       value: remaining,
       color: c.neutral,
       variant: 'secondary',
-      hint: translate('Credit still available to spend.'),
+      hint: fromAward
+        ? translate('Allocation still available on the award.')
+        : translate('Credit still available to spend.'),
     },
-  ];
+  ].filter(Boolean) as Segment[];
 
   const pct = (value: number) =>
     Math.max(0, Math.min(100, (value / granted) * 100));
@@ -68,9 +76,13 @@ export const CreditBreakdownCard: FC<Props> = ({ breakdown }) => {
     <>
       <div className="d-flex justify-content-between align-items-baseline mb-2 gap-3">
         <span className="text-muted">
-          {translate('Allocated {amount}', {
-            amount: defaultCurrency(granted),
-          })}
+          {fromAward
+            ? translate('Award allocation {amount}', {
+                amount: defaultCurrency(granted),
+              })
+            : translate('Allocated {amount}', {
+                amount: defaultCurrency(granted),
+              })}
         </span>
         <span className="text-muted">
           {translate('{pct}% consumed', { pct: consumedPct.toFixed(0) })}

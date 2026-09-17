@@ -7,6 +7,7 @@ import {
   marketplaceCustomerEstimatedCostPoliciesList,
   marketplaceProjectEstimatedCostPoliciesList,
   marketplaceResourcesList,
+  ManagedProjectAccountingSummary,
   marketplaceSlurmPeriodicUsagePoliciesList,
   projectCreditsList,
   Resource,
@@ -19,7 +20,7 @@ import { getCostPolicyActionOptions } from '@/customer/cost-policies/utils';
 import { translate } from '@/i18n';
 import { Project } from '@/workspace/types';
 
-import { buildCreditBreakdown } from './creditBreakdown';
+import { awardCreditBreakdown, buildCreditBreakdown } from './creditBreakdown';
 import { buildCreditEvents } from './creditEvents';
 import { creditableCostThisMonth } from './creditPacing';
 import { projectCreditRunway, safeNumber } from './creditRunway';
@@ -141,7 +142,16 @@ const formatPolicyAction = (actions: string): string => {
     .join(', ');
 };
 
-export const usePolicyWatchData = (project: Project): PolicyWatchData => {
+export const usePolicyWatchData = (
+  project: Project,
+  /**
+   * The OpenPortal award accounting for this project, when it has one. Passed
+   * in rather than fetched here so the dashboard decides whether the project
+   * uses award ("absolute") accounting at all, and so the request is shared
+   * with the award card rather than repeated.
+   */
+  awardAccounting?: ManagedProjectAccountingSummary | null,
+): PolicyWatchData => {
   const projectUuid = project?.uuid;
   const customerUuid = project?.customer_uuid;
 
@@ -332,6 +342,7 @@ export const usePolicyWatchData = (project: Project): PolicyWatchData => {
     // so they live in creditRunway.ts where they can be tested on their own.
     const {
       burnPerDay,
+      monthlyBurn,
       daysRemaining,
       exhaustionDate,
       hasExpired: isCreditExpired,
@@ -471,6 +482,24 @@ export const usePolicyWatchData = (project: Project): PolicyWatchData => {
       today,
     );
 
+    // Under award accounting the balance to project from is the award's own
+    // remaining, not ProjectCredit.value: the latter excludes the current month
+    // by construction, so it dates the run-out later than the award card does.
+    // The rate is unchanged — the award accounting reports totals, not a daily
+    // series, so there is nothing better to derive a rate from.
+    // Only when the allocation resolved: without it there is a usage figure and
+    // nothing to measure it against, so there is no balance to project from.
+    const awardRemaining =
+      awardAccounting && awardAccounting.allocation_credits != null
+        ? (awardAccounting.remaining_credits ??
+          awardAccounting.allocation_credits -
+            safeNumber(awardAccounting.usage_credits))
+        : null;
+    const awardDaysRemaining =
+      awardRemaining !== null && monthlyBurn > 0
+        ? Math.floor((Math.max(0, awardRemaining) * 30) / monthlyBurn)
+        : null;
+
     const runway: CreditRunway = {
       credit: projectCredit,
       customerCredit,
@@ -478,8 +507,14 @@ export const usePolicyWatchData = (project: Project): PolicyWatchData => {
       isLimitedByOrganizationCredit,
       isCreditExpired,
       burnPerDay,
-      daysRemaining,
-      exhaustionDate,
+      daysRemaining:
+        awardRemaining !== null ? awardDaysRemaining : daysRemaining,
+      exhaustionDate:
+        awardRemaining !== null
+          ? awardDaysRemaining !== null
+            ? isoDate(addDays(today, awardDaysRemaining))
+            : null
+          : exhaustionDate,
       events,
     };
 
@@ -681,8 +716,18 @@ export const usePolicyWatchData = (project: Project): PolicyWatchData => {
     // The invoice items record only one of them: the minimal-consumption floor
     // takes its shortfall straight off the balance and writes no item, so a
     // breakdown inferred from items could never show forfeiture at all.
+    // With an award attached, the award accounting is the authority and the
+    // ledger is not merely less precise but wrong: OpenPortal sets
+    // ProjectCredit.value directly and writes no transactions, so every ledger
+    // total is zero and the breakdown would conclude that a project which has
+    // spent most of its award has consumed none of it.
+    // Note the ledger is not consulted at all once an award is attached, even
+    // when the award's own allocation does not resolve: no breakdown is the
+    // honest answer there, a ledger one would be a false answer.
     let creditBreakdown: CreditBreakdown | null = null;
-    if (creditTerms) {
+    if (awardAccounting) {
+      creditBreakdown = awardCreditBreakdown(awardAccounting);
+    } else if (creditTerms) {
       creditBreakdown = buildCreditBreakdown(creditLedger, creditTerms.value);
     }
 
@@ -723,6 +768,7 @@ export const usePolicyWatchData = (project: Project): PolicyWatchData => {
     };
   }, [
     refetch,
+    awardAccounting,
     projectPoliciesQ.data,
     projectPoliciesQ.isLoading,
     projectPoliciesQ.error,
