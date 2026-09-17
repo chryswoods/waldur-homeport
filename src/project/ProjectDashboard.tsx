@@ -241,75 +241,6 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
   }
   return (
     <>
-      {(project.description || project.staff_notes) && (
-        <Row>
-          {project.description && (
-            <Col
-              md={project.staff_notes ? 6 : 12}
-              className="mb-5"
-              style={COMMON_WIDGET_HEIGHT}
-            >
-              <Panel
-                title={translate('Description')}
-                actions={
-                  canEditProject && (
-                    <ActionButton
-                      title={translate('Edit')}
-                      iconNode={<PencilSimpleIcon weight="bold" />}
-                      iconRight
-                      action={handleEditDescription}
-                      tooltip={translate('Edit description')}
-                    />
-                  )
-                }
-                cardBordered
-                className="h-100"
-              >
-                <TruncatedMarkdown
-                  text={project.description}
-                  title={translate('Description')}
-                  maxHeight={120}
-                />
-              </Panel>
-            </Col>
-          )}
-          {project.staff_notes && (user.is_staff || user.is_support) && (
-            <Col
-              md={project.description ? 6 : 12}
-              className="mb-5"
-              style={COMMON_WIDGET_HEIGHT}
-            >
-              <Panel
-                title={
-                  <>
-                    {translate('Staff Notes')}{' '}
-                    <Badge variant="warning" pill outline>
-                      {translate('Internal')}
-                    </Badge>
-                  </>
-                }
-                actions={
-                  user.is_staff && (
-                    <EditButton
-                      onClick={handleEditStaffNotes}
-                      tooltip={translate('Edit staff notes')}
-                    />
-                  )
-                }
-                cardBordered
-                className="h-100"
-              >
-                <TruncatedMarkdown
-                  text={project.staff_notes}
-                  title={translate('Staff Notes')}
-                  maxHeight={120}
-                  showInternalBadge={true}
-                />
-              </Panel>
-            </Col>
-          )}
-        </Row>
-      )}
       {shouldShowLimitBasedResources && (
         <ProjectLimitUsageBasedResources
           showCost={!shouldConcealPrices && showBillingInfo}
@@ -341,7 +272,7 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
             <ProjectDashboardBalance project={project} />
           </Col>
         )}
-        {!hasAnyRemoteProjects && (
+        {!hasAnyRemoteProjects && !hasAnyManagedProjects && (
           <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
             <TeamWidget
               api={() =>
@@ -413,6 +344,78 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
         />
       )}
       <UsageViewsSection project={project} />
+      {/* Description and staff notes last: they are static prose the project
+          team already knows, and at the top they pushed the figures that do
+          change — credit, usage, what happens next — below the fold. */}
+      {(project.description || project.staff_notes) && (
+        <Row>
+          {project.description && (
+            <Col
+              md={project.staff_notes ? 6 : 12}
+              className="mb-5"
+              style={COMMON_WIDGET_HEIGHT}
+            >
+              <Panel
+                title={translate('Description')}
+                actions={
+                  canEditProject && (
+                    <ActionButton
+                      title={translate('Edit')}
+                      iconNode={<PencilSimpleIcon weight="bold" />}
+                      iconRight
+                      action={handleEditDescription}
+                      tooltip={translate('Edit description')}
+                    />
+                  )
+                }
+                cardBordered
+                className="h-100"
+              >
+                <TruncatedMarkdown
+                  text={project.description}
+                  title={translate('Description')}
+                  maxHeight={120}
+                />
+              </Panel>
+            </Col>
+          )}
+          {project.staff_notes && (user.is_staff || user.is_support) && (
+            <Col
+              md={project.description ? 6 : 12}
+              className="mb-5"
+              style={COMMON_WIDGET_HEIGHT}
+            >
+              <Panel
+                title={
+                  <>
+                    {translate('Staff Notes')}{' '}
+                    <Badge variant="warning" pill outline>
+                      {translate('Internal')}
+                    </Badge>
+                  </>
+                }
+                actions={
+                  user.is_staff && (
+                    <EditButton
+                      onClick={handleEditStaffNotes}
+                      tooltip={translate('Edit staff notes')}
+                    />
+                  )
+                }
+                cardBordered
+                className="h-100"
+              >
+                <TruncatedMarkdown
+                  text={project.staff_notes}
+                  title={translate('Staff Notes')}
+                  maxHeight={120}
+                  showInternalBadge={true}
+                />
+              </Panel>
+            </Col>
+          )}
+        </Row>
+      )}
     </>
   );
 };
