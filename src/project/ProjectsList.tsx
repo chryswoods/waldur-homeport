@@ -4,7 +4,7 @@ import { projectsList } from 'waldur-js-client';
 import { formatDate } from '@/core/dateUtils';
 import { defaultCurrency } from '@/core/formatCurrency';
 import { isFeatureVisible } from '@/features/connect';
-import { MarketplaceFeatures, ProjectFeatures } from '@/FeaturesEnums';
+import { ProjectFeatures } from '@/FeaturesEnums';
 import { translate } from '@/i18n';
 import { CUSTOMER_PROJECTS_LIST } from '@/project/constants';
 import { ProjectEndDateField } from '@/project/ProjectEndDateField';
@@ -114,16 +114,14 @@ export const ProjectsListTable: FC<TableProps & ProjectsListProps> = ({
     },
   ];
 
-  // Both money columns need the organisation to show billing figures in
-  // projects. Only the cost one is also subject to conceal_prices: that setting
-  // hides marketplace *prices*, and a credit balance is not a price -- a
-  // deployment that conceals what things cost still wants to tell a project how
-  // much of its allocation is left.
+  // Both money columns need only the organisation to show billing figures in
+  // projects. Neither is subject to conceal_prices: that setting hides
+  // marketplace *prices* -- what things cost to buy -- and these are a
+  // project's own spend and its remaining allocation, which a deployment that
+  // conceals prices still wants its projects to see.
   const showsBillingInfo = customer?.display_billing_info_in_projects !== false;
-  const showsPrices =
-    showsBillingInfo && !isFeatureVisible(MarketplaceFeatures.conceal_prices);
 
-  if (showsPrices && isFeatureVisible(ProjectFeatures.estimated_cost)) {
+  if (showsBillingInfo && isFeatureVisible(ProjectFeatures.estimated_cost)) {
     columns.push({
       title: translate('Spent this month'),
       render: ProjectCostField,

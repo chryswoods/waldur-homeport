@@ -19,6 +19,7 @@ import {
 import { hasEditableLimitComponents } from '@/marketplace/resources/change-limits/utils';
 import { isInferenceServiceEnabled } from '@/marketplace/resources/inference';
 import { PageBarTab } from '@/navigation/types';
+import { isOpenPortalOffering } from '@/openportal/offeringTypes';
 import { INSTANCE_TYPE, TENANT_TYPE } from '@/openstack/constants';
 import { MARKETPLACE_RANCHER } from '@/rancher/cluster/create/constants';
 import { getTabs } from '@/resource/tabs/registry';
@@ -210,7 +211,13 @@ export const getResourceTabs = ({
     });
   }
 
-  if (resource.is_usage_based || resource.is_limit_based) {
+  // Same reasoning as the component card in the hero: an OpenPortal resource's
+  // usage belongs to its award, and the project's usage report presents it
+  // properly rather than burying a different measure of it here.
+  if (
+    (resource.is_usage_based || resource.is_limit_based) &&
+    !isOpenPortalOffering(resource.offering_type)
+  ) {
     tabs.push({
       key: 'usage-history',
       title: translate('Usage'),

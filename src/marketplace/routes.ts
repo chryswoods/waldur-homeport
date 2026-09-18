@@ -700,6 +700,10 @@ export const states: StateDeclaration[] = [
     data: {
       permissions: [() => ENV.plugins.WALDUR_OPENPORTAL?.ENABLED],
       breadcrumb: () => translate('Managed project'),
+      // Reached by clicking a row, and its URL needs an identifier and a
+      // destination. Without this it also rendered as a tab beside its own
+      // list, where there is no row to take those from, so the link was dead.
+      skipBreadcrumb: true,
     },
   },
 

@@ -101,8 +101,10 @@ export const AwardConsumptionChart: FC<Props> = ({
     // No total in the subtitle: this sits beside the award card, which states
     // it already.
     <WidgetCard cardTitle={translate('Monthly usage')} className={className}>
-      <div className="separator mt-4 mb-5" />
-      <EChart options={options} height="260px" />
+      <div className="separator mt-4 mb-4" />
+      {/* The same height as the credit chart this replaces, so the card
+          matches the one beside it rather than setting its own. */}
+      <EChart options={options} height="130px" />
     </WidgetCard>
   );
 };

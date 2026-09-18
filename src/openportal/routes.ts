@@ -1,6 +1,8 @@
 import { ENV } from '@/core/config';
 import { lazyComponent } from '@/core/lazyComponent';
 import { StateDeclaration } from '@/core/types';
+import { isFeatureVisible } from '@/features/connect';
+import { CustomerFeatures } from '@/FeaturesEnums';
 import { translate } from '@/i18n';
 import {
   isStaffOrSupport,
@@ -13,8 +15,13 @@ const isOrganisationMemberOrStaffOrSupport = (state) =>
 
 // The remote project pages are read-only views of organisation data, so
 // organisation readers belong here too, alongside owners, staff and support.
+// Roles alone are not enough: the organisation feature decides whether remote
+// projects exist for this deployment at all, and without it the tabs appeared
+// for anyone with the role even where the feature was switched off.
 const canViewRemoteProjects = (state) =>
-  isOrganisationMemberOrStaffOrSupport(state) || isOwnerOrStaffOrReader(state);
+  isFeatureVisible(CustomerFeatures.show_openportal_remote_projects) &&
+  (isOrganisationMemberOrStaffOrSupport(state) ||
+    isOwnerOrStaffOrReader(state));
 
 export const states: StateDeclaration[] = [
   {
@@ -132,6 +139,10 @@ export const states: StateDeclaration[] = [
     ),
     data: {
       breadcrumb: () => translate('Remote project'),
+      // Same as the managed project detail route: reached from a row, and
+      // needs a uuid the tab bar cannot supply. Its sibling audit route
+      // already does this.
+      skipBreadcrumb: true,
       priority: 107,
       permissions: [
         canViewRemoteProjects,

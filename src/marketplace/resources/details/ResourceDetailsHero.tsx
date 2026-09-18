@@ -6,6 +6,7 @@ import {
 
 import { PublicDashboardHero } from '@/dashboard/hero/PublicDashboardHero';
 import { RefreshButton } from '@/marketplace/common/RefreshButton';
+import { isOpenPortalOffering } from '@/openportal/offeringTypes';
 import { INSTANCE_TYPE, VOLUME_TYPE } from '@/openstack/constants';
 import { formatResourceType } from '@/resource/utils';
 
@@ -89,7 +90,14 @@ export const ResourceDetailsHero = ({
           )
         }
         quickBody={
-          isRPOnly ? null : resource.offering_type === INSTANCE_TYPE ? (
+          // OpenPortal resources are accounted for against an award, not
+          // against the component limits this card reports, so the figures
+          // here describe a different thing entirely and read as a
+          // contradiction of the project's own accounting.
+          isRPOnly ||
+          isOpenPortalOffering(
+            resource.offering_type,
+          ) ? null : resource.offering_type === INSTANCE_TYPE ? (
             scope && <InstanceComponents resource={scope} />
           ) : resource.offering_type === VOLUME_TYPE ? (
             scope && <VolumeComponents resource={scope} />
