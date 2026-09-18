@@ -52,6 +52,25 @@ describe('AwardPaceCard', () => {
     expect(screen.queryByText(/Runs out/)).toBeNull();
   });
 
+  // A loss the project could still close is stated plainly; one it almost
+  // certainly cannot is the headline of the card.
+  it('escalates the loss figure once it is large', () => {
+    render(<AwardPaceCard pace={pace(10000)} />);
+
+    // 53,750 allocation, on track to use ~20,100 — over half unspent, so the
+    // figure is coloured rather than stated flatly.
+    expect(
+      screen.getByText(/33,6/, { selector: '.text-danger' }),
+    ).toBeInTheDocument();
+  });
+
+  it('leaves a recoverable shortfall unstyled', () => {
+    render(<AwardPaceCard pace={pace(24000)} />);
+
+    expect(screen.queryByText(/5,4/, { selector: '.text-danger' })).toBeNull();
+    expect(screen.queryByText(/5,4/, { selector: '.text-warning' })).toBeNull();
+  });
+
   // The funder reads this card, and "/d" is jargon to them.
   it('spells out the rate unit', () => {
     render(<AwardPaceCard pace={pace(18100)} />);

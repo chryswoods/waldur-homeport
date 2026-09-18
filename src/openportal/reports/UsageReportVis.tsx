@@ -17,7 +17,7 @@
  */
 
 import { FileArrowDownIcon, FileXlsIcon } from '@phosphor-icons/react';
-import { FC, useEffect, useMemo, useRef, useState } from 'react';
+import { MouseEvent, FC, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EChart } from '@/core/EChart';
 import { Tip } from '@/core/Tooltip';
@@ -59,6 +59,17 @@ interface Props {
   height?: string;
   nameMaps?: NameMaps;
 }
+
+/**
+ * Drop focus after a mouse click on a toggle.
+ *
+ * Bootstrap keeps its focus ring on a clicked `.btn`, so an *unselected* toggle
+ * that was just pressed goes on looking pressed while the real selection sits
+ * elsewhere in the group. Blurring on mouse-up only leaves keyboard focus — and
+ * its ring, which is doing its job there — alone.
+ */
+const blurOnClick = (event: MouseEvent<HTMLButtonElement>) =>
+  event.currentTarget.blur();
 
 export const UsageReportVis: FC<Props> = ({
   reports,
@@ -291,6 +302,7 @@ export const UsageReportVis: FC<Props> = ({
               key={m}
               type="button"
               className={`btn btn-${metric === m ? 'primary' : 'secondary'}`}
+              onMouseUp={blurOnClick}
               onClick={() => setMetric(m)}
             >
               {getMetricLabels()[m]}
@@ -303,6 +315,7 @@ export const UsageReportVis: FC<Props> = ({
           <button
             type="button"
             className={`btn btn-${view === 'timeseries' ? 'primary' : 'secondary'}`}
+            onMouseUp={blurOnClick}
             onClick={() => setView('timeseries')}
           >
             {translate('Timeline')}
@@ -310,6 +323,7 @@ export const UsageReportVis: FC<Props> = ({
           <button
             type="button"
             className={`btn btn-${view === 'pie' ? 'primary' : 'secondary'}`}
+            onMouseUp={blurOnClick}
             onClick={() => setView('pie')}
           >
             {translate('Pie')}
@@ -322,6 +336,7 @@ export const UsageReportVis: FC<Props> = ({
             <button
               type="button"
               className={`btn btn-${groupBy === 'day' ? 'primary' : 'secondary'}`}
+              onMouseUp={blurOnClick}
               onClick={() => setGroupBy('day')}
             >
               {translate('Day')}
@@ -329,6 +344,7 @@ export const UsageReportVis: FC<Props> = ({
             <button
               type="button"
               className={`btn btn-${groupBy === 'month' ? 'primary' : 'secondary'}`}
+              onMouseUp={blurOnClick}
               onClick={() => setGroupBy('month')}
             >
               {translate('Month')}
@@ -342,6 +358,7 @@ export const UsageReportVis: FC<Props> = ({
             <button
               type="button"
               className={`btn btn-${groupMode === 'user' ? 'primary' : 'secondary'}`}
+              onMouseUp={blurOnClick}
               onClick={() => setGroupMode('user')}
             >
               {translate('By user')}
@@ -349,6 +366,7 @@ export const UsageReportVis: FC<Props> = ({
             <button
               type="button"
               className={`btn btn-${groupMode === 'project' ? 'primary' : 'secondary'}`}
+              onMouseUp={blurOnClick}
               onClick={() => setGroupMode('project')}
             >
               {translate('By project')}
@@ -362,6 +380,7 @@ export const UsageReportVis: FC<Props> = ({
             <button
               type="button"
               className={`btn btn-${showMapped ? 'primary' : 'secondary'}`}
+              onMouseUp={blurOnClick}
               onClick={() => setShowMapped(true)}
             >
               {translate('Names')}
@@ -369,6 +388,7 @@ export const UsageReportVis: FC<Props> = ({
             <button
               type="button"
               className={`btn btn-${!showMapped ? 'primary' : 'secondary'}`}
+              onMouseUp={blurOnClick}
               onClick={() => setShowMapped(false)}
             >
               {translate('IDs')}

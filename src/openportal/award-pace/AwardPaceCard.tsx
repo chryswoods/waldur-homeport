@@ -159,6 +159,15 @@ interface Props {
 export const AwardPaceCard: FC<Props> = ({ pace }) => {
   const c = getChartThemeColors();
   const underspending = pace.projectedDifference < 0;
+  // A loss worth raising your voice about. Under a quarter of the allocation is
+  // a gap a project can still close; past that the figure is the headline of
+  // the card, so it is coloured and weighted like one — amber to a third, red
+  // beyond, where the shortfall is unlikely to be spent in the time left.
+  const lossFraction = underspending
+    ? Math.abs(pace.projectedDifference) / pace.allocation
+    : 0;
+  const lossTone =
+    lossFraction >= 0.33 ? 'danger' : lossFraction >= 0.25 ? 'warning' : null;
 
   return (
     <WidgetCard cardTitle={translate('Award pace')} className="mb-5">
@@ -239,7 +248,13 @@ export const AwardPaceCard: FC<Props> = ({ pace }) => {
                 }
               />
             }
-            value={defaultCurrency(Math.abs(pace.projectedDifference))}
+            value={
+              <span
+                className={lossTone ? `text-${lossTone} fw-boldest` : undefined}
+              >
+                {defaultCurrency(Math.abs(pace.projectedDifference))}
+              </span>
+            }
             footer={
               <span className="text-muted fs-7">
                 {translate('{total} of {allocation} used by {date}', {

@@ -179,6 +179,9 @@ const buildChartOptions = (
 
   return {
     tooltip: {
+      // Bounded to the chart so a tooltip near the edge of the
+      // viewport is not drawn half off-screen.
+      confine: true,
       trigger: 'axis',
       axisPointer: { type: isLine ? 'cross' : 'shadow' },
       formatter: (params: any[]) => {
@@ -324,6 +327,9 @@ const buildConsumptionChartOptions = (
 
   return {
     tooltip: {
+      // Bounded to the chart so a tooltip near the edge of the
+      // viewport is not drawn half off-screen.
+      confine: true,
       trigger: 'axis',
       axisPointer: { type: isLine ? 'cross' : 'shadow' },
       formatter: (params: any[]) => {

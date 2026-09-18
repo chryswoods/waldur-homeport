@@ -423,6 +423,9 @@ export function buildTimeseriesOptions(
   return {
     color: PALETTE,
     tooltip: {
+      // Bounded to the chart so a tooltip near the edge of the
+      // viewport is not drawn half off-screen.
+      confine: true,
       trigger: 'axis',
       axisPointer: { type: 'cross' },
       formatter: (params: any) => {
@@ -496,6 +499,9 @@ export function buildPieOptions(
 
   return {
     tooltip: {
+      // Bounded to the chart so a tooltip near the edge of the
+      // viewport is not drawn half off-screen.
+      confine: true,
       trigger: 'item',
       formatter: translate('{name}: {value} h ({percent}%)', {
         name: '{b}',
@@ -577,8 +583,10 @@ export function buildProjectTimeseriesOptions(
   return {
     color: PALETTE,
     tooltip: {
-      trigger: 'axis',
+      // Bounded to the chart so a tooltip near the edge of the
+      // viewport is not drawn half off-screen.
       confine: true,
+      trigger: 'axis',
       axisPointer: { type: 'cross' },
       formatter: (params: any) => {
         if (!Array.isArray(params) || params.length === 0) return '';
@@ -621,8 +629,10 @@ export function buildProjectPieOptions(
 
   return {
     tooltip: {
-      trigger: 'item',
+      // Bounded to the chart so a tooltip near the edge of the
+      // viewport is not drawn half off-screen.
       confine: true,
+      trigger: 'item',
       formatter: translate('{name}: {value} h ({percent}%)', {
         name: '{b}',
         value: '{c}',
@@ -718,6 +728,9 @@ export function buildJobsTimeseriesOptions(
   return {
     color: PALETTE,
     tooltip: {
+      // Bounded to the chart so a tooltip near the edge of the
+      // viewport is not drawn half off-screen.
+      confine: true,
       trigger: 'axis',
       axisPointer: { type: 'cross' },
       formatter: (params: any) => {
@@ -783,8 +796,10 @@ export function buildJobsPieOptions(
 
   return {
     tooltip: {
-      trigger: 'item',
+      // Bounded to the chart so a tooltip near the edge of the
+      // viewport is not drawn half off-screen.
       confine: true,
+      trigger: 'item',
       formatter: translate('{name}: {value} jobs ({percent}%)', {
         name: '{b}',
         value: '{c}',
@@ -850,8 +865,10 @@ export function buildProjectJobsTimeseriesOptions(
   return {
     color: PALETTE,
     tooltip: {
-      trigger: 'axis',
+      // Bounded to the chart so a tooltip near the edge of the
+      // viewport is not drawn half off-screen.
       confine: true,
+      trigger: 'axis',
       axisPointer: { type: 'cross' },
       formatter: (params: any) => {
         if (!Array.isArray(params) || params.length === 0) return '';
@@ -894,8 +911,10 @@ export function buildProjectJobsPieOptions(
 
   return {
     tooltip: {
-      trigger: 'item',
+      // Bounded to the chart so a tooltip near the edge of the
+      // viewport is not drawn half off-screen.
       confine: true,
+      trigger: 'item',
       formatter: translate('{name}: {value} jobs ({percent}%)', {
         name: '{b}',
         value: '{c}',
@@ -1003,6 +1022,9 @@ export function buildAvgWaitTimeseriesOptions(
   return {
     color: PALETTE,
     tooltip: {
+      // Bounded to the chart so a tooltip near the edge of the
+      // viewport is not drawn half off-screen.
+      confine: true,
       trigger: 'axis',
       axisPointer: { type: 'cross' },
       formatter: (params: any) => {
@@ -1085,6 +1107,9 @@ export function buildAvgWaitPieOptions(
 
   return {
     tooltip: {
+      // Bounded to the chart so a tooltip near the edge of the
+      // viewport is not drawn half off-screen.
+      confine: true,
       trigger: 'item',
       formatter: translate('{name}: {value} min avg ({percent}%)', {
         name: '{b}',
@@ -1170,8 +1195,10 @@ export function buildProjectAvgWaitTimeseriesOptions(
   return {
     color: PALETTE,
     tooltip: {
-      trigger: 'axis',
+      // Bounded to the chart so a tooltip near the edge of the
+      // viewport is not drawn half off-screen.
       confine: true,
+      trigger: 'axis',
       axisPointer: { type: 'cross' },
       formatter: (params: any) => {
         if (!Array.isArray(params) || params.length === 0) return '';
@@ -1238,8 +1265,10 @@ export function buildProjectAvgWaitPieOptions(
 
   return {
     tooltip: {
-      trigger: 'item',
+      // Bounded to the chart so a tooltip near the edge of the
+      // viewport is not drawn half off-screen.
       confine: true,
+      trigger: 'item',
       formatter: translate('{name}: {value} min avg ({percent}%)', {
         name: '{b}',
         value: '{c}',

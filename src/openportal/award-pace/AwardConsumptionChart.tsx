@@ -66,6 +66,9 @@ export const AwardConsumptionChart: FC<Props> = ({
     return {
       grid: { left: 70, right: 20, top: 30, bottom: 40 },
       tooltip: {
+        // Bounded to the chart so a tooltip near the edge of the
+        // viewport is not drawn half off-screen.
+        confine: true,
         trigger: 'axis',
         valueFormatter: (value: number) => defaultCurrency(value),
       },
@@ -73,6 +76,9 @@ export const AwardConsumptionChart: FC<Props> = ({
       yAxis: {
         type: 'value',
         name: translate('Used'),
+        // Currency labels are wide and the card is short: at the default
+        // density they stacked into an unreadable block down the axis.
+        splitNumber: 3,
         axisLabel: { formatter: (value: number) => defaultCurrency(value) },
       },
       series: [

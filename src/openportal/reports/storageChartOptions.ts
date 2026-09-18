@@ -248,6 +248,9 @@ export function buildStorageBarOptions(
   return {
     color: PALETTE,
     tooltip: {
+      // Bounded to the chart so a tooltip near the edge of the
+      // viewport is not drawn half off-screen.
+      confine: true,
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
       formatter: (params: any) => {
@@ -485,6 +488,9 @@ export function buildStorageTimeseriesOptions(
   return {
     color: PALETTE,
     tooltip: {
+      // Bounded to the chart so a tooltip near the edge of the
+      // viewport is not drawn half off-screen.
+      confine: true,
       trigger: 'axis',
       axisPointer: { type: 'cross' },
       formatter: (params: any) => {
@@ -604,8 +610,10 @@ export function buildStorageProjectBarOptions(
   return {
     color: PALETTE,
     tooltip: {
-      trigger: 'axis',
+      // Bounded to the chart so a tooltip near the edge of the
+      // viewport is not drawn half off-screen.
       confine: true,
+      trigger: 'axis',
       axisPointer: { type: 'shadow' },
       formatter: (params: any) => {
         if (!Array.isArray(params) || params.length === 0) return '';
@@ -771,8 +779,10 @@ export function buildStorageProjectTimeseriesOptions(
   return {
     color: PALETTE,
     tooltip: {
-      trigger: 'axis',
+      // Bounded to the chart so a tooltip near the edge of the
+      // viewport is not drawn half off-screen.
       confine: true,
+      trigger: 'axis',
       axisPointer: { type: 'cross' },
       formatter: (params: any) => {
         if (!Array.isArray(params) || params.length === 0) return '';
