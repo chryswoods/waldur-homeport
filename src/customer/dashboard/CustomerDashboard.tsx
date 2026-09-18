@@ -5,6 +5,8 @@ import { customersStatsRetrieve } from 'waldur-js-client';
 
 import { SHORT_STALE_TIME } from '@/core/constants';
 import { COMMON_WIDGET_HEIGHT } from '@/dashboard/constants';
+import { isFeatureVisible } from '@/features/connect';
+import { CustomerFeatures } from '@/FeaturesEnums';
 import { AggregateLimitWidget } from '@/marketplace/aggregate-limits/AggregateLimitWidget';
 import { UsageViewsSection } from '@/marketplace/aggregate-limits/usage-views/UsageViewsSection';
 import { ProjectsList } from '@/project/ProjectsList';
@@ -72,10 +74,25 @@ export const CustomerDashboard: FunctionComponent = () => {
     aggregateLimitDataForCurrentMonth,
   );
 
+  // An organisation accounted for by OpenPortal awards is measured absolutely --
+  // an award grants an allocation and usage is counted against it -- so the
+  // marketplace's usage, limit and credit widgets describe a different model
+  // and read as a contradiction of the project figures rather than a summary of
+  // them.
+  //
+  // A feature rather than something inferred from the projects: deciding it by
+  // inspection would need every project's award state before anything could
+  // render, and "all of them" is the wrong test anyway -- one non-award project
+  // would bring the widgets back for the whole organisation.
+  const openPortalAccountingOnly = isFeatureVisible(
+    CustomerFeatures.show_openportal_accounting_only,
+  );
+
   const shouldShowAggregateLimitWidget =
-    aggregateLimitData?.components?.length > 0;
+    !openPortalAccountingOnly && aggregateLimitData?.components?.length > 0;
 
   const shouldShowCurrentMonthWidget =
+    !openPortalAccountingOnly &&
     currentMonthFilteredData?.components?.length > 0;
 
   if (!customer) return null;
@@ -112,7 +129,7 @@ export const CustomerDashboard: FunctionComponent = () => {
               />
             </Col>
           )}
-          {Boolean(customer.credit) && (
+          {!openPortalAccountingOnly && Boolean(customer.credit) && (
             <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
               <CustomerDashboardCredit customer={customer} />
             </Col>

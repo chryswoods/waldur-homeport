@@ -29,6 +29,10 @@ export const FeaturesDescription: FeatureSection[] = [
         description: translate('Allows to show OpenPortal Remote Projects (remotes) in an organization.'),
       },
       {
+        key: 'show_openportal_accounting_only',
+        description: translate('Show only OpenPortal award accounting for this organization, hiding the marketplace usage, limit and credit widgets that describe a different accounting model.'),
+      },
+      {
         key: 'show_permission_reviews',
         description: translate('Allows to show permission reviews tab and popups for organisations.'),
       },

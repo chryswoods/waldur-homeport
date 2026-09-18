@@ -7,6 +7,7 @@ export enum CustomerFeatures {
   show_domain = 'customer.show_domain',
   show_onboarding = 'customer.show_onboarding',
   show_openportal_remote_projects = 'customer.show_openportal_remote_projects',
+  show_openportal_accounting_only = 'customer.show_openportal_accounting_only',
   show_permission_reviews = 'customer.show_permission_reviews',
   show_project_digest = 'customer.show_project_digest',
 }
