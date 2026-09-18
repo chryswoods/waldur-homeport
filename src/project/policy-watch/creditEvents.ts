@@ -275,7 +275,7 @@ export const buildCreditEvents = (
         ? translate('Grace period ends')
         : translate('Project ends'),
       consequence: translate(
-        'Every remaining resource is terminated. A project left with no active resources is deleted.',
+        'Every remaining resource is terminated and all data will be scheduled for deletion. A project left with no active resources is deleted.',
       ),
       tone: 'danger',
       isBinding: false,

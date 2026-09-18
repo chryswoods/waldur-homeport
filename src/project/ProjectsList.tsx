@@ -1,7 +1,8 @@
 import { FC, useMemo } from 'react';
 import { projectsList } from 'waldur-js-client';
 
-import { formatDate, formatDateTime } from '@/core/dateUtils';
+import { formatDate } from '@/core/dateUtils';
+import { defaultCurrency } from '@/core/formatCurrency';
 import { isFeatureVisible } from '@/features/connect';
 import { MarketplaceFeatures, ProjectFeatures } from '@/FeaturesEnums';
 import { translate } from '@/i18n';
@@ -72,13 +73,15 @@ export const ProjectsListTable: FC<TableProps & ProjectsListProps> = ({
       export: 'description',
       id: 'description',
       keys: ['description'],
-      optional: optionalColumns.includes('description'),
+      // Always optional: a description truncated to a table cell communicates
+      // nothing, and it was costing a column everywhere the list appears.
+      optional: true,
     },
     {
       title: translate('Created'),
-      render: ({ row }) => <>{formatDateTime(row.created)}</>,
+      render: ({ row }) => <>{formatDate(row.created)}</>,
       orderField: 'created',
-      export: (row) => formatDateTime(row.created),
+      export: (row) => formatDate(row.created),
       exportKeys: ['created'],
       id: 'created',
       keys: ['created'],
@@ -117,11 +120,28 @@ export const ProjectsListTable: FC<TableProps & ProjectsListProps> = ({
     customer?.display_billing_info_in_projects !== false
   ) {
     columns.push({
-      title: translate('Estimated cost'),
+      title: translate('Spent this month'),
       render: ProjectCostField,
-      export: false,
+      export: (row) => row.billing_price_estimate?.total ?? '',
+      exportKeys: ['billing_price_estimate'],
       id: 'estimated_cost',
       keys: ['billing_price_estimate'],
+    });
+    // The balance the month opened with. Scanning this column beside the one
+    // above is how you find the projects that have not started spending and
+    // the ones about to run out — which is the question this list gets asked.
+    columns.push({
+      title: translate('Balance'),
+      render: ({ row }) =>
+        row.project_credit === null || row.project_credit === undefined ? (
+          DASH_ESCAPE_CODE
+        ) : (
+          <>{defaultCurrency(row.project_credit)}</>
+        ),
+      export: (row) => row.project_credit ?? '',
+      exportKeys: ['project_credit'],
+      id: 'project_credit',
+      keys: ['project_credit'],
     });
   }
   if (isFeatureVisible(ProjectFeatures.show_kind_in_create_dialog)) {

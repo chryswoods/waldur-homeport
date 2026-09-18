@@ -2,6 +2,7 @@ import { FunctionComponent, useCallback, useMemo } from 'react';
 import { Customer, customersList, CustomersListData } from 'waldur-js-client';
 
 import { formatDate, formatDateTime } from '@/core/dateUtils';
+import { defaultCurrency } from '@/core/formatCurrency';
 import { formatPhoneNumber } from '@/core/utils';
 import { OrganizationImportButton } from '@/customer/import/OrganizationImportButton';
 import { OrganizationCard } from '@/customer/list/OrganizationCard';
@@ -124,6 +125,7 @@ export const OrganizationsList: FunctionComponent = () => {
       title: translate('Email'),
       render: ({ row }) => <>{row.email || DASH_ESCAPE_CODE}</>,
       keys: ['email'],
+      optional: true,
       id: 'email',
     },
     {
@@ -140,12 +142,31 @@ export const OrganizationsList: FunctionComponent = () => {
       id: 'projects',
     },
     {
+      title: translate('People'),
+      render: ({ row }) => <>{row.users_count || 0}</>,
+      keys: ['users_count'],
+      export: (row) => String(row.users_count || 0),
+      exportKeys: ['users_count'],
+      id: 'users',
+    },
+    {
+      title: translate('Spent this month'),
+      render: ({ row }) => (
+        <>{defaultCurrency(row.billing_price_estimate?.total || 0)}</>
+      ),
+      keys: ['billing_price_estimate'],
+      export: (row) => row.billing_price_estimate?.total ?? '',
+      exportKeys: ['billing_price_estimate'],
+      id: 'spent_this_month',
+    },
+    {
       title: translate('Created'),
       orderField: 'created',
       render: ({ row }) => <>{formatDate(row.created)}</>,
       keys: ['created'],
+      optional: true,
       id: 'created',
-      export: (row) => formatDateTime(row.created),
+      export: (row) => formatDate(row.created),
     },
     {
       title: translate('Contact details'),
