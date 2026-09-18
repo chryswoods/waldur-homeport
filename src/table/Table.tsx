@@ -538,17 +538,34 @@ function Table<RowType = any>(props: TableProps<RowType>) {
     }
   }, [fetch, filterPosition, applyFilters]);
 
-  // Initialize optional columns
+  // Initialize optional columns.
+  //
+  // Re-run when the set of column ids changes, not only on mount: a column that
+  // appears later — added in a release, or pushed once a feature flag resolves —
+  // was never initialised, so it stayed invisible for anyone whose column state
+  // was already stored, with no way to find it but Reset.
+  //
+  // Only genuinely new ids are touched. Re-applying the default to a column the
+  // reader has already shown or hidden would undo their choice every time the
+  // column set shifted.
+  const initialisedColumnsRef = useRef<Set<string>>(new Set());
+  const columnIdsKey = columns?.map((column) => column.id).join(',');
   useEffect(() => {
     if (columns?.length && hasOptionalColumns) {
       columns.forEach((column) => {
+        if (initialisedColumnsRef.current.has(column.id)) return;
+        initialisedColumnsRef.current.add(column.id);
         toggleColumn(column.id, column, column.optional ? false : true);
       });
-      if (rowActions) {
+      if (
+        rowActions &&
+        !initialisedColumnsRef.current.has(COLUMN_ACTIONS_KEY)
+      ) {
+        initialisedColumnsRef.current.add(COLUMN_ACTIONS_KEY);
         toggleColumn(COLUMN_ACTIONS_KEY, { keys: [] }, true);
       }
     }
-  }, []);
+  }, [columnIdsKey, hasOptionalColumns]);
 
   // Refetch when columns are added
   const prevActiveCols = useRef<string[]>([]);

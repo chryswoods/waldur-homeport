@@ -5,6 +5,7 @@ import { rolesList } from 'waldur-js-client';
 
 import { SubmitButton } from '@/form';
 import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
 import { CloseDialogButton } from '@/modal/CloseDialogButton';
 import { ModalDialog } from '@/modal/ModalDialog';
 import { useNotify } from '@/store/notify';
@@ -65,6 +66,7 @@ interface Props {
 export const ProjectsExcelDialog: FC<Props> = ({ resolve }) => {
   const { fetchProjects, scopeLabel, filename } = resolve;
   const { showErrorResponse, showSuccess } = useNotify();
+  const { closeDialog } = useModal();
 
   const [sheets, setSheets] = useState<SheetKey[]>(['projects', 'people']);
   const [columns, setColumns] = useState<ProjectColumnKey[]>([
@@ -132,6 +134,9 @@ export const ProjectsExcelDialog: FC<Props> = ({ resolve }) => {
       );
       await downloadMultiSheetExcel(filename, specs);
       showSuccess(translate('Export complete.'));
+      // The work is done and the file is saved; leaving the dialog up makes it
+      // look like something is still pending.
+      closeDialog();
     } catch (error) {
       showErrorResponse(error, translate('Unable to build the export.'));
     } finally {

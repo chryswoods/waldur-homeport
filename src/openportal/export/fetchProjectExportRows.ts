@@ -64,8 +64,20 @@ export const fetchProjectExportRows = async ({
   if (needsAwards) {
     stage += 1;
     onProgress({ stage, stageCount, label: 'awards', done: 0, max: 0 });
-    const awards = await getAllPages((page) =>
-      openportalManagedProjectsList({ query: { page, page_size: 200 } }),
+    // Paged through with progress rather than silently: this is one call per
+    // page over every award in the deployment, which on a large one sat on an
+    // indeterminate bar long enough to look hung.
+    const awards = await getAllPages(
+      (page) =>
+        openportalManagedProjectsList({ query: { page, page_size: 200 } }),
+      (page, totalPages) =>
+        onProgress({
+          stage,
+          stageCount,
+          label: 'awards',
+          done: page,
+          max: totalPages ?? 0,
+        }),
     );
     for (const award of awards) {
       const row = byUuid.get(award.project_data?.uuid);
