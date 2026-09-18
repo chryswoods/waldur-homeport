@@ -1,6 +1,6 @@
 # Bugs found in upstream, with fixes carried in this fork
 
-Six defects in `waldur/waldur-homeport` that this fork has already fixed
+Eight defects in `waldur/waldur-homeport` that this fork has already fixed
 locally, written up so they can be discussed with the upstream maintainers and,
 if they agree, offered back as patches.
 
@@ -13,7 +13,7 @@ if they agree, offered back as patches.
 | Fork branch carrying the fixes | `claude/waldur-homeport-resync-ttwxn2` |
 | How they were found | Resyncing this fork onto upstream, September 2026 |
 
-All six are present in both the newest release candidate and the current
+All eight are present in both the newest release candidate and the current
 development head, so none of them is something upstream has already fixed and
 not yet tagged.
 
@@ -426,6 +426,134 @@ Separately, with a non-zero grace period `is_in_grace_period` requires
 `end_date < today`, so on `end_date` a project is neither active-with-warning
 nor in grace. This fork treats `end_date` as exclusive everywhere for
 consistency; upstream may want to decide that boundary deliberately.
+
+---
+
+## 7. Impersonation is refused for users who have never logged in
+
+**Severity:** medium — blocks the workflow the feature exists for.
+**Fork fix:** `src/user/support/UserImpersonateButton.tsx`
+
+### What is wrong
+
+`src/user/support/UserImpersonateButton.tsx:23` disables the action unless the
+target holds an auth token:
+
+```tsx
+disabled={isPending || !row.has_active_session}
+tooltip={
+  !row.has_active_session &&
+  translate('Impersonation is not available for users without active session.')
+}
+```
+
+The backend asks for no such thing. Impersonation sends
+`X-IMPERSONATED-USER-UUID` alongside the **caller's** token, and
+`waldur_core/core/authentication.py` swaps the identity on that request:
+
+```python
+if impersonated_user_uuid and token.user.is_staff:
+    if passkey_policy.is_enforced_for(token.user) and not is_session_verified(token):
+        raise exceptions.AuthenticationFailed(
+            _("Impersonation requires a passkey-verified session.")
+        )
+    impersonated_user = models.ImpersonatedUser.all_objects.filter(
+        uuid=impersonated_user_uuid
+    ).first()
+```
+
+Three conditions: the caller is staff, the caller's session is passkey-verified
+where the policy demands it, and the target exists. The target's own session is
+never consulted, and could not be — the request authenticates as the staff
+member throughout. There is no session to take over.
+
+`has_active_session` is `hasattr(user, "auth_token") and user.auth_token is not
+None` (`waldur_core/structure/serializers.py`, `get_has_active_session`), so the
+guard turns on whether the target happens to hold a token right now.
+
+### Why it matters
+
+It refuses exactly the case staff most need: checking what a newly created
+account will see before handing it over. The tooltip also states a reason that
+is not the real one, so an operator has no way to tell that the restriction is
+imposed by the frontend alone.
+
+It is not a security control. Removing it grants nothing the backend would not
+already have allowed — the real gates (staff, passkey verification) are
+server-side and unaffected.
+
+### Suggested fix
+
+Drop the condition and the tooltip:
+
+```tsx
+disabled={isPending}
+```
+
+If a hint is still wanted for a user who has never logged in, it belongs as an
+informational note rather than as a block.
+
+---
+
+## 8. A column added after a reader's column state was stored never appears
+
+**Severity:** medium — silent, and the only way out is a button most people
+will not think to press.
+**Fork fix:** `src/table/Table.tsx`
+
+### What is wrong
+
+`src/table/Table.tsx:541-551` initialises column visibility once, on mount,
+with an empty dependency list:
+
+```tsx
+// Initialize optional columns
+useEffect(() => {
+  if (columns?.length && hasOptionalColumns) {
+    columns.forEach((column) => {
+      toggleColumn(column.id, column, column.optional ? false : true);
+    });
+    if (rowActions) {
+      toggleColumn(COLUMN_ACTIONS_KEY, { keys: [] }, true);
+    }
+  }
+}, []);
+```
+
+Column visibility is persisted per reader. A column that does not exist at that
+moment — added in a later release, or pushed once a feature flag resolves — is
+never passed to `toggleColumn`, so `activeColumns[id]` stays undefined and the
+column does not render. The effect never runs again, so it never recovers.
+
+### Why it matters
+
+It is silent and it is permanent. Every release that adds a column to an
+existing table ships it invisible to everyone who has used that table before,
+while appearing correctly for anyone who has not. The column *is* listed in the
+column menu, unticked, so a reader who goes looking can find it — but nothing
+indicates there is anything to look for, and the obvious remedy (Reset) also
+discards every other choice they have made.
+
+### Suggested fix
+
+Re-run when the set of column ids changes, and initialise only ids not seen
+before — re-applying the default to a column the reader has already shown or
+hidden would undo their choice every time the column set shifted:
+
+```tsx
+const initialisedColumnsRef = useRef<Set<string>>(new Set());
+const columnIdsKey = columns?.map((column) => column.id).join(',');
+useEffect(() => {
+  if (columns?.length && hasOptionalColumns) {
+    columns.forEach((column) => {
+      if (initialisedColumnsRef.current.has(column.id)) return;
+      initialisedColumnsRef.current.add(column.id);
+      toggleColumn(column.id, column, column.optional ? false : true);
+    });
+    // ... same for COLUMN_ACTIONS_KEY
+  }
+}, [columnIdsKey, hasOptionalColumns]);
+```
 
 ---
 
