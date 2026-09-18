@@ -1,13 +1,18 @@
-import { CaretDownIcon, SquaresFourIcon } from '@phosphor-icons/react';
+import { SquaresFourIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useCurrentStateAndParams } from '@uirouter/react';
-import classNames from 'classnames';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import {
   marketplaceGlobalCategoriesRetrieve,
   MarketplaceGlobalCategoriesRetrieveData,
 } from 'waldur-js-client';
+
+import {
+  SidebarMenuAccordion,
+  SidebarMenuTree,
+  SidebarMenuTreeItem,
+} from 'waldur-ui';
 
 import { SHORT_STALE_TIME } from '@/core/constants';
 import { translate } from '@/i18n';
@@ -19,7 +24,6 @@ import { getCustomer, getProject, getResource } from '@/workspace/selectors';
 
 import { isDescendantOf } from '../useTabs';
 
-import { MenuAccordion } from './MenuAccordion';
 import { MenuItem } from './MenuItem';
 import { ResourcesMenuFilterButton } from './resources-filter/ResourcesMenuFilterButton';
 import { ResourcesMenuFilters } from './resources-filter/ResourcesMenuFilters';
@@ -27,109 +31,45 @@ import { useOfferingCategories } from './utils';
 
 const MAX_COLLAPSE_MENU_COUNT = 5;
 
-const CustomToggle = ({
-  onClick,
-  itemsCount,
-  moreResourcesCount,
-  expanded,
-}) => (
-  <div
-    className={classNames('menu-item menu-show-more', expanded && 'active')}
-    data-kt-menu-trigger="trigger"
-    aria-hidden="true"
-    onClick={onClick}
-  >
-    <span
-      className="menu-link"
-      title={
-        !expanded
-          ? translate('{count} More resources', { count: moreResourcesCount })
-          : null
-      }
-    >
-      <span className="menu-bullet" />
-      <span className="menu-title">
-        <div className="btn btn-flex btn-color-primary-300 p-0 collapsible collapsed">
-          <span>
-            {expanded
-              ? translate('Show less')
-              : translate('Show {count} more', { count: itemsCount })}
-          </span>
-        </div>
-      </span>
-      <span className={classNames('menu-badge rotate', expanded && 'active')}>
-        <span className="svg-icon svg-icon-3 svg-icon-primary-300 rotate-180">
-          <CaretDownIcon weight="bold" />
-        </span>
-      </span>
-    </span>
-  </div>
-);
-
-interface RenderMenuItemsProps {
-  items: Array<{
-    uuid?: string;
-    title?: string;
-    resource_count?: number;
-    categories?: Array<any>;
-  }>;
-  filterParams?: Record<string, string | undefined>;
+interface CategoryGroupNode {
+  uuid: string;
+  title?: string;
+  resource_count?: number;
+  categories?: CategoryGroupNode[];
 }
 
-const RenderMenuItems = ({ items, filterParams }: RenderMenuItemsProps) => {
-  const { state } = useCurrentStateAndParams();
-  const resource = useSelector(getResource);
-  return (
-    <>
-      {items.map((item) =>
-        !item.categories?.length ? (
-          <MenuItem
-            key={item.uuid}
-            title={item.title}
-            badge={item.resource_count}
-            state="category-resources"
-            params={{
-              category_uuid: item.uuid,
-              ...filterParams,
-            }}
-            activeState={
-              state.name === 'marketplace-resource-details' &&
-              resource?.category_uuid === item.uuid
-                ? state.name
-                : undefined
-            }
-          />
-        ) : (
-          <MenuAccordion
-            key={item.uuid}
-            title={item.title}
-            itemId={item.uuid}
-            child
-            badge={
-              <span className="badge badge-pill">{item.resource_count}</span>
-            }
-          >
-            <RenderMenuItems
-              items={item.categories}
-              filterParams={filterParams}
-            />
-          </MenuAccordion>
-        ),
-      )}
-    </>
-  );
-};
+/** category-group tree -> SidebarMenuTree's generic {id, title, badge,
+ * children} shape. Recursive to match ResourcesMenu's own data (a
+ * category-with-sub-categories isn't exercised by today's data, but
+ * SidebarMenuTree itself supports arbitrary depth, so this stays
+ * recursive rather than assuming one level). */
+const toTreeItems = (nodes: CategoryGroupNode[]): SidebarMenuTreeItem[] =>
+  nodes.map((node) => ({
+    id: node.uuid,
+    title: node.title,
+    badge: node.resource_count,
+    children: node.categories?.length
+      ? toTreeItems(node.categories)
+      : undefined,
+  }));
 
 interface ResourcesMenuProps {
   user;
   disabled?: boolean;
   disabledTooltip?: string;
+  /** Threaded from UnifiedSidebar's own top-level useExclusiveOpen — this
+   * accordion competes with CallPublicMenu's for "only one open at a
+   * time" at the sidebar's top level. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export const ResourcesMenu = ({
   user,
   disabled,
   disabledTooltip,
+  open,
+  onOpenChange,
 }: ResourcesMenuProps) => {
   const categories = useOfferingCategories();
 
@@ -144,6 +84,7 @@ export const ResourcesMenu = ({
   );
   const workspaceProject = useSelector(getProject);
   const workspaceCustomer = useSelector(getCustomer);
+  const resource = useSelector(getResource);
 
   const { state } = useCurrentStateAndParams();
   const isProjectContext = useMemo(
@@ -226,20 +167,19 @@ export const ResourcesMenu = ({
 
     refetchOnWindowFocus: false,
   });
-  const [expanded, setExpanded] = useState(false);
 
   const sortedCategoryGroups = useMemo(() => {
     if (!categories) return [];
-    const _categories = categories.map((category) => {
-      category['resource_count'] = counters[category.uuid] || 0;
-      return category;
-    });
+    const _categories = categories.map((category) => ({
+      ...category,
+      resource_count: Number(counters[category.uuid]) || 0,
+    }));
 
     const groupedCategories = getGroupedCategories(_categories, categoryGroups);
 
     if (!counters) return groupedCategories;
 
-    return groupedCategories.sort((a, b) => {
+    return [...groupedCategories].sort((a, b) => {
       const aCount = Number(counters[a.uuid]) || 0;
       const bCount = Number(counters[b.uuid]) || 0;
       return bCount - aCount;
@@ -258,14 +198,24 @@ export const ResourcesMenu = ({
     return [all, collapsed];
   }, [sortedCategoryGroups, counters]);
 
+  const treeItems = useMemo(
+    () => toTreeItems(sortedCategoryGroups),
+    [sortedCategoryGroups],
+  );
+
   return sortedCategoryGroups ? (
-    <MenuAccordion
+    <SidebarMenuAccordion
+      // Purely for waldur-integration-testing's Sidebar page object
+      // (tests/pages/sidebar.py), which locates this specific accordion
+      // by id — no styling or app logic reads it.
+      id="resources-menu"
       title={translate('Resources')}
-      itemId="resources-menu"
       icon={<SquaresFourIcon weight="bold" />}
       badge={<ResourcesMenuFilterButton />}
       disabled={disabled}
       disabledTooltip={disabledTooltip}
+      open={open}
+      onOpenChange={onOpenChange}
     >
       <ResourcesMenuFilters />
       <MenuItem
@@ -275,29 +225,36 @@ export const ResourcesMenu = ({
         params={filterParams}
       />
 
-      <RenderMenuItems
-        items={sortedCategoryGroups.slice(0, MAX_COLLAPSE_MENU_COUNT)}
-        filterParams={filterParams}
-      />
-
-      {sortedCategoryGroups.length > MAX_COLLAPSE_MENU_COUNT ? (
-        <>
-          {expanded && (
-            <RenderMenuItems
-              items={sortedCategoryGroups.slice(MAX_COLLAPSE_MENU_COUNT)}
-              filterParams={filterParams}
-            />
-          )}
-          <CustomToggle
-            itemsCount={
-              sortedCategoryGroups.slice(MAX_COLLAPSE_MENU_COUNT).length
+      <SidebarMenuTree
+        items={treeItems}
+        maxVisibleItems={MAX_COLLAPSE_MENU_COUNT}
+        moreTooltip={() =>
+          translate('{count} More resources', {
+            count: collapsedResourcesCount,
+          })
+        }
+        moreLabel={(hiddenCount) =>
+          translate('Show {count} more', { count: hiddenCount })
+        }
+        lessLabel={translate('Show less')}
+        renderItem={(item) => (
+          <MenuItem
+            title={item.title}
+            badge={item.badge}
+            state="category-resources"
+            params={{
+              category_uuid: item.id,
+              ...filterParams,
+            }}
+            activeState={
+              state.name === 'marketplace-resource-details' &&
+              resource?.category_uuid === item.id
+                ? state.name
+                : undefined
             }
-            moreResourcesCount={collapsedResourcesCount}
-            onClick={() => setExpanded(!expanded)}
-            expanded={expanded}
           />
-        </>
-      ) : null}
-    </MenuAccordion>
+        )}
+      />
+    </SidebarMenuAccordion>
   ) : null;
 };

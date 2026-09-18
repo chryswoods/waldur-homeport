@@ -1,5 +1,3 @@
-import { AzureSqlServerActions } from '@/azure/sql/actions';
-import { AzureVirtualMachineActions } from '@/azure/vm/actions';
 import { OpenPortalAllocationActions } from '@/openportal/actions';
 import { OpenStackBackupActions } from '@/openstack/openstack-backup/actions';
 import { OpenStackFloatingIPActions } from '@/openstack/openstack-floating-ips/actions';
@@ -29,8 +27,6 @@ const register = (config: ActionConfiguration) => {
 
 export const getActions = (type) => actions[type] || [];
 
-register(AzureSqlServerActions);
-register(AzureVirtualMachineActions);
 register(OpenPortalAllocationActions);
 register(OpenStackBackupActions);
 register(OpenStackFloatingIPActions);

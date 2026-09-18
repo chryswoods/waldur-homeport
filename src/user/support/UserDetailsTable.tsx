@@ -2,10 +2,11 @@ import { QuestionIcon } from '@phosphor-icons/react';
 import { FunctionComponent } from 'react';
 import { User } from 'waldur-js-client';
 
-import { Badge } from '@/core/Badge';
+import { Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { formatDate, formatDateTime } from '@/core/dateUtils';
 import { FieldWithCopy } from '@/core/FieldWithCopy';
-import { Tip } from '@/core/Tooltip';
 import { formatPhoneNumber } from '@/core/utils';
 import { isFeatureVisible } from '@/features/connect';
 import { UserFeatures } from '@/FeaturesEnums';
@@ -93,16 +94,15 @@ export const UserDetailsTable: FunctionComponent<OwnProps> = (props) => {
           <div className="d-inline-flex align-items-center gap-2">
             <FieldWithCopy value={props.user.identity_provider_label} />
             {props.user.should_protect_user_details && (
-              <Tip
-                id="user-details-protected"
+              <Tooltip
                 label={translate(
                   'Profile fields (organization, name, email) are managed by the identity provider and cannot be edited in Waldur.',
                 )}
               >
-                <Badge variant="purple" outline>
+                <Badge variant="purple" tone="outline">
                   {translate('Details protected')}
                 </Badge>
-              </Tip>
+              </Tooltip>
             )}
           </div>
         }
@@ -112,6 +112,31 @@ export const UserDetailsTable: FunctionComponent<OwnProps> = (props) => {
         label={translate('Identity source')}
         value={<FieldWithCopy value={props.user.identity_source} />}
       />
+
+      {/* Raw claims the identity provider asserted, for the claims listed in
+          its extra fields. Auto-provisioning rules match on these to grant
+          roles, so this is the surface for answering "why did (or didn't) a
+          rule fire for this user". Staff and support only — the backend omits
+          the field entirely for everyone else. */}
+      {isVisible && Object.keys(props.user.details ?? {}).length > 0 && (
+        <FormTable.Item
+          label={translate('Identity provider claims')}
+          value={
+            <div className="d-flex flex-column gap-1">
+              {Object.entries(props.user.details).map(([claim, value]) => (
+                <div key={claim}>
+                  <span className="fw-semibold me-2">{claim}</span>
+                  <FieldWithCopy
+                    value={
+                      Array.isArray(value) ? value.join(', ') : String(value)
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          }
+        />
+      )}
 
       {isProfileAttributeEnabled('uid_number') &&
         props.user.uid_number != null && (
@@ -149,15 +174,14 @@ export const UserDetailsTable: FunctionComponent<OwnProps> = (props) => {
         label={
           <span className="d-inline-flex align-items-center gap-1">
             {translate('Organization')}
-            <Tip
-              id="user-organization-tooltip"
-              placement="top"
+            <Tooltip
+              side="top"
               label={translate(
                 'Supplied by the identity provider. Auto-provisioning rules that match by organization name compare this value against Waldur customer names.',
               )}
             >
               <QuestionIcon size={16} weight="bold" className="text-muted" />
-            </Tip>
+            </Tooltip>
           </span>
         }
         value={<FieldWithCopy value={props.user.organization} />}
@@ -218,17 +242,16 @@ export const UserDetailsTable: FunctionComponent<OwnProps> = (props) => {
           label={translate('Administrative status')}
           value={
             <div className="d-inline-flex align-items-center gap-2">
-              <Badge variant="danger" outline>
+              <Badge variant="danger" tone="outline">
                 {translate('Administratively disabled')}
               </Badge>
-              <Tip
-                id="user-admin-deactivated-tooltip"
+              <Tooltip
                 label={translate(
                   'This account was disabled by an administrator. When automatic role-based deactivation is enabled, the system will not re-enable it automatically, even if the user regains roles. A staff member must reactivate it manually.',
                 )}
               >
                 <QuestionIcon size={16} weight="bold" className="text-muted" />
-              </Tip>
+              </Tooltip>
             </div>
           }
         />

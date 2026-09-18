@@ -3,7 +3,6 @@ import { FC, useMemo } from 'react';
 import { Field, Form, useFormState } from 'react-final-form';
 import {
   BillingModeEnum,
-  BillingTypeEnum,
   marketplaceProviderOfferingsSwitchBillingMode,
   PublicOfferingDetails,
   SwitchBillingModeRequest,
@@ -11,6 +10,7 @@ import {
 
 import { SubmitButton } from '@/form';
 import { translate } from '@/i18n';
+import { getBillingTypeLabel } from '@/marketplace/common/billingTypes';
 import { CloseDialogButton } from '@/modal/CloseDialogButton';
 import { ModalDialog } from '@/modal/ModalDialog';
 import { useManagedMutation } from '@/modal/useManagedMutation';
@@ -42,14 +42,6 @@ const BILLING_MODES: Array<{
     ),
   },
 ];
-
-const BILLING_TYPE_LABELS: Record<BillingTypeEnum, string> = {
-  limit: translate('Monthly'),
-  one: translate('Prepaid'),
-  usage: translate('Usage'),
-  fixed: translate('Fixed'),
-  few: translate('On plan switch'),
-};
 
 const MODE_TO_BILLING_TYPE: Record<BillingModeEnum, string> = {
   monthly: 'limit',
@@ -87,7 +79,7 @@ const ImpactPreview: FC<{
           <div key={c.uuid} className="d-flex align-items-center gap-2 fs-7">
             <span className="fw-semibold">{c.name}</span>
             <span className="text-muted">
-              {BILLING_TYPE_LABELS[c.billing_type] || c.billing_type}
+              {getBillingTypeLabel(c.billing_type)}
             </span>
             <ArrowRightIcon size={14} weight="bold" className="text-muted" />
             <span className="text-primary">{targetLabel}</span>
@@ -100,7 +92,10 @@ const ImpactPreview: FC<{
 
 interface SwitchBillingModeDialogProps {
   resolve: {
-    offering: Pick<PublicOfferingDetails, 'uuid' | 'type' | 'components'>;
+    offering: Pick<
+      PublicOfferingDetails,
+      'uuid' | 'type' | 'components' | 'plans'
+    >;
     refetch(): void;
     currentMode: BillingModeEnum;
   };
@@ -110,6 +105,9 @@ export const SwitchBillingModeDialog: FC<SwitchBillingModeDialogProps> = (
   props,
 ) => {
   const availableModes = BILLING_MODES;
+  const explicitPlans = (props.resolve.offering.plans ?? []).filter(
+    (plan) => plan.billing_mode && plan.billing_mode !== 'inherit',
+  );
 
   const switchBillingModeMutation = useManagedMutation<
     any,
@@ -148,6 +146,16 @@ export const SwitchBillingModeDialog: FC<SwitchBillingModeDialogProps> = (
               {translate(
                 'Switch all infrastructure components between monthly, prepaid, and usage-based billing.',
               )}
+            </p>
+            <p className="text-muted mb-4">
+              {explicitPlans.length
+                ? translate(
+                    'Plans with their own billing mode are not affected: {plans}.',
+                    {
+                      plans: explicitPlans.map((plan) => plan.name).join(', '),
+                    },
+                  )
+                : translate('All plans of this offering inherit this setting.')}
             </p>
             <Field name="billing_mode">
               {({ input }) => (

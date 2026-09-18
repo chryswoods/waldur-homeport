@@ -28,3 +28,9 @@ export const useOfferingCategories = () => {
   });
   return categories;
 };
+
+// Moved to packages/ui/src/Sidebar.tsx (exported from waldur-ui) once
+// SidebarMenuTree needed the identical sibling-exclusivity coordination —
+// re-exported here so UnifiedSidebar.tsx's existing `from './utils'` import
+// doesn't need to change.
+export { useExclusiveOpen } from 'waldur-ui';

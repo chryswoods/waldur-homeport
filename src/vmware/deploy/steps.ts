@@ -3,6 +3,7 @@ import { translate } from '@/i18n';
 import {
   DetailsOverviewStep,
   FinalConfigurationStep,
+  PlanStep,
 } from '@/marketplace/deploy/steps/constants';
 import { OfferingConfigurationFormStep } from '@/marketplace/deploy/types';
 
@@ -15,6 +16,14 @@ import { FormTemplateStep } from './FormTemplateStep';
 
 export const deployOfferingSteps: OfferingConfigurationFormStep[] = [
   DetailsOverviewStep,
+  {
+    // The processor, memory and storage steps below own cpu, ram and disk.
+    // Without this the plan renders a second set of inputs for the same three
+    // fields, where a value typed in one card is validated against the
+    // offering's ceilings in another.
+    ...PlanStep,
+    params: { readOnlyLimits: true },
+  },
   {
     label: translate('Template'),
     id: 'step-template',

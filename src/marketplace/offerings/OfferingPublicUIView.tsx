@@ -10,9 +10,10 @@ import {
   proposalMyRequestedResourcesCount,
 } from 'waldur-js-client';
 
+import { Badge } from 'waldur-ui';
+
 import { isAuthenticated } from '@/auth/AuthService';
 import { fetchResultCount } from '@/core/api';
-import { Badge } from '@/core/Badge';
 import { UI_STALE_TIME } from '@/core/constants';
 import { lazyComponent } from '@/core/lazyComponent';
 import { isEmpty } from '@/core/utils';
@@ -99,7 +100,7 @@ const PublicOfferingDocumentationAndSupport = lazyComponent(() =>
   })),
 );
 
-const getTabs = (
+export const getTabs = (
   offering?: Offering,
   category?: Category,
   hasActiveTos = false,
@@ -148,6 +149,10 @@ const getTabs = (
       MarketplaceFeatures.conceal_offering_pricing_tab_in_public_view,
     ) ||
     concealPricing ||
+    // Nothing is invoiced for the offering itself -- an OpenStack volume or
+    // instance is billed through its tenant, whose plans the API hands down
+    // -- so a price list here would quote plans nobody is charged by.
+    offering.billable === false ||
     !offering.plans?.length
       ? null
       : {
@@ -231,7 +236,7 @@ const getTabs = (
           title: (
             <>
               {translate('My requests')}{' '}
-              <Badge variant="secondary" pill>
+              <Badge variant="secondary" shape="pill">
                 {resourceRequestCount}
               </Badge>
             </>
@@ -340,7 +345,7 @@ export const OfferingPublicUIView = () => {
       isPublic
     />,
 
-    [data?.offering, isRefetching, refetch, error, isLoading],
+    [data, isRefetching, refetch, error, isLoading],
   );
 
   const router = useRouter();

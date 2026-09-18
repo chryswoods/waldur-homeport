@@ -2,9 +2,10 @@ import { ClockCountdownIcon, WrenchIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
 import { PublicMaintenanceAnnouncement } from 'waldur-js-client';
 
-import { Badge } from '@/core/Badge';
+import { Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { formatMediumDateTime, formatRelative } from '@/core/dateUtils';
-import { Tip } from '@/core/Tooltip';
 import { translate } from '@/i18n';
 
 import {
@@ -60,14 +61,17 @@ const MaintenanceBadge: FC<{ maintenance: PublicMaintenanceAnnouncement }> = ({
       });
 
   return (
-    <Tip
-      id={`public-maintenance-${maintenance.uuid}`}
-      label={buildTooltip(maintenance)}
-    >
-      <Badge variant={variant} size="sm" leftIcon={icon} pill outline>
+    <Tooltip label={buildTooltip(maintenance)}>
+      <Badge
+        variant={variant}
+        size="sm"
+        leftIcon={icon}
+        shape="pill"
+        tone="outline"
+      >
         {label}
       </Badge>
-    </Tip>
+    </Tooltip>
   );
 };
 

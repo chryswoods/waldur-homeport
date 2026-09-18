@@ -2,9 +2,10 @@ import { CopyIcon } from '@phosphor-icons/react';
 import { useCallback, useMemo } from 'react';
 import { CeleryTask } from 'waldur-js-client';
 
-import { Badge } from '@/core/Badge';
+import { Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { formatDateTime } from '@/core/dateUtils';
-import { Tip } from '@/core/Tooltip';
 import { translate } from '@/i18n';
 import { useNotify } from '@/store/notify';
 import Table from '@/table/Table';
@@ -86,11 +87,11 @@ export const CeleryTaskTable = ({
         {
           title: translate('Task name'),
           render: ({ row }) => (
-            <Tip label={row.name} id={`task-name-${row.id}`}>
+            <Tooltip label={row.name}>
               <span className="text-dark fw-semibold">
                 {truncateTaskName(row.name)}
               </span>
-            </Tip>
+            </Tooltip>
           ),
         },
         {
@@ -105,9 +106,9 @@ export const CeleryTaskTable = ({
         {
           title: translate('Args'),
           render: ({ row }) => (
-            <Tip label={JSON.stringify(row.args)} id={`task-args-${row.id}`}>
+            <Tooltip label={JSON.stringify(row.args)}>
               <code className="fs-7">{formatArgs(row.args)}</code>
-            </Tip>
+            </Tooltip>
           ),
         },
         {
@@ -124,25 +125,22 @@ export const CeleryTaskTable = ({
           render: ({ row }) =>
             showDuration ? (
               row.time_start ? (
-                <Tip
-                  label={formatDateTime(row.time_start * 1000)}
-                  id={`task-time-${row.id}`}
-                >
-                  <Badge variant="primary" light>
+                <Tooltip label={formatDateTime(row.time_start * 1000)}>
+                  <Badge variant="primary" tone="light">
                     {formatDuration(row.time_start)}
                   </Badge>
-                </Tip>
+                </Tooltip>
               ) : (
-                <Badge variant="secondary" light>
+                <Badge variant="secondary" tone="light">
                   {translate('Pending')}
                 </Badge>
               )
             ) : row.acknowledged ? (
-              <Badge variant="success" light>
+              <Badge variant="success" tone="light">
                 {translate('Acknowledged')}
               </Badge>
             ) : (
-              <Badge variant="warning" light>
+              <Badge variant="warning" tone="light">
                 {translate('Pending')}
               </Badge>
             ),
@@ -156,7 +154,7 @@ export const CeleryTaskTable = ({
                   ? 'info'
                   : 'secondary'
               }
-              light
+              tone="light"
             >
               {(row.delivery_info?.priority as number) ?? 0}
             </Badge>

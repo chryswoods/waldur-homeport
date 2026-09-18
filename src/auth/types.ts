@@ -105,6 +105,8 @@ interface CoreConfiguration {
   OECD_FOS_2007_CODE_MANDATORY: boolean;
   LANGUAGE_CHOICES: string[];
   DISABLE_DARK_THEME: boolean;
+  /** True only when the backend runs with DEBUG and the web shell switched on. */
+  WEB_SHELL_ENABLED?: boolean;
   USER_TABLE_COLUMNS: string;
   FREEIPA_USERNAME_PREFIX?: string;
   FREEIPA_ENABLED?: boolean;
@@ -139,6 +141,7 @@ interface CoreConfiguration {
   AI_ASSISTANT_ENABLED_ROLES:
     'disabled' | 'staff' | 'staff_and_support' | 'all' | 'anonymous';
   MATRIX_ENABLED: boolean;
+  SRAM_INTEGRATION_ENABLED?: boolean;
 }
 
 interface OpenStackConfiguration {

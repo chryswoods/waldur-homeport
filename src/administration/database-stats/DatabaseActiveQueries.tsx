@@ -1,9 +1,10 @@
 import { FC, useEffect, useMemo } from 'react';
 
+import { Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { AccordionCard } from '@/core/AccordionCard';
-import { Badge } from '@/core/Badge';
 import { CopyToClipboard } from '@/core/CopyToClipboard';
-import { Tip } from '@/core/Tooltip';
 import { translate } from '@/i18n';
 import { createClientPaginatedFetcher } from '@/table/api';
 import Table from '@/table/Table';
@@ -48,7 +49,7 @@ export const DatabaseActiveQueries: FC<DatabaseActiveQueriesProps> = ({
                 ? 'warning'
                 : 'primary';
           return (
-            <Badge variant={variant} pill outline>
+            <Badge variant={variant} shape="pill" tone="outline">
               {formatDuration(row.duration_seconds)}
             </Badge>
           );
@@ -66,8 +67,8 @@ export const DatabaseActiveQueries: FC<DatabaseActiveQueriesProps> = ({
           row.wait_event_type ? (
             <Badge
               variant={row.wait_event_type === 'Lock' ? 'warning' : 'secondary'}
-              pill
-              outline
+              shape="pill"
+              tone="outline"
             >
               {row.wait_event_type}
             </Badge>
@@ -79,16 +80,16 @@ export const DatabaseActiveQueries: FC<DatabaseActiveQueriesProps> = ({
         title: translate('Query'),
         render: ({ row }: { row: ActiveQuery }) => (
           <div className="d-flex align-items-center gap-2">
-            <Tip id={`query-${row.pid}`} label={row.query_preview}>
+            <Tooltip label={row.query_preview}>
               <code
-                className="fs-8 text-truncate"
                 style={{ maxWidth: '300px' }}
+                className="fs-8 text-truncate"
               >
                 {row.query_preview.length > 50
                   ? `${row.query_preview.substring(0, 50)}...`
                   : row.query_preview}
               </code>
-            </Tip>
+            </Tooltip>
             <CopyToClipboard value={row.query_preview} />
           </div>
         ),

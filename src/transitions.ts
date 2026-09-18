@@ -1,3 +1,5 @@
+import { RejectType } from '@uirouter/react';
+
 import store from '@/store/store';
 
 import { clearAuthCache, resolvePostLoginTarget } from './auth/authNavigation';
@@ -8,12 +10,14 @@ import {
   RedirectStorage,
 } from './core/StorageManager';
 import { cleanObject } from './core/utils';
+import { getCustomer } from './customer/utils';
 import { DrawerService } from './drawer/actions';
 import { setPrevParams, setPrevState } from './error/utils';
 import { isFeatureVisible } from './features/connect';
 import { MarketplaceFeatures } from './FeaturesEnums';
 import { translate } from './i18n';
 import { ModalService } from './modal/actions';
+import { isDescendantOf } from './navigation/useTabs';
 import { router } from './router';
 import { NotifyService } from './store/notify';
 import {
@@ -21,6 +25,12 @@ import {
   isResumableState,
 } from './user/blockedNavigation';
 import { UsersService } from './user/UsersService';
+import {
+  checkHasServiceProviderRole,
+  checkIsServiceManagerOnly,
+  checkIsStaffOrSupport,
+  getCustomer as getWorkspaceCustomer,
+} from './workspace/selectors';
 
 export function attachTransitions() {
   router.transitionService.onSuccess({}, function () {
@@ -116,6 +126,48 @@ export function attachTransitions() {
           return false;
         }
         return transition.router.stateService.target('errorPage.serverError');
+      }
+    },
+  );
+
+  // A service provider manager with no other role in the organization may read
+  // only its identity (waldur/waldur-mastermind#396). Whatever led them into
+  // the organization — the Organizations list, header search, a breadcrumb or a
+  // bookmark — they land in the provider workspace instead of an empty page.
+  router.transitionService.onBefore(
+    { to: (state) => isDescendantOf('organization', state.self) },
+    async (transition) => {
+      if (!AuthService.isAuthenticated()) {
+        return;
+      }
+      const uuid = transition.params().uuid;
+      const user = await UsersService.getCurrentUser().catch(() => undefined);
+      // Only a service provider role can lead here, so nobody else pays for the
+      // request below.
+      if (
+        !uuid ||
+        !user ||
+        checkIsStaffOrSupport(user) ||
+        !checkHasServiceProviderRole({ uuid }, user)
+      ) {
+        return;
+      }
+      // Mastermind decides "manager only". Moving within an organization that is
+      // already loaded reads the flag from the store, so only entering one costs
+      // a request; a failed lookup leaves the route to its own resolve, which
+      // shows the right error page.
+      const loaded = getWorkspaceCustomer(store.getState());
+      const customer =
+        loaded?.uuid === uuid
+          ? loaded
+          : await getCustomer(uuid, ['is_service_provider_manager_only']).catch(
+              () => undefined,
+            );
+      if (checkIsServiceManagerOnly(customer)) {
+        return transition.router.stateService.target(
+          'marketplace-provider-dashboard',
+          { uuid },
+        );
       }
     },
   );
@@ -248,45 +300,58 @@ export function attachTransitions() {
 
   router.transitionService.onError({}, (transition) => {
     const error = transition.error();
+
+    // A transition also "fails" when it is superseded by a newer one, aborted
+    // by a hook, or ignored because it went nowhere — the user clicked a second
+    // link, or the same one twice. Only a genuine error is worth redirecting;
+    // sending the rest to the 404 page would cancel navigation they asked for.
+    if (error?.type !== RejectType.ERROR) {
+      return;
+    }
+
+    // UI-Router defines `onError` with LOG_REJECTED_RESULT, which ignores a
+    // hook's return value, so the TargetState this used to return never
+    // navigated anywhere: a deep link whose resolve rejected was left showing a
+    // blank page. The redirect has to be issued imperatively, the way
+    // goToNotFound() does it.
+    const goTo = (name: string, params?, options?) => {
+      transition.router.stateService.go(name, params, options).catch(() => {
+        // Superseded by the user's next navigation; nothing to report.
+      });
+    };
+
     // Erred state is terminal, user should not be redirected from erred state to login
     // so that he would be able to read error message details
-    if (error && error.detail && error.detail.status === 401) {
+    if (error.detail && error.detail.status === 401) {
       RedirectStorage.set({
         toState: transition.to().name,
         toParams: transition.to().params,
       });
       clearAuthCache();
-      return transition.router.stateService.target('login');
+      return goTo('login');
     }
-    if (error && error.detail) {
+    if (error.detail) {
       if (error.detail.status === 403) {
-        return transition.router.stateService.target('errorPage.noPermission');
+        return goTo('errorPage.noPermission');
       }
       if (error.detail.status === 428) {
         // HTTP 428 Precondition Required - user profile incomplete with enforcement enabled
-        return transition.router.stateService.target('profile-manage');
+        return goTo('profile-manage');
       }
       if (error.detail.status === 500) {
-        return transition.router.stateService.target('errorPage.severError');
+        return goTo('errorPage.serverError');
       }
       if (error.detail.status === 503) {
-        return transition.router.stateService.target(
-          'errorPage.serviceNotAvailable',
-        );
+        return goTo('errorPage.serviceNotAvailable');
       }
     }
-    if (error && error['redirectTo'] && error['status'] !== -1) {
-      return transition.router.stateService.target(error['redirectTo']);
-    } else {
-      // `location: false` keeps the address that produced the error; the
-      // error states have no url of their own, so the address bar would
-      // otherwise be rewritten to '/' while the 404 page is displayed.
-      return transition.router.stateService.target(
-        'errorPage.notFound',
-        undefined,
-        { location: false },
-      );
+    if (error['redirectTo'] && error['status'] !== -1) {
+      return goTo(error['redirectTo']);
     }
+    // `location: false` keeps the address that produced the error; the
+    // error states have no url of their own, so the address bar would
+    // otherwise be rewritten to '/' while the 404 page is displayed.
+    return goTo('errorPage.notFound', undefined, { location: false });
   });
 
   router.transitionService.onStart({}, (transition) => {

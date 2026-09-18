@@ -612,6 +612,12 @@ export const SettingsDescription = [
         type: 'boolean',
       },
       {
+        key: 'WALDUR_SUPPORT_ISSUE_KEY_PREFIX',
+        description: translate('Prefix of ticket keys created by the built-in service desk, e.g. WLD in WLD-A1B2C3D4. Three to five capital latin letters. Keys of existing tickets are not rewritten.'),
+        default: 'WLD',
+        type: 'issue_key_prefix_field',
+      },
+      {
         key: 'WALDUR_SUPPORT_PROVIDER_ROUTING_ENABLED',
         description: translate('Enable automatic routing of tickets to provider helpdesks.'),
         default: false,
@@ -695,6 +701,12 @@ export const SettingsDescription = [
         type: 'secret_field',
       },
       {
+        key: 'ATLASSIAN_OAUTH2_CLIENT_SECRET',
+        description: translate('OAuth 2.0 Client Secret. With the client ID set, Waldur obtains and renews access tokens itself (client credentials grant).'),
+        default: '',
+        type: 'secret_field',
+      },
+      {
         key: 'ATLASSIAN_OAUTH2_ACCESS_TOKEN',
         description: translate('OAuth 2.0 Access Token'),
         default: '',
@@ -720,7 +732,7 @@ export const SettingsDescription = [
       },
       {
         key: 'ATLASSIAN_EXCLUDED_ATTACHMENT_TYPES',
-        description: translate('Comma-separated list of file extenstions not allowed for attachment.'),
+        description: translate('Comma-separated list of file extensions not allowed for attachment.'),
         default: '',
         type: 'string',
       },
@@ -1219,7 +1231,7 @@ export const SettingsDescription = [
       },
       {
         key: 'INVITATION_DISABLE_MULTIPLE_ROLES',
-        description: translate('Do not allow user to accept multiple roles within the same scope (project or organization) using invitation. When enabled, users can still accept invitations to different scopes but cannot have multiple roles in the same scope.'),
+        description: translate('Do not allow a user to hold multiple roles within the same scope (project or organization). Applies to invitations, permission requests and direct role assignment. When enabled, users can still get roles in different scopes but cannot have multiple roles in the same scope.'),
         default: false,
         type: 'boolean',
       },
@@ -1417,6 +1429,31 @@ export const SettingsDescription = [
         type: 'boolean',
       },
       {
+        key: 'SCIM_USER_MATCH_WALDUR_ATTRIBUTE',
+        description: translate('Waldur user attribute that links an inbound SCIM user to an existing account. Must be username or an enabled identifying attribute. With username, new accounts are named after the matched value.'),
+        default: 'username',
+        type: 'choice_field',
+        options: [{ value: 'username', label: 'Username' }, { value: 'email', label: 'Email' }, { value: 'civil_number', label: 'Civil number' }],
+      },
+      {
+        key: 'SCIM_USER_MATCH_SCIM_ATTRIBUTE',
+        description: translate('SCIM attribute holding the value matched against SCIM_USER_MATCH_WALDUR_ATTRIBUTE, e.g. userName, emails, or an extension path such as urn:mace:surf.nl:sram:scim:extension:User.eduPersonUniqueId.'),
+        default: 'userName',
+        type: 'string',
+      },
+      {
+        key: 'SRAM_INTEGRATION_ENABLED',
+        description: translate('Accept SCIM provisioning from SURF Research Access Management (SRAM) at /scim/v2/sram/. Also requires SCIM_INBOUND_ENABLED and a staff service-account token registered as the service\'s SCIM bearer token in SRAM.'),
+        default: false,
+        type: 'boolean',
+      },
+      {
+        key: 'SRAM_PLACEHOLDER_ROLE_TEMPLATE',
+        description: translate('Name of the organization role whose permissions SRAM placeholder roles copy. Empty gives placeholders no permissions. Placeholders are refreshed on the next push or by \'waldur sram_resync\'.'),
+        default: '',
+        type: 'string',
+      },
+      {
         key: 'SCIM_PULL_API_URL',
         description: translate('Base URL for outbound SCIM pull (fetching user attributes from an external IdP).'),
         default: '',
@@ -1474,6 +1511,12 @@ export const SettingsDescription = [
         description: translate('Seconds to cache successful token introspection results. Reduces load on the introspection endpoint. Set to 0 to disable caching. Default: 300 (5 minutes).'),
         default: 300,
         type: 'integer',
+      },
+      {
+        key: 'OIDC_REGISTRATION_METHOD',
+        description: translate('Value stored in User.registration_method for accounts created or adopted via Bearer token introspection (OIDCAuthentication). Set to the social IdP provider slug (e.g. \'eduteams\') when introspection and OAuth share the same identity provider so IdentityProvider.protected_fields apply.'),
+        default: 'oidc',
+        type: 'string',
       },
       {
         key: 'OIDC_DEFAULT_LOGOUT_URL',
@@ -2086,9 +2129,9 @@ export const SettingsDescription = [
       {
         key: 'ENABLED_REPORTING_SCREENS',
         description: translate('Select which reporting screens should be visible to users. Uncheck to disable specific reports.'),
-        default: ['resource-usage', 'user-usage', 'quotas', 'usage-monitoring', 'usage-trends', 'organization-summary', 'project-detail', 'resources-geography', 'project-classification', 'usage-by-customer', 'usage-by-org-type', 'usage-by-creator', 'call-performance', 'review-progress', 'resource-demand', 'capacity', 'provider-overview', 'provider-revenue', 'provider-orders', 'provider-resources', 'provider-customers', 'provider-offerings', 'openstack-instances', 'offering-usage', 'user-analytics', 'user-demographics', 'user-organizations', 'user-affiliations', 'user-roles', 'growth', 'revenue', 'pricelist', 'orders', 'offering-costs', 'maintenance-overview', 'provisioning-stats'],
+        default: ['resource-usage', 'user-usage', 'quotas', 'usage-monitoring', 'usage-trends', 'organization-summary', 'project-detail', 'resources-geography', 'project-classification', 'usage-by-customer', 'usage-by-org-type', 'usage-by-creator', 'projects-by-affiliated-organization', 'call-performance', 'review-progress', 'resource-demand', 'capacity', 'provider-overview', 'provider-revenue', 'provider-orders', 'provider-resources', 'provider-customers', 'provider-offerings', 'openstack-instances', 'offering-usage', 'user-analytics', 'user-demographics', 'user-organizations', 'user-affiliations', 'user-roles', 'growth', 'revenue', 'pricelist', 'orders', 'offering-costs', 'maintenance-overview', 'provisioning-stats'],
         type: 'multiple_choice_field',
-        options: [{ value: 'resource-usage', label: 'Resources: Usage' }, { value: 'user-usage', label: 'Resources: Usage by user' }, { value: 'quotas', label: 'Resources: Quotas' }, { value: 'usage-monitoring', label: 'Resources: Usage monitoring' }, { value: 'usage-trends', label: 'Resources: Usage trends' }, { value: 'organization-summary', label: 'Resources: Organization summary' }, { value: 'project-detail', label: 'Resources: Project detail' }, { value: 'resources-geography', label: 'Resources: Geographic distribution' }, { value: 'project-classification', label: 'Resources: Project classification' }, { value: 'usage-by-customer', label: 'Resources: Usage by customer' }, { value: 'usage-by-org-type', label: 'Resources: Usage by organization type' }, { value: 'usage-by-creator', label: 'Resources: Usage by creator' }, { value: 'call-performance', label: 'Proposals: Call performance' }, { value: 'review-progress', label: 'Proposals: Review progress' }, { value: 'resource-demand', label: 'Proposals: Resource demand' }, { value: 'capacity', label: 'Provider: Capacity' }, { value: 'provider-overview', label: 'Provider: Provider overview' }, { value: 'provider-revenue', label: 'Provider: Provider revenue' }, { value: 'provider-orders', label: 'Provider: Provider orders' }, { value: 'provider-resources', label: 'Provider: Provider resources' }, { value: 'provider-customers', label: 'Provider: Provider customers' }, { value: 'provider-offerings', label: 'Provider: Provider offerings' }, { value: 'openstack-instances', label: 'Provider: OpenStack instances' }, { value: 'offering-usage', label: 'Provider: Offering component usage' }, { value: 'user-analytics', label: 'Users: Analytics' }, { value: 'user-demographics', label: 'Users: Demographics' }, { value: 'user-organizations', label: 'Users: Organizations' }, { value: 'user-affiliations', label: 'Users: Affiliations' }, { value: 'user-roles', label: 'Users: Role distribution' }, { value: 'growth', label: 'Financial: Growth' }, { value: 'revenue', label: 'Financial: Monthly revenue' }, { value: 'pricelist', label: 'Financial: Pricelist' }, { value: 'orders', label: 'Financial: Orders' }, { value: 'offering-costs', label: 'Financial: Offering costs' }, { value: 'maintenance-overview', label: 'Operations: Maintenance overview' }, { value: 'provisioning-stats', label: 'Operations: Provisioning statistics' }],
+        options: [{ value: 'resource-usage', label: 'Resources: Usage' }, { value: 'user-usage', label: 'Resources: Usage by user' }, { value: 'quotas', label: 'Resources: Quotas' }, { value: 'usage-monitoring', label: 'Resources: Usage monitoring' }, { value: 'usage-trends', label: 'Resources: Usage trends' }, { value: 'organization-summary', label: 'Resources: Organization summary' }, { value: 'project-detail', label: 'Resources: Project detail' }, { value: 'resources-geography', label: 'Resources: Geographic distribution' }, { value: 'project-classification', label: 'Resources: Project classification' }, { value: 'usage-by-customer', label: 'Resources: Usage by customer' }, { value: 'usage-by-org-type', label: 'Resources: Usage by organization type' }, { value: 'usage-by-creator', label: 'Resources: Usage by creator' }, { value: 'projects-by-affiliated-organization', label: 'Resources: Projects by affiliated organization' }, { value: 'call-performance', label: 'Proposals: Call performance' }, { value: 'review-progress', label: 'Proposals: Review progress' }, { value: 'resource-demand', label: 'Proposals: Resource demand' }, { value: 'capacity', label: 'Provider: Capacity' }, { value: 'provider-overview', label: 'Provider: Provider overview' }, { value: 'provider-revenue', label: 'Provider: Provider revenue' }, { value: 'provider-orders', label: 'Provider: Provider orders' }, { value: 'provider-resources', label: 'Provider: Provider resources' }, { value: 'provider-customers', label: 'Provider: Provider customers' }, { value: 'provider-offerings', label: 'Provider: Provider offerings' }, { value: 'openstack-instances', label: 'Provider: OpenStack instances' }, { value: 'offering-usage', label: 'Provider: Offering component usage' }, { value: 'user-analytics', label: 'Users: Analytics' }, { value: 'user-demographics', label: 'Users: Demographics' }, { value: 'user-organizations', label: 'Users: Organizations' }, { value: 'user-affiliations', label: 'Users: Affiliations' }, { value: 'user-roles', label: 'Users: Role distribution' }, { value: 'growth', label: 'Financial: Growth' }, { value: 'revenue', label: 'Financial: Monthly revenue' }, { value: 'pricelist', label: 'Financial: Pricelist' }, { value: 'orders', label: 'Financial: Orders' }, { value: 'offering-costs', label: 'Financial: Offering costs' }, { value: 'maintenance-overview', label: 'Operations: Maintenance overview' }, { value: 'provisioning-stats', label: 'Operations: Provisioning statistics' }],
       },
     ],
   },
@@ -2197,7 +2240,7 @@ export const SettingsDescription = [
       },
       {
         key: 'MATRIX_LIVEKIT_KEY',
-        description: translate('LiveKit API key for the Element Call SFU (Calls observability tab).'),
+        description: translate('LiveKit API key for the call SFU (Calls observability tab).'),
         default: '',
         type: 'string',
       },

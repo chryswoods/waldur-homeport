@@ -13,7 +13,8 @@ import {
   type RuleTestMatchResponse,
 } from 'waldur-js-client';
 
-import { Badge } from '@/core/Badge';
+import { Badge } from 'waldur-ui';
+
 import { ENV } from '@/core/config';
 import { required } from '@/core/validators';
 import { SubmitButton, AsyncSelectGroup } from '@/form';
@@ -36,6 +37,20 @@ const FilterRow: FC<{ result: FilterCheckResult }> = ({ result }) => {
     if (value === null || value === undefined || value === '') return '—';
     if (Array.isArray(value)) {
       return value.length ? value.join(', ') : '—';
+    }
+    // The claims filter reports a map; without this it renders as
+    // "[object Object]".
+    if (typeof value === 'object') {
+      const entries = Object.entries(value as Record<string, unknown>);
+      if (!entries.length) return '—';
+      return entries
+        .map(([key, values]) => {
+          const rendered = Array.isArray(values)
+            ? renderFieldOrDash(values.join(', '))
+            : String(values);
+          return `${key}: ${rendered}`;
+        })
+        .join(' · ');
     }
     return String(value);
   };
@@ -63,6 +78,28 @@ const FilterRow: FC<{ result: FilterCheckResult }> = ({ result }) => {
   );
 };
 
+// Existing accounts get the project at their next login, new ones at sign-up.
+const projectActionLabel = (
+  action: RuleTestMatchResponse['project_action'],
+  name: string,
+) => {
+  switch (action) {
+    case 'create':
+      return translate('Project "{name}" will be created at the next login.', {
+        name,
+      });
+    case 'existing':
+      return translate('Uses the existing project "{name}".', { name });
+    case 'not_recreated':
+      return translate(
+        'Project "{name}" was provisioned before and has been deleted. It will not be recreated.',
+        { name },
+      );
+    default:
+      return translate('Project name preview: {name}', { name });
+  }
+};
+
 const ResultPanel: FC<{ result: RuleTestMatchResponse }> = ({ result }) => {
   const verdictClass = result.would_provision ? 'text-success' : 'text-danger';
   return (
@@ -78,11 +115,12 @@ const ResultPanel: FC<{ result: RuleTestMatchResponse }> = ({ result }) => {
             ? translate('Would provision')
             : translate('Blocked')}
         </span>
-        {result.would_provision && result.resolved_project_name && (
+        {result.resolved_project_name && (
           <span className="text-muted">
-            {translate('Project name preview: {name}', {
-              name: result.resolved_project_name,
-            })}
+            {projectActionLabel(
+              result.project_action,
+              result.resolved_project_name,
+            )}
           </span>
         )}
       </div>
@@ -155,6 +193,19 @@ const ResultPanel: FC<{ result: RuleTestMatchResponse }> = ({ result }) => {
         </>
       )}
 
+      {result.unconfigured_claims?.length > 0 && (
+        <div className="alert alert-warning py-2 px-3 mt-3 mb-0">
+          {translate(
+            "Not received from any identity provider: {claims}. Waldur only stores a claim that is listed in the provider's extra fields, so this rule cannot match anyone until it is added there.",
+            {
+              claims: result.unconfigured_claims
+                .map((claim) => `"${claim}"`)
+                .join(', '),
+            },
+          )}
+        </div>
+      )}
+
       <h6 className="mt-4 mb-2">{translate('User attributes')}</h6>
       <dl className="row mb-0 small">
         <dt className="col-sm-4">{translate('Username')}</dt>
@@ -177,14 +228,27 @@ const ResultPanel: FC<{ result: RuleTestMatchResponse }> = ({ result }) => {
         <dd className="col-sm-8">
           {renderFieldOrDash(result.user_affiliations.join(', '))}
         </dd>
+        {Object.keys(result.user_claims ?? {}).length > 0 && (
+          <>
+            <dt className="col-sm-4">{translate('Claims')}</dt>
+            <dd className="col-sm-8">
+              {Object.entries(result.user_claims).map(([claim, values]) => (
+                <div key={claim}>
+                  <span className="fw-semibold">{claim}</span>:{' '}
+                  {renderFieldOrDash((values as string[]).join(', '))}
+                </div>
+              ))}
+            </dd>
+          </>
+        )}
         <dt className="col-sm-4">{translate('Details protected')}</dt>
         <dd className="col-sm-8">
           {result.user_is_protected ? (
-            <Badge variant="purple" outline>
+            <Badge variant="purple" tone="outline">
               {translate('Yes')}
             </Badge>
           ) : (
-            <Badge variant="default" outline>
+            <Badge variant="neutral" tone="outline">
               {translate('No')}
             </Badge>
           )}

@@ -10,9 +10,10 @@ import {
   projectsStatsRetrieve,
 } from 'waldur-js-client';
 
+import { Badge } from 'waldur-ui';
+
 import { getResourcesCount } from '@/administration/api';
 import { parseSelectData } from '@/core/api';
-import { Badge } from '@/core/Badge';
 import { SHORT_STALE_TIME, STALE_TIME, UI_STALE_TIME } from '@/core/constants';
 import { lazyComponent } from '@/core/lazyComponent';
 import { Panel } from '@/core/Panel';
@@ -37,6 +38,7 @@ import { RemoteProjectDashboardCards } from '@/openportal/remote-projects/Remote
 import { useProjectAccountingSummary } from '@/openportal/useProjectAccountingSummary';
 import { PermissionEnum } from '@/permissions/enums';
 import { hasPermission } from '@/permissions/hasPermission';
+import { canViewTeam } from '@/permissions/teamVisibility';
 import { ActionButton } from '@/table/ActionButton';
 import { useThemeFeatures } from '@/theme/useThemeFeatures';
 import { useCustomer, useUser, useProject } from '@/workspace/hooks';
@@ -73,6 +75,10 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
 
   const router = useRouter();
   const goToUsers = () => router.stateService.go('project-users');
+  const showTeam = canViewTeam(user, {
+    customerId: project?.customer_uuid,
+    projectId: project?.uuid,
+  });
 
   const canEditProject =
     userFromSelector &&
@@ -291,7 +297,7 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
             <ProjectDashboardBalance project={project} />
           </Col>
         )}
-        {!hasAnyRemoteProjects && !hasAnyManagedProjects && (
+        {showTeam && !hasAnyRemoteProjects && !hasAnyManagedProjects && (
           <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
             <TeamWidget
               api={() =>
@@ -423,7 +429,7 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
                 title={
                   <>
                     {translate('Staff Notes')}{' '}
-                    <Badge variant="warning" pill outline>
+                    <Badge variant="warning" shape="pill" tone="outline">
                       {translate('Internal')}
                     </Badge>
                   </>

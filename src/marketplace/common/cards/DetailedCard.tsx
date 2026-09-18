@@ -3,10 +3,11 @@ import classNames from 'classnames';
 import { FC } from 'react';
 import { Card } from 'react-bootstrap';
 
-import { Badge } from '@/core/Badge';
+import { Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { Image } from '@/core/Image';
 import { ImagePlaceholder } from '@/core/ImagePlaceholder';
-import { Tip } from '@/core/Tooltip';
 import { getAbbreviation } from '@/core/utils';
 import { translate } from '@/i18n';
 import Placeholder from '@/images/logo_w.svg';
@@ -104,13 +105,12 @@ export const DetailedCard: FC<OfferingCardVariantProps> = ({
           {/* Badges */}
           <div className="d-flex flex-wrap gap-2 mb-4">
             {offering.category_title && (
-              <Badge variant="default" outline className="fw-normal">
+              <Badge variant="neutral" tone="outline" className="fw-normal">
                 {offering.category_title}
               </Badge>
             )}
             {isRestricted && (
-              <Tip
-                id={`tip-restricted-detailed-${offering.uuid}`}
+              <Tooltip
                 label={
                   offering.project_name
                     ? translate(
@@ -128,29 +128,28 @@ export const DetailedCard: FC<OfferingCardVariantProps> = ({
                 <Badge
                   variant="purple"
                   leftIcon={<QuestionIcon size={12} weight="bold" />}
-                  outline
+                  tone="outline"
                   className="fw-normal"
                 >
                   {translate('Restricted')}
                 </Badge>
-              </Tip>
+              </Tooltip>
             )}
             {isInaccessible && (
-              <Tip
-                id={`tip-inaccessible-detailed-${offering.uuid}`}
+              <Tooltip
                 label={translate(
                   'This offering is not accessible to your organization',
                 )}
               >
                 <Badge
-                  variant="default"
+                  variant="neutral"
                   leftIcon={<LockSimpleIcon size={12} weight="bold" />}
-                  outline
+                  tone="outline"
                   className="fw-normal"
                 >
                   {translate('Inaccessible')}
                 </Badge>
-              </Tip>
+              </Tooltip>
             )}
             <TagBadges
               tags={offering.tags}

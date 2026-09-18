@@ -1,13 +1,14 @@
-import { FC } from 'react';
-import { Form } from 'react-final-form';
-import { BasePublicPlan, PublicOfferingDetails } from 'waldur-js-client';
+import { FC, useMemo } from 'react';
+import { PublicOfferingDetails } from 'waldur-js-client';
 
 import { Panel } from '@/core/Panel';
-import { useWrappedTabs } from '@/core/WrappedTabs';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
 import { translate } from '@/i18n';
 
 import { ExportFullPriceList } from './ExportFullPriceList';
-import { PublicOfferingPricingPlanItem } from './PublicOfferingPricingPlanItem';
+import { PlanComparison } from './PlanComparison';
+import { hasVariablePricing } from './planPricing';
 
 import './PublicOfferingPricing.scss';
 
@@ -18,43 +19,35 @@ interface PublicOfferingPricingProps {
 export const PublicOfferingPricing: FC<PublicOfferingPricingProps> = ({
   offering,
 }) => {
-  const { WrappedTabs, refNav, wrappedItems } = useWrappedTabs<BasePublicPlan>(
-    offering.plans,
+  // Explains the headline figure, so it belongs beside the title rather than
+  // as a footnote under the table.
+  const subtitle = useMemo(
+    () =>
+      !isFeatureVisible(MarketplaceFeatures.conceal_prices) &&
+      hasVariablePricing(offering) ? (
+        // Same treatment as a report description (see ReportingTitle):
+        // Panel's own subtitle renders bold at fs-6.
+        <span className="fw-normal">
+          {translate(
+            'The starting price covers what the plan fixes. Components you size yourself and metered usage are charged on top, at the rates above.',
+          )}
+        </span>
+      ) : undefined,
+    [offering],
   );
 
   return (
-    <Form onSubmit={() => {}}>
-      {() => (
-        <Panel
-          title={translate('Plans')}
-          actions={<ExportFullPriceList offering={offering} />}
-          cardBordered
-          id="pricing"
-          className="public-offering-pricing"
-        >
-          {offering.plans.length === 1 ? (
-            <PublicOfferingPricingPlanItem
-              offering={offering}
-              plan={offering.plans[0]}
-            />
-          ) : (
-            <WrappedTabs
-              ref={refNav}
-              defaultActiveKey={offering.plans[0].uuid}
-              items={offering.plans}
-              wrappedItems={wrappedItems}
-              renderTab={({ item }) => item.name}
-              renderContent={({ item }) => (
-                <PublicOfferingPricingPlanItem
-                  key={item.uuid}
-                  offering={offering}
-                  plan={item}
-                />
-              )}
-            />
-          )}
-        </Panel>
-      )}
-    </Form>
+    <Panel
+      title={translate('Plans')}
+      subtitle={subtitle}
+      actions={<ExportFullPriceList offering={offering} />}
+      cardBordered
+      id="pricing"
+      className="public-offering-pricing"
+      // The table draws its own header row directly under the panel title.
+      bodyClassName="pt-0"
+    >
+      <PlanComparison offering={offering} />
+    </Panel>
   );
 };

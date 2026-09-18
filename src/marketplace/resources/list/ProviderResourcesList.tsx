@@ -7,10 +7,10 @@ import {
   Resource,
 } from 'waldur-js-client';
 
+import { BackendIdTip } from '@/core/BackendIdTip';
 import { BooleanBadge } from '@/core/BooleanBadge';
 import { formatDateTime } from '@/core/dateUtils';
 import { lazyComponent } from '@/core/lazyComponent';
-import { BackendIdTip } from '@/core/Tooltip';
 import { isFeatureVisible } from '@/features/connect';
 import { MarketplaceFeatures } from '@/FeaturesEnums';
 import { translate } from '@/i18n';
@@ -241,7 +241,9 @@ const TableComponent: FunctionComponent<any> = (props) => {
     },
     {
       title: translate('State'),
-      render: ({ row }) => <ResourceStateField resource={row} pill outline />,
+      render: ({ row }) => (
+        <ResourceStateField resource={row} shape="pill" tone="outline" />
+      ),
       filter: 'state',
       orderField: 'state',
       inlineFilter: (row) => getStates().filter((op) => op.value === row.state),
@@ -296,6 +298,7 @@ const mandatoryFields: MarketplaceProviderResourcesListData['query']['field'] =
     'offering_uuid', // ShowUsageAction, ReportUsageAction
     'provider_uuid', // CreateRobotAccountAction
     'offering_plugin_options', // CreateRobotAccountAction
+    'offering_account_settings', // CreateRobotAccountAction
     'backend_id', // ShowUsageAction, ReportUsageAction, SetBackendIdAction
     'is_usage_based', // Expandable view, ShowUsageAction, ReportUsageAction
     'is_limit_based', // Expandable view, ShowUsageAction, ReportUsageAction

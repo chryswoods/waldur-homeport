@@ -3,10 +3,13 @@ import classNames from 'classnames';
 import React, { PropsWithChildren, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 
+import { SidebarProvider, useSidebar } from 'waldur-ui';
+
 import { ImpersonationBar } from '@/administration/ImpersonationBar';
 import * as AuthService from '@/auth/AuthService';
 import { PermissionDataProvider } from '@/auth/PermissionLayout';
 import WarningBar from '@/auth/WarningBar';
+import { GRID_BREAKPOINTS } from '@/core/constants';
 import { LoadingSpinner } from '@/core/LoadingSpinner';
 import { InvitationCheck } from '@/invitations/InvitationCheck';
 import { DefaultLayoutConfig, useLayout } from '@/metronic/layout/core';
@@ -33,7 +36,17 @@ import { Toolbar } from './Toolbar';
 import { IBreadcrumbItem } from './types';
 import { useTabs } from './useTabs';
 
-export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
+export const Layout: React.FC<PropsWithChildren> = ({ children }) => (
+  <SidebarProvider
+    renderWrapper={false}
+    mobileBreakpoint={GRID_BREAKPOINTS.lg}
+    style={{ '--sidebar-width-icon': '75px' } as React.CSSProperties}
+  >
+    <LayoutContent>{children}</LayoutContent>
+  </SidebarProvider>
+);
+
+const LayoutContent: React.FC<PropsWithChildren> = ({ children }) => {
   const { state } = useCurrentStateAndParams();
   const currentUser = useUser();
   const impersonatorUser = useSelector(getImpersonatorUser);
@@ -46,6 +59,12 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
   const [ExtraAnnouncementBar, setExtraAnnouncementBar] =
     useState<React.ReactNode>(null);
   const [ExtraToolbar, setExtraToolbar] = useState<React.ReactNode>(null);
+  const { state: sidebarState, setOpenMobile } = useSidebar();
+
+  useEffect(() => {
+    setOpenMobile(false);
+  }, [state, setOpenMobile]);
+
   const context = useMemo<Partial<LayoutContextInterface>>(
     () => ({
       setActions,
@@ -81,8 +100,18 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
   const showToolbar = Boolean(actions || tabs?.length > 1 || extraTabs?.length);
 
   useEffect(() => {
+    // Synchronize aside.minimized with the real Sidebar's state from useSidebar()
+    // rather than guessing or defaulting to false. This guarantees that whenever
+    // the sidebar is collapsed (on mount, resize, user toggle, or navigation),
+    // layout.config.aside.minimized is true and Metronic's header/toolbar content
+    // offset CSS (data-kt-aside-minimize='on') remains correctly aligned.
     layout.setLayout({
-      aside: currentUser ? DefaultLayoutConfig.aside : false,
+      aside: currentUser
+        ? {
+            ...DefaultLayoutConfig.aside,
+            minimized: sidebarState === 'collapsed',
+          }
+        : false,
       toolbar: showToolbar ? DefaultLayoutConfig.toolbar : false,
       extraToolbar: ExtraToolbar ? DefaultLayoutConfig.extraToolbar : false,
       hero: PageHero ? DefaultLayoutConfig.hero : false,
@@ -91,7 +120,15 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
         width: 'fluid',
       },
     });
-  }, [showToolbar, fullPage, PageHero, PageBar, ExtraToolbar, currentUser]);
+  }, [
+    showToolbar,
+    fullPage,
+    PageHero,
+    PageBar,
+    ExtraToolbar,
+    currentUser,
+    sidebarState,
+  ]);
 
   useEffect(() => {
     if (AuthService.isAuthenticated() && !currentUser) {

@@ -6,9 +6,10 @@ import {
   OnboardingVerificationStatusEnum,
 } from 'waldur-js-client';
 
-import { Badge } from '@/core/Badge';
+import { BadgeVariant, Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { formatDateTime } from '@/core/dateUtils';
-import { Tip } from '@/core/Tooltip';
 import { translate } from '@/i18n';
 import { createFetcher } from '@/table/api';
 import { BooleanField } from '@/table/BooleanField';
@@ -23,7 +24,7 @@ import { OnboardingVerificationExpandableRow } from './OnboardingVerificationExp
 const StatusBadge: FC<{ status: OnboardingVerificationStatusEnum }> = ({
   status,
 }) => {
-  const statusColors = {
+  const statusColors: Record<OnboardingVerificationStatusEnum, BadgeVariant> = {
     pending: 'warning',
     verified: 'success',
     failed: 'danger',
@@ -32,7 +33,7 @@ const StatusBadge: FC<{ status: OnboardingVerificationStatusEnum }> = ({
   };
   const color = statusColors[status] || 'secondary';
   return (
-    <Badge variant={color} pill outline>
+    <Badge variant={color} shape="pill" tone="outline">
       {status}
     </Badge>
   );
@@ -84,12 +85,9 @@ export const getOnboardingVerificationColumns = (options?: {
         <>
           <BooleanField value={row.can_customer_be_created} />
           {row.customer_creation_error_message && (
-            <Tip
-              id={`tip-customer-creation-${row.uuid}`}
-              label={row.customer_creation_error_message}
-            >
+            <Tooltip label={row.customer_creation_error_message}>
               <QuestionIcon weight="bold" />
-            </Tip>
+            </Tooltip>
           )}
         </>
       ),

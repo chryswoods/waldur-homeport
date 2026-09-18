@@ -1,4 +1,9 @@
-import { BillingUnit, ProviderPlanDetailsRequest } from 'waldur-js-client';
+import { isNil, omitBy } from 'lodash-es';
+import {
+  BillingUnit,
+  PlanBillingMode,
+  ProviderPlanDetailsRequest,
+} from 'waldur-js-client';
 
 import { getFormLimitSerializer } from '@/marketplace/common/registry';
 
@@ -11,6 +16,11 @@ export const formatPlan = (plan: PlanFormData) =>
     unit_price: plan.unit_price ? String(plan.unit_price) : undefined,
     article_code: plan.article_code,
     description: plan.description,
+    // Only offerings with builtin components show the selector; leave the
+    // field out otherwise so the backend keeps its default.
+    ...(plan.billing_mode?.value
+      ? { billing_mode: plan.billing_mode.value as PlanBillingMode }
+      : {}),
   }) as ProviderPlanDetailsRequest;
 
 export const formatOption = (option: OptionFormData) => {
@@ -20,6 +30,7 @@ export const formatOption = (option: OptionFormData) => {
     cascade_config,
     component_multiplier_config,
     default_configs,
+    visible_if,
     ...rest
   } = option;
   const item: any = {
@@ -52,7 +63,9 @@ export const formatOption = (option: OptionFormData) => {
     (item.type === 'single_datacenter_k8s_config' ||
       item.type === 'multi_datacenter_k8s_config')
   ) {
-    item.default_configs = default_configs;
+    // A cleared setting (for example topology_mode set back to "the type
+    // decides") must disappear rather than reach the backend as null.
+    item.default_configs = omitBy(default_configs, isNil);
   }
 
   // Handle validators for cross-field validation
@@ -69,6 +82,11 @@ export const formatOption = (option: OptionFormData) => {
             : v.target_field,
       }));
     }
+  }
+
+  // A rule without a referenced option is an unfinished one; drop it.
+  if (visible_if?.field && visible_if.values?.length) {
+    item.visible_if = { field: visible_if.field, values: visible_if.values };
   }
 
   return item;

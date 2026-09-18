@@ -2,11 +2,12 @@ import { QuestionIcon } from '@phosphor-icons/react';
 import { FunctionComponent, useCallback, useMemo } from 'react';
 import { User, usersList, UsersListData } from 'waldur-js-client';
 
+import { Tooltip } from 'waldur-ui';
+
 import { AITokenExpandableRow } from '@/administration/ai-assistant/AITokenExpandableRow';
 import { ENV } from '@/core/config';
 import { formatDate, formatDateTime } from '@/core/dateUtils';
 import { Link } from '@/core/Link';
-import { Tip } from '@/core/Tooltip';
 import { formatPhoneNumber } from '@/core/utils';
 import { isFeatureVisible } from '@/features/connect';
 import { SupportFeatures, UserFeatures } from '@/FeaturesEnums';
@@ -27,6 +28,7 @@ import { IsdBadges } from './IsdBadges';
 import { isProfileAttributeEnabled } from './profileAttributes';
 import { RecalculateUserActionsButton } from './RecalculateUserActionsButton';
 import { UserBulkActions } from './UserBulkActions';
+import { UserDeleteButton } from './UserDeleteButton';
 import { UserDetailsButton } from './UserDetailsButton';
 import { UserEditButton } from './UserEditButton';
 import { UserFilter } from './UserFilter';
@@ -51,9 +53,9 @@ const EmailField = ({ row }: { row: User }) => {
     return <>{row.email}</>;
   }
   return (
-    <Tip label={row.email} id={`user-email-${row.uuid}`} placement="top">
+    <Tooltip label={row.email} side="top">
       <span>{row.email.slice(0, EMAIL_MAX_LENGTH)}…</span>
-    </Tip>
+    </Tooltip>
   );
 };
 
@@ -84,13 +86,12 @@ const OrganizationRolesField = ({ row }: { row: User }) => {
   if (permissions.length > 0) {
     return permissions.map((permission, index) => (
       <span key={index}>
-        <Tip
-          key={index}
-          label={formatRole(permission.role_name)}
-          id="customer-role"
-        >
-          {permission.scope_name} <QuestionIcon weight="bold" />
-        </Tip>
+        <Tooltip key={index} label={formatRole(permission.role_name)}>
+          <span>
+            {permission.scope_name}
+            <QuestionIcon weight="bold" />
+          </span>
+        </Tooltip>
         <br />
       </span>
     ));
@@ -106,16 +107,18 @@ const ProjectRolesField = ({ row }: { row: User }) => {
   if (permissions.length > 0) {
     return permissions.map((permission, index) => (
       <span key={index}>
-        <Tip
+        <Tooltip
           key={index}
           label={translate('{role} ({name})', {
             role: formatRole(permission.role_name),
             name: permission.customer_name,
           })}
-          id="project-role"
         >
-          {permission.scope_name} <QuestionIcon weight="bold" />
-        </Tip>
+          <span>
+            {permission.scope_name}
+            <QuestionIcon weight="bold" />
+          </span>
+        </Tooltip>
         <br />
       </span>
     ));
@@ -147,6 +150,7 @@ const RowActions = ({ row, fetch }: { row: User; fetch? }) => {
         RecalculateUserActionsButton,
         UserImpersonateButton,
         UserDetailsButton,
+        UserDeleteButton,
       ]}
     />
   );
@@ -499,13 +503,29 @@ export const UserList: FunctionComponent = () => {
     [props.fetch, props.loading],
   );
 
+  // Deleting a row has to clear the selection too: the table keeps
+  // `selectedRows` across a refetch, so a checked user who has just been
+  // deleted would stay in the bulk-action set and the next Activate would fire
+  // against a dead uuid. Only the bulk-action toolbar paired the two before.
+  const refetchAndDeselect = useCallback(() => {
+    props.fetch();
+    props.resetSelection?.();
+  }, [props.fetch, props.resetSelection]);
+
+  const rowActions = useCallback(
+    ({ row }: { row: User }) => (
+      <RowActions row={row} fetch={refetchAndDeselect} />
+    ),
+    [refetchAndDeselect],
+  );
+
   return (
     <Table
       {...props}
       formId="userFilter"
       filters={<UserFilter />}
       columns={columns}
-      rowActions={RowActions}
+      rowActions={rowActions}
       showPageSizeSelector={true}
       hasOptionalColumns
       verboseName={translate('users')}

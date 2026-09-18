@@ -24,6 +24,12 @@ interface BaseNumberFieldProps {
   readOnly?: boolean;
   id?: string;
   isInvalid?: boolean;
+  /**
+   * The up/down carets. They move by `step`, which a price cannot use: seven
+   * decimals of precision make the caret's move invisible, and raising `step`
+   * would make those decimals invalid.
+   */
+  showSteppers?: boolean;
 }
 
 export const BaseNumberField: FC<BaseNumberFieldProps> = ({
@@ -39,13 +45,25 @@ export const BaseNumberField: FC<BaseNumberFieldProps> = ({
   step,
   id,
   isInvalid,
+  showSteppers = true,
   ...rest
 }) => {
   const minNum = Number(min ?? -Infinity);
   const maxNum = Number(max ?? Infinity);
 
+  // The carets move by the input's own step, not always by 1: on a field with
+  // step 0.1 a caret that jumps by a whole unit is not the same control the
+  // keyboard and the spinner offer. Rounded to the step's precision because
+  // repeated float addition drifts -- 0.1 + 0.2 is 0.30000000000000004, and
+  // that would land in the form as the value the user picked.
+  const stepNum = Number(step) > 0 ? Number(step) : 1;
+  const stepDecimals = (String(stepNum).split('.')[1] || '').length;
   const changeBy = (by: number) =>
-    onChange?.(clamp(Number(value || 0) + by, minNum, maxNum));
+    onChange?.(
+      Number(
+        clamp(Number(value || 0) + by, minNum, maxNum).toFixed(stepDecimals),
+      ),
+    );
 
   const isOutOfRange = (v) => {
     const num = Number(v);
@@ -83,10 +101,12 @@ export const BaseNumberField: FC<BaseNumberFieldProps> = ({
         {...rest}
       />
       <div className="input-group-addons">
-        <CaretUpDownButtons
-          onClickUp={() => changeBy(1)}
-          onClickDown={() => changeBy(-1)}
-        />
+        {showSteppers && (
+          <CaretUpDownButtons
+            onClickUp={() => changeBy(stepNum)}
+            onClickDown={() => changeBy(-stepNum)}
+          />
+        )}
         {unit && (
           <InputGroup.Text className="border-0 unit">{unit}</InputGroup.Text>
         )}

@@ -21,15 +21,9 @@ vi.mock('./ComponentMultiplierField', () => ({
   ),
 }));
 
-vi.mock('./SingleDatacenterK8sConfigurationForm', () => ({
-  SingleDatacenterK8sConfigurationForm: () => (
-    <div data-testid="mock-k8s-single" />
-  ),
-}));
-
-vi.mock('./MultiDatacenterK8sConfigurationForm', () => ({
-  MultiDatacenterK8sConfigurationForm: () => (
-    <div data-testid="mock-k8s-multi" />
+vi.mock('./K8sClusterConfigurationForm', () => ({
+  K8sClusterConfigurationForm: ({ field }) => (
+    <div data-testid={`mock-k8s-${field.type}`} />
   ),
 }));
 
@@ -58,6 +52,71 @@ describe('OptionsForm Integration', () => {
       </QueryClientProvider>,
     );
   };
+
+  describe('visible_if rules', () => {
+    const backupOptions = {
+      order: ['velero_backups', 'velero_account'],
+      options: {
+        velero_backups: { type: 'boolean', label: 'Velero backups' },
+        velero_account: {
+          type: 'string',
+          label: 'Velero account',
+          required: true,
+          visible_if: { field: 'velero_backups', values: [true] },
+        },
+      },
+    };
+
+    const renderWithSubmit = (initialValues = {}) => {
+      const onSubmit = vi.fn();
+      render(
+        <QueryClientProvider client={queryClient}>
+          <Form
+            onSubmit={onSubmit}
+            initialValues={initialValues}
+            render={({ handleSubmit }) => (
+              <form onSubmit={handleSubmit}>
+                <OptionsForm options={backupOptions as any} />
+                <button type="submit">Submit</button>
+              </form>
+            )}
+          />
+        </QueryClientProvider>,
+      );
+      return onSubmit;
+    };
+
+    it('hides a dependent option and does not require it', async () => {
+      const onSubmit = renderWithSubmit();
+      expect(screen.queryByText('Velero account')).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows and requires the option once the box is ticked', async () => {
+      const onSubmit = renderWithSubmit();
+      await userEvent.click(screen.getByRole('checkbox'));
+      expect(screen.getByText('Velero account')).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    it('clears the value when the option is hidden again', async () => {
+      const onSubmit = renderWithSubmit({
+        attributes: { velero_backups: true, velero_account: 'mine' },
+      });
+      expect(screen.getByRole('textbox')).toHaveValue('mine');
+      await userEvent.click(screen.getByRole('checkbox'));
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+      expect(onSubmit.mock.calls[0][0].attributes).not.toHaveProperty(
+        'velero_account',
+      );
+      await userEvent.click(screen.getByRole('checkbox'));
+      expect(screen.getByRole('textbox')).toHaveValue('');
+    });
+  });
 
   describe('Core rendering behaviors', () => {
     it('renders nothing if options or order is empty', () => {
@@ -273,8 +332,13 @@ describe('OptionsForm Integration', () => {
       expect(
         screen.getByTestId('mock-component-multiplier'),
       ).toBeInTheDocument();
-      expect(screen.getByTestId('mock-k8s-single')).toBeInTheDocument();
-      expect(screen.getByTestId('mock-k8s-multi')).toBeInTheDocument();
+      // Both Kubernetes types render the one cluster form.
+      expect(
+        screen.getByTestId('mock-k8s-single_datacenter_k8s_config'),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId('mock-k8s-multi_datacenter_k8s_config'),
+      ).toBeInTheDocument();
       // Storage folder manager isn't explicitly mocked above, but it renders a FormGroup/Select natively.
       expect(screen.getByText('Folder Mgr')).toBeInTheDocument();
     });
@@ -349,7 +413,9 @@ describe('OptionsForm Integration', () => {
         },
       });
 
-      expect(screen.getByTestId('mock-k8s-single')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('mock-k8s-single_datacenter_k8s_config'),
+      ).toBeInTheDocument();
       // No label row at all: no help tooltip and no label to hang the
       // required marker on. K8sOptionCard names the block instead.
       expect(screen.queryByTestId('QuestionIcon')).not.toBeInTheDocument();

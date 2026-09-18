@@ -1,3 +1,4 @@
+import { RejectType } from '@uirouter/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockIsAuthenticated = vi.fn();
@@ -7,6 +8,9 @@ const mockNeedsPasskeyEnrollment = vi.fn();
 const mockGroupInvitationTokenSet = vi.fn();
 const mockRedirectStorageSet = vi.fn();
 const mockTarget = vi.fn();
+const mockGo = vi.fn();
+const mockGetState = vi.fn();
+const mockGetCustomer = vi.fn();
 
 const onBeforeHandlers: Array<{ criteria: any; callback: any }> = [];
 const onStartHandlers: Array<{ criteria: any; callback: any }> = [];
@@ -14,7 +18,11 @@ const onSuccessHandlers: Array<{ criteria: any; callback: any }> = [];
 const onErrorHandlers: Array<{ criteria: any; callback: any }> = [];
 
 vi.mock('@/store/store', () => ({
-  default: { dispatch: vi.fn(), getState: vi.fn() },
+  default: { dispatch: vi.fn(), getState: (...args) => mockGetState(...args) },
+}));
+
+vi.mock('./customer/utils', () => ({
+  getCustomer: (...args) => mockGetCustomer(...args),
 }));
 
 vi.mock('./core/matomo', () => ({
@@ -97,6 +105,11 @@ function createMockTransition(toStateName: string, params: any = {}) {
     router: {
       stateService: {
         target: (...args) => mockTarget(...args),
+        go: (...args) => {
+          mockGo(...args);
+          // The hook attaches .catch() to whatever go() returns.
+          return Promise.resolve();
+        },
       },
       stateRegistry: { get: vi.fn() },
     },
@@ -365,6 +378,14 @@ describe('Redirect persistence on success', () => {
 describe('Transition error fallback', () => {
   let errorHook: any;
 
+  // UI-Router defines onError with LOG_REJECTED_RESULT, so a TargetState
+  // returned from the hook is discarded and never navigates. The hook has to
+  // call go() itself; these assertions are on go() for that reason.
+  const erred = (detail: any = {}, type = RejectType.ERROR) => ({
+    ...createMockTransition('some-state'),
+    error: () => ({ type, detail }),
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     onBeforeHandlers.length = 0;
@@ -379,15 +400,183 @@ describe('Transition error fallback', () => {
   });
 
   it('shows the 404 page without rewriting the address bar', () => {
-    const transition = {
-      ...createMockTransition('some-state'),
-      error: () => ({}),
-    };
+    errorHook.callback(erred());
 
-    errorHook.callback(transition);
-
-    expect(mockTarget).toHaveBeenCalledWith('errorPage.notFound', undefined, {
+    expect(mockGo).toHaveBeenCalledWith('errorPage.notFound', undefined, {
       location: false,
     });
+  });
+
+  it.each([
+    [403, 'errorPage.noPermission'],
+    [428, 'profile-manage'],
+    [500, 'errorPage.serverError'],
+    [503, 'errorPage.serviceNotAvailable'],
+  ])('sends %i to %s', (status, expected) => {
+    errorHook.callback(erred({ status }));
+
+    expect(mockGo).toHaveBeenCalledWith(expected, undefined, undefined);
+  });
+
+  // A transition also "fails" when the user clicks a second link while the
+  // first is still resolving. Redirecting then would cancel the navigation
+  // they actually asked for.
+  it.each([
+    ['superseded', RejectType.SUPERSEDED],
+    ['aborted', RejectType.ABORTED],
+    ['ignored', RejectType.IGNORED],
+  ])('leaves a %s transition alone', (_name, type) => {
+    errorHook.callback(erred({}, type));
+
+    expect(mockGo).not.toHaveBeenCalled();
+  });
+});
+
+describe('Service provider manager-only redirect', () => {
+  let redirectHook: any;
+
+  const providerManager = {
+    is_staff: false,
+    is_support: false,
+    permissions: [
+      {
+        scope_type: 'service_provider',
+        scope_uuid: 'provider',
+        customer_uuid: 'provider_org',
+        role_name: 'CUSTOMER.MANAGER',
+      },
+    ],
+  };
+
+  const enterOrganization = () =>
+    redirectHook.callback(
+      createMockTransition('organization.dashboard', { uuid: 'provider_org' }),
+    );
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    onBeforeHandlers.length = 0;
+    onStartHandlers.length = 0;
+    onSuccessHandlers.length = 0;
+    onErrorHandlers.length = 0;
+
+    mockIsAuthenticated.mockReturnValue(true);
+    mockGetCurrentUser.mockResolvedValue(providerManager);
+    mockGetState.mockReturnValue({ workspace: {} });
+    mockTarget.mockImplementation((...args) => ({ target: args }));
+
+    attachTransitions();
+
+    // Registered right after the profile validity hook, the second onBefore
+    // with a `to` criteria function.
+    redirectHook = onBeforeHandlers.filter(
+      (h) => typeof h.criteria.to === 'function',
+    )[1];
+    expect(redirectHook).toBeTruthy();
+  });
+
+  it('matches states inside the organization workspace', () => {
+    expect(
+      redirectHook.criteria.to({
+        self: { name: 'organization.dashboard', parent: 'organization' },
+      }),
+    ).toBeTruthy();
+  });
+
+  it('sends a manager-only user to the provider dashboard', async () => {
+    mockGetCustomer.mockResolvedValue({
+      is_service_provider_manager_only: true,
+    });
+
+    const result = await enterOrganization();
+
+    expect(mockGetCustomer).toHaveBeenCalledWith('provider_org', [
+      'is_service_provider_manager_only',
+    ]);
+    expect(mockTarget).toHaveBeenCalledWith('marketplace-provider-dashboard', {
+      uuid: 'provider_org',
+    });
+    expect(result).toBeTruthy();
+  });
+
+  it('lets a user with another role in the organization through', async () => {
+    mockGetCustomer.mockResolvedValue({
+      is_service_provider_manager_only: false,
+    });
+
+    expect(await enterOrganization()).toBeUndefined();
+    expect(mockTarget).not.toHaveBeenCalled();
+  });
+
+  it('reads the flag from the loaded organization without a request', async () => {
+    mockGetState.mockReturnValue({
+      workspace: {
+        customer: {
+          uuid: 'provider_org',
+          is_service_provider_manager_only: false,
+        },
+      },
+    });
+
+    expect(await enterOrganization()).toBeUndefined();
+    expect(mockGetCustomer).not.toHaveBeenCalled();
+  });
+
+  it('asks Mastermind when the loaded organization is a different one', async () => {
+    mockGetState.mockReturnValue({
+      workspace: { customer: { uuid: 'another_org' } },
+    });
+    mockGetCustomer.mockResolvedValue({
+      is_service_provider_manager_only: true,
+    });
+
+    await enterOrganization();
+
+    expect(mockGetCustomer).toHaveBeenCalledTimes(1);
+    expect(mockTarget).toHaveBeenCalledWith('marketplace-provider-dashboard', {
+      uuid: 'provider_org',
+    });
+  });
+
+  it('leaves the route to its own resolve when the lookup fails', async () => {
+    mockGetCustomer.mockRejectedValue({ status: 500 });
+
+    expect(await enterOrganization()).toBeUndefined();
+    expect(mockTarget).not.toHaveBeenCalled();
+  });
+
+  it('makes no request for a user without a service provider role', async () => {
+    mockGetCurrentUser.mockResolvedValue({
+      is_staff: false,
+      is_support: false,
+      permissions: [
+        {
+          scope_type: 'customer',
+          scope_uuid: 'provider_org',
+          customer_uuid: 'provider_org',
+          role_name: 'CUSTOMER.OWNER',
+        },
+      ],
+    });
+
+    expect(await enterOrganization()).toBeUndefined();
+    expect(mockGetCustomer).not.toHaveBeenCalled();
+  });
+
+  it('makes no request for staff', async () => {
+    mockGetCurrentUser.mockResolvedValue({
+      ...providerManager,
+      is_staff: true,
+    });
+
+    expect(await enterOrganization()).toBeUndefined();
+    expect(mockGetCustomer).not.toHaveBeenCalled();
+  });
+
+  it('does nothing for an anonymous visitor', async () => {
+    mockIsAuthenticated.mockReturnValue(false);
+
+    expect(await enterOrganization()).toBeUndefined();
+    expect(mockGetCurrentUser).not.toHaveBeenCalled();
   });
 });

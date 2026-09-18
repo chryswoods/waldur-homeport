@@ -4,6 +4,12 @@ import { ENV } from '@/core/config';
 
 import { PermissionRequest, RoleType } from './types';
 
+/** Does the named role carry this permission, per the roles the server sent? */
+const roleGrants = (roleName: string, targetPerm) =>
+  !!ENV.roles
+    .find(({ name }) => name === roleName)
+    ?.permissions.includes(targetPerm);
+
 export function checkScope(
   user: Pick<User, 'is_staff' | 'permissions'>,
   targetScopeType: RoleType,
@@ -16,24 +22,38 @@ export function checkScope(
   if (user?.is_staff) {
     return true;
   }
-  // A user can hold several roles on the same scope — CALL.REVIEWER and
-  // CALL.MANAGER, say — so every match has to be considered. Taking only the
-  // first meant a permission granted by the second role was invisible, and
-  // which role came first was down to API ordering.
-  const userRoles =
-    user.permissions?.filter(
-      ({ scope_uuid, scope_type }) =>
-        scope_uuid === targetScopeId && scope_type === targetScopeType,
-    ) ?? [];
+  // A user can hold several roles on one scope (an owner who is also in an
+  // SRAM collaboration, say): any of them may grant the permission.
+  return (
+    user.permissions?.some(
+      ({ scope_uuid, scope_type, role_name }) =>
+        scope_uuid === targetScopeId &&
+        scope_type === targetScopeType &&
+        roleGrants(role_name, targetPerm),
+    ) ?? false
+  );
+}
 
-  for (const userRole of userRoles) {
-    const role = ENV.roles.find(({ name }) => name === userRole.role_name);
-    if (role && role.permissions.includes(targetPerm)) {
-      return true;
-    }
-  }
-
-  return false;
+/**
+ * Roles granted on a ServiceProvider rather than on a customer — "Service
+ * provider manager" (CUSTOMER.MANAGER) is the one that exists today. Their
+ * `scope_uuid` is the provider's, so a `customerId` request never matched them
+ * and every provider-side gate stayed shut for the people who run the provider.
+ * They are keyed here on the organisation the provider belongs to, which
+ * /api/users/me reports as `customer_uuid`. Only the permissions the role
+ * actually carries are granted, so this widens who is asked, not what is given.
+ */
+function checkServiceProviderScope(
+  user: Pick<User, 'is_staff' | 'permissions'>,
+  customerId,
+  targetPerm,
+) {
+  return !!user?.permissions?.some(
+    (permission) =>
+      permission.scope_type === 'service_provider' &&
+      permission.customer_uuid === customerId &&
+      roleGrants(permission.role_name, targetPerm),
+  );
 }
 
 export const hasPermission = (
@@ -50,6 +70,11 @@ export const hasPermission = (
   }
   if (request.customerId) {
     if (checkScope(user, 'customer', request.customerId, request.permission)) {
+      return true;
+    }
+    if (
+      checkServiceProviderScope(user, request.customerId, request.permission)
+    ) {
       return true;
     }
   }

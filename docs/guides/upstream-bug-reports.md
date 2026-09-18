@@ -6,12 +6,12 @@ if they agree, offered back as patches.
 
 **Nothing here has been sent upstream.** These are notes for review.
 
-| | |
-| --- | --- |
-| Verified against | `upstream/develop` at `3e867acb3` (2026-09-04) |
-| Also confirmed present in | tag `8.1.3-rc.8` (`9fdb3e812`, 2026-09-01), which this fork is based on |
-| Fork branch carrying the fixes | `claude/waldur-homeport-resync-ttwxn2` |
-| How they were found | Resyncing this fork onto upstream, September 2026 |
+|                                |                                                                         |
+| ------------------------------ | ----------------------------------------------------------------------- |
+| Verified against               | `upstream/develop` at `3e867acb3` (2026-09-04)                          |
+| Also confirmed present in      | tag `8.1.3-rc.8` (`9fdb3e812`, 2026-09-01), which this fork is based on |
+| Fork branch carrying the fixes | `claude/waldur-homeport-resync-ttwxn2`                                  |
+| How they were found            | Resyncing this fork onto upstream, September 2026                       |
 
 All nine are present in both the newest release candidate and the current
 development head, so none of them is something upstream has already fixed and
@@ -55,14 +55,14 @@ logs a console warning and renders the rest of the chart without it.
 
 Upstream's own chart options ask for two modules that are not on the list:
 
-| Module | Used at |
-| --- | --- |
-| `dataZoom` | `src/marketplace/aggregate-limits/utils.ts:184` |
-| `dataZoom` | `src/marketplace/aggregate-limits/usage-views/utils.ts:164` |
-| `dataZoom` | `src/openportal/reports/usageChartOptions.ts:293` |
-| `dataZoom` | `src/openportal/reports/storageChartOptions.ts:506, 791` |
-| `dataZoom` | `src/openportal/reports/OrganisationAllocationTab.tsx:215, 360` |
-| `treemap` | `src/marketplace/aggregate-limits/usage-views/views/TreemapView.tsx:157` |
+| Module     | Used at                                                                  |
+| ---------- | ------------------------------------------------------------------------ |
+| `dataZoom` | `src/marketplace/aggregate-limits/utils.ts:184`                          |
+| `dataZoom` | `src/marketplace/aggregate-limits/usage-views/utils.ts:164`              |
+| `dataZoom` | `src/openportal/reports/usageChartOptions.ts:293`                        |
+| `dataZoom` | `src/openportal/reports/storageChartOptions.ts:506, 791`                 |
+| `dataZoom` | `src/openportal/reports/OrganisationAllocationTab.tsx:215, 360`          |
+| `treemap`  | `src/marketplace/aggregate-limits/usage-views/views/TreemapView.tsx:157` |
 
 ### Why it matters
 
@@ -85,8 +85,8 @@ Two signs that this was an oversight rather than a decision:
 - `src/echarts/themes.ts` styles `dataZoom` in both themes (lines 96 and 225).
   The styling exists for a component that cannot currently render.
 - The docblock at the top of `src/openportal/reports/storageChartOptions.ts`
-  says of its treemap mode: *"Requires the treemap chart type to be registered
-  in echarts/index.ts."* The requirement was known and written down; the
+  says of its treemap mode: _"Requires the treemap chart type to be registered
+  in echarts/index.ts."_ The requirement was known and written down; the
   registration was never added. (That file no longer builds a treemap series
   itself — the docblock is stale on that point — but `TreemapView.tsx` does.)
 
@@ -109,6 +109,12 @@ the next one.
 ---
 
 ## 2. `checkScope` only considers the first role a user holds on a scope
+
+> **Fixed upstream at 8.1.3-rc.15 — no longer needs reporting.** Upstream now
+> iterates every matching role with `.some()`, which is what the fork fix did,
+> and adds service-provider scope handling on top. The merge took upstream's
+> version wholesale; the fork fix below is superseded. Kept here for the record
+> and so the numbering of the later findings does not shift.
 
 **Severity:** medium — permissions are denied that should be granted, and which
 role wins depends on API ordering.
@@ -250,7 +256,7 @@ function findDifferentTemplates(formTemplate, initTemplate) {
 
 Each edited template is compared against **every** original template by content,
 rather than against its own original by `uuid`. A template counts as unchanged
-if *any* template in the notification started out with the content it now has.
+if _any_ template in the notification started out with the content it now has.
 
 ### Why it matters
 
@@ -263,7 +269,7 @@ Reproduction, on any notification with two or more templates:
 `findDifferentTemplates` looks for an original template whose content is `"Y"`,
 finds B, and concludes A is unchanged. A is excluded from
 `templatesToUpdate`, no override is sent for it, and — because the list is not
-empty only if *something* differs — the dialog reports success. The edit is
+empty only if _something_ differs — the dialog reports success. The edit is
 gone on reload.
 
 Swapping two templates' contents fails the same way, and neither is saved.
@@ -487,7 +493,7 @@ server-side and unaffected.
 Drop the condition and the tooltip:
 
 ```tsx
-disabled={isPending}
+disabled = { isPending };
 ```
 
 If a hint is still wanted for a user who has never logged in, it belongs as an
@@ -529,7 +535,7 @@ column does not render. The effect never runs again, so it never recovers.
 
 It is silent and it is permanent. Every release that adds a column to an
 existing table ships it invisible to everyone who has used that table before,
-while appearing correctly for anyone who has not. The column *is* listed in the
+while appearing correctly for anyone who has not. The column _is_ listed in the
 column menu, unticked, so a reader who goes looking can find it — but nothing
 indicates there is anything to look for, and the obvious remedy (Reset) also
 discards every other choice they have made.
@@ -568,7 +574,7 @@ content.
 `show_call_management_functionality` governs the call lifecycle: reviewing,
 approving and awarding. A deployment with it switched off cannot run a call at
 all — its description ("Enabled display of call management functionality")
-reads as though it only hides a management screen, but management *is* how a
+reads as though it only hides a management screen, but management _is_ how a
 call happens.
 
 The sidebar treats it that way in one branch and not the other. In
@@ -582,7 +588,7 @@ if (mode === 'marketplace') {
   }
 ```
 
-In `both` mode — the default — the same state produced a *smaller* menu
+In `both` mode — the default — the same state produced a _smaller_ menu
 instead:
 
 ```tsx

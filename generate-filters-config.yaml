@@ -104,6 +104,19 @@ overrides:
         true: Finalized
         false: Pending
 
+  sram_groups:
+    filters:
+      - customer_uuid
+      - kind
+    customer_uuid:
+      label: Organization
+      name: customer_uuid
+    kind:
+      label: Kind
+      enumOverrides:
+        co: Collaboration
+        group: Group
+
   openstack_images:
     filters:
       - show_duplicate_names
@@ -518,6 +531,7 @@ overrides:
       enumOverrides:
         projects: Project events
         resources: Resource events
+        openstack_resources: OpenStack resource events
 
   system_logs:
     filters:
@@ -621,6 +635,7 @@ overrides:
         customers: Organization events
         projects: Project events
         resources: Resource events
+        openstack_resources: OpenStack resource events
 
   user_group_invitations:
     filters:
@@ -831,6 +846,7 @@ overrides:
       - is_routed
     status:
       enumOverrides:
+        Canceled: Canceled
         Closed: Closed
         Open: Open
         Resolved: Resolved
@@ -856,6 +872,7 @@ overrides:
       - sla_breached
     status:
       enumOverrides:
+        Canceled: Canceled
         Closed: Closed
         Open: Open
         Resolved: Resolved
@@ -1195,3 +1212,17 @@ overrides:
       badgeLabels:
         true: Yes
         false: No
+
+  event_consumers:
+    filters:
+      - is_global
+      - user_uuid
+    is_global:
+      label: Scope
+      placeholder: Any scope
+      enumOverrides:
+        'undefined': All consumers
+        'true': Global (unscoped)
+        'false': Scoped
+    user_uuid:
+      label: Owner

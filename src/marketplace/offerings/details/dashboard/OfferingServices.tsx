@@ -1,9 +1,10 @@
 import { FC, useCallback } from 'react';
 import { AgentIdentity, AgentServiceState } from 'waldur-js-client';
 
-import { Badge } from '@/core/Badge';
+import { Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { lazyComponent } from '@/core/lazyComponent';
-import { Tip } from '@/core/Tooltip';
 import FormTable from '@/form/FormTable';
 import { translate } from '@/i18n';
 import { useModal } from '@/modal/actions';
@@ -25,7 +26,7 @@ const statusTips: Partial<Record<AgentServiceState, string>> = {
 };
 
 const StateField = ({ row }: { row: AgentIdentity['services'][1] }) => (
-  <Tip id={'tip-' + row.uuid} label={statusTips[row.state]}>
+  <Tooltip label={statusTips[row.state]}>
     <Badge
       variant={
         row.state === 'Active'
@@ -34,12 +35,12 @@ const StateField = ({ row }: { row: AgentIdentity['services'][1] }) => (
             ? 'danger'
             : 'warning'
       }
-      pill
-      outline
+      shape="pill"
+      tone="outline"
     >
       {row.state}
     </Badge>
-  </Tip>
+  </Tooltip>
 );
 
 export const OfferingServices: FC<OwnProps> = ({ agentIdentity }) => {

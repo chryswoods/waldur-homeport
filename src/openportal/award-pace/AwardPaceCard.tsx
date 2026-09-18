@@ -1,13 +1,12 @@
 import { InfoIcon } from '@phosphor-icons/react';
 import { CSSProperties, FC, ReactNode } from 'react';
 import { Col, Row } from 'react-bootstrap';
-import { Variant } from 'react-bootstrap/types';
 
-import { Badge } from '@/core/Badge';
+import { Badge, BadgeVariant, Tooltip } from 'waldur-ui';
+
 import { formatDate } from '@/core/dateUtils';
 import { defaultCurrency } from '@/core/formatCurrency';
 import { StatsCard } from '@/core/StatsCard';
-import { Tip } from '@/core/Tooltip';
 import { getChartThemeColors } from '@/dashboard/chartColors';
 import { WidgetCard } from '@/dashboard/WidgetCard';
 import { translate } from '@/i18n';
@@ -41,7 +40,7 @@ const markerLabel = (fraction: number): CSSProperties => ({
 // so credit not spent by the end date is credit given back. Spending ahead is
 // not a fault, which is why it is not styled as one — it only becomes news when
 // the allocation will not last, and the run-out date says that in words.
-const STATUS_VARIANT: Record<AwardPaceStatus, Variant> = {
+const STATUS_VARIANT: Record<AwardPaceStatus, BadgeVariant> = {
   settling: 'secondary',
   behind: 'warning',
   'on-track': 'success',
@@ -137,10 +136,10 @@ const statusHint = (pace: AwardPace): string | undefined => {
 
 /** An info tip in the tile's corner, for a figure whose derivation is not
  *  obvious from its label. Matches the credit cards below. */
-const MetricTip: FC<{ id: string; label: ReactNode }> = ({ id, label }) => (
-  <Tip id={id} label={label}>
+const MetricTip: FC<{ label: ReactNode }> = ({ label }) => (
+  <Tooltip label={label}>
     <InfoIcon weight="bold" className="text-muted" />
-  </Tip>
+  </Tooltip>
 );
 
 interface Props {
@@ -179,7 +178,6 @@ export const AwardPaceCard: FC<Props> = ({ pace }) => {
             label={translate('Used so far')}
             icon={
               <MetricTip
-                id="award-pace-used"
                 label={translate(
                   "Usage recorded against this award, converted to credits, over the whole time it has been attached. It is the award's total, so an award that has moved between projects shows the same figure on each.",
                 )}
@@ -201,7 +199,6 @@ export const AwardPaceCard: FC<Props> = ({ pace }) => {
             label={translate('Spending rate')}
             icon={
               <MetricTip
-                id="award-pace-rate"
                 label={translate(
                   'What has been used so far divided by the days elapsed since the award started. The figure below it is what is left divided by the days remaining — the rate from today that finishes the allocation exactly, which is the one to aim at.',
                 )}
@@ -236,7 +233,6 @@ export const AwardPaceCard: FC<Props> = ({ pace }) => {
             }
             icon={
               <MetricTip
-                id="award-pace-projection"
                 label={
                   underspending
                     ? translate(
@@ -273,8 +269,8 @@ export const AwardPaceCard: FC<Props> = ({ pace }) => {
           <span className="fw-bold">{translate('Pace')}</span>
           <Badge
             variant={STATUS_VARIANT[pace.status]}
-            pill
-            outline
+            shape="pill"
+            tone="outline"
             hasBullet
             tooltip={statusHint(pace)}
           >
@@ -330,8 +326,8 @@ export const AwardPaceCard: FC<Props> = ({ pace }) => {
           <Badge
             variant="info"
             size="sm"
-            pill
-            outline
+            shape="pill"
+            tone="outline"
             hasBullet
             tooltip={translate(
               'At the current rate the allocation runs out before the award ends.',
@@ -343,7 +339,13 @@ export const AwardPaceCard: FC<Props> = ({ pace }) => {
           </Badge>
         )}
         {pace.remainingDays > 0 && (
-          <Badge variant="secondary" size="sm" pill outline hasBullet>
+          <Badge
+            variant="secondary"
+            size="sm"
+            shape="pill"
+            tone="outline"
+            hasBullet
+          >
             {translate('{days} days left', {
               days: String(pace.remainingDays),
             })}

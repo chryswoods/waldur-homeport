@@ -4,10 +4,10 @@ import { useForm, useFormState } from 'react-final-form';
 import { Offering } from 'waldur-js-client';
 
 import { AccordionCard } from '@/core/AccordionCard';
-import { Tip } from '@/core/Tooltip';
 import { required } from '@/core/validators';
 import { SelectGroup } from '@/form';
 import { translate } from '@/i18n';
+import { StepContent } from '@/wizard/VStepperFormStep';
 
 import { FormStepProps } from '../types';
 
@@ -93,14 +93,16 @@ export const FormQoSSelectionStep = (props: FormStepProps) => {
   }
 
   return (
-    <Tip id={`tip-${props.id}`} label={props.disabledTooltip}>
-      <AccordionCard
-        title={props.title}
-        id={props.id}
-        className={classNames('step-card', props.disabled && 'step-disabled')}
-        defaultOpen
+    <AccordionCard
+      title={props.title}
+      id={props.id}
+      className={classNames('step-card', props.disabled && 'step-disabled')}
+      defaultOpen
+    >
+      <StepContent
+        disabled={props.disabled}
+        disabledReason={props.disabledTooltip}
       >
-        {props.disabled && <div className="step-blocker" />}
         {partitions.length > 0 && (
           <SelectGroup
             name="attributes.partition"
@@ -121,7 +123,7 @@ export const FormQoSSelectionStep = (props: FormStepProps) => {
           required={qosRequired}
           validate={qosRequired ? required : undefined}
         />
-      </AccordionCard>
-    </Tip>
+      </StepContent>
+    </AccordionCard>
   );
 };

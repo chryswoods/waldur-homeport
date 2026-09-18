@@ -1,9 +1,10 @@
 import { FC, useMemo } from 'react';
 import { assignmentBatchesList, AssignmentBatchList } from 'waldur-js-client';
 
-import { Badge } from '@/core/Badge';
+import { Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { formatDateTime } from '@/core/dateUtils';
-import { Tip } from '@/core/Tooltip';
 import { translate } from '@/i18n';
 import { PoolSummaryButton } from '@/proposals/update/reviewer-pool/PoolSummaryButton';
 import { useReviewerPoolTabs } from '@/proposals/update/reviewer-pool/tabs';
@@ -74,36 +75,33 @@ export const AssignmentBatchesSection: FC<AssignmentBatchesSectionProps> = ({
         title: translate('Items'),
         render: ({ row }: { row: AssignmentBatchList }) => (
           <div className="d-flex gap-1">
-            <Tip
-              id={`pending-${row.uuid}`}
+            <Tooltip
               label={translate('Pending: {count}', {
                 count: row.items_pending_count,
               })}
             >
-              <Badge variant="warning" pill outline>
+              <Badge variant="warning" shape="pill" tone="outline">
                 {row.items_pending_count}
               </Badge>
-            </Tip>
-            <Tip
-              id={`accepted-${row.uuid}`}
+            </Tooltip>
+            <Tooltip
               label={translate('Accepted: {count}', {
                 count: row.items_accepted_count,
               })}
             >
-              <Badge variant="success" pill outline>
+              <Badge variant="success" shape="pill" tone="outline">
                 {row.items_accepted_count}
               </Badge>
-            </Tip>
-            <Tip
-              id={`declined-${row.uuid}`}
+            </Tooltip>
+            <Tooltip
               label={translate('Declined: {count}', {
                 count: row.items_declined_count,
               })}
             >
-              <Badge variant="danger" pill outline>
+              <Badge variant="danger" shape="pill" tone="outline">
                 {row.items_declined_count}
               </Badge>
-            </Tip>
+            </Tooltip>
           </div>
         ),
         keys: [
@@ -136,7 +134,7 @@ export const AssignmentBatchesSection: FC<AssignmentBatchesSectionProps> = ({
           <span>
             {row.expires_at ? formatDateTime(row.expires_at) : '-'}
             {row.is_expired && (
-              <Badge variant="danger" outline className="ms-1">
+              <Badge variant="danger" tone="outline" className="ms-1">
                 {translate('Expired')}
               </Badge>
             )}

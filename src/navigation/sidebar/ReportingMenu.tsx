@@ -4,7 +4,7 @@ import { FC, useMemo } from 'react';
 import { translate } from '@/i18n';
 import { useUser } from '@/workspace/hooks';
 
-import { hasAnyReportingEnabled } from '../../reporting/utils';
+import { hasAnyReportingEnabled } from '../../reporting/screens';
 
 import { MenuItem } from './MenuItem';
 
@@ -29,7 +29,6 @@ export const ReportingMenu: FC<ReportingMenuProps> = ({
       title={translate('Reporting')}
       state="reporting-dashboard"
       activeState="reporting"
-      child={false}
       icon={<ChartBarIcon weight="bold" />}
       disabled={disabled}
       disabledTooltip={disabledTooltip}

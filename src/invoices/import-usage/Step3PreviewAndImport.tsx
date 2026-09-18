@@ -3,9 +3,10 @@ import { FormCheck } from 'react-bootstrap';
 import { useForm, useFormState } from 'react-final-form';
 import { useToggle } from 'react-use';
 
-import { Badge } from '@/core/Badge';
+import { BadgeVariant, Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { defaultCurrency } from '@/core/formatCurrency';
-import { Tip } from '@/core/Tooltip';
 import { truncate } from '@/core/utils';
 import { translate } from '@/i18n';
 import { useNotify } from '@/store/notify';
@@ -31,26 +32,26 @@ const statusMessages = {
   created: translate('Created'),
 };
 
-const statusVariants = {
-  ready: 'default',
+const statusVariants: Record<string, BadgeVariant> = {
+  ready: 'neutral',
   skipped: 'warning',
   error: 'danger',
   created: 'success',
 };
 
 const StatusField = ({ row }: { row: UsageImportRow }) => (
-  <Tip id={`tip-${row.uuid}`} label={row.error}>
-    <Badge variant={statusVariants[row.status]} pill outline>
+  <Tooltip label={row.error}>
+    <Badge variant={statusVariants[row.status]} shape="pill" tone="outline">
       {statusMessages[row.status]}
     </Badge>
-  </Tip>
+  </Tooltip>
 );
 
 const WithTooltip = ({ label = '', len = 24 }) =>
   label?.length > len ? (
-    <Tip label={label} id="tip-truncated">
-      {truncate(label, len)}
-    </Tip>
+    <Tooltip label={label}>
+      <span>{truncate(label, len)}</span>
+    </Tooltip>
   ) : (
     label || DASH_ESCAPE_CODE
   );
@@ -107,7 +108,7 @@ export const Step3PreviewAndImport: FC<Step3Props> = (props) => {
           <div>
             <WithTooltip label={row.customerName} />
             {row.customerMatched && (
-              <Badge variant="success" light className="ms-2">
+              <Badge variant="success" tone="light" className="ms-2">
                 {translate('Matched')}
               </Badge>
             )}

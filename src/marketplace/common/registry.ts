@@ -1,7 +1,5 @@
 import { PublicOfferingDetails, OfferingComponent } from 'waldur-js-client';
 
-import { AzureSQLServerOffering } from '@/azure/sql/marketplace';
-import { AzureVirtualMachineOffering } from '@/azure/vm/marketplace';
 import { BookingOffering } from '@/booking/marketplace';
 import { RemoteOffering } from '@/marketplace-remote/marketplace';
 import { ScriptOffering } from '@/marketplace-script/marketplace';
@@ -95,14 +93,6 @@ export function getCreatableOfferings(): Option[] {
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
-export function hidePlanAddButton(offeringType: string, fields: Array<any>) {
-  return (
-    Object.prototype.hasOwnProperty.call(REGISTRY, offeringType) &&
-    REGISTRY[offeringType].onlyOnePlan &&
-    fields.length
-  );
-}
-
 export function isOfferingTypeSchedulable(offeringType: string) {
   return (
     Object.prototype.hasOwnProperty.call(REGISTRY, offeringType) &&
@@ -145,13 +135,6 @@ export function getCredentialsSection(offeringType: string) {
   );
 }
 
-export function showComponentsList(offeringType: string) {
-  return (
-    Object.prototype.hasOwnProperty.call(REGISTRY, offeringType) &&
-    REGISTRY[offeringType].showComponents
-  );
-}
-
 export function getLabel(offeringType: string) {
   return (
     (Object.prototype.hasOwnProperty.call(REGISTRY, offeringType) &&
@@ -178,8 +161,6 @@ export const filterOfferingComponents = (
   return offeringComponents;
 };
 
-registerOfferingType(AzureSQLServerOffering);
-registerOfferingType(AzureVirtualMachineOffering);
 registerOfferingType(RemoteOffering);
 registerOfferingType(BookingOffering);
 registerOfferingType(ScriptOffering);

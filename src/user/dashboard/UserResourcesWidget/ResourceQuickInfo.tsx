@@ -12,11 +12,16 @@ import {
   Resource,
 } from 'waldur-js-client';
 
+import { Tooltip } from 'waldur-ui';
+
 import { LONG_STALE_TIME } from '@/core/constants';
 import { Link } from '@/core/Link';
 import { LoadingSpinnerSimple } from '@/core/LoadingSpinner';
-import { Tip } from '@/core/Tooltip';
 import { translate } from '@/i18n';
+import {
+  findResourcePlan,
+  resolvePlanComponents,
+} from '@/marketplace/details/plan/effectiveComponents';
 import { getQuotaCellProps } from '@/marketplace/resources/details/ResourceComponentItem';
 import { ResourceStateField } from '@/marketplace/resources/list/ResourceStateField';
 import { getResourceAccessEndpoints, isSshFormat } from '@/resource/utils';
@@ -69,7 +74,10 @@ export const ResourceQuickInfo: FC<ResourceQuickInfoProps> = ({ resource }) => {
   // Get components with their values
   const components = useMemo(() => {
     if (!offering?.components) return [];
-    return offering.components
+    return resolvePlanComponents(
+      offering.components,
+      findResourcePlan(offering.plans, resource.plan_uuid),
+    )
       .map((component) => ({
         ...component,
         ...getQuotaCellProps(component, resource),
@@ -90,7 +98,12 @@ export const ResourceQuickInfo: FC<ResourceQuickInfoProps> = ({ resource }) => {
               {resource.offering_name} ({resource.category_title})
             </small>
           </div>
-          <ResourceStateField resource={resource} pill outline size="sm" />
+          <ResourceStateField
+            resource={resource}
+            shape="pill"
+            tone="outline"
+            size="sm"
+          />
         </div>
 
         {/* Offering description */}
@@ -163,8 +176,7 @@ export const ResourceQuickInfo: FC<ResourceQuickInfoProps> = ({ resource }) => {
                     />
                     <span className="fs-7">{endpoint.name}</span>
                   </a>
-                  <Tip
-                    id={`endpoint-${index}`}
+                  <Tooltip
                     label={
                       isSshFormat(endpoint.url) && resource.username
                         ? formatSshCommand(endpoint.url, resource.username)
@@ -173,12 +185,12 @@ export const ResourceQuickInfo: FC<ResourceQuickInfoProps> = ({ resource }) => {
                   >
                     <button
                       type="button"
-                      className="btn btn-link p-0 text-muted"
                       onClick={() => copyText(endpoint.url)}
+                      className="btn btn-link p-0 text-muted"
                     >
                       <CopyIcon size={14} weight="bold" />
                     </button>
-                  </Tip>
+                  </Tooltip>
                 </div>
               ))}
             </div>

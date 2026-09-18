@@ -3,12 +3,13 @@ import { FunctionComponent } from 'react';
 import { Tab, Tabs } from 'react-bootstrap';
 import { Resource, OfferingComponent } from 'waldur-js-client';
 
-import { Tip } from '@/core/Tooltip';
+import { Tooltip } from 'waldur-ui';
+
 import { ResourceUsageChart } from '@/marketplace/resources/usage/ResourceUsageChart';
 
 import { ResourceUsageTable } from './ResourceUsageTable';
 import { ComponentUserUsage } from './types';
-import { getBillingTypeLabel } from './utils';
+import { getBillingTypeLabelOrDash } from './utils';
 
 interface ResourceUsageTabsProps {
   resource?: Pick<Resource, 'name' | 'uuid'>;
@@ -39,12 +40,11 @@ export const ResourceUsageTabs: FunctionComponent<ResourceUsageTabsProps> = (
         <Tab
           title={
             <>
-              <Tip
-                id={`tab-${index}-tooltip`}
-                label={getBillingTypeLabel(component.billing_type)}
+              <Tooltip
+                label={getBillingTypeLabelOrDash(component.billing_type)}
               >
                 <QuestionIcon size={18} weight="bold" className="text-muted" />
-              </Tip>{' '}
+              </Tooltip>{' '}
               {component.name}
             </>
           }

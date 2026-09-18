@@ -2,11 +2,12 @@ import { ChatTeardropTextIcon } from '@phosphor-icons/react';
 import { useCurrentStateAndParams } from '@uirouter/react';
 import { FC } from 'react';
 
+import { SidebarMenuAccordion, SidebarMenuSeparator } from 'waldur-ui';
+
 import { isFeatureVisible } from '@/features/connect';
 import { MarketplaceFeatures } from '@/FeaturesEnums';
 import { translate } from '@/i18n';
 import { getServiceAccessMode } from '@/marketplace/serviceAccessMode';
-import { MenuAccordion } from '@/navigation/sidebar/MenuAccordion';
 import { MenuItem } from '@/navigation/sidebar/MenuItem';
 import { RoleEnum } from '@/permissions/enums';
 import { useUser } from '@/workspace/hooks';
@@ -82,11 +83,18 @@ const hasCallRole = (user) =>
 interface CallPublicMenuProps {
   disabled?: boolean;
   disabledTooltip?: string;
+  /** Threaded from UnifiedSidebar's own top-level useExclusiveOpen —
+   * forwarded onto whichever of the three mutually-exclusive
+   * `itemId="calls-menu"` MenuAccordion variants below actually renders. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export const CallPublicMenu: FC<CallPublicMenuProps> = ({
   disabled,
   disabledTooltip,
+  open,
+  onOpenChange,
 }) => {
   const { state } = useCurrentStateAndParams();
   const user = useUser();
@@ -147,13 +155,14 @@ export const CallPublicMenu: FC<CallPublicMenuProps> = ({
     // users who are not operators.
     return (
       <>
-        <div className="menu-separator my-2" />
-        <MenuAccordion
+        <SidebarMenuSeparator />
+        <SidebarMenuAccordion
           title={translate('Access management')}
-          itemId="calls-menu"
           icon={<ChatTeardropTextIcon weight="bold" />}
           disabled={disabled}
           disabledTooltip={disabledTooltip}
+          open={open}
+          onOpenChange={onOpenChange}
         >
           {manageCallsItem}
           {browseCallsItem}
@@ -166,7 +175,7 @@ export const CallPublicMenu: FC<CallPublicMenuProps> = ({
           />
           {(user?.is_staff || user?.is_support || hasCallManagerRole(user)) && (
             <>
-              <div className="menu-separator my-2" />
+              <SidebarMenuSeparator />
               <MenuItem
                 title={translate('All proposals')}
                 state="admin-proposals"
@@ -177,7 +186,7 @@ export const CallPublicMenu: FC<CallPublicMenuProps> = ({
               />
             </>
           )}
-        </MenuAccordion>
+        </SidebarMenuAccordion>
       </>
     );
   }
@@ -189,7 +198,6 @@ export const CallPublicMenu: FC<CallPublicMenuProps> = ({
         title={translate('Calls for proposals')}
         state="calls-for-proposals-dashboard"
         icon={<ChatTeardropTextIcon weight="bold" />}
-        child={false}
         disabled={disabled}
         disabledTooltip={disabledTooltip}
       />
@@ -216,12 +224,13 @@ export const CallPublicMenu: FC<CallPublicMenuProps> = ({
     user?.is_staff || user?.is_support || hasCallManagerRole(user);
 
   return (
-    <MenuAccordion
+    <SidebarMenuAccordion
       title={translate('Calls')}
-      itemId="calls-menu"
       icon={<ChatTeardropTextIcon weight="bold" />}
       disabled={disabled}
       disabledTooltip={disabledTooltip}
+      open={open}
+      onOpenChange={onOpenChange}
     >
       {manageCallsItem}
       {browseCallsItem}
@@ -242,7 +251,7 @@ export const CallPublicMenu: FC<CallPublicMenuProps> = ({
 
       {showAdminItems && (
         <>
-          <div className="menu-separator my-2" />
+          <SidebarMenuSeparator />
           <MenuItem
             title={translate('All proposals')}
             state="admin-proposals"
@@ -250,6 +259,6 @@ export const CallPublicMenu: FC<CallPublicMenuProps> = ({
           <MenuItem title={translate('All reviews')} state="admin-reviews" />
         </>
       )}
-    </MenuAccordion>
+    </SidebarMenuAccordion>
   );
 };

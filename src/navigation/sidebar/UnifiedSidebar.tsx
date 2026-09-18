@@ -1,5 +1,5 @@
 import { ShoppingCartIcon } from '@phosphor-icons/react';
-import { useCurrentStateAndParams, useRouter } from '@uirouter/react';
+import { useCurrentStateAndParams } from '@uirouter/react';
 import { useEffect, useMemo } from 'react';
 
 import { isFeatureVisible } from '@/features/connect';
@@ -9,7 +9,7 @@ import {
   getServiceAccessMode,
   isMarketplaceVisible,
 } from '@/marketplace/serviceAccessMode';
-import { MenuComponent } from '@/metronic/components';
+import { getMarketplaceTitle } from '@/marketplace/title';
 import { CallPublicMenu } from '@/navigation/sidebar/CallPublicMenu';
 import { PermissionEnum } from '@/permissions/enums';
 import { hasPermissionOnAnyScope } from '@/permissions/hasPermission';
@@ -24,10 +24,10 @@ import { ProjectsListMenu } from './ProjectsListMenu';
 import { ReportingMenu } from './ReportingMenu';
 import { ResourcesMenu } from './ResourcesMenu';
 import { Sidebar } from './Sidebar';
+import { useExclusiveOpen } from './utils';
 
 export const UnifiedSidebar = () => {
   const user = useUser();
-  const router = useRouter();
   const { state, params } = useCurrentStateAndParams();
   const { shouldBlockNavigation } = useProfileCompletenessContext();
 
@@ -35,16 +35,28 @@ export const UnifiedSidebar = () => {
     ? translate('Please complete your profile to access this section')
     : undefined;
 
+  const {
+    openId: openTopId,
+    setOpenId: setOpenTopId,
+    toggle: toggleTop,
+  } = useExclusiveOpen();
+
+  // Auto-expand the sidebar section matching the current route, so a deep
+  // link lands with the active item already visible — the Radix
+  // replacement for Metronic's own imperative menu JS
+  // (`.getInstance(...).show(item)` calls) this used to make. Deliberately
+  // a one-shot "open it" on route match, not a persistent binding: matches
+  // the original's own behavior of never calling the equivalent of
+  // `.hide()` for a route still inside the open section — it only reopens
+  // on the next matching navigation, it doesn't force itself back open
+  // while the user stays there.
+  //
+  // The else branch collapses whichever accordion is open once the route
+  // leaves both sections entirely (Reporting, Marketplace, Projects,
+  // Organizations, ...) — otherwise Resources/Calls stayed expanded
+  // forever after the first visit, wasting space for every unrelated page
+  // visited afterward.
   useEffect(() => {
-    MenuComponent.reinitialization();
-    const menuElement = document.querySelector('#kt_aside_menu');
-    if (!menuElement) {
-      return;
-    }
-    const menu = MenuComponent.getInstance(menuElement as HTMLElement);
-    if (!menu) {
-      return;
-    }
     if (
       [
         'marketplace-project-resources-all',
@@ -54,10 +66,8 @@ export const UnifiedSidebar = () => {
       ].includes(state.name) ||
       params.resource_uuid
     ) {
-      const item = document.querySelector('#resources-menu');
-      menu.show(item);
-    }
-    if (
+      setOpenTopId('resources-menu');
+    } else if (
       [
         'calls-for-proposals-dashboard',
         'proposals-all-proposals',
@@ -69,10 +79,11 @@ export const UnifiedSidebar = () => {
         'protected-call.main',
       ].includes(state.name)
     ) {
-      const item = document.querySelector('#calls-menu');
-      menu.show(item);
+      setOpenTopId('calls-menu');
+    } else {
+      setOpenTopId(undefined);
     }
-  }, [router, state, params.resource_uuid]);
+  }, [state.name, params.resource_uuid]);
 
   const hasNonProjectPerms = useMemo(
     () => checkHasNonProjectPermissions(user),
@@ -105,6 +116,8 @@ export const UnifiedSidebar = () => {
     <CallPublicMenu
       disabled={shouldBlockNavigation}
       disabledTooltip={disabledTooltip}
+      open={openTopId === 'calls-menu'}
+      onOpenChange={toggleTop('calls-menu')}
     />
   );
 
@@ -130,6 +143,8 @@ export const UnifiedSidebar = () => {
         user={user}
         disabled={shouldBlockNavigation}
         disabledTooltip={disabledTooltip}
+        open={openTopId === 'resources-menu'}
+        onOpenChange={toggleTop('resources-menu')}
       />
       <ReportingMenu
         disabled={shouldBlockNavigation}
@@ -148,9 +163,8 @@ export const UnifiedSidebar = () => {
               : undefined
           }
           icon={<ShoppingCartIcon weight="bold" />}
-          title={translate('Marketplace')}
+          title={getMarketplaceTitle()}
           state="public.marketplace-landing"
-          child={false}
           disabled={shouldBlockNavigation}
           disabledTooltip={disabledTooltip}
         />

@@ -14,6 +14,9 @@ import {
   ThreadSession,
 } from 'waldur-js-client';
 
+import { Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { OfflineBlockContext } from '@/ai-assistant/components/blocks/offlineBlockContext';
 import { MessageDataInspector } from '@/ai-assistant/components/shared/MessageDataInspector';
 import { VersionSelector } from '@/ai-assistant/components/shared/VersionSelector';
@@ -27,12 +30,10 @@ import {
   messageBlocks,
 } from '@/ai-assistant/lib/messages/messageUtils';
 import { uiRegistry } from '@/ai-assistant/lib/registry/uiRegistry';
-import { Badge } from '@/core/Badge';
 import { FAST_STALE_TIME } from '@/core/constants';
 import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
 import { formatDateTime, formatShortDateTime } from '@/core/dateUtils';
 import { LoadingSpinner } from '@/core/LoadingSpinner';
-import { Tip } from '@/core/Tooltip';
 import { translate } from '@/i18n';
 import {
   actionLabels,
@@ -115,8 +116,7 @@ const MessageItem: FunctionComponent<{ messageGroup: MessageWithVersions }> = ({
         {hasTopRowItems && (
           <div className="d-flex align-items-center gap-2 mb-1">
             {selectedMessage.is_flagged && (
-              <Tip
-                id={`flag-detail-${messageGroup.current.uuid}`}
+              <Tooltip
                 label={formatDetectionCategories(
                   selectedMessage.injection_categories,
                   selectedMessage.pii_categories,
@@ -126,11 +126,11 @@ const MessageItem: FunctionComponent<{ messageGroup: MessageWithVersions }> = ({
                   variant={getSeverityBadgeVariant(selectedMessage.severity)}
                   size="sm"
                   leftIcon={<ShieldWarningIcon weight="bold" />}
-                  outline
+                  tone="outline"
                 >
                   {severityLabels[selectedMessage.severity]}
                 </Badge>
-              </Tip>
+              </Tooltip>
             )}
             {selectedMessage.is_flagged &&
               selectedMessage.action_taken &&
@@ -138,14 +138,13 @@ const MessageItem: FunctionComponent<{ messageGroup: MessageWithVersions }> = ({
                 <Badge
                   variant={getActionBadgeVariant(selectedMessage.action_taken)}
                   size="sm"
-                  outline
+                  tone="outline"
                 >
                   {actionLabels[selectedMessage.action_taken]}
                 </Badge>
               )}
             {hasHistoricalFlag && (
-              <Tip
-                id={`historical-flag-${messageGroup.current.uuid}`}
+              <Tooltip
                 label={translate(
                   'A previous version of this message was flagged for prompt injection',
                 )}
@@ -154,14 +153,14 @@ const MessageItem: FunctionComponent<{ messageGroup: MessageWithVersions }> = ({
                   variant="secondary"
                   size="sm"
                   leftIcon={<ShieldWarningIcon weight="bold" />}
-                  outline
+                  tone="outline"
                 >
                   {translate('Flagged in history')}
                 </Badge>
-              </Tip>
+              </Tooltip>
             )}
             {isViewingHistory && (
-              <Badge variant="default" size="sm" outline>
+              <Badge variant="neutral" size="sm" tone="outline">
                 {translate('Past version')}
               </Badge>
             )}

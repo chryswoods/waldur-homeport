@@ -1,15 +1,11 @@
 import { WarningCircleIcon } from '@phosphor-icons/react';
 import classNames from 'classnames';
 import { FC, useState, useEffect } from 'react';
-import {
-  Form,
-  InputGroup,
-  OverlayTrigger,
-  Table,
-  Tooltip,
-} from 'react-bootstrap';
+import { Form, InputGroup, Table } from 'react-bootstrap';
 
-import { Badge } from '@/core/Badge';
+import { Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { CaretUpDownButtons } from '@/core/CaretUpDownButtons';
 import { LoadingSpinner } from '@/core/LoadingSpinner';
 import { translate } from '@/i18n';
@@ -129,15 +125,8 @@ const AllocationInputCell: FC<{
               />
               <div className="input-group-addons">
                 {exceedsCapacity && (
-                  <OverlayTrigger
-                    placement="top"
-                    overlay={
-                      <Tooltip id={`warning-${resource.uuid}`}>
-                        {translate('Allocation exceeds freed pool')}
-                      </Tooltip>
-                    }
-                  >
-                    <span
+                  <Tooltip label={translate('Allocation exceeds freed pool')}>
+                    <WarningCircleIcon
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -149,14 +138,11 @@ const AllocationInputCell: FC<{
                       }}
                       role="button"
                       tabIndex={0}
-                    >
-                      <WarningCircleIcon
-                        size={18}
-                        weight="regular"
-                        className="text-danger"
-                      />
-                    </span>
-                  </OverlayTrigger>
+                      size={18}
+                      weight="regular"
+                      className="text-danger"
+                    />
+                  </Tooltip>
                 )}
                 <CaretUpDownButtons
                   onClickUp={() => adjustValue(1)}
@@ -181,7 +167,11 @@ const AllocationInputCell: FC<{
           change === 0 ? (
             <span className="text-muted">{change}</span>
           ) : (
-            <Badge variant={change > 0 ? 'success' : 'danger'} pill outline>
+            <Badge
+              variant={change > 0 ? 'success' : 'danger'}
+              shape="pill"
+              tone="outline"
+            >
               {change > 0 ? `+${change}` : String(change)}
             </Badge>
           )

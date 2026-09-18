@@ -2,16 +2,13 @@ import { useCurrentStateAndParams } from '@uirouter/react';
 import { useMemo } from 'react';
 
 import { translate } from '@/i18n';
-import {
-  showComponentsList,
-  getFormLimitParser,
-} from '@/marketplace/common/registry';
+import { getBillingTypes } from '@/marketplace/common/billingTypes';
+import { getFormLimitParser } from '@/marketplace/common/registry';
 
-import { getAccountingTypeOptions } from './components/ComponentAccountingTypeField';
 import { getLimitPeriods } from './components/ComponentLimitPeriodField';
 
 export const parseComponent = (component, offering) => {
-  const options = getAccountingTypeOptions();
+  const options = getBillingTypes();
   const limitPeriods = getLimitPeriods();
   const limitParser = offering ? getFormLimitParser(offering.type) : (x) => x;
   return {
@@ -34,24 +31,23 @@ export const parseComponent = (component, offering) => {
   };
 };
 
-export const useOfferingAccountingTableTabs = (offering) => {
+export const useOfferingAccountingTableTabs = () => {
   const { state } = useCurrentStateAndParams();
   return useMemo(
-    () =>
-      [
-        showComponentsList(offering.type) && {
-          key: 'components',
-          title: translate('Components'),
-          state: state.name,
-          params: { tab: 'components' },
-        },
-        {
-          key: 'plans',
-          title: translate('Plans'),
-          state: state.name,
-          params: { tab: 'plans' },
-        },
-      ].filter(Boolean),
-    [offering],
+    () => [
+      {
+        key: 'components',
+        title: translate('Components'),
+        state: state.name,
+        params: { tab: 'components' },
+      },
+      {
+        key: 'plans',
+        title: translate('Plans'),
+        state: state.name,
+        params: { tab: 'plans' },
+      },
+    ],
+    [state.name],
   );
 };

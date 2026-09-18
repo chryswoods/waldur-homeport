@@ -2,10 +2,15 @@ import { FC, useMemo, useState } from 'react';
 import { Nav, Tab } from 'react-bootstrap';
 import { OrderDetails } from 'waldur-js-client';
 
-import { Badge } from '@/core/Badge';
+import { Badge } from 'waldur-ui';
+
 import { formatDateTime } from '@/core/dateUtils';
 import { FileDownloader } from '@/form/upload/FileDownloader';
 import { translate } from '@/i18n';
+import {
+  getPlanBillingModeLabel,
+  toPlanBilling,
+} from '@/marketplace/details/plan/billingMode';
 import { Field } from '@/resource/summary';
 import { ExpandableContainer } from '@/table/ExpandableContainer';
 import Table from '@/table/Table';
@@ -73,7 +78,7 @@ const NestedKeyValueTable: FC<{
 
 /** Tab counter, same treatment the global search popover gives its tabs. */
 const TabCount: FC<{ count: number }> = ({ count }) => (
-  <Badge variant="default" pill outline className="ms-2">
+  <Badge variant="neutral" shape="pill" tone="outline" className="ms-2">
     {count}
   </Badge>
 );
@@ -99,7 +104,16 @@ const MetadataTab: FC<{ order: OrderDetails }> = ({ order }) => (
       value={renderFieldOrDash(order.plan_name)}
     />
     {order.new_plan_name ? (
-      <Field label={translate('New plan')} value={order.new_plan_name} />
+      <Field
+        label={translate('New plan')}
+        value={
+          getPlanBillingModeLabel(toPlanBilling(order.new_plan_billing_mode))
+            ? `${order.new_plan_name} (${getPlanBillingModeLabel(
+                toPlanBilling(order.new_plan_billing_mode),
+              )})`
+            : order.new_plan_name
+        }
+      />
     ) : null}
     {order.start_date ? (
       <Field

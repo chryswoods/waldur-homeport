@@ -6,7 +6,8 @@ import {
   ResponsibleRoleEnum,
 } from 'waldur-js-client';
 
-import { Tip } from '@/core/Tooltip';
+import { Badge, Tooltip } from 'waldur-ui';
+
 import { translate } from '@/i18n';
 import { ActionsDropdown } from '@/table/ActionsDropdown';
 import { createFetcher } from '@/table/api';
@@ -68,17 +69,24 @@ const makeSyntheticStep = (id: CallWorkflowStep['step']): MaybeSynthetic => {
 const StepNameCell = ({ row }: { row: CallWorkflowStep }) => {
   const def = stepDefinition(row.step);
   const name = def?.name ?? row.step;
+  // A dimmed row alone does not say *why* it is dimmed, and the table has no
+  // room for a status column, so the state is spelled out next to the name.
+  // Only the off state is labelled: tagging every other row "Enabled" would
+  // be noise on a table whose rows are mostly enabled.
+  const disabled = !row.is_enabled && !def?.mandatory;
   return (
     <div className="d-flex align-items-center gap-2">
       {def?.mandatory && (
-        <Tip
-          id={`workflow-step-${row.uuid}-mandatory`}
-          label={translate('Mandatory step. Cannot be removed.')}
-        >
-          <LockSimpleIcon className="text-muted" size={14} weight="bold" />
-        </Tip>
+        <Tooltip label={translate('Mandatory step. Cannot be removed.')}>
+          <LockSimpleIcon size={14} weight="bold" className="text-muted" />
+        </Tooltip>
       )}
       <span className="fw-semibold">{name}</span>
+      {disabled && (
+        <Badge variant="neutral" size="sm" shape="pill" tone="outline">
+          {translate('Disabled')}
+        </Badge>
+      )}
     </div>
   );
 };
@@ -101,7 +109,12 @@ const StepRowActions = ({
   const isManagedByToggle = Boolean(def?.managedByToggle);
   const actions = [
     ({ row, refetch }) => (
-      <WorkflowStepConfigureAction row={row} call={call} refetch={refetch} />
+      <WorkflowStepConfigureAction
+        row={row}
+        call={call}
+        steps={steps}
+        refetch={refetch}
+      />
     ),
     ...(isManagedByToggle
       ? []

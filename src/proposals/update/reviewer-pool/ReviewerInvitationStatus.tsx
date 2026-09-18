@@ -1,9 +1,10 @@
 import { ShieldWarningIcon, WarningIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
 
-import { Badge } from '@/core/Badge';
+import { Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { formatRelative } from '@/core/dateUtils';
-import { Tip } from '@/core/Tooltip';
 import { translate } from '@/i18n';
 
 import { InvitationStatusBadge } from './InvitationStatusBadge';
@@ -39,24 +40,22 @@ export const ReviewerInvitationStatus: FC<ReviewerInvitationStatusProps> = ({
       />
       {row.invitation_status === 'pending' &&
         isExpiringS(row.invitation_expires_at) && (
-          <Tip
-            id={`expiring-${row.uuid}`}
+          <Tooltip
             label={translate('Expires {date}', {
               date: formatRelative(row.invitation_expires_at),
             })}
           >
-            <WarningIcon size={16} className="text-warning" weight="bold" />
-          </Tip>
+            <WarningIcon size={16} weight="bold" className="text-warning" />
+          </Tooltip>
         )}
       {isExpired(row.invitation_expires_at) &&
         row.invitation_status === 'pending' && (
-          <Badge variant="danger" outline>
+          <Badge variant="danger" tone="outline">
             {translate('Expired')}
           </Badge>
         )}
       {row.override_reason && (
-        <Tip
-          id={`override-${row.uuid}`}
+        <Tooltip
           label={
             row.overridden_by_name
               ? translate('Overridden by {user}: {reason}', {
@@ -71,11 +70,11 @@ export const ReviewerInvitationStatus: FC<ReviewerInvitationStatusProps> = ({
           <Badge
             variant="warning"
             leftIcon={<ShieldWarningIcon size={14} weight="bold" />}
-            outline
+            tone="outline"
           >
             {translate('Overridden')}
           </Badge>
-        </Tip>
+        </Tooltip>
       )}
     </div>
   );

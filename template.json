@@ -262,6 +262,11 @@
       "feature_area": "project"
     }
   },
+  "(no description)": {
+    "context": {
+      "feature_area": "hygiene"
+    }
+  },
   "(no input)": {
     "context": {
       "feature_area": "ai-assistant"
@@ -373,6 +378,31 @@
       "feature_area": "steps"
     }
   },
+  "/ day": {
+    "context": {
+      "feature_area": "details"
+    }
+  },
+  "/ half month": {
+    "context": {
+      "feature_area": "details"
+    }
+  },
+  "/ hour": {
+    "context": {
+      "feature_area": "details"
+    }
+  },
+  "/ month": {
+    "context": {
+      "feature_area": "details"
+    }
+  },
+  "/ quarter": {
+    "context": {
+      "feature_area": "details"
+    }
+  },
   "/d": {
     "context": {
       "feature_area": "views"
@@ -441,9 +471,19 @@
       "feature_area": "plan"
     }
   },
+  "1 organization": {
+    "context": {
+      "feature_area": "roles"
+    }
+  },
   "1 star": {
     "context": {
       "feature_area": "create-review"
+    }
+  },
+  "1 user": {
+    "context": {
+      "feature_area": "roles"
     }
   },
   "10 (light load)": {
@@ -565,6 +605,11 @@
       "feature_area": "views"
     }
   },
+  "::/0 covers every address, which would let this port answer for all of them.": {
+    "context": {
+      "feature_area": "openstack"
+    }
+  },
   "< {value} min (others)": {
     "context": {
       "variables": {
@@ -597,6 +642,11 @@
       "feature_area": "overview"
     }
   },
+  "A bare \"*\" would match every value the claim carries. Use a prefix such as \"group-*\".": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
   "A client-accessible domain name override in case OpenStack is returning an internal domain. Leave empty to use the domain returned by OpenStack.": {
     "context": {
       "feature_area": "openstack"
@@ -608,6 +658,11 @@
     }
   },
   "A configuration file that must be added to the Matrix homeserver to register Waldur as an appservice. Contains tokens, bot user ID, webhook URL, and namespace declarations.": {},
+  "A conflict is a person who has different usernames on different offerings of this service provider, for example because the offerings generate usernames differently.": {
+    "context": {
+      "feature_area": "accounts"
+    }
+  },
   "A cost policy": {
     "context": {
       "feature_area": "details"
@@ -638,9 +693,30 @@
   "A name of the shared volume to store scripts": {},
   "A network port — either an interface on a router or a NIC attached to an instance.": {},
   "A network shared into this tenant from another tenant via a Neutron RBAC policy.": {},
+  "A new person would get {username}, home directory {home} and login shell {shell}.": {
+    "context": {
+      "variables": {
+        "username": {
+          "type": "string"
+        },
+        "home": {
+          "type": "unknown"
+        },
+        "shell": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "accounts"
+    }
+  },
   "A one-time fee applied on activation.": {
     "context": {
       "feature_area": "plan"
+    }
+  },
+  "A person’s account on one offering: one row for each offering the person uses.": {
+    "context": {
+      "feature_area": "offering-users"
     }
   },
   "A potential conflict of interest was detected for this proposal. It may be blocked from assignment.": {
@@ -676,6 +752,7 @@
     }
   },
   "A reserved external IP allocated to the tenant; can be attached to a port to expose an instance.": {},
+  "A rule that does not create a project must grant an organization role.": {},
   "A service-provider pool applies to all offerings by default. An offering pool overrides it for a single offering.": {
     "context": {
       "feature_area": "posix-id-pools"
@@ -734,11 +811,6 @@
   "API Token": {
     "context": {
       "feature_area": "steps"
-    }
-  },
-  "API Token (Atlassian Cloud)": {
-    "context": {
-      "primary_ui_type": "label"
     }
   },
   "API Token Authentication": {
@@ -805,6 +877,11 @@
   "API token": {
     "context": {
       "feature_area": "service-accounts"
+    }
+  },
+  "API token (Atlassian Cloud)": {
+    "context": {
+      "primary_ui_type": "label"
     }
   },
   "API token authentication": {},
@@ -885,6 +962,7 @@
       "action_type": "create"
     }
   },
+  "Accept SCIM provisioning from SURF Research Access Management (SRAM) at /scim/v2/sram/. Also requires SCIM_INBOUND_ENABLED and a staff service-account token registered as the service's SCIM bearer token in SRAM.": {},
   "Accept all": {
     "context": {
       "primary_ui_type": "submit_button",
@@ -973,6 +1051,11 @@
     "context": {
       "primary_ui_type": "label",
       "feature_area": "tos"
+    }
+  },
+  "Accepted values": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "Accepted: {count}": {
@@ -1203,7 +1286,7 @@
   "Account": {
     "context": {
       "primary_ui_type": "title",
-      "feature_area": "posix-id-pools"
+      "feature_area": "accounts"
     }
   },
   "Account deletion": {
@@ -1219,6 +1302,22 @@
   "Account name generation policy": {
     "context": {
       "feature_area": "integration"
+    }
+  },
+  "Account scope": {
+    "context": {
+      "feature_area": "integration"
+    }
+  },
+  "Account settings": {
+    "context": {
+      "feature_area": "marketplace"
+    }
+  },
+  "Account settings have been updated.": {
+    "context": {
+      "primary_ui_type": "success_message",
+      "feature_area": "accounts"
     }
   },
   "Account state": {
@@ -1290,6 +1389,11 @@
   "Accounting type settings": {
     "context": {
       "feature_area": "update"
+    }
+  },
+  "Accounts": {
+    "context": {
+      "feature_area": "integration"
     }
   },
   "Accrued on": {
@@ -1455,6 +1559,11 @@
   "Active alerts": {
     "context": {
       "feature_area": "table-growth"
+    }
+  },
+  "Active assignments": {
+    "context": {
+      "feature_area": "hygiene"
     }
   },
   "Active calls": {
@@ -1656,6 +1765,11 @@
       "feature_area": "qos"
     }
   },
+  "Add SRAM project rule": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
   "Add Storage Data Type": {
     "context": {
       "feature_area": "options"
@@ -1789,6 +1903,11 @@
       "feature_area": "canned-responses"
     }
   },
+  "Add claim": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
   "Add column": {
     "context": {
       "feature_area": "admin"
@@ -1830,9 +1949,19 @@
       "feature_area": "create"
     }
   },
+  "Add dedicated load balancer nodes for ingress and service exposure.": {
+    "context": {
+      "feature_area": "common"
+    }
+  },
   "Add default access subnet": {
     "context": {
       "feature_area": "access-subnets"
+    }
+  },
+  "Add default rules or create custom ones.": {
+    "context": {
+      "feature_area": "common"
     }
   },
   "Add default subnet": {
@@ -2382,20 +2511,10 @@
       "action_type": "read"
     }
   },
-  "Admin password": {
-    "context": {
-      "feature_area": "common"
-    }
-  },
   "Admin state": {
     "context": {
       "primary_ui_type": "title",
       "feature_area": "openstack-tenant"
-    }
-  },
-  "Admin username": {
-    "context": {
-      "feature_area": "common"
     }
   },
   "Administration": {
@@ -2552,6 +2671,24 @@
       "feature_area": "affiliates"
     }
   },
+  "Affiliated organization": {
+    "context": {
+      "primary_ui_type": "title",
+      "feature_area": "affiliated-organizations"
+    }
+  },
+  "Affiliated organizations": {
+    "context": {
+      "primary_ui_type": "label",
+      "feature_area": "affiliated-organizations"
+    }
+  },
+  "Affiliated projects": {
+    "context": {
+      "primary_ui_type": "label",
+      "feature_area": "affiliated-organizations"
+    }
+  },
   "Affiliates": {
     "context": {
       "primary_ui_type": "title"
@@ -2561,6 +2698,12 @@
     "context": {
       "primary_ui_type": "title",
       "feature_area": "create"
+    }
+  },
+  "Affiliation coverage": {
+    "context": {
+      "primary_ui_type": "label",
+      "feature_area": "affiliated-organizations"
     }
   },
   "Affiliation details": {
@@ -2890,7 +3033,7 @@
   "All": {
     "context": {
       "primary_ui_type": "title",
-      "feature_area": "credits"
+      "feature_area": "hygiene"
     }
   },
   "All Arrow customers have already been mapped to Waldur organizations.": {
@@ -2919,10 +3062,16 @@
     }
   },
   "All citizenships": {},
+  "All claims must match; within one claim any value matches. A value ending in \"*\" matches by prefix, e.g. \"urn:mace:example.org:group:hpc-*\". The claim must be listed in the identity provider's extra fields for Waldur to receive it.": {},
   "All conditions match (AND)": {
     "context": {
       "primary_ui_type": "label",
       "feature_area": "questions"
+    }
+  },
+  "All consumers": {
+    "context": {
+      "primary_ui_type": "label"
     }
   },
   "All countries": {
@@ -2993,6 +3142,11 @@
   "All pages": {
     "context": {
       "feature_area": "table"
+    }
+  },
+  "All plans of this offering inherit this setting.": {
+    "context": {
+      "feature_area": "update"
     }
   },
   "All ports": {
@@ -3125,6 +3279,16 @@
       "feature_area": "support"
     }
   },
+  "All {count} roles carry a machine-readable code, sit on the scope their name claims, and are bound to the organization that owns them.": {
+    "context": {
+      "variables": {
+        "count": {
+          "type": "number"
+        }
+      },
+      "feature_area": "hygiene"
+    }
+  },
   "Allocate all free capacity to continue": {
     "context": {
       "feature_area": "reallocate-limits"
@@ -3165,6 +3329,11 @@
         }
       },
       "feature_area": "details"
+    }
+  },
+  "Allocated with a new UID": {
+    "context": {
+      "feature_area": "accounts"
     }
   },
   "Allocated {amount}": {
@@ -3443,6 +3612,19 @@
       "feature_area": "invitations"
     }
   },
+  "Allowed values: {min} to {max}": {
+    "context": {
+      "variables": {
+        "min": {
+          "type": "unknown"
+        },
+        "max": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "posix-id-pools"
+    }
+  },
   "Allows service providers to send messages with attachments to customers on pending orders, and customers to respond": {
     "context": {
       "feature_area": "integration"
@@ -3488,6 +3670,16 @@
       "feature_area": "setup"
     }
   },
+  "Already used by other pools: {ranges}.": {
+    "context": {
+      "variables": {
+        "ranges": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "posix-id-pools"
+    }
+  },
   "Also allowed by the service provider": {
     "context": {
       "feature_area": "details"
@@ -3505,6 +3697,12 @@
     }
   },
   "Alumni": {},
+  "Always included": {
+    "context": {
+      "primary_ui_type": "label",
+      "feature_area": "options"
+    }
+  },
   "Always keep at least this many most recent revisions per user, however old they are. Must be above 0, otherwise pruning can erase a user's history entirely.": {},
   "Ambiguous — {count} organizations share this name.": {
     "context": {
@@ -3537,7 +3735,22 @@
       "feature_area": "options"
     }
   },
+  "An IPv4 or IPv6 network with its prefix length, for example 192.168.42.0/24 or 2001:db8::/64.": {
+    "context": {
+      "feature_area": "actions"
+    }
+  },
   "An IPv4/IPv6 subnet with its own CIDR, gateway, and DHCP range.": {},
+  "An IPv6 default subnet uses SLAAC, which needs a /64 prefix, because instances build their address from it.": {},
+  "An address pair cannot cover {description}.": {
+    "context": {
+      "variables": {
+        "description": {
+          "type": "string"
+        }
+      }
+    }
+  },
   "An error has occurred.": {},
   "An error occurred during script execution.": {
     "context": {
@@ -3582,9 +3795,19 @@
     }
   },
   "An error occurred.": {},
+  "An inactive rule grants nothing and revokes the roles it granted.": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
   "An operation is already in progress.": {
     "context": {
       "feature_area": "api-keys"
+    }
+  },
+  "An organization cannot be its own affiliate.": {
+    "context": {
+      "feature_area": "affiliates"
     }
   },
   "An organization owner enables digest emails and chooses the frequency (weekly, bi-weekly, or monthly) and the delivery day.": {
@@ -3675,6 +3898,16 @@
       "primary_ui_type": "label"
     }
   },
+  "Anonymized username prefix": {
+    "context": {
+      "feature_area": "service-providers"
+    }
+  },
+  "Anonymized usernames are this prefix followed by the POSIX UID of the account. Leave empty to let each offering decide.": {
+    "context": {
+      "feature_area": "service-providers"
+    }
+  },
   "Anonymous chat": {
     "context": {
       "primary_ui_type": "title"
@@ -3727,7 +3960,7 @@
   },
   "Any": {
     "context": {
-      "feature_area": "rule-editor"
+      "feature_area": "sram"
     }
   },
   "Any (fallback to HOMEPORT_URL)": {
@@ -3754,6 +3987,11 @@
   "Any project allocations funded by this credit will still be deleted.": {
     "context": {
       "feature_area": "credits"
+    }
+  },
+  "Any scope": {
+    "context": {
+      "feature_area": "generated"
     }
   },
   "Any status": {
@@ -3889,6 +4127,11 @@
     "context": {
       "primary_ui_type": "success_message",
       "feature_area": "users"
+    }
+  },
+  "Applies only when the source is \"Group\" or \"Collaboration or group\".": {
+    "context": {
+      "feature_area": "sram"
     }
   },
   "Applies to": {
@@ -4644,6 +4887,16 @@
       "feature_area": "auto-provisioning-rules"
     }
   },
+  "Are you sure you want to delete the rule {name}? The project roles it granted are revoked.": {
+    "context": {
+      "variables": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "feature_area": "sram"
+    }
+  },
   "Are you sure you want to delete the shortcut?": {
     "context": {
       "feature_area": "quick-shortcuts"
@@ -4915,6 +5168,16 @@
         }
       },
       "feature_area": "request-types"
+    }
+  },
+  "Are you sure you want to delete {name}? This action cannot be undone.": {
+    "context": {
+      "variables": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "feature_area": "support"
     }
   },
   "Are you sure you want to delete {name}? This is a synced request type and may be re-created on the next sync.": {
@@ -5861,6 +6124,11 @@
       "feature_area": "ai-assistant"
     }
   },
+  "Ask the AI assistant": {
+    "context": {
+      "feature_area": "header"
+    }
+  },
   "Ask the model…": {
     "context": {
       "feature_area": "playground"
@@ -6020,7 +6288,7 @@
   "Assurance levels": {
     "context": {
       "primary_ui_type": "label",
-      "feature_area": "restrictions"
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "At capacity": {
@@ -6131,12 +6399,12 @@
     }
   },
   "Atlassian API server URL": {},
-  "Atlassian Service Desk": {},
-  "Atlassian Settings Discovery": {
+  "Atlassian Cloud (API gateway)": {
     "context": {
-      "feature_area": "atlassian-discovery"
+      "feature_area": "service-desk"
     }
   },
+  "Atlassian Service Desk": {},
   "Atlassian settings": {},
   "Atlassian settings saved successfully": {
     "context": {
@@ -6385,7 +6653,7 @@
   },
   "Authentication method": {
     "context": {
-      "feature_area": "charts",
+      "feature_area": "service-desk",
       "action_type": "read"
     }
   },
@@ -6532,6 +6800,7 @@
       "feature_area": "mappings"
     }
   },
+  "Auto-provisioning rule": {},
   "Auto-provisioning rules": {
     "context": {
       "feature_area": "administration"
@@ -6628,7 +6897,7 @@
   "Availability zone": {
     "context": {
       "primary_ui_type": "title",
-      "feature_area": "deploy"
+      "feature_area": "openstack"
     }
   },
   "Availability:": {
@@ -6708,6 +6977,7 @@
       "feature_area": "join-organization"
     }
   },
+  "Available placeholders:": {},
   "Available quota": {},
   "Available quota usage: {usage}": {
     "context": {
@@ -6926,13 +7196,6 @@
       "primary_ui_type": "label"
     }
   },
-  "Azure Active Directory Application Secret": {
-    "context": {
-      "feature_area": "common"
-    }
-  },
-  "Azure PostgreSQL database server": {},
-  "Azure Virtual Machine": {},
   "Back": {
     "context": {
       "primary_ui_type": "submit_button",
@@ -7137,7 +7400,6 @@
   },
   "Basic Authentication": {
     "context": {
-      "primary_ui_type": "label",
       "feature_area": "steps"
     }
   },
@@ -7236,6 +7498,29 @@
       "primary_ui_type": "label"
     }
   },
+  "Billed by usage": {
+    "context": {
+      "feature_area": "details"
+    }
+  },
+  "Billed by usage (previously {amount}{unit})": {
+    "context": {
+      "variables": {
+        "amount": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "type-based"
+    }
+  },
+  "Billed by usage; rates change on the day of the switch": {
+    "context": {
+      "feature_area": "type-based"
+    }
+  },
   "Billing": {
     "context": {
       "primary_ui_type": "title",
@@ -7265,6 +7550,11 @@
   "Billing actions": {
     "context": {
       "feature_area": "openstack-instance"
+    }
+  },
+  "Billing changes with this plan": {
+    "context": {
+      "feature_area": "change-plan"
     }
   },
   "Billing component has been created successfully.": {
@@ -7308,7 +7598,8 @@
   },
   "Billing mode": {
     "context": {
-      "feature_area": "update"
+      "primary_ui_type": "title",
+      "feature_area": "plan"
     }
   },
   "Billing mode has been updated.": {
@@ -7321,6 +7612,16 @@
     "context": {
       "primary_ui_type": "title",
       "feature_area": "plan"
+    }
+  },
+  "Billing period ({unit}) differs from the current plan.": {
+    "context": {
+      "variables": {
+        "unit": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "change-plan"
     }
   },
   "Billing periods": {
@@ -7545,6 +7846,21 @@
       "feature_area": "matrix"
     }
   },
+  "Both plans are billed by usage; the rates change on the day of the switch. VAT is not included.": {
+    "context": {
+      "feature_area": "details"
+    }
+  },
+  "Both plans use the same billing period ({period}).": {
+    "context": {
+      "variables": {
+        "period": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "change-plan"
+    }
+  },
   "Both roles carry exactly the same permissions.": {
     "context": {
       "feature_area": "roles"
@@ -7574,6 +7890,11 @@
   "Bound to no scope: receives every event in the system, including events about all users.": {
     "context": {
       "feature_area": "pubsub"
+    }
+  },
+  "Bound to several organizations": {
+    "context": {
+      "feature_area": "hygiene"
     }
   },
   "Branch": {
@@ -7706,6 +8027,7 @@
       "feature_area": "reviewer-pool"
     }
   },
+  "Builtin components are billed as configured on the Components tab.": {},
   "Bulgaria": {},
   "Bulk import": {
     "context": {
@@ -7794,7 +8116,7 @@
   "By country": {
     "context": {
       "primary_ui_type": "label",
-      "feature_area": "charts"
+      "feature_area": "affiliated-organizations"
     }
   },
   "By impact": {
@@ -8302,6 +8624,11 @@
       "feature_area": "invitations"
     }
   },
+  "Cancel limit change request": {
+    "context": {
+      "feature_area": "request-limits-change"
+    }
+  },
   "Cancel maintenance": {
     "context": {
       "primary_ui_type": "title",
@@ -8379,6 +8706,11 @@
   "Canned responses": {
     "context": {
       "feature_area": "canned-responses"
+    }
+  },
+  "Cannot be changed while resources use this plan.": {
+    "context": {
+      "feature_area": "plans"
     }
   },
   "Cannot change the network ACL of a revoked token.": {
@@ -8770,6 +9102,11 @@
       "feature_area": "update"
     }
   },
+  "Change the settings and preview what they do before applying them. Nothing is saved until you apply.": {
+    "context": {
+      "feature_area": "accounts"
+    }
+  },
   "Changed options": {
     "context": {
       "primary_ui_type": "title",
@@ -8798,6 +9135,11 @@
       "feature_area": "questions"
     }
   },
+  "Charge": {
+    "context": {
+      "feature_area": "plans"
+    }
+  },
   "Charged as part of {name}.": {
     "context": {
       "variables": {
@@ -8808,11 +9150,11 @@
       "feature_area": "deploy"
     }
   },
-  "Charset": {
-    "context": {
-      "feature_area": "sql"
-    }
-  },
+  "Charged at activation and again on every plan change, at the price of the new plan.": {},
+  "Charged on the limit the customer requests, every billing period.": {},
+  "Charged on the plan's own amount, every billing period.": {},
+  "Charged on the usage the provider reports for each billing period.": {},
+  "Charged once, when the resource is activated.": {},
   "Chart is empty": {
     "context": {
       "primary_ui_type": "error_message",
@@ -8909,6 +9251,11 @@
   "Check your email for the invitation link to accept.": {
     "context": {
       "feature_area": "dashboard"
+    }
+  },
+  "Checked": {
+    "context": {
+      "primary_ui_type": "label"
     }
   },
   "Checked {checked} reviewers, generated {created} suggestions.": {
@@ -9128,6 +9475,7 @@
       "feature_area": "organization-summary"
     }
   },
+  "Choose an organization role, a project role, or both.": {},
   "Choose how to request this offering": {
     "context": {
       "feature_area": "access"
@@ -9141,6 +9489,11 @@
   "Choose offerings": {
     "context": {
       "primary_ui_type": "label"
+    }
+  },
+  "Choose per service provider when your offerings share one user directory: a person then has a single account, with the same username and POSIX UID, on all of them.": {
+    "context": {
+      "feature_area": "service-providers"
     }
   },
   "Choose specific proposals to find matching reviewers.": {},
@@ -9157,6 +9510,11 @@
   "Choose the service provider this maintenance announcement applies to": {
     "context": {
       "feature_area": "create"
+    }
+  },
+  "Choose the username to keep for each person. Their accounts on the other offerings are renamed to it and take over its POSIX UID and home directory.": {
+    "context": {
+      "feature_area": "accounts"
     }
   },
   "Choose what should be restored along with the project:": {
@@ -9220,12 +9578,27 @@
   "Claim": {
     "context": {
       "primary_ui_type": "action_button",
-      "feature_area": "tickets"
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
+  "Claim \"{claim}\" is listed twice. Put all of its accepted values in one row.": {
+    "context": {
+      "variables": {
+        "claim": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "Claim Mapping": {
     "context": {
       "feature_area": "steps"
+    }
+  },
+  "Claims": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "Claims not exposed": {
@@ -9351,6 +9724,7 @@
   },
   "Client ID": {
     "context": {
+      "primary_ui_type": "label",
       "feature_area": "providers"
     }
   },
@@ -9374,6 +9748,7 @@
   },
   "Client secret": {
     "context": {
+      "primary_ui_type": "label",
       "feature_area": "providers"
     }
   },
@@ -9513,6 +9888,11 @@
       "feature_area": "create"
     }
   },
+  "Cluster Topology": {
+    "context": {
+      "feature_area": "options"
+    }
+  },
   "Cluster info": {
     "context": {
       "feature_area": "rabbitmq"
@@ -9532,6 +9912,11 @@
     "context": {
       "primary_ui_type": "title",
       "feature_area": "users"
+    }
+  },
+  "Cluster topology": {
+    "context": {
+      "feature_area": "common"
     }
   },
   "Co-authorship (Old)": {
@@ -9567,6 +9952,26 @@
   },
   "Code is too short.": {},
   "Code should consist of latin symbols, numbers, dashes and underscores.": {},
+  "Collaboration": {
+    "context": {
+      "primary_ui_type": "label"
+    }
+  },
+  "Collaboration or group": {
+    "context": {
+      "primary_ui_type": "label"
+    }
+  },
+  "Collaborations and groups provisioned by SURF Research Access Management, and the rules that grant their members project roles.": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
+  "Collaborations, groups within them, or both.": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
   "Collaborative (Active)": {
     "context": {
       "primary_ui_type": "label"
@@ -9595,11 +10000,6 @@
   "Collapse to panel": {
     "context": {
       "feature_area": "ai-assistant"
-    }
-  },
-  "Collation": {
-    "context": {
-      "feature_area": "sql"
     }
   },
   "Collection disabled": {
@@ -9664,7 +10064,7 @@
       "feature_area": "questions"
     }
   },
-  "Comma-separated list of file extenstions not allowed for attachment.": {},
+  "Comma-separated list of file extensions not allowed for attachment.": {},
   "Comma-separated list of regular expressions matched against the user email, e.g. '.*@example.com'. Only has an effect when OIDC_BLOCK_CREATION_OF_UNINVITED_USERS is enabled. When non-empty, a user whose email matches any of the patterns may sign up without an invitation, and existing users must keep matching in order to log in - except staff and support users, users holding at least one unexpired role, users with a pending invitation and users matching an autoprovisioning rule, which are always allowed. Only interactive logins are gated; background identity synchronisation is not. Patterns must match the whole email and are case-insensitive. Note: values are split on commas, so a pattern cannot contain a comma - '{n,m}' quantifiers are not supported, repeat the expression instead.": {
     "context": {
       "variables": {
@@ -10061,6 +10461,11 @@
       "feature_area": "component-policies"
     }
   },
+  "Component prices": {
+    "context": {
+      "feature_area": "plans"
+    }
+  },
   "Component type": {
     "context": {
       "feature_area": "usage-views"
@@ -10092,11 +10497,6 @@
   "Compute": {
     "context": {
       "primary_ui_type": "title"
-    }
-  },
-  "Compute generation": {
-    "context": {
-      "feature_area": "sql"
     }
   },
   "Compute usage source": {
@@ -10317,12 +10717,7 @@
   "Configure": {
     "context": {
       "primary_ui_type": "action_button",
-      "feature_area": "service-desk"
-    }
-  },
-  "Configure Atlassian Jira Service Desk integration": {
-    "context": {
-      "feature_area": "atlassian-discovery"
+      "feature_area": "update-internal-ips"
     }
   },
   "Configure OIDC identity provider settings": {
@@ -10633,6 +11028,11 @@
       "feature_area": "coi-review"
     }
   },
+  "Connect Jira Service Management, then pick the project, request types and fields": {
+    "context": {
+      "feature_area": "atlassian-discovery"
+    }
+  },
   "Connect ORCID": {
     "context": {
       "feature_area": "reviewer"
@@ -10738,14 +11138,14 @@
       "feature_area": "settings"
     }
   },
+  "Connection and sign-in": {
+    "context": {
+      "feature_area": "service-desk"
+    }
+  },
   "Connection breakdown": {
     "context": {
       "feature_area": "database-stats"
-    }
-  },
-  "Connection details": {
-    "context": {
-      "feature_area": "sql"
     }
   },
   "Connection error": {
@@ -11042,6 +11442,11 @@
       "action_type": "create"
     }
   },
+  "Continue conversation": {
+    "context": {
+      "feature_area": "header"
+    }
+  },
   "Continue review": {
     "context": {
       "feature_area": "review"
@@ -11156,6 +11561,11 @@
       "feature_area": "TenantTopology"
     }
   },
+  "Copy name out of sync": {
+    "context": {
+      "feature_area": "hygiene"
+    }
+  },
   "Copy options": {
     "context": {
       "feature_area": "details"
@@ -11220,6 +11630,11 @@
     "context": {
       "primary_ui_type": "label",
       "feature_area": "celery"
+    }
+  },
+  "Copy without organization": {
+    "context": {
+      "feature_area": "hygiene"
     }
   },
   "Core Components": {
@@ -11351,15 +11766,6 @@
     "context": {
       "primary_ui_type": "title",
       "feature_area": "offerings"
-    }
-  },
-  "Could be \"{value}\"": {
-    "context": {
-      "variables": {
-        "value": {
-          "type": "unknown"
-        }
-      }
     }
   },
   "Could not access the clipboard.": {
@@ -11542,6 +11948,11 @@
       "action_type": "create"
     }
   },
+  "Create (or join) a project for each matched user. Disable for a rule that only grants an organization role.": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
   "Create Customer Mapping": {
     "context": {
       "feature_area": "mappings"
@@ -11561,11 +11972,6 @@
   "Create LEXIS link": {
     "context": {
       "feature_area": "lexis"
-    }
-  },
-  "Create Network adapter": {
-    "context": {
-      "feature_area": "actions"
     }
   },
   "Create POSIX ID pool": {
@@ -11628,6 +12034,11 @@
   "Create a new ticket for the selected provider and notify them.": {
     "context": {
       "feature_area": "issues"
+    }
+  },
+  "Create a project": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "Create a project template": {
@@ -11808,6 +12219,11 @@
       "feature_area": "rounds"
     }
   },
+  "Create network adapter": {
+    "context": {
+      "feature_area": "actions"
+    }
+  },
   "Create network for OpenStack tenant": {
     "context": {
       "feature_area": "actions"
@@ -11951,11 +12367,6 @@
     }
   },
   "Create pool": {
-    "context": {
-      "feature_area": "actions"
-    }
-  },
-  "Create port": {
     "context": {
       "feature_area": "actions"
     }
@@ -12197,6 +12608,11 @@
   "Creates a call, opens a submission window and lists this offering in it, so users can request access.": {
     "context": {
       "feature_area": "actions"
+    }
+  },
+  "Creates project": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "Creates resource": {
@@ -12744,6 +13160,7 @@
   },
   "Current price": {
     "context": {
+      "primary_ui_type": "title",
       "feature_area": "plans"
     }
   },
@@ -12765,6 +13182,16 @@
   },
   "Current size": {
     "context": {
+      "feature_area": "actions"
+    }
+  },
+  "Current size: {size}": {
+    "context": {
+      "variables": {
+        "size": {
+          "type": "number"
+        }
+      },
       "feature_area": "actions"
     }
   },
@@ -12901,6 +13328,11 @@
       "feature_area": "steps"
     }
   },
+  "Custom field mapping": {
+    "context": {
+      "primary_ui_type": "title"
+    }
+  },
   "Custom interval (months)": {
     "context": {
       "feature_area": "rounds"
@@ -12924,6 +13356,11 @@
   "Custom range": {
     "context": {
       "primary_ui_type": "label"
+    }
+  },
+  "Custom role offered everywhere": {
+    "context": {
+      "feature_area": "hygiene"
     }
   },
   "Custom rule": {
@@ -12988,6 +13425,11 @@
     "context": {
       "primary_ui_type": "title",
       "feature_area": "organizations"
+    }
+  },
+  "Customer chooses": {
+    "context": {
+      "primary_ui_type": "label"
     }
   },
   "Customer data": {
@@ -13089,10 +13531,16 @@
     }
   },
   "Customers are billed based on actual resource usage reported by the service provider.": {},
+  "Customers are billed for actual consumption, for example per core-hour. No limits are requested when ordering.": {},
   "Customers are billed monthly based on reserved limits.": {},
   "Customers can be created only from verified entries": {
     "context": {
       "feature_area": "organizations"
+    }
+  },
+  "Customers can order it at no cost. Nothing is charged for any component.": {
+    "context": {
+      "feature_area": "plans"
     }
   },
   "Customers pay upfront for the full subscription period. Requires end date.": {},
@@ -13128,6 +13576,16 @@
     "context": {
       "primary_ui_type": "label",
       "feature_area": "openstack-tenant"
+    }
+  },
+  "DHCPv6 stateful": {
+    "context": {
+      "feature_area": "openstack-subnet"
+    }
+  },
+  "DHCPv6 stateless": {
+    "context": {
+      "feature_area": "openstack-subnet"
     }
   },
   "DLQ count": {
@@ -13331,17 +13789,17 @@
       "feature_area": "database-stats"
     }
   },
-  "Datacenter 1": {
-    "context": {
-      "feature_area": "common"
-    }
-  },
   "Datacenter configuration": {
     "context": {
       "feature_area": "common"
     }
   },
   "Datacenters": {
+    "context": {
+      "feature_area": "common"
+    }
+  },
+  "Datacenters were reset for the new topology. Select the infrastructure and node groups again.": {
     "context": {
       "feature_area": "common"
     }
@@ -13545,6 +14003,11 @@
       "feature_area": "debug"
     }
   },
+  "Decimal places": {
+    "context": {
+      "feature_area": "update"
+    }
+  },
   "Decision": {
     "context": {
       "primary_ui_type": "title",
@@ -13558,6 +14021,7 @@
   },
   "Decision expected by {date}.": {
     "context": {
+      "primary_ui_type": "text_content",
       "variables": {
         "date": {
           "type": "date"
@@ -13764,6 +14228,21 @@
       "feature_area": "vmware"
     }
   },
+  "Default for offerings that do not set their own login shell. Leave empty to let each offering decide.": {
+    "context": {
+      "feature_area": "service-providers"
+    }
+  },
+  "Default for offerings that do not set their own policy. Leave empty to let each offering decide.": {
+    "context": {
+      "feature_area": "service-providers"
+    }
+  },
+  "Default for offerings that do not set their own prefix. Leave empty to let each offering decide.": {
+    "context": {
+      "feature_area": "service-providers"
+    }
+  },
   "Default grace period (days)": {
     "context": {
       "feature_area": "details"
@@ -13951,6 +14430,12 @@
     }
   },
   "Delete (nothing attached)": {},
+  "Delete SRAM project rule": {
+    "context": {
+      "primary_ui_type": "title",
+      "feature_area": "sram"
+    }
+  },
   "Delete ToS": {
     "context": {
       "primary_ui_type": "title",
@@ -14440,11 +14925,6 @@
       "feature_area": "service-providers"
     }
   },
-  "Deleting PostgreSQL server will cause deletion of all databases created within server.": {
-    "context": {
-      "feature_area": "sql"
-    }
-  },
   "Deleting...": {
     "context": {
       "feature_area": "reviewer-discovery"
@@ -14613,6 +15093,11 @@
     }
   },
   "Description of the Waldur deployment.": {},
+  "Description repeats the code": {
+    "context": {
+      "feature_area": "hygiene"
+    }
+  },
   "Deselect": {
     "context": {
       "feature_area": "reports"
@@ -15035,13 +15520,12 @@
         "step": {
           "type": "unknown"
         }
-      },
-      "feature_area": "workflow-steps"
+      }
     }
   },
   "Disabled": {
     "context": {
-      "primary_ui_type": "label",
+      "primary_ui_type": "title",
       "feature_area": "providers"
     }
   },
@@ -15178,7 +15662,7 @@
   "Discovery": {
     "context": {
       "primary_ui_type": "title",
-      "feature_area": "service-desk"
+      "feature_area": "reviewer-pool"
     }
   },
   "Discovery (recommended)": {
@@ -15207,13 +15691,13 @@
       "feature_area": "steps"
     }
   },
-  "Disk extension has been scheduled.": {
+  "Disk creation has been scheduled.": {
     "context": {
       "primary_ui_type": "success_message",
       "feature_area": "actions"
     }
   },
-  "Disk has been created.": {
+  "Disk extension has been scheduled.": {
     "context": {
       "primary_ui_type": "success_message",
       "feature_area": "actions"
@@ -15283,7 +15767,8 @@
   },
   "Display name": {
     "context": {
-      "feature_area": "offerings"
+      "primary_ui_type": "title",
+      "feature_area": "sram"
     }
   },
   "Display name for the AI Assistant persona (e.g. 'Mari', 'Waldur Assistant').": {},
@@ -15333,7 +15818,12 @@
       "feature_area": "common"
     }
   },
-  "Do not allow user to accept multiple roles within the same scope (project or organization) using invitation. When enabled, users can still accept invitations to different scopes but cannot have multiple roles in the same scope.": {},
+  "Do not allow a user to hold multiple roles within the same scope (project or organization). Applies to invitations, permission requests and direct role assignment. When enabled, users can still get roles in different scopes but cannot have multiple roles in the same scope.": {},
+  "Do not attach to a router": {
+    "context": {
+      "feature_area": "actions"
+    }
+  },
   "Do not render prices in order details.": {
     "context": {
       "feature_area": "features"
@@ -15504,12 +15994,6 @@
   "Download YAML": {
     "context": {
       "feature_area": "site-agent"
-    }
-  },
-  "Download full price list": {
-    "context": {
-      "primary_ui_type": "action_button",
-      "feature_area": "details"
     }
   },
   "Download template": {
@@ -15725,6 +16209,11 @@
       "feature_area": "auto-provisioning-rules"
     }
   },
+  "Duplicate SRAM project rule": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
   "Duplicate auto-provisioning rule": {
     "context": {
       "feature_area": "auto-provisioning-rules"
@@ -15815,9 +16304,19 @@
       "feature_area": "policies"
     }
   },
+  "Each offering uses its own value where it sets one, then the value here, then the built-in default. The User management settings of an offering show which of the three applies.": {
+    "context": {
+      "feature_area": "service-providers"
+    }
+  },
   "Each project can have one chat room. Rooms are created by project owners and automatically populated with project members. Owners can disable a room (kicking all members and exporting history) and later re-enable it or delete it entirely.": {
     "context": {
       "feature_area": "matrix"
+    }
+  },
+  "Each project is counted against the affiliation it carries today. Reassigning a project restates its earlier periods, and projects that have been removed no longer contribute to any organization.": {
+    "context": {
+      "feature_area": "affiliated-organizations"
     }
   },
   "Each project member receives an email summarizing only the projects they belong to.": {
@@ -15907,6 +16406,11 @@
   "Edit QoS profile": {
     "context": {
       "feature_area": "qos"
+    }
+  },
+  "Edit SRAM project rule": {
+    "context": {
+      "feature_area": "sram"
     }
   },
   "Edit ToS {version}": {
@@ -16093,6 +16597,11 @@
       "feature_area": "configuration"
     }
   },
+  "Edit in SCIM settings": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
   "Edit issue status": {
     "context": {
       "feature_area": "issue-statuses"
@@ -16232,16 +16741,6 @@
     }
   },
   "Edit prices": {
-    "context": {
-      "feature_area": "plans"
-    }
-  },
-  "Edit prices for current month": {
-    "context": {
-      "feature_area": "plans"
-    }
-  },
-  "Edit prices for next month": {
     "context": {
       "feature_area": "plans"
     }
@@ -16553,6 +17052,7 @@
       "feature_area": "reviewer-discovery"
     }
   },
+  "Email address and API token of an Atlassian account.": {},
   "Email address for CrossRef API polite pool. Provides higher rate limits.": {},
   "Email address of the user": {
     "context": {
@@ -16960,6 +17460,11 @@
       "feature_area": "integration"
     }
   },
+  "Enable resource limit change requests": {
+    "context": {
+      "feature_area": "integration"
+    }
+  },
   "Enable resource projects": {
     "context": {
       "feature_area": "integration"
@@ -17314,7 +17819,13 @@
   },
   "Ensure this field has no more than 30 characters.": {},
   "Enter IPv4 address.": {},
+  "Enter IPv6 address.": {},
   "Enter a CIDR address.": {},
+  "Enter a claim name.": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
   "Enter a comma separated list of fields of the user profile that would be protected from editing in Waldur.": {
     "context": {
       "feature_area": "providers"
@@ -17380,6 +17891,11 @@
       "feature_area": "create"
     }
   },
+  "Enter a network address in CIDR format.": {
+    "context": {
+      "feature_area": "openstack"
+    }
+  },
   "Enter a reason for declining": {
     "context": {
       "feature_area": "proposal"
@@ -17415,6 +17931,16 @@
   "Enter allocation value": {
     "context": {
       "feature_area": "project-templates"
+    }
+  },
+  "Enter at least one accepted value for \"{claim}\".": {
+    "context": {
+      "variables": {
+        "claim": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "Enter claim name (e.g., preferred_username)": {
@@ -17531,11 +18057,6 @@
   "Enter scope name": {
     "context": {
       "feature_area": "affiliations"
-    }
-  },
-  "Enter space separated regex pattern to match user email": {
-    "context": {
-      "feature_area": "auto-provisioning-rules"
     }
   },
   "Enter space-separated regex patterns. These are applied in addition to any existing restrictions.": {
@@ -17793,6 +18314,7 @@
   },
   "Errors": {
     "context": {
+      "primary_ui_type": "label",
       "feature_area": "consumption"
     }
   },
@@ -18075,6 +18597,11 @@
       "action_type": "read"
     }
   },
+  "Every person has the same username on all offerings of this service provider.": {
+    "context": {
+      "feature_area": "accounts"
+    }
+  },
   "Every remaining resource is terminated. A project left with no active resources is deleted.": {
     "context": {
       "feature_area": "policy-watch"
@@ -18103,6 +18630,11 @@
   "Evidence description": {
     "context": {
       "feature_area": "coi-review"
+    }
+  },
+  "Exact": {
+    "context": {
+      "primary_ui_type": "label"
     }
   },
   "Exact match": {
@@ -18233,6 +18765,11 @@
     "context": {
       "primary_ui_type": "title",
       "feature_area": "celery"
+    }
+  },
+  "Existing affiliate links could not be loaded, so organizations that already have an active affiliate are not marked. Saving still checks this.": {
+    "context": {
+      "feature_area": "affiliates"
     }
   },
   "Existing offering with the same name will be overwritten.": {
@@ -18419,6 +18956,11 @@
       "primary_ui_type": "label"
     }
   },
+  "Explanation": {
+    "context": {
+      "feature_area": "hygiene"
+    }
+  },
   "Explanation of the scientific case of the project for which the resources are intended to be used.": {
     "context": {
       "feature_area": "create"
@@ -18491,6 +19033,12 @@
   "Export offering": {
     "context": {
       "feature_area": "list"
+    }
+  },
+  "Export price list": {
+    "context": {
+      "primary_ui_type": "action_button",
+      "feature_area": "details"
     }
   },
   "Export report": {
@@ -18607,7 +19155,7 @@
   },
   "External IP": {
     "context": {
-      "feature_area": "vm"
+      "feature_area": "openstack"
     }
   },
   "External IPs": {
@@ -19504,6 +20052,16 @@
       "feature_area": "affiliates"
     }
   },
+  "Fee: {amount}": {
+    "context": {
+      "variables": {
+        "amount": {
+          "type": "number"
+        }
+      },
+      "feature_area": "change-plan"
+    }
+  },
   "Feedback": {
     "context": {
       "primary_ui_type": "title"
@@ -19727,9 +20285,23 @@
       "feature_area": "create"
     }
   },
+  "Fill in every component price, or leave the plan as it is.": {
+    "context": {
+      "primary_ui_type": "submit_button",
+      "feature_area": "plans",
+      "action_type": "create"
+    }
+  },
   "Fill in the details to create a new user account.": {
     "context": {
       "feature_area": "support"
+    }
+  },
+  "Fill in the role details and select at least one permission.": {
+    "context": {
+      "primary_ui_type": "submit_button",
+      "feature_area": "roles",
+      "action_type": "create"
     }
   },
   "Fill the template with your organization details, then upload it in the next step.": {
@@ -19760,6 +20332,11 @@
   "Filter by DN, attribute, role or badge (e.g. memberUid, admin, 60000)…": {
     "context": {
       "feature_area": "integration"
+    }
+  },
+  "Filter by column": {
+    "context": {
+      "feature_area": "table"
     }
   },
   "Filter by name...": {
@@ -19910,6 +20487,11 @@
       "feature_area": "reviewer-pool"
     }
   },
+  "Findings": {
+    "context": {
+      "feature_area": "hygiene"
+    }
+  },
   "Fingerprint (MD5)": {
     "context": {
       "primary_ui_type": "title",
@@ -19949,12 +20531,6 @@
     "context": {
       "primary_ui_type": "action_button",
       "feature_area": "access-subnets"
-    }
-  },
-  "First": {
-    "context": {
-      "primary_ui_type": "label",
-      "feature_area": "deploy"
     }
   },
   "First GID of the pool (inclusive).": {
@@ -19997,7 +20573,17 @@
   "Fixed IPs": {
     "context": {
       "primary_ui_type": "title",
-      "feature_area": "openstack-tenant"
+      "feature_area": "openstack-instance"
+    }
+  },
+  "Fixed and limit-based charges are billed for this period. The plan can be created, but the other plans of this offering use a different period, and customers can only move between plans that share one.": {
+    "context": {
+      "feature_area": "plans"
+    }
+  },
+  "Fixed and limit-based charges are billed for this period. Usage is charged per reported quantity and is unaffected.": {
+    "context": {
+      "feature_area": "plans"
     }
   },
   "Fixed date": {
@@ -20027,7 +20613,8 @@
   },
   "Fixed price": {
     "context": {
-      "primary_ui_type": "label"
+      "primary_ui_type": "label",
+      "feature_area": "plan"
     }
   },
   "Fixed — use common storage quota": {
@@ -20160,6 +20747,16 @@
       "feature_area": "openstack-instance"
     }
   },
+  "Floating IPs are IPv4 only, so none can be attached to an IPv6 subnet. The instance is reachable on its own IPv6 address instead.": {
+    "context": {
+      "feature_area": "deploy"
+    }
+  },
+  "Floating IPs are IPv4 only; this subnet is IPv6.": {
+    "context": {
+      "feature_area": "deploy"
+    }
+  },
   "Floating IPs removal has been scheduled.": {
     "context": {
       "primary_ui_type": "success_message",
@@ -20198,6 +20795,7 @@
       "feature_area": "footer"
     }
   },
+  "For Jira Server and Data Center.": {},
   "For Jira Server/Data Center, create a PAT in your profile settings.": {
     "context": {
       "feature_area": "steps"
@@ -20228,16 +20826,6 @@
     "context": {
       "primary_ui_type": "title",
       "feature_area": "reviewer-pool"
-    }
-  },
-  "Force destroy": {
-    "context": {
-      "feature_area": "actions"
-    }
-  },
-  "Force destroy instance": {
-    "context": {
-      "feature_area": "actions"
     }
   },
   "Force import": {
@@ -20365,7 +20953,7 @@
   "France": {},
   "Free": {
     "context": {
-      "feature_area": "quotas"
+      "feature_area": "plans"
     }
   },
   "Free-text description of the reviewer's background.": {
@@ -20472,14 +21060,24 @@
       "feature_area": "plan"
     }
   },
-  "Full Hero Overlay": {
+  "From {price}": {
+    "context": {
+      "variables": {
+        "price": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "plans"
+    }
+  },
+  "Full": {
     "context": {
       "primary_ui_type": "label"
     }
   },
-  "Full access": {
+  "Full Hero Overlay": {
     "context": {
-      "feature_area": "roles"
+      "primary_ui_type": "label"
     }
   },
   "Full description": {
@@ -20571,6 +21169,16 @@
       "feature_area": "posix-id-pools"
     }
   },
+  "GIDs": {
+    "context": {
+      "feature_area": "integration"
+    }
+  },
+  "GLAuth": {
+    "context": {
+      "feature_area": "integration"
+    }
+  },
   "GLAuth configuration for {offering}": {
     "context": {
       "variables": {
@@ -20579,6 +21187,11 @@
         }
       },
       "feature_area": "integration"
+    }
+  },
+  "GLAuth directory": {
+    "context": {
+      "feature_area": "marketplace"
     }
   },
   "GPU Hour": {
@@ -20813,6 +21426,11 @@
       "feature_area": "pubsub"
     }
   },
+  "Global (unscoped)": {
+    "context": {
+      "primary_ui_type": "label"
+    }
+  },
   "Global federation of identity providers for researchers.": {
     "context": {
       "feature_area": "providers"
@@ -20991,6 +21609,52 @@
       "feature_area": "roles"
     }
   },
+  "Granted automatically from identity provider data ({source}). It may be revoked automatically if the user stops matching.": {
+    "context": {
+      "variables": {
+        "source": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "affiliations"
+    }
+  },
+  "Granted by": {
+    "context": {
+      "feature_area": "affiliations"
+    }
+  },
+  "Granted by a person.": {
+    "context": {
+      "feature_area": "affiliations"
+    }
+  },
+  "Granted by an SRAM project rule. It is revoked automatically when the membership in SRAM ends.": {},
+  "Granted on the organization itself. Leave empty to grant no organization-level role.": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
+  "Grants a project role to the members of matching SRAM collaborations and groups, on the projects of their organization that the selector picks.": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
+  "Grants nothing yet — choose a role on the previous step.": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
+  "Grants: {grants}.": {
+    "context": {
+      "variables": {
+        "grants": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
   "Greater than": {
     "context": {
       "primary_ui_type": "label"
@@ -21073,6 +21737,14 @@
       "feature_area": "customer"
     }
   },
+  "Group placeholders are empty for collaborations. The match never leaves the organization of the SRAM group.": {},
+  "Group short names": {
+    "context": {
+      "primary_ui_type": "title",
+      "feature_area": "sram"
+    }
+  },
+  "Group short names apply only to groups. Set the source to \"Group\" or \"Collaboration or group\", or clear the patterns.": {},
   "Grouped by": {
     "context": {
       "feature_area": "usage-views"
@@ -21150,6 +21822,11 @@
     }
   },
   "HEAppE cluster password": {
+    "context": {
+      "feature_area": "integration"
+    }
+  },
+  "HEAppE instance identifier": {
     "context": {
       "feature_area": "integration"
     }
@@ -21322,6 +21999,27 @@
     "context": {
       "primary_ui_type": "label",
       "feature_area": "provider"
+    }
+  },
+  "Held by {users} across {organizations}.": {
+    "context": {
+      "variables": {
+        "users": {
+          "type": "unknown"
+        },
+        "organizations": {
+          "type": "unknown"
+        }
+      }
+    }
+  },
+  "Held by {users}.": {
+    "context": {
+      "variables": {
+        "users": {
+          "type": "unknown"
+        }
+      }
     }
   },
   "Hello": {
@@ -21602,7 +22300,7 @@
   },
   "Home directory": {
     "context": {
-      "primary_ui_type": "label",
+      "primary_ui_type": "title",
       "feature_area": "service-providers"
     }
   },
@@ -21728,6 +22426,16 @@
       "feature_area": "invitations"
     }
   },
+  "How instances get their IPv6 address. SLAAC and DHCPv6 stateless need a /64 prefix.": {
+    "context": {
+      "feature_area": "actions"
+    }
+  },
+  "How instances on this subnet get their IPv6 address.": {
+    "context": {
+      "feature_area": "openstack-subnet"
+    }
+  },
   "How it works": {
     "context": {
       "primary_ui_type": "action_button",
@@ -21740,6 +22448,11 @@
     }
   },
   "How maintenance notifications are delivered.": {},
+  "How many decimal places a customer may use for this limit. 0 keeps it a whole number.": {
+    "context": {
+      "feature_area": "update"
+    }
+  },
   "How many minutes before scheduled maintenance users should be notified.": {},
   "How many proposals will I need to review?": {
     "context": {
@@ -21769,6 +22482,11 @@
   "How the Reviewer Pool Works": {
     "context": {
       "feature_area": "reviewer-pool"
+    }
+  },
+  "How the accounts people get on your offerings are named and set up.": {
+    "context": {
+      "feature_area": "service-providers"
     }
   },
   "How the user registered (e.g. eduTEAMS, local)": {},
@@ -21953,6 +22671,16 @@
       "feature_area": "cluster"
     }
   },
+  "IPv6 address mode": {
+    "context": {
+      "feature_area": "actions"
+    }
+  },
+  "IPv6 router advertisement mode": {
+    "context": {
+      "feature_area": "openstack-subnet"
+    }
+  },
   "ISD": {
     "context": {
       "feature_area": "providers"
@@ -21964,6 +22692,11 @@
     }
   },
   "ISD source identifier that is authoritative for FEDERATED_IDENTITY_LOCKED_FIELDS (e.g. 'isd:efp'). When set and present in a user's active ISDs, other identity sources (eduTEAMS, OIDC logins, ...) cannot overwrite the locked fields on sync. Empty disables the protection.": {},
+  "ISO 3166-1 alpha-2 codes. Users with any of these nationalities will match.": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
   "Iceland": {},
   "Icon": {
     "context": {
@@ -22033,6 +22766,11 @@
       "feature_area": "providers"
     }
   },
+  "Identity attributes": {
+    "context": {
+      "feature_area": "accounts"
+    }
+  },
   "Identity claim": {
     "context": {
       "primary_ui_type": "label"
@@ -22061,6 +22799,12 @@
   },
   "Identity provider": {
     "context": {
+      "feature_area": "support"
+    }
+  },
+  "Identity provider claims": {
+    "context": {
+      "primary_ui_type": "label",
       "feature_area": "support"
     }
   },
@@ -22125,7 +22869,7 @@
   "Identity sources": {
     "context": {
       "primary_ui_type": "label",
-      "feature_area": "restrictions"
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "Identity verification is required for business registration": {
@@ -22256,7 +23000,7 @@
   "Image": {
     "context": {
       "primary_ui_type": "title",
-      "feature_area": "deploy"
+      "feature_area": "images"
     }
   },
   "Image has been added.": {
@@ -22577,6 +23321,11 @@
     }
   },
   "Importing resources": {},
+  "In Atlassian Administration, open Directory, then Service accounts, and create an OAuth 2.0 credential for the service account with the scopes read:servicedesk-request, write:servicedesk-request, manage:servicedesk-customer, read:jira-work, write:jira-work and read:jira-user. The service account needs a Jira Service Management agent licence and the Service Desk Team role on the project.": {
+    "context": {
+      "feature_area": "steps"
+    }
+  },
   "In Billing": {
     "context": {
       "feature_area": "mappings"
@@ -22628,11 +23377,6 @@
       "action_type": "read"
     }
   },
-  "In the format of GUID": {
-    "context": {
-      "feature_area": "common"
-    }
-  },
   "In-depth analysis of organization quota limits and usage projections": {
     "context": {
       "feature_area": "reporting"
@@ -22647,6 +23391,11 @@
     "context": {
       "primary_ui_type": "label",
       "feature_area": "announcements"
+    }
+  },
+  "Inbound SCIM is disabled": {
+    "context": {
+      "feature_area": "sram"
     }
   },
   "Incident": {
@@ -22699,6 +23448,11 @@
   "Include files": {
     "context": {
       "feature_area": "list"
+    }
+  },
+  "Include load balancer nodes": {
+    "context": {
+      "feature_area": "common"
     }
   },
   "Include media files when exporting Matrix room history.": {},
@@ -22842,6 +23596,7 @@
       "feature_area": "list"
     }
   },
+  "Include the prefix length, for example 192.168.42.0/24 or 2001:db8::/64.": {},
   "Include weekends": {
     "context": {
       "feature_area": "booking"
@@ -22849,7 +23604,7 @@
   },
   "Included": {
     "context": {
-      "feature_area": "reviewer"
+      "feature_area": "details"
     }
   },
   "Included Components": {
@@ -22975,7 +23730,8 @@
   },
   "Info": {
     "context": {
-      "primary_ui_type": "label"
+      "primary_ui_type": "label",
+      "feature_area": "hygiene"
     }
   },
   "Information": {
@@ -23019,6 +23775,16 @@
     "context": {
       "primary_ui_type": "title",
       "feature_area": "cluster"
+    }
+  },
+  "Inherit from components": {
+    "context": {
+      "primary_ui_type": "label"
+    }
+  },
+  "Inherited from service provider": {
+    "context": {
+      "feature_area": "integration"
     }
   },
   "Initial": {
@@ -23149,8 +23915,6 @@
       "feature_area": "openstack-instance"
     }
   },
-  "Instance should be OK, or erred. Please contact support.": {},
-  "Instance should be shutoff and OK or erred. Please contact support.": {},
   "Instances": {
     "context": {
       "primary_ui_type": "title",
@@ -23270,17 +24034,6 @@
     "context": {
       "primary_ui_type": "label",
       "feature_area": "core"
-    }
-  },
-  "Internal IP": {
-    "context": {
-      "feature_area": "vm"
-    }
-  },
-  "Internal IPs": {
-    "context": {
-      "primary_ui_type": "title",
-      "feature_area": "openstack-instance"
     }
   },
   "Internal LiveKit base URL. Falls back to http://livekit:7880 when blank.": {},
@@ -23436,9 +24189,34 @@
     }
   },
   "Invalid offering": {},
+  "Invalid placeholder: {detail}. Use {placeholders}, and write a literal brace as {open} or {close}.": {
+    "context": {
+      "variables": {
+        "detail": {
+          "type": "unknown"
+        },
+        "placeholders": {
+          "type": "unknown"
+        },
+        "open": {
+          "type": "unknown"
+        },
+        "close": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "sram",
+      "action_type": "cancel"
+    }
+  },
   "Invalid range. Ensure the end number is greater than or equal to the start number.": {
     "context": {
       "feature_area": "common"
+    }
+  },
+  "Invalid regular expression.": {
+    "context": {
+      "feature_area": "sram"
     }
   },
   "Invalid tax percent": {},
@@ -24029,6 +24807,11 @@
       "feature_area": "pubsub"
     }
   },
+  "It grants nothing until it is activated.": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
   "It is used as default page title if it's not specified explicitly.": {},
   "It is used as prefix for page title.": {},
   "It is used for rendering callback URL in HomePort": {},
@@ -24039,6 +24822,11 @@
   "It is used to automatically assign floating IP to your virtual machine.": {
     "context": {
       "feature_area": "openstack"
+    }
+  },
+  "It matters once offerings share accounts. With accounts per service provider, a person has one account, with one username, POSIX UID and home directory, on all of them, so one of the usernames has to be kept. Until then, switching the account scope to per service provider is refused.": {
+    "context": {
+      "feature_area": "accounts"
     }
   },
   "It was accepted for {email}. If it does not arrive, the problem is past the relay — check its own logs and the recipient spam folder.": {
@@ -24244,6 +25032,11 @@
   "Keeper": {
     "context": {
       "feature_area": "admin"
+    }
+  },
+  "Keeps roles in step with the identity provider, the way SCIM group membership does.": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "Kept until": {
@@ -24476,7 +25269,8 @@
   "Label that is visible to users in service catalog.": {},
   "Labels": {
     "context": {
-      "feature_area": "node"
+      "primary_ui_type": "title",
+      "feature_area": "sram"
     }
   },
   "Language": {
@@ -24686,6 +25480,11 @@
       "feature_area": "marketplace"
     }
   },
+  "Last updated:": {
+    "context": {
+      "feature_area": "service-providers"
+    }
+  },
   "Last usage": {
     "context": {
       "feature_area": "provider"
@@ -24815,6 +25614,11 @@
       "feature_area": "create-user-steps"
     }
   },
+  "Leave empty to name the project after the username.": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
   "Leave empty to sync all resources. Select a resource to sync only its billing lines.": {
     "context": {
       "feature_area": "billing"
@@ -24870,6 +25674,7 @@
       "feature_area": "site-agents"
     }
   },
+  "Legacy. Not accepted by Atlassian Cloud.": {},
   "Legal & Privacy": {
     "context": {
       "feature_area": "footer"
@@ -24897,6 +25702,11 @@
     }
   },
   "Lets users who may not change a resource end date themselves ask for it. Holders of the end date permission approve or reject on the resource, and approval applies the date immediately. Requests are also published as events, so an external approval system can decide instead. Does not apply to prepaid offerings, which extend through renewal instead.": {
+    "context": {
+      "feature_area": "integration"
+    }
+  },
+  "Lets users who may not change resource limits themselves ask for new ones. Holders of the limits permission approve or reject on the resource, and approval submits an update order for the requested limits. When disabled, pending requests can still be rejected or withdrawn, but no longer approved.": {
     "context": {
       "feature_area": "integration"
     }
@@ -25036,7 +25846,7 @@
   "Limit period": {
     "context": {
       "primary_ui_type": "title",
-      "feature_area": "update"
+      "feature_area": "details"
     }
   },
   "Limit to resource (optional)": {
@@ -25067,9 +25877,20 @@
       "feature_area": "usage-views"
     }
   },
+  "Limit-based (monthly)": {
+    "context": {
+      "primary_ui_type": "label",
+      "feature_area": "plan"
+    }
+  },
   "Limit-based component that defines soft space quota": {
     "context": {
       "feature_area": "options"
+    }
+  },
+  "Limit-based or usage-based override how the builtin components (cores, RAM, storage) are billed under this plan. Custom components are unaffected.": {
+    "context": {
+      "feature_area": "plans"
     }
   },
   "Limit: {limit} {unit} per month": {
@@ -25485,7 +26306,7 @@
       "feature_area": "steps"
     }
   },
-  "LiveKit API key for the Element Call SFU (Calls observability tab).": {},
+  "LiveKit API key for the call SFU (Calls observability tab).": {},
   "LiveKit API secret used to mint the admin token.": {},
   "LiveKit is not configured.": {
     "context": {
@@ -25563,6 +26384,11 @@
   "Load balancer name": {
     "context": {
       "feature_area": "actions"
+    }
+  },
+  "Load balancer nodes": {
+    "context": {
+      "feature_area": "common"
     }
   },
   "Load balancer nodes (Mandatory)": {
@@ -25941,7 +26767,7 @@
   "Login page layout style.": {},
   "Login shell": {
     "context": {
-      "primary_ui_type": "label",
+      "primary_ui_type": "title",
       "feature_area": "integration"
     }
   },
@@ -26377,6 +27203,11 @@
       "feature_area": "project"
     }
   },
+  "Manage pools": {
+    "context": {
+      "feature_area": "integration"
+    }
+  },
   "Manage posix id pool": {
     "context": {
       "primary_ui_type": "label",
@@ -26756,8 +27587,7 @@
   },
   "Marketplace": {
     "context": {
-      "primary_ui_type": "text_content",
-      "feature_area": "administration"
+      "feature_area": "i18n"
     }
   },
   "Marketplace Branding": {
@@ -26804,6 +27634,11 @@
     }
   },
   "Master toggle for the nightly LLM-as-judge review of completed anonymous sessions. On by default — cost is bounded by ANONYMOUS_CHAT_REVIEW_DAILY_TOKEN_BUDGET.": {},
+  "Match": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
   "Match against call description": {
     "context": {
       "feature_area": "reviewer-pool"
@@ -26871,7 +27706,23 @@
       "feature_area": "reviewer-pool"
     }
   },
+  "Matches every authenticated user — no filter is configured.": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
   "Matches reviewer expertise keywords against proposal text. Keywords are weighted by proficiency level: Expert (100%), Familiar (70%).": {},
+  "Matches users by: {filters}.": {
+    "context": {
+      "variables": {
+        "filters": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "auto-provisioning-rules",
+      "action_type": "filter"
+    }
+  },
   "Matching configuration": {
     "context": {
       "feature_area": "details"
@@ -27506,7 +28357,7 @@
   "Members": {
     "context": {
       "primary_ui_type": "title",
-      "feature_area": "details"
+      "feature_area": "sram"
     }
   },
   "Members by organization": {
@@ -27573,11 +28424,6 @@
   "Memory configuration (in MB)": {
     "context": {
       "feature_area": "partitions"
-    }
-  },
-  "Memory per vCore": {
-    "context": {
-      "feature_area": "sql"
     }
   },
   "Memory settings": {
@@ -27719,6 +28565,11 @@
   "Metadata": {
     "context": {
       "primary_ui_type": "title",
+      "feature_area": "details"
+    }
+  },
+  "Metered": {
+    "context": {
       "feature_area": "details"
     }
   },
@@ -28010,6 +28861,7 @@
     }
   },
   "Minutes the announcement banner stays visible after maintenance completes": {},
+  "Mirrors a membership in SURF Research Access Management (SRAM). Changes made here are overwritten by the next SRAM push.": {},
   "Miss": {
     "context": {
       "primary_ui_type": "label"
@@ -28088,6 +28940,11 @@
   "Mix-agnostic: each (offering, component) compares against its own previous period — periods are aligned per row, not across rows.": {
     "context": {
       "feature_area": "views"
+    }
+  },
+  "Mixed": {
+    "context": {
+      "feature_area": "plan"
     }
   },
   "Mobile phone number": {
@@ -28711,6 +29568,11 @@
       "feature_area": "request-types"
     }
   },
+  "Name claims the wrong scope": {
+    "context": {
+      "feature_area": "hygiene"
+    }
+  },
   "Name for {file}": {
     "context": {
       "variables": {
@@ -28729,6 +29591,11 @@
   "Name is duplicated. Choose other name.": {
     "context": {
       "feature_area": "project"
+    }
+  },
+  "Name is not a code": {
+    "context": {
+      "feature_area": "hygiene"
     }
   },
   "Name is required field.": {},
@@ -28751,6 +29618,7 @@
       "feature_area": "openportal-remote"
     }
   },
+  "Name of the organization role whose permissions SRAM placeholder roles copy. Empty gives placeholders no permissions. Placeholders are refreshed on the next push or by 'waldur sram_resync'.": {},
   "Name of the remote offering, e.g. \"isambard-ai\"": {
     "context": {
       "feature_area": "project-templates"
@@ -28808,7 +29676,7 @@
   "Nationalities": {
     "context": {
       "primary_ui_type": "label",
-      "feature_area": "restrictions"
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "Nationalities field": {
@@ -28891,6 +29759,12 @@
       "feature_area": "actions"
     }
   },
+  "Network adapter creation has been scheduled.": {
+    "context": {
+      "primary_ui_type": "success_message",
+      "feature_area": "actions"
+    }
+  },
   "Network adapters": {
     "context": {
       "primary_ui_type": "title",
@@ -28926,7 +29800,7 @@
       "feature_area": "common"
     }
   },
-  "Network rules for public-facing load balancers and ingress controllers": {
+  "Network rules for public-facing ingress and exposed services": {
     "context": {
       "feature_area": "common"
     }
@@ -29119,6 +29993,12 @@
       "feature_area": "resource-pending"
     }
   },
+  "New home directory": {
+    "context": {
+      "primary_ui_type": "title",
+      "feature_area": "accounts"
+    }
+  },
   "New hourly plan fee": {
     "context": {
       "feature_area": "resource-pending"
@@ -29182,6 +30062,16 @@
       "feature_area": "plans"
     }
   },
+  "New prices apply from next month": {
+    "context": {
+      "feature_area": "plans"
+    }
+  },
+  "New prices apply immediately": {
+    "context": {
+      "feature_area": "plans"
+    }
+  },
   "New provider": {
     "context": {
       "primary_ui_type": "label",
@@ -29220,6 +30110,7 @@
   },
   "New size": {
     "context": {
+      "primary_ui_type": "label",
       "feature_area": "actions"
     }
   },
@@ -29238,6 +30129,12 @@
   "New usage policy": {
     "context": {
       "feature_area": "policies"
+    }
+  },
+  "New username": {
+    "context": {
+      "primary_ui_type": "title",
+      "feature_area": "accounts"
     }
   },
   "New value": {
@@ -29378,6 +30275,11 @@
       "feature_area": "reports"
     }
   },
+  "No POSIX ID pool: accounts get no UID or GID from a pool until one is created.": {
+    "context": {
+      "feature_area": "integration"
+    }
+  },
   "No POSIX group IDs are assigned to this project.": {
     "context": {
       "feature_area": "manage"
@@ -29391,6 +30293,11 @@
   "No SLURM offerings found for this service provider. Create a SLURM offering first.": {
     "context": {
       "feature_area": "site-agent"
+    }
+  },
+  "No SRAM collaborations have been provisioned yet. They appear here after SRAM pushes them over SCIM.": {
+    "context": {
+      "feature_area": "sram"
     }
   },
   "No Service Desk projects found. Please ensure you have access to at least one Service Desk project.": {
@@ -29431,11 +30338,6 @@
   "No accepted reviewers found. Invite reviewers to the pool first.": {
     "context": {
       "feature_area": "assignments"
-    }
-  },
-  "No access": {
-    "context": {
-      "feature_area": "roles"
     }
   },
   "No access info.": {},
@@ -29510,6 +30412,11 @@
   "No additional identity fields are enabled in this deployment.": {
     "context": {
       "feature_area": "create-user-steps"
+    }
+  },
+  "No affiliated organizations found": {
+    "context": {
+      "feature_area": "affiliated-organizations"
     }
   },
   "No affiliations added.": {
@@ -29644,6 +30551,11 @@
     "context": {
       "primary_ui_type": "action_button",
       "feature_area": "project-digest"
+    }
+  },
+  "No charge": {
+    "context": {
+      "feature_area": "details"
     }
   },
   "No chat history yet": {
@@ -29848,7 +30760,7 @@
   },
   "No description": {
     "context": {
-      "feature_area": "proposals"
+      "feature_area": "hygiene"
     }
   },
   "No description available": {
@@ -30046,11 +30958,6 @@
   "No images available.": {
     "context": {
       "feature_area": "blocks"
-    }
-  },
-  "No images found": {
-    "context": {
-      "feature_area": "deploy"
     }
   },
   "No impact": {},
@@ -30293,6 +31200,11 @@
       "feature_area": "create"
     }
   },
+  "No offering of this service provider shares accounts yet. Set the account scope to per service provider, and enable automatic creation of offering users on the offerings.": {
+    "context": {
+      "feature_area": "accounts"
+    }
+  },
   "No offerings": {
     "context": {
       "feature_area": "credits"
@@ -30306,6 +31218,11 @@
   "No offerings have been added to this call yet.": {
     "context": {
       "feature_area": "resource-requests-step"
+    }
+  },
+  "No offerings match your search. To find organisations, projects or resources, use the search in the top bar.": {
+    "context": {
+      "feature_area": "landing"
     }
   },
   "No open round available.": {
@@ -30355,6 +31272,11 @@
       "feature_area": "actions"
     }
   },
+  "No organization has been registered in the affiliation registry yet.": {
+    "context": {
+      "feature_area": "affiliated-organizations"
+    }
+  },
   "No organizational access. This user is not a member of any organization or project.": {
     "context": {
       "feature_area": "data-access"
@@ -30373,6 +31295,16 @@
   "No organizations found": {
     "context": {
       "feature_area": "steps"
+    }
+  },
+  "No other offering of this service provider yet": {
+    "context": {
+      "feature_area": "integration"
+    }
+  },
+  "No other roles are available in this organization. Ask staff to reveal a concealed role or reactivate one.": {
+    "context": {
+      "feature_area": "team"
     }
   },
   "No outputs found for this order": {
@@ -30417,14 +31349,29 @@
       "feature_area": "views"
     }
   },
+  "No permission matches this search.": {
+    "context": {
+      "feature_area": "roles"
+    }
+  },
   "No permissions data.": {
     "context": {
       "feature_area": "organizations"
     }
   },
+  "No permissions found": {
+    "context": {
+      "feature_area": "roles"
+    }
+  },
   "No personal identity fields are enabled.": {
     "context": {
       "feature_area": "support"
+    }
+  },
+  "No plan": {
+    "context": {
+      "feature_area": "details"
     }
   },
   "No plans available": {
@@ -30476,6 +31423,11 @@
   "No project metadata": {
     "context": {
       "feature_area": "service-providers"
+    }
+  },
+  "No project rules yet. Add one to grant project roles to the members of SRAM collaborations and groups.": {
+    "context": {
+      "feature_area": "sram"
     }
   },
   "No project template assigned": {},
@@ -30716,6 +31668,16 @@
       "feature_area": "team"
     }
   },
+  "No roles are available in this organization. Ask staff to reveal a concealed role or reactivate one.": {
+    "context": {
+      "feature_area": "team"
+    }
+  },
+  "No roles available.": {
+    "context": {
+      "feature_area": "create"
+    }
+  },
   "No roles found": {
     "context": {
       "feature_area": "roles"
@@ -30756,6 +31718,11 @@
       "feature_area": "proposals"
     }
   },
+  "No routers": {
+    "context": {
+      "feature_area": "actions"
+    }
+  },
   "No routes — attach an interface or set a gateway to populate this table.": {
     "context": {
       "feature_area": "openstack-tenant"
@@ -30772,7 +31739,7 @@
       "feature_area": "deploy"
     }
   },
-  "No security rules configured. Add default rules or create custom ones.": {
+  "No security rules configured": {
     "context": {
       "feature_area": "common"
     }
@@ -30800,11 +31767,6 @@
   "No services registered": {
     "context": {
       "feature_area": "site-agents"
-    }
-  },
-  "No sizes found": {
-    "context": {
-      "feature_area": "deploy"
     }
   },
   "No special import options enabled": {
@@ -30915,6 +31877,11 @@
       "feature_area": "reports"
     }
   },
+  "No usage yet": {
+    "context": {
+      "feature_area": "details"
+    }
+  },
   "No user submitted fields": {
     "context": {
       "feature_area": "details"
@@ -31013,6 +31980,11 @@
       "action_type": "read"
     }
   },
+  "Nobody holds the placeholder role of this group yet.": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
   "Nobody holds this role yet.": {
     "context": {
       "feature_area": "workflow-steps"
@@ -31092,6 +32064,21 @@
       "feature_area": "steps"
     }
   },
+  "None exposed to this provider": {
+    "context": {
+      "feature_area": "accounts"
+    }
+  },
+  "None of the selected users are active.": {
+    "context": {
+      "feature_area": "support"
+    }
+  },
+  "None of the selected users are inactive.": {
+    "context": {
+      "feature_area": "support"
+    }
+  },
   "None of your {count} resources have a backend_id set. Set the backend_id to the Arrow license reference to enable consumption tracking.": {
     "context": {
       "variables": {
@@ -31161,7 +32148,7 @@
   "Not carried over": {},
   "Not configured": {
     "context": {
-      "primary_ui_type": "label",
+      "primary_ui_type": "title",
       "feature_area": "providers"
     }
   },
@@ -31205,6 +32192,11 @@
       "feature_area": "shared"
     }
   },
+  "Not limited": {
+    "context": {
+      "feature_area": "type-based"
+    }
+  },
   "Not managed by this pool — sourced externally.": {
     "context": {
       "feature_area": "posix-id-pools"
@@ -31213,6 +32205,11 @@
   "Not mapped": {
     "context": {
       "feature_area": "steps"
+    }
+  },
+  "Not offered": {
+    "context": {
+      "primary_ui_type": "label"
     }
   },
   "Not overridden": {
@@ -31241,6 +32238,16 @@
       "feature_area": "proposal"
     }
   },
+  "Not received from any identity provider: {claims}. Waldur only stores a claim that is listed in the provider's extra fields, so this rule cannot match anyone until it is added there.": {
+    "context": {
+      "variables": {
+        "claims": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
   "Not removed": {
     "context": {
       "primary_ui_type": "label"
@@ -31259,6 +32266,25 @@
   "Not set": {
     "context": {
       "feature_area": "mappings"
+    }
+  },
+  "Not set, offerings default to {value}": {
+    "context": {
+      "variables": {
+        "value": {
+          "type": "unknown"
+        }
+      }
+    }
+  },
+  "Not set: placeholder roles carry no permissions.": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
+  "Not shared: this offering holds its own accounts": {
+    "context": {
+      "feature_area": "integration"
     }
   },
   "Not signed in": {
@@ -31329,6 +32355,11 @@
       "feature_area": "review"
     }
   },
+  "Nothing changes: the offering sets these values itself or they stay the same.": {
+    "context": {
+      "feature_area": "accounts"
+    }
+  },
   "Nothing is left running, so the credit stops being drawn. Any balance left at that point is still subject to the minimum monthly draw.": {
     "context": {
       "feature_area": "policy-watch"
@@ -31337,6 +32368,21 @@
   "Nothing is scheduled to end: the credit has no expiry date, and neither the project nor its resources have an end date.": {
     "context": {
       "feature_area": "policy-watch"
+    }
+  },
+  "Nothing on this plan is billed per period — usage is charged per reported quantity — so it follows the other plans of this offering, which lets customers switch between them.": {
+    "context": {
+      "feature_area": "plans"
+    }
+  },
+  "Nothing on this plan is billed per period, so this does not change what is invoiced. Customers can only move between plans that share a period, so match the other plans of this offering.": {
+    "context": {
+      "feature_area": "plans"
+    }
+  },
+  "Nothing to clean up": {
+    "context": {
+      "feature_area": "hygiene"
     }
   },
   "Nothing to disable": {
@@ -31629,7 +32675,9 @@
   },
   "OAuth 2.0 Access Token": {},
   "OAuth 2.0 Client ID": {},
+  "OAuth 2.0 Client Secret. With the client ID set, Waldur obtains and renews access tokens itself (client credentials grant).": {},
   "OAuth 2.0 Token Type": {},
+  "OAuth 2.0 access token": {},
   "OAuth/OIDC token claim name containing user roles for automatic staff/support assignment. If the claim contains 'staff', user gets is_staff=True. If it contains 'support', user gets is_support=True. Leave empty to disable role synchronization from identity provider.": {},
   "OECD Category": {
     "context": {
@@ -31786,6 +32834,11 @@
   "Offering UUID": {
     "context": {
       "feature_area": "event-subscriptions"
+    }
+  },
+  "Offering accounts": {
+    "context": {
+      "feature_area": "accounts"
     }
   },
   "Offering and plan": {
@@ -32307,7 +33360,11 @@
       "feature_area": "policy-watch"
     }
   },
-  "On plan switch": {},
+  "On plan switch": {
+    "context": {
+      "feature_area": "details"
+    }
+  },
   "On subnet / network": {
     "context": {
       "primary_ui_type": "title"
@@ -32424,6 +33481,16 @@
       "feature_area": "create"
     }
   },
+  "One directory for the offerings that share accounts: {offerings}. Each person appears once, with the groups of all those offerings.": {
+    "context": {
+      "variables": {
+        "offerings": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "accounts"
+    }
+  },
   "One project": {
     "context": {
       "feature_area": "service-providers"
@@ -32442,7 +33509,7 @@
   "One-time": {
     "context": {
       "primary_ui_type": "label",
-      "feature_area": "renew-allocation"
+      "feature_area": "details"
     }
   },
   "One-time on plan switch": {
@@ -32502,6 +33569,11 @@
   "Only draft offerings can be deleted": {
     "context": {
       "feature_area": "list"
+    }
+  },
+  "Only groups whose short name matches one of these are selected. A trailing * matches by prefix. Leave empty to match any group.": {
+    "context": {
+      "feature_area": "sram"
     }
   },
   "Only lengths that fit inside the fixed project duration are offered ({cap}).": {
@@ -32577,6 +33649,11 @@
     }
   },
   "Only staff users are allowed to perform this action.": {},
+  "Only the credentials of the selected method are kept; the others are cleared on update.": {
+    "context": {
+      "feature_area": "service-desk"
+    }
+  },
   "Only users matching the following criteria can accept this invitation. Users must satisfy at least one criterion from each configured restriction type.": {
     "context": {
       "feature_area": "actions"
@@ -32616,11 +33693,6 @@
   "Open (default)": {
     "context": {
       "primary_ui_type": "label"
-    }
-  },
-  "Open AI assistant": {
-    "context": {
-      "feature_area": "header"
     }
   },
   "Open calls": {
@@ -32850,6 +33922,11 @@
       "feature_area": "actions"
     }
   },
+  "OpenStack resource events": {
+    "context": {
+      "primary_ui_type": "label"
+    }
+  },
   "OpenStack resources provisioning": {},
   "OpenStack router has been created.": {
     "context": {
@@ -32938,7 +34015,7 @@
       "feature_area": "proposal"
     }
   },
-  "Opens in your default Matrix client if configured.": {
+  "Opens matrix.to, which hands the room over to your Matrix client.": {
     "context": {
       "feature_area": "matrix"
     }
@@ -33704,7 +34781,12 @@
   "Organization role": {
     "context": {
       "primary_ui_type": "label",
-      "feature_area": "roles"
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
+  "Organization role without a template": {
+    "context": {
+      "feature_area": "hygiene"
     }
   },
   "Organization roles": {
@@ -33739,7 +34821,7 @@
   "Organization types": {
     "context": {
       "primary_ui_type": "label",
-      "feature_area": "restrictions"
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "Organization updated successfully": {
@@ -33821,6 +34903,11 @@
     }
   },
   "Organizations above threshold": {},
+  "Organizations holding it": {
+    "context": {
+      "feature_area": "hygiene"
+    }
+  },
   "Organizations owner": {
     "context": {
       "feature_area": "support"
@@ -33846,7 +34933,7 @@
   "Other": {
     "context": {
       "primary_ui_type": "label",
-      "feature_area": "actions"
+      "feature_area": "service-desk"
     }
   },
   "Other (manual input)": {
@@ -33893,6 +34980,11 @@
   "Other natural sciences": {
     "context": {
       "primary_ui_type": "label"
+    }
+  },
+  "Other offerings of this service provider where a person has the same account: username, POSIX UID and home directory.": {
+    "context": {
+      "feature_area": "integration"
     }
   },
   "Other social sciences": {
@@ -34022,6 +35114,22 @@
       "feature_area": "rabbitmq"
     }
   },
+  "Overlaps {min}–{max} of another {scope}.": {
+    "context": {
+      "variables": {
+        "min": {
+          "type": "unknown"
+        },
+        "max": {
+          "type": "unknown"
+        },
+        "scope": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "posix-id-pools"
+    }
+  },
   "Overridden": {
     "context": {
       "primary_ui_type": "label",
@@ -34098,9 +35206,15 @@
       "feature_area": "single-import"
     }
   },
+  "Own account": {
+    "context": {
+      "feature_area": "accounts"
+    }
+  },
   "Owner": {
     "context": {
-      "feature_area": "details"
+      "primary_ui_type": "title",
+      "feature_area": "pubsub"
     }
   },
   "PDF": {
@@ -34157,6 +35271,11 @@
   "PO reference": {
     "context": {
       "feature_area": "details"
+    }
+  },
+  "POSIX": {
+    "context": {
+      "feature_area": "integration"
     }
   },
   "POSIX ID pool": {
@@ -34350,9 +35469,9 @@
       "feature_area": "update"
     }
   },
-  "Partial access": {
+  "Partial": {
     "context": {
-      "feature_area": "roles"
+      "primary_ui_type": "label"
     }
   },
   "Partial outage": {},
@@ -34513,6 +35632,19 @@
   "Pattern used to generate project shortnames": {
     "context": {
       "feature_area": "project-templates"
+    }
+  },
+  "Patterns are regular expressions, not wildcards: use {suggestion} instead of {pattern}.": {
+    "context": {
+      "variables": {
+        "suggestion": {
+          "type": "unknown"
+        },
+        "pattern": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "Pause": {
@@ -34841,6 +35973,11 @@
       "feature_area": "assignments"
     }
   },
+  "People with different usernames on different offerings. They must be resolved before offerings can share accounts.": {
+    "context": {
+      "feature_area": "accounts"
+    }
+  },
   "Per day": {
     "context": {
       "primary_ui_type": "label"
@@ -34861,12 +35998,32 @@
       "primary_ui_type": "label"
     }
   },
+  "Per offering": {
+    "context": {
+      "primary_ui_type": "label"
+    }
+  },
+  "Per offering: each offering holds its own account for a person. Per service provider: one account per person, shared across all offerings of this service provider. Switching to per service provider links existing offering accounts and is refused while a person has different usernames on different offerings. Offerings can override this setting.": {
+    "context": {
+      "feature_area": "service-providers"
+    }
+  },
+  "Per offering: this offering holds its own account for a person. Per service provider: the account is shared with the other offerings of this service provider. A value set on this offering overrides the service provider setting.": {
+    "context": {
+      "feature_area": "integration"
+    }
+  },
   "Per project — each RP limit ≤ parent resource limit": {
     "context": {
       "primary_ui_type": "label"
     }
   },
   "Per resource": {
+    "context": {
+      "primary_ui_type": "label"
+    }
+  },
+  "Per service provider": {
     "context": {
       "primary_ui_type": "label"
     }
@@ -35127,6 +36284,17 @@
       "feature_area": "project"
     }
   },
+  "Permissions that never apply": {
+    "context": {
+      "feature_area": "hygiene"
+    }
+  },
+  "Person": {
+    "context": {
+      "primary_ui_type": "title",
+      "feature_area": "accounts"
+    }
+  },
   "Person identifier fields are not configured for this validation method. Please contact administrators.": {
     "context": {
       "primary_ui_type": "error_message",
@@ -35143,11 +36311,6 @@
       "feature_area": "steps"
     }
   },
-  "Personal Access Token (Server/Data Center)": {
-    "context": {
-      "primary_ui_type": "label"
-    }
-  },
   "Personal Access Token Authentication": {
     "context": {
       "feature_area": "steps"
@@ -35157,6 +36320,11 @@
   "Personal Access Tokens": {
     "context": {
       "feature_area": "personal-access-tokens"
+    }
+  },
+  "Personal access token (Data Center)": {
+    "context": {
+      "primary_ui_type": "label"
     }
   },
   "Personal access token created": {
@@ -35447,6 +36615,17 @@
       "primary_ui_type": "label"
     }
   },
+  "Placeholder role": {
+    "context": {
+      "primary_ui_type": "title",
+      "feature_area": "sram"
+    }
+  },
+  "Placeholder role for an SRAM collaboration or group. Its description is the SRAM display name.": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
   "Placeholders: {customer_slug}, {project_name}, {year}, {month}, {counter}, {counter_padded}. Leave empty for default name-based slug.": {
     "context": {
       "variables": {
@@ -35613,6 +36792,16 @@
     }
   },
   "Plans below safety margin": {},
+  "Plans with their own billing mode are not affected: {plans}.": {
+    "context": {
+      "variables": {
+        "plans": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "update"
+    }
+  },
   "Platform administrator": {
     "context": {
       "feature_area": "data-access"
@@ -35735,8 +36924,9 @@
   },
   "Please fill in the required fields": {
     "context": {
-      "primary_ui_type": "action_button",
-      "feature_area": "details"
+      "primary_ui_type": "submit_button",
+      "feature_area": "plans",
+      "action_type": "create"
     }
   },
   "Please fix data or skip records with errors": {
@@ -35978,16 +37168,6 @@
       "feature_area": "reviewer-discovery"
     }
   },
-  "Please select location and availability zone first": {
-    "context": {
-      "feature_area": "deploy"
-    }
-  },
-  "Please select location first": {
-    "context": {
-      "feature_area": "deploy"
-    }
-  },
   "Please select organization first": {
     "context": {
       "feature_area": "details"
@@ -36010,7 +37190,6 @@
   },
   "Please start instance first.": {},
   "Please stop the instance before changing its flavor.": {},
-  "Please stop the instance before its removal.": {},
   "Please try again": {
     "context": {
       "feature_area": "search"
@@ -36264,6 +37443,11 @@
       "feature_area": "actions"
     }
   },
+  "Pool of this offering": {
+    "context": {
+      "feature_area": "integration"
+    }
+  },
   "Pool scope": {
     "context": {
       "primary_ui_type": "title",
@@ -36296,12 +37480,6 @@
     "context": {
       "primary_ui_type": "title",
       "feature_area": "openstack-instances"
-    }
-  },
-  "Port has been created.": {
-    "context": {
-      "primary_ui_type": "success_message",
-      "feature_area": "actions"
     }
   },
   "Port has been disabled.": {
@@ -36532,10 +37710,20 @@
       "feature_area": "celery"
     }
   },
+  "Prefix": {
+    "context": {
+      "primary_ui_type": "label"
+    }
+  },
   "Prefix for invoice item names (e.g., \"Arrow consumption\"). Used in both provisional and compensation items.": {},
+  "Prefix of ticket keys created by the built-in service desk, e.g. WLD in WLD-A1B2C3D4. Three to five capital latin letters. Keys of existing tickets are not rewritten.": {},
   "Prefix to be appended to all group names created in FreeIPA by Waldur. It marks which groups are managed by Waldur, so it may not be empty.": {},
   "Prefix to be appended to all usernames created in FreeIPA by Waldur. It marks which accounts are managed by Waldur, so it may not be empty.": {},
-  "Prepaid": {},
+  "Prepaid": {
+    "context": {
+      "feature_area": "plan"
+    }
+  },
   "Prepaid (One-time)": {
     "context": {
       "primary_ui_type": "label"
@@ -36697,6 +37885,11 @@
       "action_type": "create"
     }
   },
+  "Preview changes to account settings": {
+    "context": {
+      "feature_area": "accounts"
+    }
+  },
   "Preview commands": {
     "context": {
       "feature_area": "policies"
@@ -36725,6 +37918,16 @@
         }
       },
       "feature_area": "consumption"
+    }
+  },
+  "Preview of {name}": {
+    "context": {
+      "variables": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "feature_area": "sram"
     }
   },
   "Preview offering": {
@@ -36845,6 +38048,13 @@
       "feature_area": "details"
     }
   },
+  "Price at least one component, or mark the plan as free.": {
+    "context": {
+      "primary_ui_type": "submit_button",
+      "feature_area": "plans",
+      "action_type": "create"
+    }
+  },
   "Price for consumption": {
     "context": {
       "feature_area": "common",
@@ -36864,6 +38074,16 @@
   "Price is estimated.": {
     "context": {
       "feature_area": "price"
+    }
+  },
+  "Price of {component}": {
+    "context": {
+      "variables": {
+        "component": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "plans"
     }
   },
   "Price per 30 days": {
@@ -36922,7 +38142,7 @@
   },
   "Price update next month": {
     "context": {
-      "feature_area": "plans"
+      "primary_ui_type": "title"
     }
   },
   "Pricelist": {
@@ -36948,11 +38168,6 @@
       "feature_area": "single-import"
     }
   },
-  "Pricing tier": {
-    "context": {
-      "feature_area": "sql"
-    }
-  },
   "Primary": {
     "context": {
       "primary_ui_type": "title",
@@ -36961,7 +38176,7 @@
   },
   "Primary GID": {
     "context": {
-      "primary_ui_type": "label",
+      "primary_ui_type": "title",
       "feature_area": "service-providers"
     }
   },
@@ -37080,6 +38295,12 @@
   "Private registry username": {
     "context": {
       "feature_area": "create"
+    }
+  },
+  "Problem": {
+    "context": {
+      "primary_ui_type": "title",
+      "feature_area": "hygiene"
     }
   },
   "Process of comparing Arrow billing amounts with Waldur invoice amounts to ensure they match. Creates compensation items for discrepancies.": {},
@@ -37266,6 +38487,26 @@
     "context": {
       "primary_ui_type": "title",
       "feature_area": "affiliated-organizations"
+    }
+  },
+  "Project \"{name}\" was provisioned before and has been deleted. It will not be recreated.": {
+    "context": {
+      "variables": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
+  "Project \"{name}\" will be created at the next login.": {
+    "context": {
+      "variables": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "Project (GB)": {
@@ -37570,6 +38811,11 @@
       "feature_area": "details"
     }
   },
+  "Project field": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
   "Project field name": {},
   "Project field name.": {},
   "Project grants": {
@@ -37744,7 +38990,7 @@
   },
   "Project name template": {
     "context": {
-      "feature_area": "invitations"
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "Project name: {name}": {
@@ -37828,6 +39074,12 @@
     "context": {
       "primary_ui_type": "title",
       "feature_area": "users"
+    }
+  },
+  "Project rules": {
+    "context": {
+      "primary_ui_type": "title",
+      "feature_area": "sram"
     }
   },
   "Project search": {
@@ -38043,6 +39295,12 @@
       "feature_area": "project-classification"
     }
   },
+  "Projects by affiliated organization": {
+    "context": {
+      "primary_ui_type": "title",
+      "feature_area": "reporting"
+    }
+  },
   "Projects by industry classification": {
     "context": {
       "feature_area": "project-classification"
@@ -38066,6 +39324,11 @@
   "Projects with resources": {
     "context": {
       "primary_ui_type": "label"
+    }
+  },
+  "Projects, resources and cost per affiliated organization, with an explicit unaffiliated bucket": {
+    "context": {
+      "feature_area": "reporting"
     }
   },
   "Proof": {
@@ -38474,6 +39737,21 @@
       "feature_area": "details"
     }
   },
+  "Provider account details": {
+    "context": {
+      "feature_area": "accounts"
+    }
+  },
+  "Provider account settings": {
+    "context": {
+      "feature_area": "integration"
+    }
+  },
+  "Provider accounts": {
+    "context": {
+      "feature_area": "accounts"
+    }
+  },
   "Provider actions": {
     "context": {
       "primary_ui_type": "label",
@@ -38593,6 +39871,11 @@
   "Provider ticket": {
     "context": {
       "feature_area": "issues"
+    }
+  },
+  "Provider username": {
+    "context": {
+      "feature_area": "accounts"
     }
   },
   "Provider-side synchronization failed.": {
@@ -39736,6 +41019,7 @@
       "feature_area": "setup"
     }
   },
+  "Recommended for Atlassian Cloud. Uses the client ID and secret of a service account OAuth 2.0 credential; Waldur renews the access tokens itself.": {},
   "Reconcile": {
     "context": {
       "primary_ui_type": "submit_button",
@@ -40032,6 +41316,11 @@
     "context": {
       "primary_ui_type": "label",
       "feature_area": "project"
+    }
+  },
+  "Regular expression": {
+    "context": {
+      "primary_ui_type": "label"
     }
   },
   "Regular expression that a project name must fully match when creating or renaming a project. The whole name has to match the pattern. Leave empty to disable the check. Examples: '^.{1,32}$' limits the name to at most 32 characters; '^[A-Za-z0-9 _-]{1,32}$' also restricts it to letters, digits, spaces, underscores and hyphens; '^[A-Za-z].{0,31}$' additionally requires it to start with a letter.": {
@@ -40493,6 +41782,11 @@
       "feature_area": "openstack-tenant"
     }
   },
+  "Remove filter": {
+    "context": {
+      "feature_area": "resources-filter"
+    }
+  },
   "Remove health monitor": {
     "context": {
       "feature_area": "openstack-lbaas"
@@ -40593,7 +41887,7 @@
   "Remove rule": {
     "context": {
       "primary_ui_type": "submit_button",
-      "feature_area": "manage",
+      "feature_area": "options",
       "action_type": "create"
     }
   },
@@ -40658,6 +41952,15 @@
   "Remove template": {
     "context": {
       "feature_area": "auto-provisioning-rules"
+    }
+  },
+  "Remove the \"Show only when\" rule from: {options} first.": {
+    "context": {
+      "variables": {
+        "options": {
+          "type": "unknown"
+        }
+      }
     }
   },
   "Remove the end date so projects are not scheduled for expiration.": {
@@ -40758,6 +42061,11 @@
       "feature_area": "passkeys"
     }
   },
+  "Renaming a live account changes who owns its files on your systems. Move or re-own the files of the renamed accounts afterwards.": {
+    "context": {
+      "feature_area": "accounts"
+    }
+  },
   "Render POSIX ID pool management UI for service providers.": {
     "context": {
       "feature_area": "features"
@@ -40779,6 +42087,16 @@
     }
   },
   "Render preferred language column in users list.": {
+    "context": {
+      "feature_area": "features"
+    }
+  },
+  "Render service provider account management UI: provider accounts, username conflicts, the shared GLAuth directory and provider account settings.": {
+    "context": {
+      "feature_area": "features"
+    }
+  },
+  "Render the SRAM integration administration page and SRAM markers in team lists. Backend access is gated separately on the SRAM_INTEGRATION_ENABLED Constance setting.": {
     "context": {
       "feature_area": "features"
     }
@@ -41697,6 +43015,17 @@
       "action_type": "create"
     }
   },
+  "Resolve conflicts": {
+    "context": {
+      "primary_ui_type": "action_button",
+      "feature_area": "accounts"
+    }
+  },
+  "Resolve conflicts lets you choose that username for each person. Their accounts on the other offerings are renamed to it and take over its POSIX UID and home directory. People whose usernames already agree need no choice.": {
+    "context": {
+      "feature_area": "accounts"
+    }
+  },
   "Resolve duplicate offerings": {
     "context": {
       "feature_area": "admin"
@@ -41712,6 +43041,11 @@
       "primary_ui_type": "submit_button",
       "feature_area": "admin",
       "action_type": "create"
+    }
+  },
+  "Resolve username conflicts": {
+    "context": {
+      "feature_area": "accounts"
     }
   },
   "Resolved": {
@@ -41926,11 +43260,6 @@
     }
   },
   "Resource field name.": {},
-  "Resource group": {
-    "context": {
-      "feature_area": "azure"
-    }
-  },
   "Resource has been marked as ERRED.": {
     "context": {
       "primary_ui_type": "success_message",
@@ -42590,8 +43919,7 @@
   },
   "Restart": {
     "context": {
-      "primary_ui_type": "title",
-      "feature_area": "actions"
+      "primary_ui_type": "title"
     }
   },
   "Restart the homeserver — it will begin sending events to the Waldur webhook": {
@@ -42774,6 +44102,11 @@
   "Result of last run": {
     "context": {
       "feature_area": "remote-offering-sync"
+    }
+  },
+  "Resume": {
+    "context": {
+      "feature_area": "actions"
     }
   },
   "Resume sync": {
@@ -43287,6 +44620,11 @@
       "feature_area": "version-history"
     }
   },
+  "Revocation": {
+    "context": {
+      "primary_ui_type": "label"
+    }
+  },
   "Revocation reason": {
     "context": {
       "primary_ui_type": "title",
@@ -43332,6 +44670,11 @@
       "feature_area": "passkeys"
     }
   },
+  "Revoke roles when the user stops matching": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
   "Revoke selected permissions": {
     "context": {
       "feature_area": "affiliations"
@@ -43367,6 +44710,11 @@
     "context": {
       "primary_ui_type": "label",
       "feature_area": "tos"
+    }
+  },
+  "Revokes when unmatched": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "Revoking it leaves the user with none. If passkeys are required for their account they will be held at the enrolment page until they add another, so make sure they can reach a device first.": {
@@ -43480,6 +44828,11 @@
       "feature_area": "profiles"
     }
   },
+  "Role code": {
+    "context": {
+      "feature_area": "hygiene"
+    }
+  },
   "Role description": {
     "context": {
       "feature_area": "roles"
@@ -43583,6 +44936,12 @@
       "feature_area": "roles"
     }
   },
+  "Role hygiene": {
+    "context": {
+      "primary_ui_type": "action_button",
+      "feature_area": "roles"
+    }
+  },
   "Role in organization": {
     "context": {
       "primary_ui_type": "title",
@@ -43678,6 +45037,12 @@
       "feature_area": "team"
     }
   },
+  "Roles checked": {
+    "context": {
+      "primary_ui_type": "label",
+      "feature_area": "hygiene"
+    }
+  },
   "Roles for this offering are managed centrally by the service profile \"{profile}\". To edit, manage the profile from the administration panel.": {
     "context": {
       "variables": {
@@ -43691,6 +45056,11 @@
   "Roles only": {
     "context": {
       "primary_ui_type": "label"
+    }
+  },
+  "Roles this rule granted will be revoked the next time a user who no longer matches signs in. Roles granted by a person, and roles granted by other rules, are never touched.": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "Rollback ratio": {
@@ -43872,7 +45242,7 @@
   },
   "Router": {
     "context": {
-      "primary_ui_type": "label",
+      "primary_ui_type": "title",
       "feature_area": "modal"
     }
   },
@@ -43896,6 +45266,11 @@
   "Router port backend ID": {
     "context": {
       "feature_area": "openstack-tenant"
+    }
+  },
+  "Router to attach the subnet to. Leave empty to let Waldur pick one.": {
+    "context": {
+      "feature_area": "actions"
     }
   },
   "Router was removed.": {
@@ -44015,6 +45390,11 @@
       "feature_area": "common"
     }
   },
+  "SCHAC organization type URNs. Users from an organization of any of these types will match.": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
   "SCIM": {
     "context": {
       "primary_ui_type": "title"
@@ -44031,6 +45411,12 @@
       "feature_area": "providers"
     }
   },
+  "SCIM and SRAM settings": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
+  "SCIM attribute holding the value matched against SCIM_USER_MATCH_WALDUR_ATTRIBUTE, e.g. userName, emails, or an extension path such as urn:mace:surf.nl:sram:scim:extension:User.eduPersonUniqueId.": {},
   "SCIM user synchronization has been scheduled.": {
     "context": {
       "primary_ui_type": "success_message",
@@ -44072,6 +45458,12 @@
       "feature_area": "issues"
     }
   },
+  "SLAAC": {
+    "context": {
+      "feature_area": "openstack-subnet"
+    }
+  },
+  "SLAAC and DHCPv6 stateless need a /64 prefix, because instances build their address from it.": {},
   "SLURM": {
     "context": {
       "feature_area": "policy-watch"
@@ -44140,8 +45532,52 @@
       "feature_area": "openstack-tenant"
     }
   },
-  "SQL server description": {},
-  "SQL server name": {},
+  "SRAM": {},
+  "SRAM cannot push collaborations or members until SCIM_INBOUND_ENABLED is on.": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
+  "SRAM group": {
+    "context": {
+      "primary_ui_type": "title",
+      "feature_area": "sram"
+    }
+  },
+  "SRAM groups": {
+    "context": {
+      "primary_ui_type": "title",
+      "feature_area": "sram"
+    }
+  },
+  "SRAM integration": {
+    "context": {
+      "feature_area": "administration"
+    }
+  },
+  "SRAM project rule has been created.": {
+    "context": {
+      "primary_ui_type": "success_message",
+      "feature_area": "sram"
+    }
+  },
+  "SRAM project rule has been deleted.": {
+    "context": {
+      "primary_ui_type": "success_message",
+      "feature_area": "sram"
+    }
+  },
+  "SRAM project rule has been updated.": {
+    "context": {
+      "primary_ui_type": "success_message",
+      "feature_area": "sram"
+    }
+  },
+  "SRAM project rules": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
   "SSH Key": {
     "context": {
       "feature_area": "blocks"
@@ -44554,6 +45990,11 @@
       "feature_area": "administration"
     }
   },
+  "Scoped": {
+    "context": {
+      "primary_ui_type": "label"
+    }
+  },
   "Scoped affiliation": {},
   "Scopes": {
     "context": {
@@ -44748,7 +46189,7 @@
   },
   "Search...": {
     "context": {
-      "feature_area": "integration"
+      "feature_area": "roles"
     }
   },
   "Search…": {
@@ -44759,12 +46200,6 @@
   "Seasonal": {
     "context": {
       "primary_ui_type": "label"
-    }
-  },
-  "Second": {
-    "context": {
-      "primary_ui_type": "label",
-      "feature_area": "deploy"
     }
   },
   "Second factor only": {
@@ -44798,8 +46233,7 @@
   "Secure authentication through supported Austrian eID methods.": {},
   "Security": {
     "context": {
-      "primary_ui_type": "label",
-      "feature_area": "deploy"
+      "primary_ui_type": "label"
     }
   },
   "Security configuration": {
@@ -45172,7 +46606,7 @@
   },
   "Select all": {
     "context": {
-      "feature_area": "site-agent"
+      "feature_area": "roles"
     }
   },
   "Select all visible": {
@@ -45253,6 +46687,16 @@
   "Select at least one permission above to enable bindings.": {
     "context": {
       "feature_area": "personal-access-tokens"
+    }
+  },
+  "Select at least one permission.": {
+    "context": {
+      "feature_area": "roles"
+    }
+  },
+  "Select at least one value.": {
+    "context": {
+      "feature_area": "options"
     }
   },
   "Select available weekdays": {
@@ -45469,6 +46913,11 @@
       "feature_area": "assignments"
     }
   },
+  "Select option...": {
+    "context": {
+      "feature_area": "options"
+    }
+  },
   "Select or leave it empty": {
     "context": {
       "feature_area": "create"
@@ -45477,11 +46926,6 @@
   "Select or type a helpdesk...": {
     "context": {
       "feature_area": "support-users"
-    }
-  },
-  "Select or type to add a new option...": {
-    "context": {
-      "feature_area": "select"
     }
   },
   "Select or type to add tags...": {
@@ -45833,6 +47277,11 @@
       "feature_area": "options"
     }
   },
+  "Select the option this one depends on.": {
+    "context": {
+      "feature_area": "options"
+    }
+  },
   "Select the permissions this token should have. The token can only use permissions you currently hold.": {
     "context": {
       "feature_area": "personal-access-tokens"
@@ -45871,6 +47320,16 @@
   "Select user...": {
     "context": {
       "feature_area": "support-users"
+    }
+  },
+  "Select value...": {
+    "context": {
+      "feature_area": "options"
+    }
+  },
+  "Select values...": {
+    "context": {
+      "feature_area": "options"
     }
   },
   "Select vendor offering...": {
@@ -46302,8 +47761,7 @@
   },
   "Server": {
     "context": {
-      "primary_ui_type": "label",
-      "feature_area": "sql"
+      "primary_ui_type": "label"
     }
   },
   "Server error": {
@@ -46357,6 +47815,16 @@
       "feature_area": "service-accounts"
     }
   },
+  "Service account (OAuth 2.0)": {
+    "context": {
+      "primary_ui_type": "label"
+    }
+  },
+  "Service account credential": {
+    "context": {
+      "feature_area": "steps"
+    }
+  },
   "Service account has been created.": {
     "context": {
       "primary_ui_type": "success_message",
@@ -46385,6 +47853,11 @@
   "Service catalog UUID": {},
   "Service catalog offering": {},
   "Service catalog offerings": {},
+  "Service desk": {
+    "context": {
+      "primary_ui_type": "title"
+    }
+  },
   "Service desk ID or key": {},
   "Service desk configuration incomplete": {
     "context": {
@@ -46506,6 +47979,11 @@
   "Service provider organization": {
     "context": {
       "primary_ui_type": "label"
+    }
+  },
+  "Service provider pool": {
+    "context": {
+      "feature_area": "integration"
     }
   },
   "Service provider profile has been disabled.": {
@@ -46696,7 +48174,11 @@
       "feature_area": "roles"
     }
   },
-  "Set both the minimum and maximum, or neither.": {},
+  "Set both the minimum and maximum, or neither.": {
+    "context": {
+      "feature_area": "posix-id-pools"
+    }
+  },
   "Set by the longest subscription requested.": {},
   "Set columns in {name} category": {
     "context": {
@@ -46924,6 +48406,11 @@
       "feature_area": "admin"
     }
   },
+  "Set up Atlassian service desk": {
+    "context": {
+      "feature_area": "atlassian-discovery"
+    }
+  },
   "Set up helpdesk": {
     "context": {
       "primary_ui_type": "action_button",
@@ -47000,7 +48487,7 @@
   "Severity": {
     "context": {
       "primary_ui_type": "title",
-      "feature_area": "coi-review"
+      "feature_area": "hygiene"
     }
   },
   "Share": {
@@ -47057,7 +48544,7 @@
   "Shared with": {
     "context": {
       "primary_ui_type": "title",
-      "feature_area": "offering-users"
+      "feature_area": "integration"
     }
   },
   "Shared/Billing enabled": {
@@ -47267,6 +48754,11 @@
     }
   },
   "Show offering cover image as a banner above the name on the offering page.": {},
+  "Show only when": {
+    "context": {
+      "feature_area": "options"
+    }
+  },
   "Show password": {
     "context": {
       "feature_area": "resource"
@@ -47347,6 +48839,11 @@
   "Show the staff diagnostics page listing tenants with duplicate per-tenant OpenStack offerings.": {
     "context": {
       "feature_area": "features"
+    }
+  },
+  "Show this option only when an earlier option has one of the selected values. A hidden option is never required and its value is not stored.": {
+    "context": {
+      "feature_area": "options"
     }
   },
   "Show type field in project create dialog.": {
@@ -47534,6 +49031,11 @@
       "feature_area": "passkeys"
     }
   },
+  "Sign-in method": {
+    "context": {
+      "feature_area": "steps"
+    }
+  },
   "Signed in as {username}": {
     "context": {
       "variables": {
@@ -47591,6 +49093,12 @@
       "feature_area": "providers"
     }
   },
+  "Single site, 3 controllers": {
+    "context": {
+      "primary_ui_type": "label",
+      "feature_area": "options"
+    }
+  },
   "Single-Datacenter Kubernetes Configuration": {
     "context": {
       "primary_ui_type": "label"
@@ -47608,6 +49116,11 @@
     }
   },
   "Site Agent Logs": {},
+  "Site URL": {
+    "context": {
+      "feature_area": "steps"
+    }
+  },
   "Site agent": {
     "context": {
       "feature_area": "policies"
@@ -47729,7 +49242,7 @@
   "Slug": {
     "context": {
       "primary_ui_type": "title",
-      "feature_area": "details"
+      "feature_area": "sram"
     }
   },
   "Slug has been successfully set.": {
@@ -47904,6 +49417,11 @@
       "feature_area": "reviewer"
     }
   },
+  "Some required information is missing or invalid.": {
+    "context": {
+      "feature_area": "details"
+    }
+  },
   "Some selected projects cannot be deleted due to insufficient permissions.": {
     "context": {
       "feature_area": "project"
@@ -47981,6 +49499,11 @@
       "feature_area": "steps"
     }
   },
+  "Space-separated regular expressions matched against the email address. End a pattern with $ so that lookalike domains such as example.com.attacker.net do not match.": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
   "Spack catalog version to load (auto-detect if empty)": {},
   "Spain": {},
   "Speaker": {
@@ -48056,6 +49579,11 @@
   "Staff Notes": {
     "context": {
       "feature_area": "project"
+    }
+  },
+  "Staff accounts can only be deleted from the user profile.": {
+    "context": {
+      "feature_area": "support"
     }
   },
   "Staff action": {
@@ -48163,7 +49691,7 @@
       "feature_area": "openstack-network"
     }
   },
-  "Start and end must be in the future.": {
+  "Start and end time must be in the future.": {
     "context": {
       "feature_area": "maintenance"
     }
@@ -48262,6 +49790,12 @@
   },
   "Starting": {},
   "Starting call…": {},
+  "Starting price": {
+    "context": {
+      "primary_ui_type": "label",
+      "feature_area": "details"
+    }
+  },
   "Starting…": {
     "context": {
       "feature_area": "reports"
@@ -48372,6 +49906,11 @@
     "context": {
       "primary_ui_type": "title",
       "feature_area": "manage"
+    }
+  },
+  "Step enabled": {
+    "context": {
+      "feature_area": "workflow-steps"
     }
   },
   "Step {current} of {total}: {name}": {
@@ -48496,19 +50035,9 @@
       "feature_area": "update"
     }
   },
-  "Storage size": {
-    "context": {
-      "feature_area": "sql"
-    }
-  },
   "Storage size in GiB": {
     "context": {
       "feature_area": "deploy"
-    }
-  },
-  "Storage type": {
-    "context": {
-      "feature_area": "sql"
     }
   },
   "Stores API configuration and partner info. Only one active settings record per deployment.": {
@@ -48661,9 +50190,7 @@
   },
   "Submit usage report": {
     "context": {
-      "primary_ui_type": "submit_button",
-      "feature_area": "usage",
-      "action_type": "create"
+      "feature_area": "usage"
     }
   },
   "Submitted": {
@@ -48733,11 +50260,6 @@
     "context": {
       "primary_ui_type": "title",
       "feature_area": "billing"
-    }
-  },
-  "Subscription ID": {
-    "context": {
-      "feature_area": "common"
     }
   },
   "Subscription details": {
@@ -49001,7 +50523,7 @@
   "Summary": {
     "context": {
       "primary_ui_type": "title",
-      "feature_area": "providers"
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "Sunday": {
@@ -49128,6 +50650,34 @@
   "Switch to light mode": {
     "context": {
       "feature_area": "theme"
+    }
+  },
+  "Switching from limit-based to usage-based billing. The fee of \"{current}\" is charged for its current billing period: a monthly plan keeps this month's fee, a daily plan is charged for the days used. From then on you are billed for actual consumption at the rates of \"{target}\"; nothing is charged in advance. Your quotas stay unchanged and now cap usage instead of being billed.": {
+    "context": {
+      "variables": {
+        "current": {
+          "type": "unknown"
+        },
+        "target": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "change-plan",
+      "action_type": "read"
+    }
+  },
+  "Switching from usage-based to limit-based billing. Usage accrued this month before the switch is invoiced at the rates of \"{current}\". From the switch the fee of \"{target}\" applies for its billing period (the whole month for a monthly plan, per day for a daily plan), based on your current quotas:": {
+    "context": {
+      "variables": {
+        "current": {
+          "type": "unknown"
+        },
+        "target": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "change-plan",
+      "action_type": "read"
     }
   },
   "Switching scripts will discard your changes. Do you want to continue?": {
@@ -49426,6 +50976,11 @@
     "context": {
       "primary_ui_type": "label",
       "feature_area": "roles"
+    }
+  },
+  "System role on the wrong scope": {
+    "context": {
+      "feature_area": "hygiene"
     }
   },
   "System storage": {
@@ -49933,11 +51488,6 @@
       "feature_area": "admin"
     }
   },
-  "Tenant ID": {
-    "context": {
-      "feature_area": "common"
-    }
-  },
   "Tenant name": {
     "context": {
       "feature_area": "openstack"
@@ -50303,6 +51853,16 @@
       "feature_area": "settings"
     }
   },
+  "The SRAM groups this rule matches now, the projects it selects in each organization, and the members who get the {role} role there. Expand a group for details.": {
+    "context": {
+      "variables": {
+        "role": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "sram"
+    }
+  },
   "The URL may be incorrect, or the feature may be disabled.": {
     "context": {
       "feature_area": "error"
@@ -50377,9 +51937,28 @@
       "feature_area": "anonymous"
     }
   },
+  "The backend may not keep this precision": {
+    "context": {
+      "feature_area": "update"
+    }
+  },
   "The base allocation for each TRES component is read from the resource limits (set at provisioning time from plan components). Each offering can define multiple components (e.g. cpu, mem, gpu, billing) — the policy evaluates limits per component.": {
     "context": {
       "feature_area": "policies"
+    }
+  },
+  "The billing model changes from {current} to {target} on the day of the switch.": {
+    "context": {
+      "variables": {
+        "current": {
+          "type": "unknown"
+        },
+        "target": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "change-plan",
+      "action_type": "read"
     }
   },
   "The broadcast {subject} is scheduled. Are you sure you want to force send it?": {
@@ -50444,9 +52023,9 @@
       "feature_area": "compliance"
     }
   },
-  "The code of an organization role is fixed; only its name and permissions can be changed.": {
+  "The collaboration must carry one of these labels; a group is judged by the labels of its collaboration. Leave empty to match any.": {
     "context": {
-      "feature_area": "roles"
+      "feature_area": "sram"
     }
   },
   "The compliance checklist cannot be changed once proposals exist for this call.": {
@@ -50710,6 +52289,7 @@
       "feature_area": "import"
     }
   },
+  "The instance will be stopped if it is running. Existing backups and volume snapshots will be deleted.": {},
   "The invoice has been marked as paid.": {
     "context": {
       "primary_ui_type": "success_message",
@@ -50805,6 +52385,11 @@
       "feature_area": "actions"
     }
   },
+  "The maximum must not be below the minimum.": {
+    "context": {
+      "feature_area": "posix-id-pools"
+    }
+  },
   "The maximum number of attempts to pull user from backend.": {},
   "The maximum number of proposals that can be assigned to this reviewer.": {
     "context": {
@@ -50843,9 +52428,6 @@
       "feature_area": "rule-editor"
     }
   },
-  "The name can contain only letters, numbers, and hyphens. It should start with a letter and must end with a letter or a number": {},
-  "The name can only be made up of lowercase letters, numbers and the hyphen. The hyphen may not lead or trail in the name.": {},
-  "The name must be shorter than 15 characters.": {},
   "The name of the group to which the ticket will be added. If not specified, the first group will be used.": {},
   "The name shown to users for this role, in each language. The role code is edited separately.": {
     "context": {
@@ -50860,6 +52442,21 @@
         }
       },
       "feature_area": "mass-actions"
+    }
+  },
+  "The new plan is billed by usage: the current plan is charged for its current billing period and consumption is invoiced from the switch. Quotas are unchanged by a plan switch.": {
+    "context": {
+      "feature_area": "resource-pending"
+    }
+  },
+  "The new plan is billed by usage; the fee of {old_estimate} is charged for the current billing period only. VAT is not included.": {
+    "context": {
+      "variables": {
+        "old_estimate": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "details"
     }
   },
   "The notification has been disabled": {
@@ -50913,6 +52510,16 @@
   "The official registration number of your company": {
     "context": {
       "feature_area": "organization-create"
+    }
+  },
+  "The one account a person has on all offerings that share accounts, with the same username, POSIX UID and home directory.": {
+    "context": {
+      "feature_area": "offering-users"
+    }
+  },
+  "The option must be an earlier boolean or select option.": {
+    "context": {
+      "feature_area": "options"
     }
   },
   "The organization UUID is not specified in one or more records.": {
@@ -50977,9 +52584,26 @@
       "feature_area": "passkeys"
     }
   },
+  "The pattern must not be empty.": {},
+  "The pattern selects no project in this organization.": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
+  "The plan has been created, but its prices could not be saved. Set them with the Edit prices action.": {
+    "context": {
+      "primary_ui_type": "error_message",
+      "feature_area": "plans"
+    }
+  },
   "The plan name is not specified in one or more resource records.": {
     "context": {
       "feature_area": "import"
+    }
+  },
+  "The pools of one service provider must not overlap: UIDs against UIDs, GIDs against GIDs. A UID and a GID may share a number, so the same range can serve both.": {
+    "context": {
+      "feature_area": "posix-id-pools"
     }
   },
   "The project has been created.": {
@@ -51014,6 +52638,7 @@
       "feature_area": "offerings"
     }
   },
+  "The quantity is the limit the customer requests multiplied by the length of the subscription in months, not the plan amount.": {},
   "The relay accepted the message": {
     "context": {
       "feature_area": "email"
@@ -51100,6 +52725,11 @@
       "feature_area": "matrix"
     }
   },
+  "The rule matches no SRAM group. Check the source, labels and group short names.": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
   "The science domain has been created.": {
     "context": {
       "primary_ui_type": "success_message",
@@ -51154,6 +52784,11 @@
   },
   "The service was active for the last 10 minutes": {},
   "The service wasn't active for the last 10 minutes": {},
+  "The settings changed since the preview. Preview again to apply them.": {
+    "context": {
+      "feature_area": "accounts"
+    }
+  },
   "The setup process generates authentication tokens and a registration YAML that must be added to your Matrix homeserver configuration.": {
     "context": {
       "feature_area": "matrix"
@@ -51180,6 +52815,16 @@
     }
   },
   "The slug template cannot be changed once proposals exist for this call.": {},
+  "The starting price covers what the plan fixes. Components you size yourself and metered usage are charged on top, at the rates above.": {
+    "context": {
+      "feature_area": "details"
+    }
+  },
+  "The subnet is created but left unrouted. Attach it later from a router, or connect it from the subnet itself.": {
+    "context": {
+      "feature_area": "actions"
+    }
+  },
   "The support user has been activated.": {
     "context": {
       "primary_ui_type": "success_message",
@@ -51422,7 +53067,7 @@
   },
   "There are no offerings.": {
     "context": {
-      "feature_area": "landing"
+      "feature_area": "offerings"
     }
   },
   "There are no open rounds. The call is closed.": {
@@ -51618,6 +53263,11 @@
       "feature_area": "email"
     }
   },
+  "These settings decide how the accounts people get on your offerings are named and set up: the username, home directory and login shell that your systems, such as an LDAP directory, receive for each person.": {
+    "context": {
+      "feature_area": "service-providers"
+    }
+  },
   "These values are required to generate a working appservice registration. They will be saved to Matrix settings.": {
     "context": {
       "feature_area": "matrix"
@@ -51641,12 +53291,6 @@
   "Thick arrow": {
     "context": {
       "primary_ui_type": "label"
-    }
-  },
-  "Third": {
-    "context": {
-      "primary_ui_type": "label",
-      "feature_area": "deploy"
     }
   },
   "This account was disabled by an administrator. When automatic role-based deactivation is enabled, the system will not re-enable it automatically, even if the user regains roles. A staff member must reactivate it manually.": {
@@ -51780,6 +53424,11 @@
       "feature_area": "organization-create"
     }
   },
+  "This cluster was configured with a different topology than the offering now allows.": {
+    "context": {
+      "feature_area": "common"
+    }
+  },
   "This configuration contains placeholder values (e.g., <YOUR_API_TOKEN_HERE>) that need to be replaced with actual values before use.": {
     "context": {
       "feature_area": "site-agent"
@@ -51834,7 +53483,7 @@
   },
   "This field is required.": {
     "context": {
-      "feature_area": "auto-provisioning-rules"
+      "feature_area": "project"
     }
   },
   "This file contains CHANGEME placeholder values that must be replaced with actual credentials before use.": {
@@ -51845,6 +53494,11 @@
   "This identity provider does not expose its supported claims in the discovery document. You can manually add claim names below based on your IdP documentation.": {
     "context": {
       "feature_area": "steps"
+    }
+  },
+  "This instance is connected only to IPv6 subnets. Floating IPs are IPv4 only, so there is nothing to attach — an IPv6 instance is reachable on its own address instead.": {
+    "context": {
+      "feature_area": "update-floating-ips"
     }
   },
   "This invitation has already been canceled.": {
@@ -52093,6 +53747,16 @@
       "feature_area": "details"
     }
   },
+  "This plan has no resources yet.": {
+    "context": {
+      "feature_area": "plans"
+    }
+  },
+  "This plan is free": {
+    "context": {
+      "feature_area": "plans"
+    }
+  },
   "This port belongs to a load balancer. Deleting it may break the load balancer; manage it through the load balancer instead.": {
     "context": {
       "feature_area": "openstack-tenant"
@@ -52209,6 +53873,11 @@
   "This role has no permissions.": {
     "context": {
       "feature_area": "roles"
+    }
+  },
+  "This rule is inactive": {
+    "context": {
+      "feature_area": "sram"
     }
   },
   "This rule resolves the organization from the user IdP claim, but no protected registration methods are configured. No user will currently pass the protection check.": {
@@ -52448,6 +54117,12 @@
         }
       },
       "feature_area": "ai-assistant"
+    }
+  },
+  "Three sites, 1 controller each": {
+    "context": {
+      "primary_ui_type": "label",
+      "feature_area": "options"
     }
   },
   "Threshold": {
@@ -53605,6 +55280,16 @@
       "feature_area": "database-stats"
     }
   },
+  "Turning this off also disables {dependents}, which depends on it.": {
+    "context": {
+      "variables": {
+        "dependents": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "workflow-steps"
+    }
+  },
   "Two independent things must both be right before anything is sent: a relay that accepts mail from this installation, and at least one enabled notification type.": {
     "context": {
       "feature_area": "email"
@@ -53645,6 +55330,11 @@
   "Type a name": {
     "context": {
       "feature_area": "quick-shortcuts"
+    }
+  },
+  "Type a value and press Enter": {
+    "context": {
+      "feature_area": "sram"
     }
   },
   "Type handling": {
@@ -53800,6 +55490,11 @@
       "feature_area": "posix-id-pools"
     }
   },
+  "UIDs": {
+    "context": {
+      "feature_area": "integration"
+    }
+  },
   "UIDs are read from each user’s uid_number attribute; users without it are left without a UID. The pool’s UID range is not used for this offering.": {
     "context": {
       "feature_area": "integration"
@@ -53830,6 +55525,12 @@
         }
       },
       "feature_area": "core"
+    }
+  },
+  "URN": {
+    "context": {
+      "primary_ui_type": "title",
+      "feature_area": "sram"
     }
   },
   "URN namespace for SCIM entitlements.": {},
@@ -54373,6 +56074,12 @@
       "feature_area": "posix-id-pools"
     }
   },
+  "Unable to create SRAM project rule.": {
+    "context": {
+      "primary_ui_type": "error_message",
+      "feature_area": "sram"
+    }
+  },
   "Unable to create VM snapshot.": {
     "context": {
       "primary_ui_type": "error_message",
@@ -54579,6 +56286,12 @@
       "feature_area": "actions"
     }
   },
+  "Unable to create network adapter.": {
+    "context": {
+      "primary_ui_type": "error_message",
+      "feature_area": "actions"
+    }
+  },
   "Unable to create node.": {
     "context": {
       "primary_ui_type": "error_message",
@@ -54646,12 +56359,6 @@
     }
   },
   "Unable to create pool.": {
-    "context": {
-      "primary_ui_type": "error_message",
-      "feature_area": "actions"
-    }
-  },
-  "Unable to create port.": {
     "context": {
       "primary_ui_type": "error_message",
       "feature_area": "actions"
@@ -54874,6 +56581,12 @@
     "context": {
       "primary_ui_type": "error_message",
       "feature_area": "qos"
+    }
+  },
+  "Unable to delete SRAM project rule.": {
+    "context": {
+      "primary_ui_type": "error_message",
+      "feature_area": "sram"
     }
   },
   "Unable to delete Terms of Service.": {
@@ -55294,12 +57007,6 @@
       "feature_area": "pubsub"
     }
   },
-  "Unable to destroy instance.": {
-    "context": {
-      "primary_ui_type": "error_message",
-      "feature_area": "actions"
-    }
-  },
   "Unable to detach floating IP.": {
     "context": {
       "primary_ui_type": "error_message",
@@ -55693,11 +57400,6 @@
     }
   },
   "Unable to load full metadata.": {},
-  "Unable to load full price list": {
-    "context": {
-      "feature_area": "details"
-    }
-  },
   "Unable to load health information": {
     "context": {
       "feature_area": "dashboard"
@@ -55891,6 +57593,11 @@
       "feature_area": "roles"
     }
   },
+  "Unable to load roles.": {
+    "context": {
+      "feature_area": "team"
+    }
+  },
   "Unable to load science domain preset.": {
     "context": {
       "primary_ui_type": "error_message",
@@ -55977,6 +57684,11 @@
   "Unable to load the review details.": {
     "context": {
       "feature_area": "review"
+    }
+  },
+  "Unable to load the role hygiene report.": {
+    "context": {
+      "feature_area": "hygiene"
     }
   },
   "Unable to load this offering.": {
@@ -56107,6 +57819,12 @@
       "feature_area": "actions"
     }
   },
+  "Unable to open the web shell.": {
+    "context": {
+      "primary_ui_type": "error_message",
+      "feature_area": "header"
+    }
+  },
   "Unable to pause offering.": {
     "context": {
       "primary_ui_type": "error_message",
@@ -56134,6 +57852,12 @@
   "Unable to prepare the form.": {
     "context": {
       "feature_area": "call-management"
+    }
+  },
+  "Unable to preview the change.": {
+    "context": {
+      "primary_ui_type": "error_message",
+      "feature_area": "accounts"
     }
   },
   "Unable to preview the changes.": {
@@ -56661,6 +58385,11 @@
       "primary_ui_type": "error_message"
     }
   },
+  "Unable to resolve username conflicts.": {
+    "context": {
+      "feature_area": "accounts"
+    }
+  },
   "Unable to restore VM snapshot.": {
     "context": {
       "primary_ui_type": "error_message",
@@ -56871,6 +58600,11 @@
     "context": {
       "primary_ui_type": "error_message",
       "feature_area": "roles"
+    }
+  },
+  "Unable to save the rule": {
+    "context": {
+      "feature_area": "sram"
     }
   },
   "Unable to schedule SCIM user synchronization.": {
@@ -57375,6 +59109,12 @@
       "feature_area": "qos"
     }
   },
+  "Unable to update SRAM project rule.": {
+    "context": {
+      "primary_ui_type": "error_message",
+      "feature_area": "sram"
+    }
+  },
   "Unable to update Terms of Service.": {
     "context": {
       "primary_ui_type": "error_message",
@@ -57415,6 +59155,12 @@
     "context": {
       "primary_ui_type": "error_message",
       "feature_area": "details"
+    }
+  },
+  "Unable to update account settings.": {
+    "context": {
+      "primary_ui_type": "error_message",
+      "feature_area": "accounts"
     }
   },
   "Unable to update affiliation.": {
@@ -58084,6 +59830,12 @@
       "feature_area": "actions"
     }
   },
+  "Unable to update the prices of this plan.": {
+    "context": {
+      "primary_ui_type": "error_message",
+      "feature_area": "plans"
+    }
+  },
   "Unable to update the project credit.": {
     "context": {
       "primary_ui_type": "error_message",
@@ -58184,6 +59936,12 @@
       "feature_area": "rabbitmq"
     }
   },
+  "Unaffiliated projects": {
+    "context": {
+      "primary_ui_type": "label",
+      "feature_area": "affiliated-organizations"
+    }
+  },
   "Unarchive": {
     "context": {
       "feature_area": "ai-assistant"
@@ -58198,6 +59956,11 @@
     "context": {
       "primary_ui_type": "label",
       "feature_area": "list"
+    }
+  },
+  "Unchecked": {
+    "context": {
+      "primary_ui_type": "label"
     }
   },
   "Unconfirmed": {
@@ -58293,6 +60056,7 @@
   "United States": {},
   "Units": {
     "context": {
+      "primary_ui_type": "title",
       "feature_area": "plans"
     }
   },
@@ -58339,6 +60103,11 @@
   "Unknown state": {
     "context": {
       "feature_area": "details"
+    }
+  },
+  "Unknown system role": {
+    "context": {
+      "feature_area": "hygiene"
     }
   },
   "Unknown time": {
@@ -58420,11 +60189,6 @@
   "Unnamed resource": {
     "context": {
       "feature_area": "project-detail"
-    }
-  },
-  "Unpause": {
-    "context": {
-      "feature_area": "actions"
     }
   },
   "Unpause offering": {
@@ -59316,6 +61080,11 @@
       "feature_area": "usage"
     }
   },
+  "Usage is recorded once the resource has been created. Come back after provisioning finishes.": {
+    "context": {
+      "feature_area": "details"
+    }
+  },
   "Usage items": {
     "context": {
       "feature_area": "import-usage"
@@ -59439,6 +61208,24 @@
       "feature_area": "usage-views"
     }
   },
+  "Usage-based components are billed on consumption and are not included in the total.": {
+    "context": {
+      "feature_area": "type-based"
+    }
+  },
+  "Usage-based · {price} per {unit}": {
+    "context": {
+      "variables": {
+        "price": {
+          "type": "unknown"
+        },
+        "unit": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "type-based"
+    }
+  },
   "Usages": {
     "context": {
       "feature_area": "resource-usage"
@@ -59465,9 +61252,31 @@
       "feature_area": "auth"
     }
   },
+  "Use a value from {min} to {max}.": {
+    "context": {
+      "variables": {
+        "min": {
+          "type": "unknown"
+        },
+        "max": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "posix-id-pools"
+    }
+  },
   "Use an existing namespace": {
     "context": {
       "feature_area": "template"
+    }
+  },
+  "Use default ({value})": {
+    "context": {
+      "variables": {
+        "value": {
+          "type": "unknown"
+        }
+      }
     }
   },
   "Use example values (no resource selected)": {
@@ -59483,6 +61292,20 @@
   "Use project date": {
     "context": {
       "feature_area": "actions"
+    }
+  },
+  "Use provider setting": {
+    "context": {
+      "feature_area": "integration"
+    }
+  },
+  "Use provider setting ({value})": {
+    "context": {
+      "variables": {
+        "value": {
+          "type": "unknown"
+        }
+      }
     }
   },
   "Use the \"Preview\" section below the form to see the rendered digest for a specific project.": {
@@ -60263,9 +62086,25 @@
       "feature_area": "layouts"
     }
   },
+  "Username and password": {
+    "context": {
+      "primary_ui_type": "label"
+    }
+  },
   "Username anonymized prefix": {
     "context": {
       "feature_area": "integration"
+    }
+  },
+  "Username conflicts": {
+    "context": {
+      "feature_area": "marketplace"
+    }
+  },
+  "Username conflicts have been resolved.": {
+    "context": {
+      "primary_ui_type": "success_message",
+      "feature_area": "accounts"
     }
   },
   "Username for Estonian Äriregister API authentication.": {},
@@ -60307,6 +62146,12 @@
       "feature_area": "freeipa"
     }
   },
+  "Usernames": {
+    "context": {
+      "primary_ui_type": "title",
+      "feature_area": "accounts"
+    }
+  },
   "Usernames can contain letters (a-z), numbers (0-9), dashes (-), underscores (_) and periods (.).": {},
   "Users": {
     "context": {
@@ -60317,6 +62162,11 @@
   "Users authenticated via any of these identity providers will be allowed.": {
     "context": {
       "feature_area": "restrictions"
+    }
+  },
+  "Users authenticated via any of these identity providers will match.": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "Users by category": {
@@ -60375,6 +62225,11 @@
       "feature_area": "restrictions"
     }
   },
+  "Users must hold ALL of these assurance levels to match.": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
   "Users over time": {
     "context": {
       "feature_area": "growth"
@@ -60383,6 +62238,11 @@
   "Users should be revoked before role is removed.": {
     "context": {
       "feature_area": "roles"
+    }
+  },
+  "Users who get the role": {
+    "context": {
+      "feature_area": "sram"
     }
   },
   "Users whose email matches any of these regex patterns will be allowed.": {
@@ -60398,6 +62258,16 @@
   "Users with any of these nationalities will be allowed.": {
     "context": {
       "feature_area": "restrictions"
+    }
+  },
+  "Uses the existing project \"{name}\".": {
+    "context": {
+      "variables": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "Using global defaults. Saving any field will create a custom configuration for this call.": {
@@ -60702,9 +62572,25 @@
     }
   },
   "Value should not be negative.": {},
+  "Value stored in User.registration_method for accounts created or adopted via Bearer token introspection (OIDCAuthentication). Set to the social IdP provider slug (e.g. 'eduteams') when introspection and OAuth share the same identity provider so IdentityProvider.protected_fields apply.": {},
   "Values are in 8KB pages": {
     "context": {
       "feature_area": "database-stats"
+    }
+  },
+  "Values below {min} are reserved for system accounts on the hosts.": {
+    "context": {
+      "variables": {
+        "min": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "posix-id-pools"
+    }
+  },
+  "Values must be valid for the selected option.": {
+    "context": {
+      "feature_area": "options"
     }
   },
   "Values that trigger this question": {
@@ -61130,7 +63016,8 @@
   "View summary": {},
   "View team": {
     "context": {
-      "feature_area": "UserResourcesWidget"
+      "primary_ui_type": "label",
+      "feature_area": "roles"
     }
   },
   "Viewing image": {
@@ -61514,6 +63401,7 @@
     }
   },
   "Waldur site agent": {},
+  "Waldur user attribute that links an inbound SCIM user to an existing account. Must be username or an enabled identifying attribute. With username, new accounts are named after the matched value.": {},
   "Waldur username": {
     "context": {
       "primary_ui_type": "title",
@@ -61526,8 +63414,7 @@
         "version": {
           "type": "unknown"
         }
-      },
-      "feature_area": "footer"
+      }
     }
   },
   "Warn": {},
@@ -61582,6 +63469,12 @@
       "feature_area": "integration"
     }
   },
+  "Warnings": {
+    "context": {
+      "primary_ui_type": "label",
+      "feature_area": "hygiene"
+    }
+  },
   "We apologize for the inconvenience. Try reloading the page.": {},
   "We are experiencing technical difficulties with the AI assistant. Please try again or contact support if the problem persists.": {
     "context": {
@@ -61613,9 +63506,14 @@
       "primary_ui_type": "label"
     }
   },
+  "Web shell": {
+    "context": {
+      "feature_area": "header"
+    }
+  },
   "Webhook": {
     "context": {
-      "primary_ui_type": "label",
+      "primary_ui_type": "title",
       "feature_area": "hooks"
     }
   },
@@ -61745,6 +63643,12 @@
   "What is Matrix chat integration?": {
     "context": {
       "feature_area": "matrix"
+    }
+  },
+  "What it grants": {
+    "context": {
+      "primary_ui_type": "label",
+      "feature_area": "sram"
     }
   },
   "What this proposal produced once it was accepted.": {
@@ -61929,6 +63833,11 @@
       "feature_area": "usage"
     }
   },
+  "When off, the step is skipped: it stays out of the workflow preview and no proposal ever enters it.": {
+    "context": {
+      "feature_area": "workflow-steps"
+    }
+  },
   "When official billing export arrives, amounts are compared": {
     "context": {
       "feature_area": "settings"
@@ -61962,6 +63871,11 @@
       "feature_area": "invitations"
     }
   },
+  "Where UIDs and GIDs are allocated from when their source is the POSIX ID pool.": {
+    "context": {
+      "feature_area": "integration"
+    }
+  },
   "Where a linear ramp says consumption should stand on this day of the month.": {
     "context": {
       "feature_area": "policy-watch"
@@ -61977,19 +63891,49 @@
       "feature_area": "integration"
     }
   },
+  "Where the controller nodes run: three in one site, or one in each of three sites.": {
+    "context": {
+      "feature_area": "common"
+    }
+  },
+  "Where the controller nodes run: three in one site, or one in each of three sites. When not set, the option type decides.": {
+    "context": {
+      "feature_area": "options"
+    }
+  },
   "Whether automatic periodic sync is enabled for this integration": {},
+  "Whether clusters get dedicated load balancer nodes. Defaults to always included.": {
+    "context": {
+      "feature_area": "options"
+    }
+  },
   "Whether the role is granted on the whole resource or on individual resource sub-projects.": {
     "context": {
       "feature_area": "roles"
     }
   },
   "Whether this mapping is enabled for sync": {},
+  "Which HEAppE deployment this offering targets. Not the same as the cluster ID.": {
+    "context": {
+      "feature_area": "integration"
+    }
+  },
+  "Which SRAM groups": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
   "Which price to use for invoice items: sell or buy": {
     "context": {
       "feature_area": "settings"
     }
   },
   "Which price to use for invoicing: sell (default) or buy": {},
+  "Which projects": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
   "Which services are you interested in using? (Please select from the available service types.)": {},
   "Who can access": {
     "context": {
@@ -61999,6 +63943,11 @@
   "Who is included in matching:": {
     "context": {
       "feature_area": "matching"
+    }
+  },
+  "Who it matches": {
+    "context": {
+      "primary_ui_type": "label"
     }
   },
   "Why": {
@@ -62710,9 +64659,19 @@
       "feature_area": "languages"
     }
   },
+  "You choose the amount": {
+    "context": {
+      "feature_area": "details"
+    }
+  },
   "You do not have a reviewer profile yet.": {
     "context": {
       "feature_area": "reviewer"
+    }
+  },
+  "You do not have access to deploy this offering.": {
+    "context": {
+      "feature_area": "category"
     }
   },
   "You do not have an active payment profile, visit {link} to create a payment profile.": {
@@ -63030,6 +64989,11 @@
       "feature_area": "setup"
     }
   },
+  "Your Atlassian Cloud site, e.g. https://your-domain.atlassian.net. Waldur looks up its cloud ID and connects through the Atlassian API gateway.": {
+    "context": {
+      "feature_area": "steps"
+    }
+  },
   "Your Atlassian account email": {
     "context": {
       "feature_area": "steps"
@@ -63053,11 +65017,7 @@
     }
   },
   "Your OpenStack project — the scope that owns all the networks, routers, and instances below.": {},
-  "Your Waldur installation needs to be upgraded. For upgrade instructions, please visit:": {
-    "context": {
-      "feature_area": "footer"
-    }
-  },
+  "Your Waldur installation needs to be upgraded. For upgrade instructions, please visit:": {},
   "Your access lasts as long as the longest subscription requested.": {},
   "Your account is not part of any organization. Your view will be restricted.": {
     "context": {
@@ -63087,6 +65047,7 @@
   },
   "Your confirmation is needed before resources are set up.": {
     "context": {
+      "primary_ui_type": "text_content",
       "feature_area": "proposal"
     }
   },
@@ -63215,6 +65176,7 @@
   },
   "Your proposal is being reviewed.": {
     "context": {
+      "primary_ui_type": "text_content",
       "feature_area": "proposal"
     }
   },
@@ -63240,6 +65202,7 @@
   },
   "Your request is being reviewed.": {
     "context": {
+      "primary_ui_type": "text_content",
       "feature_area": "proposal"
     }
   },
@@ -63356,9 +65319,14 @@
       "feature_area": "chat"
     }
   },
+  "affiliated organizations": {
+    "context": {
+      "feature_area": "affiliated-organizations"
+    }
+  },
   "affiliations": {
     "context": {
-      "feature_area": "team"
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "after the {input1} th of the month, actual daily avg differs from predicted by > {input2} %": {
@@ -63439,6 +65407,12 @@
       "feature_area": "assignments"
     }
   },
+  "assurance level": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
+  "at activation and on every plan switch": {},
   "attachments": {
     "context": {
       "feature_area": "support-users"
@@ -63457,6 +65431,11 @@
   "beyond connected and default routes": {
     "context": {
       "feature_area": "openstack-tenant"
+    }
+  },
+  "billing period": {
+    "context": {
+      "feature_area": "common"
     }
   },
   "billing syncs": {
@@ -63504,6 +65483,16 @@
       "feature_area": "catalog"
     }
   },
+  "claims ({claims})": {
+    "context": {
+      "variables": {
+        "claims": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
   "comments": {
     "context": {
       "feature_area": "support-users"
@@ -63542,6 +65531,11 @@
   "cost limit": {
     "context": {
       "feature_area": "details"
+    }
+  },
+  "countries": {
+    "context": {
+      "feature_area": "affiliated-organizations"
     }
   },
   "created": {
@@ -63584,6 +65578,7 @@
       "feature_area": "mappings"
     }
   },
+  "day": {},
   "default": {
     "context": {
       "feature_area": "partitions"
@@ -63631,6 +65626,11 @@
     }
   },
   "e.g. .*@example.com": {
+    "context": {
+      "feature_area": "actions"
+    }
+  },
+  "e.g. .*@example\\.com$": {
     "context": {
       "feature_area": "auto-provisioning-rules"
     }
@@ -63730,9 +65730,9 @@
       "feature_area": "profiles"
     }
   },
-  "e.g. Researcher": {
+  "e.g. Research workspaces": {
     "context": {
-      "feature_area": "roles"
+      "feature_area": "sram"
     }
   },
   "e.g. SECRET_TOKEN": {
@@ -63748,6 +65748,11 @@
   "e.g. backup": {
     "context": {
       "feature_area": "service-accounts"
+    }
+  },
+  "e.g. compute-*": {
+    "context": {
+      "feature_area": "sram"
     }
   },
   "e.g. https://": {
@@ -63800,6 +65805,11 @@
       "feature_area": "create"
     }
   },
+  "e.g. tag_ufra": {
+    "context": {
+      "feature_area": "sram"
+    }
+  },
   "e.g. urn:schac:homeOrganizationType:int:university": {
     "context": {
       "feature_area": "actions"
@@ -63818,6 +65828,16 @@
         }
       },
       "feature_area": "actions"
+    }
+  },
+  "e.g. {full_name} workspace": {
+    "context": {
+      "variables": {
+        "full_name": {
+          "type": "string"
+        }
+      },
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "e.g., /etc/waldur/agent.yaml": {
@@ -63949,6 +65969,11 @@
       "primary_ui_type": "label"
     }
   },
+  "email": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
   "end date change requests": {
     "context": {
       "feature_area": "request-end-date-change"
@@ -63995,6 +66020,11 @@
       "feature_area": "confirmation-drawer"
     }
   },
+  "findings": {
+    "context": {
+      "feature_area": "hygiene"
+    }
+  },
   "flavors": {
     "context": {
       "feature_area": "common"
@@ -64016,6 +66046,13 @@
     }
   },
   "h": {},
+  "half month": {},
+  "half-month": {},
+  "has active resources": {
+    "context": {
+      "feature_area": "accounts"
+    }
+  },
   "health monitors": {
     "context": {
       "feature_area": "openstack-lbaas"
@@ -64036,6 +66073,7 @@
       "feature_area": "hpas"
     }
   },
+  "hour": {},
   "hypervisors": {
     "context": {
       "feature_area": "openstack-hypervisors"
@@ -64044,6 +66082,11 @@
   "identity provider": {
     "context": {
       "feature_area": "support"
+    }
+  },
+  "identity source": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "imported licenses": {
@@ -64251,6 +66294,11 @@
       "feature_area": "livekit"
     }
   },
+  "nationality": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
   "network": {
     "context": {
       "feature_area": "actions"
@@ -64296,6 +66344,11 @@
       "feature_area": "views"
     }
   },
+  "offering accounts": {
+    "context": {
+      "feature_area": "accounts"
+    }
+  },
   "offering component usages": {
     "context": {
       "feature_area": "provider"
@@ -64316,6 +66369,7 @@
       "feature_area": "service-providers"
     }
   },
+  "offering pool": {},
   "offering resources": {
     "context": {
       "feature_area": "details"
@@ -64352,6 +66406,7 @@
       "feature_area": "openstack-tenant"
     }
   },
+  "once at activation": {},
   "one row per (offering · component) — bar spans current_period_start → current_period_end": {
     "context": {
       "feature_area": "views"
@@ -64390,6 +66445,11 @@
   "organization network": {
     "context": {
       "feature_area": "openstack-tenant"
+    }
+  },
+  "organization type": {
+    "context": {
+      "feature_area": "auto-provisioning-rules"
     }
   },
   "organizations": {
@@ -64432,6 +66492,15 @@
       "feature_area": "policies"
     }
   },
+  "per {period}": {
+    "context": {
+      "variables": {
+        "period": {
+          "type": "unknown"
+        }
+      }
+    }
+  },
   "permission reviews": {
     "context": {
       "feature_area": "core"
@@ -64444,7 +66513,7 @@
   },
   "plans": {
     "context": {
-      "feature_area": "plans"
+      "feature_area": "details"
     }
   },
   "policy": {
@@ -64494,7 +66563,12 @@
   },
   "projects": {
     "context": {
-      "feature_area": "views"
+      "feature_area": "sram"
+    }
+  },
+  "provider accounts": {
+    "context": {
+      "feature_area": "accounts"
     }
   },
   "publications": {
@@ -64512,6 +66586,7 @@
       "feature_area": "settings"
     }
   },
+  "quarter": {},
   "queries": {
     "context": {
       "feature_area": "database-stats"
@@ -64565,6 +66640,11 @@
   "remove": {
     "context": {
       "feature_area": "chat"
+    }
+  },
+  "renames": {
+    "context": {
+      "feature_area": "accounts"
     }
   },
   "replications": {
@@ -64713,6 +66793,7 @@
       "feature_area": "profiles"
     }
   },
+  "service provider pool": {},
   "services": {
     "context": {
       "feature_area": "cluster"
@@ -64721,6 +66802,16 @@
   "services healthy": {
     "context": {
       "feature_area": "dashboard"
+    }
+  },
+  "single {brace}": {
+    "context": {
+      "variables": {
+        "brace": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "sram"
     }
   },
   "snapshots": {
@@ -64919,11 +67010,22 @@
       "feature_area": "details"
     }
   },
+  "unclosed {brace}": {
+    "context": {
+      "variables": {
+        "brace": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "sram"
+    }
+  },
   "under 2 MB.": {
     "context": {
       "feature_area": "form"
     }
   },
+  "unit": {},
   "units": {
     "context": {
       "feature_area": "policies"
@@ -64980,6 +67082,16 @@
       "action_type": "read"
     }
   },
+  "used on {count} offering(s)": {
+    "context": {
+      "variables": {
+        "count": {
+          "type": "number"
+        }
+      },
+      "feature_area": "accounts"
+    }
+  },
   "user": {
     "context": {
       "feature_area": "reports"
@@ -65003,6 +67115,11 @@
   "user role queues": {
     "context": {
       "primary_ui_type": "label"
+    }
+  },
+  "username conflicts": {
+    "context": {
+      "feature_area": "accounts"
     }
   },
   "users": {
@@ -65031,11 +67148,6 @@
   "vCPUs per Load Balancer": {
     "context": {
       "feature_area": "options"
-    }
-  },
-  "vCores": {
-    "context": {
-      "feature_area": "sql"
     }
   },
   "vSphere Virtual Machine": {},
@@ -65167,6 +67279,16 @@
       "feature_area": "node"
     }
   },
+  "{amount} + usage": {
+    "context": {
+      "variables": {
+        "amount": {
+          "type": "number"
+        }
+      },
+      "feature_area": "details"
+    }
+  },
   "{amount} drawn last month ÷ 30 days": {
     "context": {
       "variables": {
@@ -65188,6 +67310,34 @@
         }
       },
       "feature_area": "usage"
+    }
+  },
+  "{amount} {unit} included": {
+    "context": {
+      "variables": {
+        "amount": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "details"
+    }
+  },
+  "{amount} × {price} = {total}": {
+    "context": {
+      "variables": {
+        "amount": {
+          "type": "number"
+        },
+        "price": {
+          "type": "unknown"
+        },
+        "total": {
+          "type": "number"
+        }
+      }
     }
   },
   "{answered} of {total} answered": {
@@ -65461,6 +67611,16 @@
       },
       "feature_area": "details",
       "action_type": "read"
+    }
+  },
+  "{count} existing account(s) keep their home directory and login shell; the change applies to accounts created later.": {
+    "context": {
+      "variables": {
+        "count": {
+          "type": "number"
+        }
+      },
+      "feature_area": "accounts"
     }
   },
   "{count} fields": {
@@ -65752,7 +67912,7 @@
           "type": "number"
         }
       },
-      "feature_area": "data-access"
+      "feature_area": "roles"
     }
   },
   "{count} pending changes": {
@@ -65783,6 +67943,16 @@
         }
       },
       "feature_area": "roles"
+    }
+  },
+  "{count} person(s) have different usernames on different offerings. Switching to per service provider accounts is refused until they are adopted under Accounts > Username conflicts.": {
+    "context": {
+      "variables": {
+        "count": {
+          "type": "number"
+        }
+      },
+      "feature_area": "accounts"
     }
   },
   "{count} problems detected": {
@@ -65942,6 +68112,16 @@
       "feature_area": "reviewer-discovery"
     }
   },
+  "{count} provider account(s) keep their username, home directory and login shell.": {
+    "context": {
+      "variables": {
+        "count": {
+          "type": "number"
+        }
+      },
+      "feature_area": "accounts"
+    }
+  },
   "{count} queries running": {
     "context": {
       "variables": {
@@ -66033,6 +68213,16 @@
         }
       },
       "feature_area": "details"
+    }
+  },
+  "{count} resource(s) have been created on this plan. What has already been charged is not changed.": {
+    "context": {
+      "variables": {
+        "count": {
+          "type": "number"
+        }
+      },
+      "feature_area": "plans"
     }
   },
   "{count} resources": {
@@ -66198,7 +68388,27 @@
           "type": "number"
         }
       },
-      "feature_area": "create"
+      "feature_area": "roles"
+    }
+  },
+  "{count} with findings": {
+    "context": {
+      "variables": {
+        "count": {
+          "type": "number"
+        }
+      },
+      "feature_area": "hygiene"
+    }
+  },
+  "{count} with projects": {
+    "context": {
+      "variables": {
+        "count": {
+          "type": "number"
+        }
+      },
+      "feature_area": "affiliated-organizations"
     }
   },
   "{count} {key} reactions — click to {verb} yours": {
@@ -66215,6 +68425,22 @@
         }
       },
       "feature_area": "chat"
+    }
+  },
+  "{count} {namespace} are allocated from this pool; the next new one is {next}. The range may shrink, but every allocated value must stay inside it.": {
+    "context": {
+      "variables": {
+        "count": {
+          "type": "number"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "next": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "posix-id-pools"
     }
   },
   "{count}d": {
@@ -66328,8 +68554,7 @@
         "step": {
           "type": "unknown"
         }
-      },
-      "feature_area": "workflow-steps"
+      }
     }
   },
   "{description} for {name}": {
@@ -66416,6 +68641,19 @@
         }
       },
       "feature_area": "email"
+    }
+  },
+  "{field}, {match}": {
+    "context": {
+      "variables": {
+        "field": {
+          "type": "unknown"
+        },
+        "match": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "sram"
     }
   },
   "{filled}/{total} fields filled": {
@@ -66561,6 +68799,34 @@
       "feature_area": "policy-watch"
     }
   },
+  "{label} {min}–{max} ({used} used)": {
+    "context": {
+      "variables": {
+        "label": {
+          "type": "string"
+        },
+        "min": {
+          "type": "unknown"
+        },
+        "max": {
+          "type": "unknown"
+        },
+        "used": {
+          "type": "unknown"
+        }
+      }
+    }
+  },
+  "{label} · pre-paid": {
+    "context": {
+      "variables": {
+        "label": {
+          "type": "string"
+        }
+      },
+      "feature_area": "common"
+    }
+  },
   "{limitType} is enforced per account at job submission time. Each offering controls its own account limits independently.": {
     "context": {
       "variables": {
@@ -66671,6 +68937,25 @@
       "feature_area": "usage"
     }
   },
+  "{namespace} {min}–{max} ({scope})": {
+    "context": {
+      "variables": {
+        "namespace": {
+          "type": "string"
+        },
+        "min": {
+          "type": "unknown"
+        },
+        "max": {
+          "type": "unknown"
+        },
+        "scope": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "posix-id-pools"
+    }
+  },
   "{names} are not common to all selected VPCs, so they are left unchanged in this order.": {
     "context": {
       "variables": {
@@ -66694,6 +68979,39 @@
       "feature_area": "reports"
     }
   },
+  "{name} (already referred by {affiliate})": {
+    "context": {
+      "variables": {
+        "name": {
+          "type": "string"
+        },
+        "affiliate": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "affiliates"
+    }
+  },
+  "{name} (copy)": {
+    "context": {
+      "variables": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "feature_area": "sram"
+    }
+  },
+  "{name} (the referred organization)": {
+    "context": {
+      "variables": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "feature_area": "affiliates"
+    }
+  },
   "{name} has been copied": {
     "context": {
       "primary_ui_type": "success_message",
@@ -66703,6 +69021,19 @@
         }
       },
       "feature_area": "core"
+    }
+  },
+  "{name} is already referred by {affiliate}. Deactivate that link first, or create this one inactive.": {
+    "context": {
+      "variables": {
+        "name": {
+          "type": "string"
+        },
+        "affiliate": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "affiliates"
     }
   },
   "{name} joined the team": {
@@ -66733,6 +69064,20 @@
         }
       },
       "feature_area": "project"
+    }
+  },
+  "{name} {price}": {
+    "context": {
+      "primary_ui_type": "text_content",
+      "variables": {
+        "name": {
+          "type": "string"
+        },
+        "price": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "plans"
     }
   },
   "{name}: {value} h ({percent}%)": {
@@ -67393,6 +69738,65 @@
       "feature_area": "plan"
     }
   },
+  "{price} / {period}": {
+    "context": {
+      "primary_ui_type": "text_content",
+      "variables": {
+        "price": {
+          "type": "unknown"
+        },
+        "period": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "details"
+    }
+  },
+  "{price} / {period} + {once} once": {
+    "context": {
+      "variables": {
+        "price": {
+          "type": "unknown"
+        },
+        "period": {
+          "type": "unknown"
+        },
+        "once": {
+          "type": "unknown"
+        }
+      }
+    }
+  },
+  "{price} / {period} for {amount} {unit}": {
+    "context": {
+      "variables": {
+        "price": {
+          "type": "unknown"
+        },
+        "period": {
+          "type": "unknown"
+        },
+        "amount": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "details"
+    }
+  },
+  "{price} once": {
+    "context": {
+      "primary_ui_type": "text_content",
+      "variables": {
+        "price": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "plans"
+    }
+  },
   "{price} per {unit}": {
     "context": {
       "variables": {
@@ -67404,6 +69808,79 @@
         }
       },
       "feature_area": "plan"
+    }
+  },
+  "{price} per {unit} / {period}": {
+    "context": {
+      "variables": {
+        "price": {
+          "type": "unknown"
+        },
+        "unit": {
+          "type": "unknown"
+        },
+        "period": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "details"
+    }
+  },
+  "{price} per {unit}, metered": {
+    "context": {
+      "variables": {
+        "price": {
+          "type": "unknown"
+        },
+        "unit": {
+          "type": "unknown"
+        }
+      }
+    }
+  },
+  "{price} per {unit}, on plan switch": {
+    "context": {
+      "variables": {
+        "price": {
+          "type": "unknown"
+        },
+        "unit": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "details"
+    }
+  },
+  "{price} per {unit}, once": {
+    "context": {
+      "variables": {
+        "price": {
+          "type": "unknown"
+        },
+        "unit": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "details"
+    }
+  },
+  "{price}, on plan switch": {
+    "context": {
+      "variables": {
+        "price": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "details"
+    }
+  },
+  "{price}, once": {
+    "context": {
+      "variables": {
+        "price": {
+          "type": "unknown"
+        }
+      }
     }
   },
   "{projectName} project has been moved to {organizationName} organization.": {
@@ -67473,6 +69950,21 @@
         }
       },
       "feature_area": "projects"
+    }
+  },
+  "{renamed} offering account(s) renamed, {kept} provider account(s) unchanged, {homes} account(s) keeping their home directory and login shell.": {
+    "context": {
+      "variables": {
+        "renamed": {
+          "type": "string"
+        },
+        "kept": {
+          "type": "unknown"
+        },
+        "homes": {
+          "type": "unknown"
+        }
+      }
     }
   },
   "{resourceName} resource has been moved to {projectName} project.": {
@@ -67829,6 +70321,37 @@
       "feature_area": "managed-projects"
     }
   },
+  "{role} on the organization": {
+    "context": {
+      "variables": {
+        "role": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
+  "{role} on their project": {
+    "context": {
+      "variables": {
+        "role": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "auto-provisioning-rules"
+    }
+  },
+  "{router} (disconnected)": {
+    "context": {
+      "variables": {
+        "router": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "openstack-subnet",
+      "action_type": "navigate"
+    }
+  },
   "{scopeName} credit usage history": {
     "context": {
       "variables": {
@@ -67876,6 +70399,19 @@
           "type": "unknown"
         }
       }
+    }
+  },
+  "{site}, service desk {project}": {
+    "context": {
+      "variables": {
+        "site": {
+          "type": "unknown"
+        },
+        "project": {
+          "type": "unknown"
+        }
+      },
+      "feature_area": "service-desk"
     }
   },
   "{start} → {end} ({zone})": {
@@ -67950,6 +70486,21 @@
         }
       },
       "feature_area": "database-stats"
+    }
+  },
+  "{touched}/{total} groups · {count} permissions": {
+    "context": {
+      "variables": {
+        "touched": {
+          "type": "unknown"
+        },
+        "total": {
+          "type": "number"
+        },
+        "count": {
+          "type": "number"
+        }
+      }
     }
   },
   "{type} script got an error": {

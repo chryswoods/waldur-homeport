@@ -4,9 +4,10 @@ export { CopyButton } from './CopyButton';
 export type { CopyButtonProps } from './CopyButton';
 export { LoadingSpinner } from './LoadingSpinner';
 export { Tooltip } from './Tooltip';
+export type { TooltipProps } from './Tooltip';
 
 export { Badge } from './Badge';
-export type { BadgeProps, BadgeTone, BadgeVariant } from './Badge';
+export type { BadgeProps, BadgeShape, BadgeTone, BadgeVariant } from './Badge';
 
 export {
   Card,
@@ -72,8 +73,10 @@ export {
 export type { DropdownMenuItemProps } from './DropdownMenu';
 
 export {
+  SIDEBAR_ICON_BUTTON_CLASSNAME,
   Sidebar,
   SidebarBrand,
+  SidebarCallToAction,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
@@ -82,20 +85,38 @@ export {
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
+  SidebarMenuAccordion,
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuItemContent,
+  SidebarMenuLinkItem,
+  SidebarMenuSeparator,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarMenuTree,
   SidebarModeCard,
   SidebarNavItem,
   SidebarProvider,
   SidebarSection,
   SidebarSeparator,
   SidebarTrigger,
+  useExclusiveOpen,
   useSidebar,
+  useSidebarSubDepth,
 } from './Sidebar';
 export type {
   SidebarBrandProps,
+  SidebarCallToActionProps,
+  SidebarContentProps,
+  SidebarMenuAccordionProps,
   SidebarMenuButtonProps,
+  SidebarMenuItemContentProps,
+  SidebarMenuLinkItemProps,
+  SidebarMenuSubButtonProps,
+  SidebarMenuTreeItem,
+  SidebarMenuTreeProps,
   SidebarModeCardProps,
   SidebarNavItemProps,
   SidebarProviderProps,
@@ -104,10 +125,19 @@ export type {
   SidebarTriggerProps,
 } from './Sidebar';
 
-export { SidebarToggleGraphic } from './SidebarToggleGraphic';
+export { SidebarToggleGraphic } from './Sidebar';
 
 export { WaldurLogo } from './WaldurLogo';
 export type { WaldurLogoProps } from './WaldurLogo';
+
+export {
+  Popover,
+  PopoverAnchor,
+  PopoverClose,
+  PopoverContent,
+  PopoverPortal,
+  PopoverTrigger,
+} from './Popover';
 
 export {
   Sheet,
@@ -141,3 +171,36 @@ export { getLanguageFlag } from './languageFlags';
 
 export { LanguageMenu } from './LanguageMenu';
 export type { LanguageMenuProps, LanguageOption } from './LanguageMenu';
+
+export {
+  ScrollArea,
+  ScrollBar,
+  ScrollAreaViewport,
+  ScrollAreaCorner,
+} from './ScrollArea';
+
+export { Tag } from './Tag';
+export { RemoveFilterBadgeButton } from './RemoveFilterBadgeButton';
+
+export {
+  AsyncCreatableSelect,
+  AsyncSelect,
+  CreatableSelect,
+  FilterSelectClearIndicator,
+  FilterSelectControl,
+  MultiSelectLimitedValueContainer,
+  MultiSelectOption,
+  MultiSelectValue,
+  Select,
+  SelectDropdownIndicator,
+  useAsyncSelect,
+  useSelect,
+  WindowedSelect,
+} from './select';
+export type {
+  AsyncSelectLoader,
+  CustomAsyncCreatableSelectProps,
+  CustomAsyncSelectProps,
+  CustomCreatableSelectProps,
+  CustomSelectProps,
+} from './select';

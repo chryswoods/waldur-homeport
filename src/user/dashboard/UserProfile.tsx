@@ -51,8 +51,8 @@ export const UserProfile = ({
               <StateIndicator
                 label={formatUserIsActive(user)}
                 variant={user.is_active ? 'success' : 'danger'}
-                outline
-                pill
+                tone="outline"
+                shape="pill"
                 hasBullet
               />
             </div>

@@ -14,6 +14,7 @@ import { ThemeSwitcherButton } from '@/theme/ThemeSwitcher';
 import { useThemeFeatures } from '@/theme/useThemeFeatures';
 
 import { AuthHeader } from './AuthHeader';
+import { AuthHeaderControls } from './AuthHeaderControls';
 import { IdentityProviderSelector } from './IdentityProviderSelector';
 import { LocalLoginButton, LocalLoginForm } from './LocalLogin';
 import { PoweredBy } from './PoweredBy';
@@ -41,7 +42,7 @@ export const LoginColumn = () => {
     <div className="login-column">
       <div className="login-header">
         <LanguageSelectorBox />
-        <ThemeSwitcherButton />
+        <AuthHeaderControls />
       </div>
       <div className="login-body">
         <div className="login-grid-item-container">

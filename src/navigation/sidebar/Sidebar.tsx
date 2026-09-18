@@ -1,97 +1,52 @@
-import classNames from 'classnames';
-import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
+import { PropsWithChildren } from 'react';
 
-import { ENV } from '@/core/config';
 import {
-  DrawerComponent,
-  MenuComponent,
-  ScrollComponent,
-  ToggleComponent,
-} from '@/metronic/components';
-import { useLayout } from '@/metronic/layout/core';
-import { useTheme } from '@/theme/useTheme';
+  Sidebar as SidebarRoot,
+  SidebarContent,
+  SidebarHeader,
+  SidebarMenu,
+  useSidebar,
+} from 'waldur-ui';
 
-import { BrandName } from './BrandName';
 import { SidebarFooter } from './SidebarFooter';
+import { useSidebarLayoutShim } from './useSidebarLayoutShim';
+import { WaldurSidebarBrand } from './WaldurSidebarBrand';
 
-export const Sidebar: React.FC<PropsWithChildren> = (props) => {
-  const sidebarRef = useRef<HTMLElement>(undefined);
-  const layout = useLayout();
-  const [isAsideHovered, setIsAsideHovered] = useState(false);
+const SidebarBrandHeader = ({ onToggle }: { onToggle: () => void }) => {
+  // Metronic's original mobile drawer (.drawer-mobile) never had its own
+  // logo/toggle row at all — the app's persistent TopBar (hamburger + logo,
+  // rendered *outside* this drawer) already carries the brand, so duplicating
+  // it inside would be redundant. Confirmed live: the real mobile drawer
+  // starts directly with "Add resource", no header above it. isMobile comes
+  // from the same useSidebar() context SidebarMenuButton already reads for its
+  // own mobile-vs-desktop branching.
+  const { isMobile } = useSidebar();
+  if (isMobile) {
+    return null;
+  }
+  return (
+    <SidebarHeader className="gap-4">
+      <WaldurSidebarBrand onToggle={onToggle} />
+    </SidebarHeader>
+  );
+};
 
-  useEffect(() => {
-    if (sidebarRef?.current) {
-      ToggleComponent.reinitialization();
-      DrawerComponent.reinitialization();
-      ScrollComponent.reinitialization();
-      MenuComponent.reinitialization();
-    }
-  }, [sidebarRef, layout]);
-
-  const { theme } = useTheme();
-  const configuredStyle = ENV.plugins.WALDUR_CORE.SIDEBAR_STYLE || 'dark';
-  const sidebarStyle =
-    configuredStyle === 'auto'
-      ? theme === 'dark'
-        ? 'dark'
-        : 'light'
-      : configuredStyle;
-  const asideClassNames = {
-    'aside-dark': sidebarStyle === 'dark',
-    'aside-light': sidebarStyle === 'light',
-    'aside-primary': sidebarStyle === 'primary',
-    'aside-accent': sidebarStyle === 'accent',
-    'aside-accent-light': sidebarStyle === 'accent-light',
-  };
-  const menuClassNames = {
-    'menu-title-gray-800': sidebarStyle === 'dark',
-    'menu-title-dark-always':
-      sidebarStyle === 'light' || sidebarStyle === 'accent-light',
-    'menu-title-white': sidebarStyle === 'accent' || sidebarStyle === 'primary',
-  };
+export const Sidebar: React.FC<PropsWithChildren> = ({ children }) => {
+  // Mobile drawer/overlay, Escape-to-close and body-scroll-lock all live in
+  // waldur-ui's Sidebar mobile branch now (a Radix Sheet, whose underlying
+  // Dialog primitives already provide all three) — nothing left to do here
+  // for that. The shim mirrors this sidebar's real state into homeport's
+  // own Metronic layout config for AppHeader/Toolbar/LLMChatDrawer's sake;
+  // see its own doc comment for why that's still needed.
+  const { markUserToggled } = useSidebarLayoutShim();
 
   return (
-    <nav
-      ref={sidebarRef}
-      className={classNames('aside aside-hoverable', asideClassNames)}
-      data-kt-drawer="true"
-      data-kt-drawer-name="aside"
-      data-kt-drawer-activate="{default: true, lg: false}"
-      data-kt-drawer-overlay="true"
-      data-kt-drawer-width="{default:'200px', '300px': '250px'}"
-      data-kt-drawer-direction="start"
-      data-kt-drawer-toggle="#kt_aside_mobile_toggle"
-      onMouseEnter={() => {
-        if (layout.config.aside.minimized) setIsAsideHovered(true);
-      }}
-      onMouseLeave={() => setIsAsideHovered(false)}
-    >
-      <BrandName isAsideHovered={isAsideHovered} />
-
-      <div className="aside-menu flex-grow-1 overflow-hidden">
-        <div
-          className="hover-scroll-overlay-y my-4"
-          id="kt_aside_menu_wrapper"
-          data-kt-scroll="true"
-          data-kt-scroll-activate="{default: false, lg: true}"
-          data-kt-scroll-height="auto"
-          data-kt-scroll-dependencies="#kt_aside_logo, #kt_aside_footer"
-          data-kt-scroll-wrappers="#kt_aside_menu"
-          data-kt-scroll-offset="0"
-        >
-          <div
-            className={classNames(
-              'menu menu-column menu-rounded gap-1 menu-state-title-primary menu-state-icon-primary menu-state-bullet-primary menu-arrow-gray-500 fw-bold',
-              menuClassNames,
-            )}
-            id="kt_aside_menu"
-            data-kt-menu="true"
-          >
-            {props.children}
-          </div>
-        </div>
-      </div>
-      <SidebarFooter menuClassNames={menuClassNames} />
-    </nav>
+    <SidebarRoot>
+      <SidebarBrandHeader onToggle={markUserToggled} />
+      <SidebarContent>
+        <SidebarMenu>{children}</SidebarMenu>
+      </SidebarContent>
+      <SidebarFooter />
+    </SidebarRoot>
   );
 };

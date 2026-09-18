@@ -2,8 +2,9 @@ import { FunnelSimpleIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 import { useSelector } from 'react-redux';
 
+import { Tooltip } from 'waldur-ui';
+
 import { lazyComponent } from '@/core/lazyComponent';
-import { Tip } from '@/core/Tooltip';
 import { translate } from '@/i18n';
 import { ALL_RESOURCES_TABLE_ID } from '@/marketplace/resources/list/constants';
 import { useModal } from '@/modal/actions';
@@ -36,14 +37,29 @@ export const ResourcesMenuFilterButton = () => {
     e.stopPropagation();
   };
   return (
-    <Tip label={translate('Filter resources')} id="resources-menu-filter-tip">
-      <button
-        type="button"
-        className="text-btn menu-btn btn-filter-resources position-relative"
+    <Tooltip label={translate('Filter resources')}>
+      {/* A plain <span>, not <button>: this renders inside
+          SidebarMenuAccordion's `badge` slot, which sits inside the
+          accordion header's own real <button> (Collapsible.Trigger). A
+          nested <button> there would be invalid HTML, silently reparented
+          by the browser's parser. `stopPropagation` (already needed
+          regardless, so this button's own click doesn't also toggle the
+          accordion) plus explicit role/tabIndex/onKeyDown restore the same
+          keyboard reachability a native <button> gave for free. */}
+      <span
+        role="button"
+        tabIndex={0}
+        className="relative flex size-6 shrink-0 items-center justify-center rounded text-[var(--nav-item-icon)] hover:bg-[var(--nav-item-hover-bg)]"
         onClick={callback}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            callback(e);
+          }
+        }}
         aria-label={translate('Filter resources')}
       >
-        <FunnelSimpleIcon size={20} weight="bold" />
+        <FunnelSimpleIcon size={18} weight="bold" />
         {(values?.organization || values?.project) && (
           <HeaderButtonBullet
             size={9}
@@ -52,7 +68,7 @@ export const ResourcesMenuFilterButton = () => {
             className="me-n2 mt-2 border border-2"
           />
         )}
-      </button>
-    </Tip>
+      </span>
+    </Tooltip>
   );
 };

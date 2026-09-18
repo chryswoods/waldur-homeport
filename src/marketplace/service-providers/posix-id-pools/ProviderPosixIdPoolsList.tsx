@@ -1,10 +1,11 @@
 import { FunctionComponent, useCallback, useMemo } from 'react';
-import { Badge } from 'react-bootstrap';
 import {
   marketplacePosixIdPoolsList,
   PosixIdPool,
   ServiceProvider,
 } from 'waldur-js-client';
+
+import { Badge } from 'waldur-ui';
 
 import { formatDateTime } from '@/core/dateUtils';
 import { ProgressBar } from '@/core/ProgressBar';
@@ -46,11 +47,16 @@ const PosixIdPoolsListView: FunctionComponent<PosixIdPoolsListViewProps> = ({
     filter,
   });
 
+  // The dialogs show which ranges the other pools already use.
   const RowActions = useCallback(
     ({ row }: { row: PosixIdPool }) => (
-      <PosixIdPoolRowActions row={row} refetch={tableProps.fetch} />
+      <PosixIdPoolRowActions
+        row={row}
+        pools={tableProps.rows}
+        refetch={tableProps.fetch}
+      />
     ),
-    [tableProps.fetch],
+    [tableProps.rows, tableProps.fetch],
   );
 
   const ExpandableRow = useCallback(
@@ -63,7 +69,7 @@ const PosixIdPoolsListView: FunctionComponent<PosixIdPoolsListViewProps> = ({
       {
         title: translate('Scope'),
         render: ({ row }: { row: PosixIdPool }) => (
-          <Badge bg="light-primary" text="primary">
+          <Badge variant="primary" tone="light">
             {getScopeLabel(row.scope)}
           </Badge>
         ),
@@ -155,6 +161,7 @@ const PosixIdPoolsListView: FunctionComponent<PosixIdPoolsListViewProps> = ({
           <PosixIdPoolCreateButton
             providerUuid={provider.uuid as string}
             customerUuid={provider.customer_uuid as string}
+            pools={tableProps.rows}
             refetch={tableProps.fetch}
           />
         ) : undefined

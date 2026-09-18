@@ -2,11 +2,12 @@ import { CheckIcon, XIcon } from '@phosphor-icons/react';
 import { FC, useMemo } from 'react';
 import { marketplaceResourcesList, Resource } from 'waldur-js-client';
 
-import { Badge } from '@/core/Badge';
+import { Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
 import { formatDate, formatDateTime } from '@/core/dateUtils';
 import { Link } from '@/core/Link';
-import { Tip } from '@/core/Tooltip';
 import { translate } from '@/i18n';
 import { ResourceStateField } from '@/marketplace/resources/list/ResourceStateField';
 import { createFetcher } from '@/table/api';
@@ -55,13 +56,13 @@ const BooleanIndicator: FC<{ value: boolean | undefined; label?: string }> = ({
 }) => {
   if (value === undefined || value === null) return <span>—</span>;
   return value ? (
-    <Tip id={`bool-${label}`} label={label || translate('Yes')}>
+    <Tooltip label={label || translate('Yes')}>
       <CheckIcon size={16} weight="bold" className="text-success" />
-    </Tip>
+    </Tooltip>
   ) : (
-    <Tip id={`bool-${label}`} label={label || translate('No')}>
+    <Tooltip label={label || translate('No')}>
       <XIcon size={16} weight="bold" className="text-muted" />
-    </Tip>
+    </Tooltip>
   );
 };
 
@@ -72,7 +73,7 @@ const ArrayBadges: FC<{ values: unknown }> = ({ values }) => {
   return (
     <div className="d-flex flex-wrap gap-1">
       {values.map((item, index) => (
-        <Badge key={index} variant="primary" size="sm" outline>
+        <Badge key={index} variant="primary" size="sm" tone="outline">
           {String(item)}
         </Badge>
       ))}
@@ -276,7 +277,9 @@ export const OrganizationResourcesTable: FC<
     const metadataColumns: Column<Resource>[] = [
       {
         title: translate('State'),
-        render: ({ row }) => <ResourceStateField resource={row} pill outline />,
+        render: ({ row }) => (
+          <ResourceStateField resource={row} shape="pill" tone="outline" />
+        ),
         orderField: 'state',
       },
       {

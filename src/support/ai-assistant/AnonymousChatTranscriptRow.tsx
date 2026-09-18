@@ -10,14 +10,15 @@ import {
   InjectionSeverityEnum,
 } from 'waldur-js-client';
 
+import { Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { OfflineBlockContext } from '@/ai-assistant/components/blocks/offlineBlockContext';
 import { MessageDataInspector } from '@/ai-assistant/components/shared/MessageDataInspector';
 import { flattenToolBlocks } from '@/ai-assistant/lib/messages/messageUtils';
 import { uiRegistry } from '@/ai-assistant/lib/registry/uiRegistry';
 import { AlertItem } from '@/core/AlertItem';
-import { Badge } from '@/core/Badge';
 import { LoadingSpinner } from '@/core/LoadingSpinner';
-import { Tip } from '@/core/Tooltip';
 import { translate } from '@/i18n';
 import { ExpandableContainer } from '@/table/ExpandableContainer';
 
@@ -35,18 +36,15 @@ import {
 // Offering click-throughs exist only on this channel, so they ride into the
 // shared gutter as an extra row rather than widening its props.
 const ClickCount: FunctionComponent<{
-  created: string;
+  created?: string;
   clickCount?: number | null;
-}> = ({ created, clickCount }) =>
+}> = ({ clickCount }) =>
   clickCount ? (
-    <Tip
-      id={`clicks-${created}`}
-      label={translate('Offering links opened from this reply')}
-    >
+    <Tooltip label={translate('Offering links opened from this reply')}>
       <span className="text-nowrap">
         {translate('{count} clicks', { count: clickCount })}
       </span>
-    </Tip>
+    </Tooltip>
   ) : null;
 
 // 1-2 means the visitor left without an answer, 3 is partial, 4-5 landed.
@@ -80,13 +78,13 @@ const ReviewVerdict: FunctionComponent<{
               <Badge
                 variant={getResolutionBadgeVariant(score)}
                 size="sm"
-                outline
+                tone="outline"
               >
                 {translate('Resolution {score}/5', { score })}
               </Badge>
             )}
             {Boolean(feedback.llm_intent_category) && (
-              <Badge variant="default" size="sm" outline>
+              <Badge variant="neutral" size="sm" tone="outline">
                 {feedback.llm_intent_category}
               </Badge>
             )}
@@ -95,7 +93,7 @@ const ReviewVerdict: FunctionComponent<{
                 variant="danger"
                 size="sm"
                 leftIcon={<ShieldWarningIcon weight="bold" />}
-                outline
+                tone="outline"
               >
                 {translate('Hallucination')}
               </Badge>
@@ -159,8 +157,7 @@ const InteractionTurns: FunctionComponent<{
         <div className="message-body">
           {interaction.is_flagged && (
             <div className="d-flex align-items-center gap-2 mb-1">
-              <Tip
-                id={`anon-flag-detail-${interaction.uuid}`}
+              <Tooltip
                 label={formatDetectionCategories(
                   interaction.injection_categories,
                   interaction.pii_categories,
@@ -170,16 +167,16 @@ const InteractionTurns: FunctionComponent<{
                   variant={getSeverityBadgeVariant(severity)}
                   size="sm"
                   leftIcon={<ShieldWarningIcon weight="bold" />}
-                  outline
+                  tone="outline"
                 >
                   {severityLabels[severity]}
                 </Badge>
-              </Tip>
+              </Tooltip>
               {action && action !== 'allow' && (
                 <Badge
                   variant={getActionBadgeVariant(action)}
                   size="sm"
-                  outline
+                  tone="outline"
                 >
                   {actionLabels[action]}
                 </Badge>

@@ -33,16 +33,16 @@ itself — not on every develop commit.
 
 Re-measured against the fork point the plan names, `e506ac8e1` (2025-11-02):
 
-| Fact | Plan | Measured | |
-| --- | --- | --- | --- |
-| Local diff since fork | 325 files, +29,488 / -662 | 325 files, +29,488 / -662 | exact |
-| Upstream ahead | 2851 | 2853 | +2 commits landed since |
-| `src/openportal` files in both, by path | 56 | 56 | exact |
-| `src/openportal` local-only by path | 72 | 72 | exact |
-| `src/openportal` upstream-only by path | 9 | 9 | exact |
-| `src/openportal` in both, by basename | 58 | 58 | exact |
-| `src/openportal` local-only by basename | 63 | 63 | exact |
-| `src/openportal-remote` | 26 local vs upstream 4 | 26 vs 4 | exact |
+| Fact                                    | Plan                      | Measured                  |                         |
+| --------------------------------------- | ------------------------- | ------------------------- | ----------------------- |
+| Local diff since fork                   | 325 files, +29,488 / -662 | 325 files, +29,488 / -662 | exact                   |
+| Upstream ahead                          | 2851                      | 2853                      | +2 commits landed since |
+| `src/openportal` files in both, by path | 56                        | 56                        | exact                   |
+| `src/openportal` local-only by path     | 72                        | 72                        | exact                   |
+| `src/openportal` upstream-only by path  | 9                         | 9                         | exact                   |
+| `src/openportal` in both, by basename   | 58                        | 58                        | exact                   |
+| `src/openportal` local-only by basename | 63                        | 63                        | exact                   |
+| `src/openportal-remote`                 | 26 local vs upstream 4    | 26 vs 4                   | exact                   |
 
 Two figures do not reproduce, and both are artefacts rather than errors:
 
@@ -117,8 +117,8 @@ This is the plan's largest miscall, and it runs the same way the mastermind
 resync did — the carry-forward list collapses on inspection.
 
 The plan's section 3.2 reads: "42 are real components upstream did not take
-... Treat this as the bulk of the job." The file *counts* are right (they
-reproduce exactly, section 1 above). The *conclusion* is not. Upstream did
+... Treat this as the bulk of the job." The file _counts_ are right (they
+reproduce exactly, section 1 above). The _conclusion_ is not. Upstream did
 not omit those components; it reimplemented them, usually in a better form,
 as part of the same migrations section 1 of the plan lists.
 
@@ -126,21 +126,21 @@ Of 82 local-only files across `src/openportal` and `src/openportal-remote`
 (counting by basename, so upstream's move of e.g. `PullAllocationAction.tsx`
 into `actions/` is not miscounted as a gap), **80 are superseded**:
 
-| Local files | Superseded by |
-| --- | --- |
-| `ManagedProjectsFilter`, `RemoteProjectsFilter`, `ManagedProjectAuditFilter`, `RemoteProjectAuditFilter`, `AuditDateRange` | `src/table/generated/Openportal*Filter.tsx`, generated from `generate-filters-config.yaml`. Regenerate, never hand-edit. |
-| `ManagedProjectLink`, `ProjectTemplateLink` | Inlined into upstream's `ManagedProjectExpandableRow.tsx` as `ProjectLink` / `ProjectTemplateLink`, on `@/core/Link`. |
-| `ProjectTemplateCreateDialog`, `ProjectTemplateEditDialog`, `OfferingAutocompleteField`, `OrganizationAutocompleteField` | `ProjectTemplateDialog` + `ProjectTemplateFormFields`, using shared `@/marketplace/common/autocompletes` and the `AsyncSelectGroup` Group pattern. |
-| `ProjectAutocompleteField` | Upstream's `AttachManagedProjectDialog`, via `createLoadOptions` + `AsyncSelectGroup`. |
-| `ProjectTemplateDetail` (+ its route) | `ProjectTemplateExpandableRow` in the list, plus `ProjectTemplateEditButton` / `ProjectTemplateDeleteButton`. |
-| The separate per-project managed-audit route | Upstream embeds `ManagedProjectAuditLog` inside `ManagedProjectDetail`. |
-| `EditAction`, `EditDialog` (both dirs) | `EditModalButton` from `@/core/buttons`. |
-| `OpenPortalAllocationActions`, `OpenPortalRemoteAllocationActions` | Upstream's declarative `actions.ts` (`ActionConfiguration`), registered in `src/resource/actions/registry.ts`. The fork's JSX `ActionGroup` form belongs to the old registry that no longer exists. |
-| `RequestLimitsChangeAction`, `RequestLimitsChangeDialog` (both dirs) | Generic `src/marketplace/resources/request-limits-change/`. |
-| `OpenPortalCredentialsForm`, `OpenPortalRemoteCredentialsForm` | `OpenPortalCredentialsSection` / `OpenPortalRemoteCredentialsSection`. |
-| `FormFinalConfigurationStep`, `ResourceNameGroup` | `@/marketplace/deploy/steps/`; upstream's `constants.ts` already imports the shared step. |
-| `bindings/` (28 files) | `waldur-js-client` generated types. Upstream's `reports/api.ts` already imports `ProjectTemplate`, `ManagedProject`, `OpenportalProjectUsageReportsListData` and friends directly. This is exactly what the plan's section 3.2 recommended; upstream got there first. |
-| `details/` in both dirs, `QuotaPie` (+ test + snapshot), `SubmitJobAction`, `SubmitJobDialog`, `AllocationUsersTable`, `provider.ts`, `reports/index.ts`, `RemoteProjectExpandableRow` (~26 files) | Dead code. Nothing outside `src/openportal*` imports them; within it, only each other and their own tests. The one external consumer of the pattern, `src/slurm/`, was deleted upstream entirely, and the fork never modified it. |
+| Local files                                                                                                                                                                                        | Superseded by                                                                                                                                                                                                                                                         |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ManagedProjectsFilter`, `RemoteProjectsFilter`, `ManagedProjectAuditFilter`, `RemoteProjectAuditFilter`, `AuditDateRange`                                                                         | `src/table/generated/Openportal*Filter.tsx`, generated from `generate-filters-config.yaml`. Regenerate, never hand-edit.                                                                                                                                              |
+| `ManagedProjectLink`, `ProjectTemplateLink`                                                                                                                                                        | Inlined into upstream's `ManagedProjectExpandableRow.tsx` as `ProjectLink` / `ProjectTemplateLink`, on `@/core/Link`.                                                                                                                                                 |
+| `ProjectTemplateCreateDialog`, `ProjectTemplateEditDialog`, `OfferingAutocompleteField`, `OrganizationAutocompleteField`                                                                           | `ProjectTemplateDialog` + `ProjectTemplateFormFields`, using shared `@/marketplace/common/autocompletes` and the `AsyncSelectGroup` Group pattern.                                                                                                                    |
+| `ProjectAutocompleteField`                                                                                                                                                                         | Upstream's `AttachManagedProjectDialog`, via `createLoadOptions` + `AsyncSelectGroup`.                                                                                                                                                                                |
+| `ProjectTemplateDetail` (+ its route)                                                                                                                                                              | `ProjectTemplateExpandableRow` in the list, plus `ProjectTemplateEditButton` / `ProjectTemplateDeleteButton`.                                                                                                                                                         |
+| The separate per-project managed-audit route                                                                                                                                                       | Upstream embeds `ManagedProjectAuditLog` inside `ManagedProjectDetail`.                                                                                                                                                                                               |
+| `EditAction`, `EditDialog` (both dirs)                                                                                                                                                             | `EditModalButton` from `@/core/buttons`.                                                                                                                                                                                                                              |
+| `OpenPortalAllocationActions`, `OpenPortalRemoteAllocationActions`                                                                                                                                 | Upstream's declarative `actions.ts` (`ActionConfiguration`), registered in `src/resource/actions/registry.ts`. The fork's JSX `ActionGroup` form belongs to the old registry that no longer exists.                                                                   |
+| `RequestLimitsChangeAction`, `RequestLimitsChangeDialog` (both dirs)                                                                                                                               | Generic `src/marketplace/resources/request-limits-change/`.                                                                                                                                                                                                           |
+| `OpenPortalCredentialsForm`, `OpenPortalRemoteCredentialsForm`                                                                                                                                     | `OpenPortalCredentialsSection` / `OpenPortalRemoteCredentialsSection`.                                                                                                                                                                                                |
+| `FormFinalConfigurationStep`, `ResourceNameGroup`                                                                                                                                                  | `@/marketplace/deploy/steps/`; upstream's `constants.ts` already imports the shared step.                                                                                                                                                                             |
+| `bindings/` (28 files)                                                                                                                                                                             | `waldur-js-client` generated types. Upstream's `reports/api.ts` already imports `ProjectTemplate`, `ManagedProject`, `OpenportalProjectUsageReportsListData` and friends directly. This is exactly what the plan's section 3.2 recommended; upstream got there first. |
+| `details/` in both dirs, `QuotaPie` (+ test + snapshot), `SubmitJobAction`, `SubmitJobDialog`, `AllocationUsersTable`, `provider.ts`, `reports/index.ts`, `RemoteProjectExpandableRow` (~26 files) | Dead code. Nothing outside `src/openportal*` imports them; within it, only each other and their own tests. The one external consumer of the pattern, `src/slurm/`, was deleted upstream entirely, and the fork never modified it.                                     |
 
 Upstream's `src/openportal/routes.ts` is a strict superset of the fork's,
 route for route, plus `support.access-for-email`.
@@ -154,12 +154,12 @@ As on the mastermind side, only the local commits that postdate upstream's
 port are real work. Upstream ported OpenPortal in `0b0171df3` (2026-08-06);
 exactly **four** local OpenPortal commits are later than that:
 
-| Commit | Date | What |
-| --- | --- | --- |
+| Commit      | Date       | What                                                              |
+| ----------- | ---------- | ----------------------------------------------------------------- |
 | `9edb6ff5c` | 2026-08-13 | localStorage cache: quota-driven eviction and stale-version purge |
-| `a7cf91072` | 2026-08-13 | Bound uncached user-mapping fetches to 100 |
-| `37e0466c6` | 2026-08-17 | Offering filter on the allocation summary |
-| `72b74c6ca` | 2026-08-18 | Project usage/allocation dashboard cards |
+| `a7cf91072` | 2026-08-13 | Bound uncached user-mapping fetches to 100                        |
+| `37e0466c6` | 2026-08-17 | Offering filter on the allocation summary                         |
+| `72b74c6ca` | 2026-08-18 | Project usage/allocation dashboard cards                          |
 
 Everything earlier was available to upstream's port and is either in
 upstream already or superseded per the table above. These four are reshaped
@@ -190,10 +190,10 @@ and still present, as required.
 
 The fork's delta against upstream at the end of the resync:
 
-| | Files | Insertions | Deletions |
-| --- | --- | --- | --- |
-| Before (fork point `e506ac8e1` -> `e3872e5`) | 325 | 29,488 | 662 |
-| After (against `8.1.3-rc.8`) | 59 | 2,878 | 177 |
+|                                              | Files | Insertions | Deletions |
+| -------------------------------------------- | ----- | ---------- | --------- |
+| Before (fork point `e506ac8e1` -> `e3872e5`) | 325   | 29,488     | 662       |
+| After (against `8.1.3-rc.8`)                 | 59    | 2,878      | 177       |
 
 Sixteen of those files are new; the other 43 are edits to upstream files.
 Three of the new ones are these notes and a test, so the carried code is
@@ -213,12 +213,12 @@ export COREPACK_NPM_REGISTRY=https://registry.npmjs.org
 yarn install
 ```
 
-| Check | Result |
-| --- | --- |
-| `yarn tsgo -b` | clean |
+| Check             | Result                                               |
+| ----------------- | ---------------------------------------------------- |
+| `yarn tsgo -b`    | clean                                                |
 | `yarn lint:check` | 0 errors, 419 warnings — exactly upstream's baseline |
-| `yarn test --run` | 3,529 pass, 6 skipped, 0 fail |
-| `yarn build` | succeeds |
+| `yarn test --run` | 3,529 pass, 6 skipped, 0 fail                        |
+| `yarn build`      | succeeds                                             |
 
 The 419 lint warnings are upstream's own and were measured on the untouched
 tree before any local work; nothing here adds to them.
@@ -246,11 +246,11 @@ Three call sites cast their query object because the published
 comment pointing here, and all three are now resolved against an SDK generated
 locally from mastermind at `7ecfbd17`:
 
-| Call site | Was missing from the client | Resolution |
-| --- | --- | --- |
-| `openportal/reports/OrganisationAllocationTab.tsx` | `include_offering_names`, and `offering_names` on the response | cast dropped; uses `ProjectAccountingSummary` directly |
-| `project/ProjectProfile.tsx` | `project_uuid` on the proposals list | proposals section removed — see below |
-| `customer/team/CustomerUsersList.tsx` | `slug` in `CustomerUserFieldEnum` | cast dropped; `'slug'` moved into the typed `mandatoryFields` array |
+| Call site                                          | Was missing from the client                                    | Resolution                                                          |
+| -------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `openportal/reports/OrganisationAllocationTab.tsx` | `include_offering_names`, and `offering_names` on the response | cast dropped; uses `ProjectAccountingSummary` directly              |
+| `project/ProjectProfile.tsx`                       | `project_uuid` on the proposals list                           | proposals section removed — see below                               |
+| `customer/team/CustomerUsersList.tsx`              | `slug` in `CustomerUserFieldEnum`                              | cast dropped; `'slug'` moved into the typed `mandatoryFields` array |
 
 The second of these was a correction to the plan's section 6, which concluded
 that every field dropped with the local proposal work sat inside
@@ -275,3 +275,73 @@ single filter field in mastermind plus a revert of `35d8d25ed4` here.
 One upstream bug found and fixed here, worth offering back: upstream's
 `src/echarts/index.ts` does not register the `dataZoom` component or the
 `treemap` chart, both of which its own ported OpenPortal report charts use.
+
+## Moving to 8.1.3-rc.15
+
+The merge from `8.1.3-rc.8` to `8.1.3-rc.15` (326 commits, 1,416 files) is
+committed, with every conflict resolved. It **does not typecheck yet**, by
+decision: the tree is correct and the remaining errors all wait on a
+regenerated SDK. The resolutions are recorded here so the reasoning survives.
+
+### What still blocks the typecheck
+
+`yarn tsgo -b` reports **194 errors, none of them in this fork's code**. Every
+one is a type the rc.15 frontend expects from a newer mastermind schema than
+this fork's `waldur-js-client` was generated from — `rolesHygieneReportRetrieve`,
+`RoleHygieneFinding`, `Rule.user_identity_sources`, `RmqQueueStats.queue_kind`,
+`EventConsumer.user_username`, and so on across the administration, marketplace
+and openstack areas.
+
+All of them are present in the published client upstream itself pins
+(`8.1.3-rc.14.dev.20260917151209.353`), so nothing is missing upstream — this
+fork's client is simply older, being generated from a mastermind that predates
+them.
+
+**The remaining order of work:** `chryswoods/waldur-mastermind` merges upstream
+mastermind up to the rc.15-era backend, the SDK fork is regenerated and re-tagged
+from it, HomePort points at the new tag, and the tree then compiles. Until that
+tag exists the branch is intentionally red — do not paper over the errors with
+casts or shims, since the whole point of the strict typing is that it shows when
+the schema has moved.
+
+### The eleven conflicts and how they were resolved
+
+| File                                                 | Resolution                                                                                                                                                            |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `yarn.lock`                                          | upstream wholesale                                                                                                                                                    |
+| `package.json`                                       | keep the fork SDK dependency; drop upstream's published pin                                                                                                           |
+| `src/permissions/hasPermission.ts`                   | **upstream wholesale** — their fix supersedes ours, see below                                                                                                         |
+| `src/auth/LoginColumn.tsx`                           | union of both import blocks                                                                                                                                           |
+| `src/project/team/ProjectUsersList.tsx`              | union: keep `user_slug`, add upstream's `source`                                                                                                                      |
+| `src/project/team/TeamDropdownActions.tsx`           | union of both import blocks                                                                                                                                           |
+| `src/project/ProjectProfile.tsx`                     | upstream's `waldur-ui` Badge import; keep our `daysUntilAccessEnds` and `CopyToClipboardButton`                                                                       |
+| `src/project/ProjectLifecycleBadge.tsx`              | upstream's Badge API (`shape`/`tone`); keep our exclusive-end-date logic and the "last day" wording                                                                   |
+| `src/marketplace/resources/details/EndDateField.tsx` | upstream's `Tooltip`; keep our `formatRelativeEndDate` and `lastAccessDate`                                                                                           |
+| `src/navigation/sidebar/CallPublicMenu.tsx`          | keep our `return null` (finding 9); upstream only restyled the menu it replaced                                                                                       |
+| `src/project/ProjectDashboard.tsx`                   | drop upstream's duplicated widget Row — moving the description block down made git append it — and hand-port its one real change, `canViewTeam()`, onto our team gate |
+
+`src/openportal/award-pace/AwardPaceCard.tsx` also needed converting to the
+`waldur-ui` Badge and Tooltip API (`Variant` -> `BadgeVariant`, `pill outline`
+-> `shape="pill" tone="outline"`, `Tip` -> `Tooltip`, which drops the `id`
+prop). It is the only file of ours that the design-system migration touches.
+
+### Upstream has fixed finding 2
+
+`hasPermission` now iterates every matching role with `.some()` rather than
+taking the first, which is what this fork's fix did, and adds service-provider
+scope handling on top. Take upstream's version; ours is superseded. Finding 2
+can be struck from `upstream-bug-reports.md` now that this merge has landed.
+
+Findings 1, 6, 7, 8 and 9 are untouched at rc.15 — `src/echarts/index.ts`,
+`GracePeriodWarningBar.tsx` and `UserImpersonateButton.tsx` are byte-identical
+to rc.8, and `Table.tsx` changed only to move the filter header, not the
+initialisation effect.
+
+### The size of the rest
+
+`waldur-ui` becomes the design system between rc.8 and rc.15: imports of it go
+from 4 files to 484, and `src/core/Badge.tsx` is deleted. The prop API changes
+(`pill` → `shape="pill"`, `light`/`outline` → `tone=`, `Variant` →
+`BadgeVariant`). That conversion is mechanical and `tsgo` finds all of it, but
+it is the bulk of the work, and it lands on the policy-watch and award cards
+this fork has been building.

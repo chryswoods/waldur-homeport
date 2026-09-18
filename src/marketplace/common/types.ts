@@ -45,8 +45,6 @@ export interface OfferingConfiguration<
   pluginOptionsSerializer?: (formData) => any;
   secretOptionsSerializer?: (formData) => any;
   label: string;
-  showComponents?: boolean;
-  onlyOnePlan?: boolean;
   disableOfferingCreation?: boolean;
   schedulable?: boolean;
 

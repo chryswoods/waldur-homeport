@@ -8,11 +8,12 @@ import {
   MyAssignmentItem,
 } from 'waldur-js-client';
 
-import { Badge } from '@/core/Badge';
+import { Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { FAST_STALE_TIME } from '@/core/constants';
 import { formatDateTime } from '@/core/dateUtils';
 import { LoadingSpinner } from '@/core/LoadingSpinner';
-import { Tip } from '@/core/Tooltip';
 import { translate } from '@/i18n';
 import { createFetcher } from '@/table/api';
 import { ExpandableContainer } from '@/table/ExpandableContainer';
@@ -45,7 +46,7 @@ const StatusBadge: FC<{ status: string; statusDisplay: string }> = ({
   }, [status]);
 
   return (
-    <Badge variant={variant} size="sm" pill outline>
+    <Badge variant={variant} size="sm" shape="pill" tone="outline">
       {statusDisplay}
     </Badge>
   );
@@ -148,21 +149,20 @@ const BatchExpandableRow: FC<BatchExpandableRowProps> = ({ row }) => {
                 <td>
                   {item.has_coi ? (
                     <span className="d-inline-flex align-items-center gap-1">
-                      <Badge variant="danger" size="sm" outline>
+                      <Badge variant="danger" size="sm" tone="outline">
                         {translate('COI detected')}
                       </Badge>
-                      <Tip
-                        id={`coi-help-${item.uuid}`}
+                      <Tooltip
                         label={translate(
                           'A potential conflict of interest was detected for this proposal. It may be blocked from assignment.',
                         )}
                       >
                         <QuestionIcon
                           size={14}
-                          className="text-muted"
                           weight="bold"
+                          className="text-muted"
                         />
-                      </Tip>
+                      </Tooltip>
                     </span>
                   ) : (
                     <span className="text-muted">-</span>
@@ -202,7 +202,7 @@ const BatchStatusBadge: FC<{ status: string; statusDisplay: string }> = ({
   }, [status]);
 
   return (
-    <Badge variant={variant} size="sm" pill outline>
+    <Badge variant={variant} size="sm" shape="pill" tone="outline">
       {statusDisplay}
     </Badge>
   );
@@ -284,21 +284,20 @@ export const MyAssignmentsPage: FC = () => {
                 {row.expires_at ? formatDateTime(row.expires_at) : '-'}
                 {row.is_expired && (
                   <span className="d-inline-flex align-items-center gap-1 ms-1">
-                    <Badge variant="danger" size="sm" outline>
+                    <Badge variant="danger" size="sm" tone="outline">
                       {translate('Expired')}
                     </Badge>
-                    <Tip
-                      id={`expired-help-${row.uuid}`}
+                    <Tooltip
                       label={translate(
                         'The response window for this assignment batch has passed.',
                       )}
                     >
                       <QuestionIcon
                         size={14}
-                        className="text-muted"
                         weight="bold"
+                        className="text-muted"
                       />
-                    </Tip>
+                    </Tooltip>
                   </span>
                 )}
               </>

@@ -1,7 +1,8 @@
 import { QuestionIcon } from '@phosphor-icons/react';
 
+import { Tooltip } from 'waldur-ui';
+
 import { formatRelative } from '@/core/dateUtils';
-import { Tip } from '@/core/Tooltip';
 import FormTable from '@/form/FormTable';
 import { translate } from '@/i18n';
 import { formatSummary } from '@/resource/utils';
@@ -18,15 +19,13 @@ export const ResourceSummaryField = ({ resource }) => (
   <>
     {formatSummary(resource)}
     {resource.flavor_name && (
-      <Tip
-        id="resourceSummary"
+      <Tooltip
         label={translate('Flavor name: {flavor_name}', {
           flavor_name: resource.flavor_name,
         })}
       >
-        {' '}
-        <QuestionIcon size={17} weight="bold" />
-      </Tip>
+        <QuestionIcon size={17} weight="bold" className="ms-1" />
+      </Tooltip>
     )}
   </>
 );
@@ -40,18 +39,26 @@ export const PureVirtualMachineSummary = (props: ResourceSummaryProps) => {
         value={<ResourceSummaryField {...props} />}
       />
 
+      {/*
+        Three different things, so three different names. `internal_ips` are the
+        addresses the instance holds on the tenant's own networks -- fixed IPs,
+        in Nova's own term, which says where an address comes from rather than
+        who can reach it. `external_ips` are the floating IPs plus any directly
+        connected ones, so "Floating IPs" would not cover them. `external_address`
+        is narrower still: the address a floating IP is itself mapped to.
+      */}
       <Component
-        label={translate('Internal IP')}
+        label={translate('Fixed IPs')}
         value={<IPList value={props.resource.internal_ips} />}
       />
 
       <Component
-        label={translate('Floating IP')}
+        label={translate('External IPs')}
         value={<IPList value={props.resource.external_ips} />}
       />
 
       <Component
-        label={translate('External IPs')}
+        label={translate('Mapped public IPs')}
         value={<IPList value={props.resource.external_address} />}
       />
 

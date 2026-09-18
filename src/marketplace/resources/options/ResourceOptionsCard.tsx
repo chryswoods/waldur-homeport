@@ -2,10 +2,12 @@ import { ArrowRightIcon, InfoIcon } from '@phosphor-icons/react';
 import { FC, useMemo } from 'react';
 import { Resource, Offering } from 'waldur-js-client';
 
-import { Tip } from '@/core/Tooltip';
+import { Tooltip } from 'waldur-ui';
+
 import FormTable from '@/form/FormTable';
 import { translate } from '@/i18n';
 
+import { getHiddenOptionKeys } from '../../common/optionVisibility';
 import { MultiEditOptionsAction } from '../mass-actions/MultiEditOptionsAction';
 
 import { OptionValue } from './OptionValue';
@@ -56,16 +58,13 @@ const PendingChangeValue: FC<{
       <span>
         <OptionValue option={option} value={newValue} />
       </span>
-      <Tip
-        id={`pending-change-${option.name}`}
-        label={translate('This value was changed in a pending order')}
-      >
+      <Tooltip label={translate('This value was changed in a pending order')}>
         <InfoIcon
           size={16}
           weight="fill"
           className="text-info cursor-pointer"
         />
-      </Tip>
+      </Tooltip>
     </span>
   );
 };
@@ -79,6 +78,15 @@ export const ResourceOptionsCard: FC<ResourceOptionsCardProps> = (props) => {
   );
 
   const pendingChangesCount = pendingChange?.changedKeys.length || 0;
+
+  const hiddenKeys = useMemo(
+    () =>
+      getHiddenOptionKeys(
+        resourceOptions?.options,
+        props.resource.options as Record<string, unknown>,
+      ),
+    [resourceOptions?.options, props.resource.options],
+  );
 
   if (!resourceOptions?.order?.length) {
     return (
@@ -121,6 +129,12 @@ export const ResourceOptionsCard: FC<ResourceOptionsCardProps> = (props) => {
     >
       <FormTable>
         {resourceOptions.order?.map((key) => {
+          // Options hidden by the resource's current values have no value
+          // and cannot be edited on their own; the full options dialog shows
+          // them once the controlling option is changed.
+          if (hiddenKeys.has(key)) {
+            return null;
+          }
           const option = {
             ...resourceOptions.options[key],
             name: key,

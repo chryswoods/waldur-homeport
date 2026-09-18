@@ -58,6 +58,7 @@ export enum MarketplaceFeatures {
   show_managed_projects = 'marketplace.show_managed_projects',
   show_openstack_duplicate_offerings = 'marketplace.show_openstack_duplicate_offerings',
   show_posix_id_pools = 'marketplace.show_posix_id_pools',
+  show_provider_accounts = 'marketplace.show_provider_accounts',
   show_resource_end_date = 'marketplace.show_resource_end_date',
 }
 
@@ -93,6 +94,10 @@ export enum RancherFeatures {
 export enum ResellerFeatures {
   affiliates = 'reseller.affiliates',
   arrow = 'reseller.arrow',
+}
+
+export enum SramFeatures {
+  integration = 'sram.integration',
 }
 
 export enum SupportFeatures {
@@ -133,6 +138,7 @@ export type FeaturesEnum =
   | ProjectFeatures
   | RancherFeatures
   | ResellerFeatures
+  | SramFeatures
   | SupportFeatures
   | UserFeatures
 ;

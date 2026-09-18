@@ -8,8 +8,9 @@ import {
   usersList,
 } from 'waldur-js-client';
 
-import { Badge } from '@/core/Badge';
-import { Tip } from '@/core/Tooltip';
+import { BadgeVariant, Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { truncate } from '@/core/utils';
 import { deleteDuplicateRecords } from '@/customer/import/utils';
 import { FieldErrorMessage } from '@/form/FieldError';
@@ -34,8 +35,8 @@ const getStatusMessages = () => ({
   created: translate('Created'),
   erred: translate('Erred'),
 });
-const statusColors = {
-  ready: 'default',
+const statusColors: Record<RecordStatus['status'], BadgeVariant> = {
+  ready: 'neutral',
   created: 'success',
   erred: 'danger',
 };
@@ -50,32 +51,35 @@ const StatusField = ({
   const validate = validateOfferingUserCreation(row);
   const statusMessages = getStatusMessages();
   return status ? (
-    <Tip
-      id={`tip-error-${row.uuid}`}
+    <Tooltip
       label={
         status.status === 'erred' && <FieldErrorMessage error={status.error} />
       }
     >
-      <Badge variant={statusColors[status.status]} pill outline>
+      <Badge variant={statusColors[status.status]} shape="pill" tone="outline">
         {statusMessages[status.status]}
       </Badge>
-    </Tip>
+    </Tooltip>
   ) : (
-    <Tip id={`tip-error-${row.uuid}`} label={validate.reason[0]}>
-      <Badge variant={validate.valid ? 'default' : 'danger'} pill outline>
+    <Tooltip label={validate.reason[0]}>
+      <Badge
+        variant={validate.valid ? 'neutral' : 'danger'}
+        shape="pill"
+        tone="outline"
+      >
         {validate.valid
           ? translate('Ready')
           : statusMessages[validate.errors[0]]}
       </Badge>
-    </Tip>
+    </Tooltip>
   );
 };
 
 const WithTooltip = ({ label = '', len = 24 }) =>
   label?.length > len ? (
-    <Tip label={label} id="tip-truncated">
-      {truncate(label, len)}
-    </Tip>
+    <Tooltip label={label}>
+      <span>{truncate(label, len)}</span>
+    </Tooltip>
   ) : (
     label || DASH_ESCAPE_CODE
   );

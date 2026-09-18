@@ -1,8 +1,9 @@
 import { QuestionIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 
+import { Tooltip } from 'waldur-ui';
+
 import { defaultCurrency } from '@/core/formatCurrency';
-import { Tip } from '@/core/Tooltip';
 import { translate } from '@/i18n';
 import { getFormLimitParser } from '@/marketplace/common/registry';
 import { useShouldConcealPrices } from '@/marketplace/common/useShouldConcealPrices';
@@ -24,16 +25,17 @@ import {
 export const LimitsUpdate = ({ order, offering }: OrderTypeBasedProps) => {
   const shouldConcealPrices = useShouldConcealPrices(order.project_uuid);
   const data = useMemo(() => {
+    const plan = offering.plans.find((p) => p.uuid === order.plan_uuid);
     const requirements = getLimitChangeRequirements(
       { limits: (order.attributes as any).old_limits, current_usages: {} },
       offering,
+      plan,
     );
     const limitParser = getFormLimitParser(order.offering_type);
     const resourceLimits = limitParser(order.limits);
 
     if (requirements) {
       const newLimits = resourceLimits;
-      const plan = offering.plans.find((p) => p.uuid === order.plan_uuid);
       if (!plan) {
         return {
           components: [],
@@ -80,9 +82,9 @@ export const LimitsUpdate = ({ order, offering }: OrderTypeBasedProps) => {
             render: ({ row }) => (
               <>
                 {row.name}
-                <Tip label={row.type} id={'tip-' + row.type} className="ms-1">
-                  <QuestionIcon weight="bold" />
-                </Tip>
+                <Tooltip label={row.type}>
+                  <QuestionIcon weight="bold" className="ms-1" />
+                </Tooltip>
               </>
             ),
             className: 'text-nowrap',

@@ -1,14 +1,14 @@
 import { FC } from 'react';
 import { AgentIdentity } from 'waldur-js-client';
 
-import { Badge } from '@/core/Badge';
+import { BadgeVariant } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { formatDateTime } from '@/core/dateUtils';
 import { LoadingSpinner } from '@/core/LoadingSpinner';
 import { translate } from '@/i18n';
 import { DASH_ESCAPE_CODE } from '@/table/constants';
 import { ExpandableContainer } from '@/table/ExpandableContainer';
-
-import { isConsumerQueue } from '../rabbitmq/utils';
 
 import { AgentQueuesTable } from './AgentQueuesTable';
 import { useAgentConnectionStats } from './useAgentConnectionStats';
@@ -17,7 +17,7 @@ interface AgentIdentityExpandableRowProps {
   row: AgentIdentity;
 }
 
-const getStateBadgeVariant = (state: string) => {
+const getStateBadgeVariant = (state: string): BadgeVariant => {
   switch (state) {
     case 'Active':
       return 'success';
@@ -26,7 +26,7 @@ const getStateBadgeVariant = (state: string) => {
     case 'Error':
       return 'danger';
     default:
-      return 'default';
+      return 'neutral';
   }
 };
 
@@ -34,7 +34,7 @@ const EventDeliverySection: FC<{ agentUuid: string }> = ({ agentUuid }) => {
   const { data, isLoading, isError } = useAgentConnectionStats();
   const agent = data?.agents.find((a) => a.uuid === agentUuid);
   const queues = agent?.queues ?? [];
-  const hasConsumerQueue = queues.some((q) => isConsumerQueue(q.name));
+  const hasConsumerQueue = queues.some((q) => q.kind === 'consumer');
 
   return (
     <>
@@ -49,8 +49,8 @@ const EventDeliverySection: FC<{ agentUuid: string }> = ({ agentUuid }) => {
                   ? 'secondary'
                   : 'warning'
             }
-            pill
-            outline={!hasConsumerQueue}
+            shape="pill"
+            tone={hasConsumerQueue ? 'solid' : 'outline'}
           >
             {hasConsumerQueue
               ? translate('Unified consumer')
@@ -155,8 +155,8 @@ export const AgentIdentityExpandableRow: FC<
                       <td>
                         <Badge
                           variant={getStateBadgeVariant(service.state)}
-                          pill
-                          outline
+                          shape="pill"
+                          tone="outline"
                         >
                           {service.state}
                         </Badge>

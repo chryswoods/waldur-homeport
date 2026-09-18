@@ -1,17 +1,17 @@
 import { ShieldWarningIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
 
-import { Badge } from '@/core/Badge';
-import { Tip } from '@/core/Tooltip';
+import { Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { translate } from '@/i18n';
 
 export const AssignmentOverrideIndicator: FC<{
   overrideReason: string;
   overriddenBy?: string;
-  uuid: string;
-}> = ({ overrideReason, overriddenBy, uuid }) => (
-  <Tip
-    id={`override-${uuid}`}
+  uuid?: string;
+}> = ({ overrideReason, overriddenBy }) => (
+  <Tooltip
     label={
       overriddenBy
         ? translate('Overridden by {user}: {reason}', {
@@ -26,9 +26,9 @@ export const AssignmentOverrideIndicator: FC<{
     <Badge
       variant="warning"
       leftIcon={<ShieldWarningIcon size={14} weight="bold" />}
-      outline
+      tone="outline"
     >
       {translate('Overridden')}
     </Badge>
-  </Tip>
+  </Tooltip>
 );

@@ -1,9 +1,10 @@
 import { Fragment, ReactNode, useCallback, useMemo } from 'react';
 import { User } from 'waldur-js-client';
 
+import { Badge, Tooltip } from 'waldur-ui';
+
 import { ENV } from '@/core/config';
 import { formatDate, formatDateTime } from '@/core/dateUtils';
-import { Tip } from '@/core/Tooltip';
 import { StaffOnlyIndicator } from '@/customer/details/StaffOnlyIndicator';
 import { isFeatureVisible } from '@/features/connect';
 import { UserFeatures } from '@/FeaturesEnums';
@@ -100,31 +101,38 @@ const computeStats = (fields: ProfileField[]): TabStats => {
   };
 };
 
-const TabBadge = ({ stats, tabKey }: { stats: TabStats; tabKey: string }) => {
+const TabBadge = ({ stats }: { stats: TabStats; tabKey?: string }) => {
   if (stats.missingMandatory > 0) {
     return (
-      <Tip
+      <Tooltip
         label={translate('Missing required fields: {fields}', {
           fields: stats.missingMandatoryFields.join(', '),
         })}
-        id={`tab-badge-${tabKey}`}
       >
-        <span
-          className="badge badge-sm badge-circle badge-danger ms-2"
+        <Badge
           data-testid="tab-badge-danger"
+          variant="danger"
+          size="sm"
+          shape="circle"
+          tone="solid"
+          className="ms-2"
         >
           {stats.missingMandatory}
-        </span>
-      </Tip>
+        </Badge>
+      </Tooltip>
     );
   }
   return (
-    <span
-      className="badge badge-sm badge-circle badge-light ms-2"
+    <Badge
+      variant="neutral"
+      size="sm"
+      shape="circle"
+      tone="light"
+      className="ms-2"
       data-testid="tab-badge-total"
     >
       {stats.total}
-    </span>
+    </Badge>
   );
 };
 
@@ -531,9 +539,9 @@ const buildGeographicFields = ({
               Array.isArray(value) && value.length > 0 ? (
                 <span className="d-flex flex-wrap gap-2">
                   {(value as string[]).map((code) => (
-                    <span key={code} className="badge badge-light">
+                    <Badge key={code} variant="neutral" tone="light">
                       <CountryFlag countryCode={code} fontSize={14} /> {code}
-                    </span>
+                    </Badge>
                   ))}
                 </span>
               ) : null)
@@ -811,9 +819,9 @@ const buildSystemFields = ({
                 ? user.eduperson_assurance
                 : []
               ).map((uri) => (
-                <span key={uri} className="badge badge-light-info">
+                <Badge key={uri} variant="info" tone="light">
                   {formatAssuranceUri(uri)}
-                </span>
+                </Badge>
               ))}
             </span>
           }
@@ -918,8 +926,39 @@ const buildStaffFields = ({
   isSelf,
 }: FieldBuilderContext): ProfileField[] => {
   const isStaffUser = currentUser?.is_staff;
+  const claims = Object.entries(user.details ?? {});
 
   return [
+    {
+      // Raw claims the identity provider asserted, for the claims listed in
+      // its extra fields. Auto-provisioning rules match on these to grant
+      // roles, so this answers "why did (or didn't) a rule fire for this
+      // user". Read-only: the backend refuses to write it, and a claim is the
+      // provider's assertion, not ours. Staff and support only — the API omits
+      // the field entirely for anyone else, hence the empty-safe access above.
+      name: 'details',
+      label: translate('Identity provider claims'),
+      enabled: claims.length > 0,
+      value: user.details,
+      node: (
+        <FormTable.Item
+          label={translate('Identity provider claims')}
+          value={
+            <div className="d-flex flex-column gap-1">
+              {claims.map(([claim, value]) => (
+                <div key={claim}>
+                  <span className="fw-semibold me-2">{claim}</span>
+                  <span className="text-muted">
+                    {Array.isArray(value) ? value.join(', ') : String(value)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          }
+          disabled={disabled}
+        />
+      ),
+    },
     {
       name: 'description',
       label: translate('Notes'),

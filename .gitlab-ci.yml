@@ -114,6 +114,24 @@ Run type checking:
   script:
     - yarn tsgo -b
 
+# Everything statically reachable from src/index.tsx is downloaded before the
+# first paint; scripts/bundle-budget.mjs keeps that set small and free of the
+# packages that are meant to load lazily. Runs on MRs so a regression is
+# caught before it lands on develop.
+Check cold-path budget:
+  <<: *linter-rules
+  variables:
+    # The production build peaks around 3.4 GB and the runners kill a job near
+    # 4 GB, so it dies part-way through rendering chunks -- before build:check
+    # measures anything. Bounding the heap keeps the peak at ~2.95 GB across
+    # runs and, more to the point, removes the spikes that made it
+    # intermittent. Costs no build time. Sourcemaps have to stay on: the budget
+    # script reads them to find which packages reach the cold path.
+    NODE_OPTIONS: --max-old-space-size=1536
+  script:
+    - yarn build
+    - yarn build:check
+
 # apps/* members aren't covered by the root `yarn tsgo -b` above — see
 # docs/micro-apps.md for the full apps/* pipeline this is one piece of.
 Run apps typecheck and build:
@@ -189,36 +207,78 @@ Run code duplication detection:
     - npx jscpd src/ --exitCode 1 -r consoleFull --pattern "**/*.scss"
     - npx jscpd src/ --exitCode 1 -r consoleFull --pattern "**/*.tsx" -k 250
 
+.unit-test-changes: &unit-test-changes
+  - src/**/*.css
+  - src/**/*.scss
+  - src/**/*.ts
+  - src/**/*.tsx
+  - package.json
+  - yarn.lock
+  - tsconfig.json
+  - typings.d.ts
+  - vite.config.ts
+  - vitest.config.ts
+  - test/**/*
+  - .gitlab-ci.yml
+
+# Nearly all of the suite's time is per-file startup (module import, jsdom,
+# setup), not test bodies, and a single runner only gives Vitest a few
+# workers -- so the suite is split into shards that run on separate runners.
+# Each shard writes a blob report; "Merge unit test reports" combines them
+# into the junit and coverage reports GitLab reads.
+#
+# Coverage adds about a fifth to each shard's run time, so it is collected on
+# develop only; MR pipelines leave COVERAGE_FLAG empty.
 Run unit tests:
   stage: test
   interruptible: true
+  parallel: 4
   variables:
     # vitest --coverage runs close to Node's default ~4 GB old-space ceiling and
     # OOMs when the build cache misses. Raise the heap for the test workers.
     NODE_OPTIONS: "--max-old-space-size=8192"
+    COVERAGE_FLAG: ""
   rules:
     - if: '$SKIP_TESTS == "true" || $SKIP_TESTS == "yes"'
       when: never
     - if: '$CI_COMMIT_BRANCH == "develop"'
+      variables:
+        COVERAGE_FLAG: "--coverage"
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes:
-        - src/**/*.css
-        - src/**/*.scss
-        - src/**/*.ts
-        - src/**/*.tsx
-        - package.json
-        - yarn.lock
-        - tsconfig.json
-        - typings.d.ts
-        - vite.config.ts
-        - test/*
+      changes: *unit-test-changes
       allow_failure: true
   script:
     # --project=unit: excludes the "storybook" Vitest project (added
     # alongside @storybook/addon-vitest) — that one needs a real browser
     # (Playwright/Chromium), which this job's plain node image doesn't
     # have. See "Run Storybook tests" below.
-    - yarn vitest --project=unit --run --reporter junit --outputFile junit.xml --coverage
+    - yarn vitest --project=unit --run --shard=${CI_NODE_INDEX}/${CI_NODE_TOTAL} --reporter=default --reporter=blob $COVERAGE_FLAG
+  artifacts:
+    when: always
+    expire_in: 1 day
+    paths:
+      - .vitest-reports/
+
+# Runs even when a shard failed, so the MR still shows which tests failed.
+Merge unit test reports:
+  stage: test
+  interruptible: true
+  needs: ["Run unit tests"]
+  variables:
+    COVERAGE_FLAG: ""
+  rules:
+    - if: '$SKIP_TESTS == "true" || $SKIP_TESTS == "yes"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      when: always
+      variables:
+        COVERAGE_FLAG: "--coverage"
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *unit-test-changes
+      when: always
+      allow_failure: true
+  script:
+    - yarn vitest --project=unit --merge-reports --reporter=junit --outputFile=junit.xml $COVERAGE_FLAG
   coverage: /All\sfiles.*?\s+(\d+.\d+)/
   artifacts:
     when: always
@@ -292,7 +352,11 @@ Run E2E tests:
     - yarn test:e2e
   artifacts:
     expire_in: 1 week
-    when: always
+    # `on_failure`, not `always`: test-results/ is Playwright's failure
+    # diagnostics — traces, screenshots, diffs — and nobody opens it for a
+    # green run. Uploading it anyway turns any coordinator hiccup into a red
+    # job on passing tests, which is how jobs 825167/825168 failed.
+    when: on_failure
     paths:
       - test-results/
 
@@ -351,7 +415,9 @@ Run E2E visual tests:
     - yarn test:e2e:visual base-button-parity --shard=${CI_NODE_INDEX}/${CI_NODE_TOTAL}
   artifacts:
     expire_in: 1 week
-    when: always
+    # See "Run e2e tests" above: screenshot diffs are only worth keeping when
+    # a comparison failed.
+    when: on_failure
     paths:
       - test-results/
 
@@ -589,7 +655,10 @@ Trigger integration tests:
     - job: Publish latest docker image
       optional: true
   # TRIGGER_SOURCE lets the downstream E2E suite skip backend-only jobs
-  # (ansible, mitogen, SCIM, OIDC, GLAuth) that a frontend change cannot affect.
+  # (ansible, mitogen, terraform, SCIM, GLAuth, OpenPortal, waldur-cli) that
+  # drive the Mastermind API directly and start no browser. The OIDC suite is
+  # NOT among them: it drives the homeport login page in Playwright, so it runs
+  # on our triggers and a frontend change can break it.
   variables:
     TRIGGER_SOURCE: homeport
   # Only run E2E when a change can actually affect the built frontend image.

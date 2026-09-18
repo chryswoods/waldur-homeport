@@ -5,7 +5,7 @@ import { Modal } from 'react-bootstrap';
 import Illustration from '@/images/table-placeholders/undraw_fixing_bugs_w7gi.svg';
 
 import { lazyComponent } from './core/lazyComponent';
-import { SubmitButton } from './form';
+import { SubmitButton } from './form/SubmitButton';
 import { translate } from './i18n';
 import './LoadingScreen.css';
 import { ThemeProvider } from './theme/ThemeProvider';
@@ -43,17 +43,20 @@ export const LoadingScreen: FunctionComponent<{
                   </Modal>
                 )}
                 <div className="d-flex gap-4 mt-2">
-                  {error.stack && (
-                    <SubmitButton
-                      submitting={false}
-                      type="button"
-                      variant="tertiary"
-                      onClick={() => setShow(true)}
-                      label={translate('Show error trace')}
-                      iconNode={<EyeIcon weight="bold" />}
-                      iconOnLeft
-                    />
-                  )}
+                  {/* Not gated on error.stack: the actionable detail lives on
+                      error.cause, which is often not an Error and so has no
+                      stack of its own. Gating on it hid the trace in exactly
+                      the cases where the message alone was not enough to act
+                      on. */}
+                  <SubmitButton
+                    submitting={false}
+                    type="button"
+                    variant="tertiary"
+                    onClick={() => setShow(true)}
+                    label={translate('Show error trace')}
+                    iconNode={<EyeIcon weight="bold" />}
+                    iconOnLeft
+                  />
                   <SubmitButton
                     submitting={false}
                     type="button"

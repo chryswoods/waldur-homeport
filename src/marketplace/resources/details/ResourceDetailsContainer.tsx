@@ -15,7 +15,13 @@ import { goToNotFound } from '@/error/utils';
 import { ErrorView } from '@/ErrorView';
 import { translate } from '@/i18n';
 import { PublicMaintenanceCard } from '@/maintenance/public/PublicMaintenanceCard';
+import { countLimitChangeRequests } from '@/marketplace/common/api';
+import { findResourcePlan } from '@/marketplace/details/plan/effectiveComponents';
 import { hasFreshConsumerResponse } from '@/marketplace/orders/utils';
+import {
+  needsPendingLimitChangeRequestsCount,
+  PENDING_LIMIT_CHANGE_REQUESTS_COUNT_KEY,
+} from '@/marketplace/resources/request-limits-change/utils';
 import { useModal } from '@/modal/actions';
 import {
   useBreadcrumbs,
@@ -31,6 +37,7 @@ import { usePageTabsTransmitter } from '@/navigation/usePageTabsTransmitter';
 import { INSTANCE_TYPE, TENANT_TYPE, VOLUME_TYPE } from '@/openstack/constants';
 import { PermissionEnum } from '@/permissions/enums';
 import { hasPermission } from '@/permissions/hasPermission';
+import { canViewTeam } from '@/permissions/teamVisibility';
 import { ProjectUsersBadge } from '@/project/ProjectUsersBadge';
 import { router } from '@/router';
 import { setCurrentResource } from '@/workspace/actions';
@@ -188,6 +195,31 @@ export const ResourceDetailsContainer: FunctionComponent<{}> = () => {
           customerId: resource.customer_uuid,
         })
       : false);
+  // Only fetched for someone who could see the limit change requests tab on an
+  // offering that has stopped accepting requests: pending ones keep the tab so
+  // they can still be rejected. A failed count only leaves that tab hidden, it
+  // never takes the page down.
+  const needsPendingLimitCount = Boolean(
+    resource &&
+    data?.offering &&
+    needsPendingLimitChangeRequestsCount({
+      canManage: canManageLimitRequests,
+      offering: data.offering,
+      plan: findResourcePlan(data.offering.plans, resource.plan_uuid),
+      hasPlan: Boolean(resource.plan_uuid),
+    }),
+  );
+  const { data: pendingLimitChangeRequestsCount = 0 } = useQuery({
+    queryKey: [PENDING_LIMIT_CHANGE_REQUESTS_COUNT_KEY, resource?.uuid],
+    queryFn: () =>
+      countLimitChangeRequests({
+        resource_uuid: resource.uuid,
+        state: ['pending'],
+      }).catch(() => 0),
+    enabled: needsPendingLimitCount,
+    refetchOnWindowFocus: false,
+  });
+
   const tabs = useMemo(
     () =>
       data
@@ -199,6 +231,7 @@ export const ResourceDetailsContainer: FunctionComponent<{}> = () => {
             isRPOnly,
             canManageLimitRequests,
             canManageEndDateRequests,
+            pendingLimitChangeRequestsCount,
           })
         : [],
     [
@@ -209,6 +242,7 @@ export const ResourceDetailsContainer: FunctionComponent<{}> = () => {
       isRPOnly,
       canManageLimitRequests,
       canManageEndDateRequests,
+      pendingLimitChangeRequestsCount,
     ],
   );
 
@@ -390,19 +424,28 @@ export const ResourceDetailsContainer: FunctionComponent<{}> = () => {
     });
   }, [resource]);
 
-  useToolbarActions(
-    <ProjectUsersBadge
-      compact
-      max={3}
-      className={classNames(
-        'col-auto align-items-center me-10',
-        data?.offering?.state === 'Unavailable' && 'disabled-view',
-      )}
-      onClick={openTeamModal}
-      projectId={resource?.project_uuid}
-    />,
+  // The badge lists the parent project's team, which needs the view-team
+  // permission; without it the request is a 403, so it is not made at all.
+  const showProjectTeam = canViewTeam(user, {
+    customerId: resource?.customer_uuid,
+    projectId: resource?.project_uuid,
+  });
 
-    [openTeamModal],
+  useToolbarActions(
+    showProjectTeam ? (
+      <ProjectUsersBadge
+        compact
+        max={3}
+        className={classNames(
+          'col-auto align-items-center me-10',
+          data?.offering?.state === 'Unavailable' && 'disabled-view',
+        )}
+        onClick={openTeamModal}
+        projectId={resource?.project_uuid}
+      />
+    ) : null,
+
+    [openTeamModal, showProjectTeam],
   );
 
   const { tabSpec } = usePageTabsTransmitter(tabs);

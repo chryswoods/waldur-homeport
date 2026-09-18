@@ -39,16 +39,55 @@ export const checkIsOwner = (
       permission.role_name === RoleEnum.CUSTOMER_OWNER,
   );
 
+/**
+ * "Service provider manager" (CUSTOMER.MANAGER) is granted on the
+ * ServiceProvider object, not on its customer, so the permission's `scope_type`
+ * is 'service_provider' and its `scope_uuid` is the provider's. Matching
+ * `scope_uuid` against a customer therefore never held, and this returned false
+ * for every service provider manager there is. The organisation the provider
+ * belongs to is reported alongside as `customer_uuid`, which is what to match.
+ */
 export const checkIsServiceManager = (
-  customer: Customer,
+  customer: AtLeast<Customer, 'uuid'>,
   user: User,
 ): boolean =>
+  !!customer?.uuid &&
   !!user?.permissions?.find(
     (permission) =>
-      permission.scope_type === 'customer' &&
-      permission.scope_uuid === customer?.uuid &&
-      permission.role_name === RoleEnum.CUSTOMER_MANAGER,
+      permission.role_name === RoleEnum.CUSTOMER_MANAGER &&
+      permission.customer_uuid === customer.uuid,
   );
+
+/**
+ * Any role on a service provider belonging to the organization, custom roles
+ * included. Only such a role can make the organization "manager only", so it is
+ * a cheap pre-check before asking Mastermind for the flag.
+ */
+export const checkHasServiceProviderRole = (
+  customer: AtLeast<Customer, 'uuid'>,
+  user: User,
+): boolean =>
+  !!customer?.uuid &&
+  !!user?.permissions?.some(
+    (permission) =>
+      permission.scope_type === 'service_provider' &&
+      permission.customer_uuid === customer.uuid,
+  );
+
+/**
+ * Mastermind flags an organization the user reaches only through a role on its
+ * service provider, and returns only its identity (waldur/waldur-mastermind#396).
+ * The organization's own pages have nothing to show such a user, who belongs in
+ * the provider workspace instead. Read the flag rather than deriving it from
+ * `user.permissions`: those cannot tell which roles make an organization
+ * visible (an offering role does not, a resource role does).
+ */
+export const checkIsServiceManagerOnly = (
+  customer: Pick<Customer, 'is_service_provider_manager_only'> | undefined,
+): boolean => !!customer?.is_service_provider_manager_only;
+
+export const isServiceManagerOnly = (state: RootState): boolean =>
+  checkIsServiceManagerOnly(getCustomer(state));
 
 export const checkIsOwnerOrStaff = (
   customer: AtLeast<Customer, 'uuid'>,
@@ -130,9 +169,11 @@ export const isServiceProviderManager = (state: RootState): boolean => {
   return (
     user.permissions?.some(
       (p) =>
-        p.scope_type === 'customer' &&
-        (p.role_name === RoleEnum.CUSTOMER_OWNER ||
-          p.role_name === RoleEnum.CUSTOMER_MANAGER),
+        // CUSTOMER.MANAGER is scoped to a ServiceProvider, never to a customer
+        // — see checkIsServiceManager.
+        p.role_name === RoleEnum.CUSTOMER_MANAGER ||
+        (p.scope_type === 'customer' &&
+          p.role_name === RoleEnum.CUSTOMER_OWNER),
     ) ?? false
   );
 };

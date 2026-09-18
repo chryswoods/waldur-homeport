@@ -69,7 +69,6 @@ export default tseslint
         'waldur-custom/enforce-actions-dropdown-in-tables': 'warn',
         'waldur-custom/enforce-badge-icon-patterns': 'error',
         'waldur-custom/enforce-badge-props-consistency': 'error',
-        'waldur-custom/enforce-badge-design-tokens': 'error',
         'waldur-custom/no-manual-icon-colors-in-badges': 'error',
         'waldur-custom/enforce-badge-right-icon-pattern': 'error',
         'waldur-custom/enforce-button-variants': 'error',
@@ -81,6 +80,7 @@ export default tseslint
         // and converting one is a per-screen judgement rather than a mechanical
         // swap. They steer new code; promote to 'error' once the count is down.
         'waldur-custom/no-hand-rolled-table': 'warn',
+        'waldur-custom/no-hand-rolled-modal-footer': 'error',
         'waldur-custom/prefer-alert-item': 'warn',
         'waldur-custom/no-direct-bootstrap-dropdown-button': 'error',
         'waldur-custom/no-direct-client-usage': 'error',

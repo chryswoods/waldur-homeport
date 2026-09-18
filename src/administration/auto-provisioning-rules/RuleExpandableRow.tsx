@@ -54,6 +54,54 @@ export const RuleExpandableRow: FC<RuleExpandableRowProps> = ({ row }) => (
           valueClass="ellipsis"
           space={2}
         />
+        <Field
+          label={translate('Identity sources')}
+          value={
+            row.user_identity_sources?.length
+              ? row.user_identity_sources.join(', ')
+              : DASH_ESCAPE_CODE
+          }
+          valueClass="ellipsis"
+          space={2}
+        />
+        <Field
+          label={translate('Claims')}
+          value={
+            Object.keys(row.user_claims ?? {}).length
+              ? Object.entries(row.user_claims)
+                  .map(
+                    ([claim, values]) =>
+                      `${claim}: ${(values as string[]).join(', ')}`,
+                  )
+                  .join(' · ')
+              : DASH_ESCAPE_CODE
+          }
+          valueClass="ellipsis"
+          space={2}
+        />
+        <Field
+          label={translate('Organization role')}
+          value={row.customer_role_display_name || DASH_ESCAPE_CODE}
+          space={2}
+        />
+        <Field
+          label={translate('Creates project')}
+          value={row.create_project ? translate('Yes') : translate('No')}
+          space={2}
+        />
+        {row.create_project && (
+          <Field
+            label={translate('Project name template')}
+            value={row.project_name_template || translate('Username')}
+            valueClass="ellipsis"
+            space={2}
+          />
+        )}
+        <Field
+          label={translate('Revokes when unmatched')}
+          value={row.revoke_when_unmatched ? translate('Yes') : translate('No')}
+          space={2}
+        />
       </Col>
     </Row>
   </ExpandableContainer>

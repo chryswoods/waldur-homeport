@@ -1,11 +1,12 @@
 import { QuestionIcon } from '@phosphor-icons/react';
 
+import { Tooltip } from 'waldur-ui';
+
 import {
   formatDate,
   formatRelativeEndDate,
   lastAccessDate,
 } from '@/core/dateUtils';
-import { Tip } from '@/core/Tooltip';
 import { WarnTip } from '@/core/WarnTip';
 import { translate } from '@/i18n';
 import { Field } from '@/resource/summary';
@@ -72,12 +73,12 @@ export const EndDateField = ({ resource }) => {
               hasSpace
               autoWidth
               className="w-100"
-              tipClassName="mw-275px"
+              contentClassName="mw-275px"
             />
           ) : ownEndDate && projectEndDate ? (
-            <Tip id="end-date-tooltip" label={tooltipContent}>
+            <Tooltip label={tooltipContent}>
               <QuestionIcon size={15} weight="bold" />
-            </Tip>
+            </Tooltip>
           ) : null}
         </span>
       }

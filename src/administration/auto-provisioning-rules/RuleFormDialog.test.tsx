@@ -26,9 +26,20 @@ const systemProjectRole = {
 const renderDialog = (resolve: any = { refetch: vi.fn() }) =>
   renderWithProviders(<RuleFormDialog resolve={resolve} />);
 
-const fillRequiredFields = async (user: ReturnType<typeof userEvent.setup>) => {
-  await user.type(screen.getByLabelText(/Rule name/i), 'Default users');
+/** Advance the wizard by one step. */
+const next = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(screen.getByRole('button', { name: /^Next$/i }));
+};
 
+/** Step 1 asks only for the rule name; the roles live on step 2. */
+const fillMatchingStep = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.type(screen.getByLabelText(/Rule name/i), 'Default users');
+};
+
+const fillGrantsStep = async (user: ReturnType<typeof userEvent.setup>) => {
+  // Resolving the organization from the claim avoids driving the async
+  // organization autocomplete, and is what the original tests did.
+  await user.click(screen.getByLabelText(/Use user organization/i));
   const roleSelect = screen.getByLabelText(/Project role/i);
   await user.click(roleSelect);
   await user.click(await screen.findByText('Administrator'));
@@ -51,7 +62,7 @@ describe('RuleFormDialog', () => {
     renderDialog({ refetch });
 
     await screen.findByText('Add auto-provisioning rule');
-    await fillRequiredFields(user);
+    await fillMatchingStep(user);
 
     // The list controls hand the form an array, not the string the submit
     // handler used to assume — typing into either one made Confirm inert.
@@ -60,8 +71,15 @@ describe('RuleFormDialog', () => {
       screen.getByLabelText(/Email patterns/i),
       '.*@example.com .*@example.org',
     );
-    // The organization is required while the rule is not name-matched.
-    await user.click(screen.getByLabelText(/Use user organization/i));
+
+    await next(user);
+    await fillGrantsStep(user);
+    // Braces are userEvent key descriptors, so the template is typed escaped.
+    await user.type(
+      screen.getByLabelText(/Project name template/i),
+      '{{full_name} workspace',
+    );
+    await next(user);
 
     await user.click(screen.getByRole('button', { name: /Confirm/i }));
 
@@ -70,6 +88,7 @@ describe('RuleFormDialog', () => {
         body: expect.objectContaining({
           name: 'Default users',
           project_role_name: 'admin',
+          project_name_template: '{full_name} workspace',
           user_affiliations: ['student', 'faculty'],
           user_email_patterns: ['.*@example.com', '.*@example.org'],
         }),
@@ -87,8 +106,10 @@ describe('RuleFormDialog', () => {
     renderDialog();
 
     await screen.findByText('Add auto-provisioning rule');
-    await fillRequiredFields(user);
-    await user.click(screen.getByLabelText(/Use user organization/i));
+    await fillMatchingStep(user);
+    await next(user);
+    await fillGrantsStep(user);
+    await next(user);
 
     await user.click(screen.getByRole('button', { name: /Confirm/i }));
 
@@ -108,6 +129,8 @@ describe('RuleFormDialog', () => {
         customer: 'https://example.com/api/customers/1/',
         customer_name: 'Org',
         project_role_display_name: 'admin',
+        create_project: true,
+        project_name_template: '{username}_ws',
         use_user_organization_as_customer_name: false,
         user_affiliations: ['student'],
         user_email_patterns: ['.*@example.com'],
@@ -116,12 +139,16 @@ describe('RuleFormDialog', () => {
 
     await screen.findByText('Edit auto-provisioning rule');
 
+    // Seeded values carry across the steps untouched; walk to the last one.
+    await next(user);
+    await next(user);
     await user.click(screen.getByRole('button', { name: /^Edit$/i }));
 
     await waitFor(() => {
       expect(autoprovisioningRulesUpdate).toHaveBeenCalledWith({
         path: { uuid: 'rule-uuid' },
         body: expect.objectContaining({
+          project_name_template: '{username}_ws',
           user_affiliations: ['student'],
           user_email_patterns: ['.*@example.com'],
         }),

@@ -7,8 +7,11 @@ import {
   ProviderPlanDetails as Plan,
 } from 'waldur-js-client';
 
+import { AlertItem } from '@/core/AlertItem';
 import { SubmitButton } from '@/form';
 import { translate } from '@/i18n';
+import { resolvePlanComponents } from '@/marketplace/details/plan/effectiveComponents';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
 import { ModalDialog } from '@/modal/ModalDialog';
 import { useManagedMutation } from '@/modal/useManagedMutation';
 
@@ -54,10 +57,19 @@ const getInitialValues = (plan: Plan, components: OfferingComponent[]) => {
 export const EditPlanPricesDialog: FC<{
   resolve: { plan: Plan; offering: Offering; refetch?(): void };
 }> = (props) => {
-  const initialValues = useMemo(
+  // A usage plan prices core-hours and GB-hours, not the cores and GB the
+  // offering's components are declared in.
+  const components = useMemo(
     () =>
-      getInitialValues(props.resolve.plan, props.resolve.offering.components),
-    [props.resolve.plan, props.resolve.offering.components],
+      resolvePlanComponents(
+        props.resolve.offering.components,
+        props.resolve.plan,
+      ),
+    [props.resolve.offering.components, props.resolve.plan],
+  );
+  const initialValues = useMemo(
+    () => getInitialValues(props.resolve.plan, components),
+    [props.resolve.plan, components],
   );
 
   const updatePricesMutation = useManagedMutation<any, any, any>({
@@ -80,23 +92,36 @@ export const EditPlanPricesDialog: FC<{
       render={({ handleSubmit, submitting, invalid }) => (
         <form onSubmit={handleSubmit}>
           <ModalDialog
-            title={
-              props.resolve.plan.resources_count > 0
-                ? translate('Edit prices for next month')
-                : translate('Edit prices for current month')
-            }
+            title={translate('Edit prices')}
             footer={
-              <SubmitButton
-                disabled={invalid}
-                submitting={submitting}
-                label={translate('Save')}
-              />
+              <>
+                <CloseDialogButton />
+                <SubmitButton
+                  disabled={invalid}
+                  submitting={submitting}
+                  label={translate('Save')}
+                />
+              </>
             }
           >
-            <PricesTable
-              components={props.resolve.offering.components}
-              plan={props.resolve.plan}
+            <AlertItem
+              type="floating"
+              className="mb-5"
+              title={
+                props.resolve.plan.resources_count > 0
+                  ? translate('New prices apply from next month')
+                  : translate('New prices apply immediately')
+              }
+              body={
+                props.resolve.plan.resources_count > 0
+                  ? translate(
+                      '{count} resource(s) have been created on this plan. What has already been charged is not changed.',
+                      { count: props.resolve.plan.resources_count },
+                    )
+                  : translate('This plan has no resources yet.')
+              }
             />
+            <PricesTable components={components} plan={props.resolve.plan} />
           </ModalDialog>
         </form>
       )}

@@ -1,10 +1,19 @@
-import { CheckIcon, ProhibitIcon, SpinnerIcon } from '@phosphor-icons/react';
-import { Dropdown } from 'react-bootstrap';
+import {
+  CheckIcon,
+  ProhibitIcon,
+  QuestionIcon,
+  SpinnerIcon,
+} from '@phosphor-icons/react';
 import { User, usersPartialUpdate } from 'waldur-js-client';
+
+import { Tooltip } from 'waldur-ui';
 
 import { translate } from '@/i18n';
 import { useBatchMutation } from '@/modal/useBatchMutation';
-import { ActionsDropdownComponent } from '@/table/ActionsDropdown';
+import {
+  ActionsDropdownComponent,
+  ActionsDropdownItem,
+} from '@/table/ActionsDropdown';
 
 export const UserBulkActions = ({
   rows,
@@ -62,36 +71,65 @@ export const UserBulkActions = ({
 
   return (
     <ActionsDropdownComponent labeled drop="down">
-      <Dropdown.Item
-        onClick={() => activate()}
-        disabled={isLoading || inactiveUsers.length === 0}
-      >
-        {isActivating ? (
-          <SpinnerIcon
-            size={20}
-            className="animation-spin me-2"
-            weight="bold"
-          />
-        ) : (
-          <CheckIcon size={20} className="me-2" weight="bold" />
+      <div className="d-flex align-items-center">
+        <ActionsDropdownItem
+          className="flex-grow-1"
+          onSelect={() => activate()}
+          disabled={isLoading || inactiveUsers.length === 0}
+        >
+          {isActivating ? (
+            <SpinnerIcon
+              size={20}
+              className="animation-spin me-2"
+              weight="bold"
+            />
+          ) : (
+            <CheckIcon size={20} className="me-2" weight="bold" />
+          )}
+          {translate('Activate')}
+        </ActionsDropdownItem>
+        {/* A disabled ActionsDropdownItem gets pointer-events: none, so the
+            tooltip has to sit on a separate, non-disabled sibling rather
+            than wrap the item itself -- same trick ActionItem.tsx uses. */}
+        {inactiveUsers.length === 0 && (
+          <Tooltip
+            label={translate('None of the selected users are inactive.')}
+          >
+            <QuestionIcon
+              size={16}
+              weight="bold"
+              className="ms-1 me-3 text-muted"
+            />
+          </Tooltip>
         )}
-        {translate('Activate')}
-      </Dropdown.Item>
-      <Dropdown.Item
-        onClick={() => deactivate()}
-        disabled={isLoading || activeUsers.length === 0}
-      >
-        {isDeactivating ? (
-          <SpinnerIcon
-            size={20}
-            className="animation-spin me-2"
-            weight="bold"
-          />
-        ) : (
-          <ProhibitIcon size={20} className="me-2" weight="bold" />
+      </div>
+      <div className="d-flex align-items-center">
+        <ActionsDropdownItem
+          className="flex-grow-1"
+          onSelect={() => deactivate()}
+          disabled={isLoading || activeUsers.length === 0}
+        >
+          {isDeactivating ? (
+            <SpinnerIcon
+              size={20}
+              className="animation-spin me-2"
+              weight="bold"
+            />
+          ) : (
+            <ProhibitIcon size={20} className="me-2" weight="bold" />
+          )}
+          {translate('Deactivate')}
+        </ActionsDropdownItem>
+        {activeUsers.length === 0 && (
+          <Tooltip label={translate('None of the selected users are active.')}>
+            <QuestionIcon
+              size={16}
+              weight="bold"
+              className="ms-1 me-3 text-muted"
+            />
+          </Tooltip>
         )}
-        {translate('Deactivate')}
-      </Dropdown.Item>
+      </div>
     </ActionsDropdownComponent>
   );
 };

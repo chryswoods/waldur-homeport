@@ -3,11 +3,12 @@ import { useCurrentStateAndParams } from '@uirouter/react';
 import { FunctionComponent, useState } from 'react';
 import { useMediaQuery } from 'react-responsive';
 
+import { useSidebar, Tooltip } from 'waldur-ui';
+
 import { isAssistantEnabled } from '@/ai-assistant/utils';
 import { getIconUrl } from '@/core/api';
 import { GRID_BREAKPOINTS } from '@/core/constants';
 import { Link } from '@/core/Link';
-import { Tip } from '@/core/Tooltip';
 import { translate } from '@/i18n';
 import { hasSupport as hasSupportSelector } from '@/issues/hooks';
 import { isMatrixChatEnabled } from '@/matrix/utils';
@@ -20,24 +21,25 @@ import { QuickIssueDrawerToggle } from './QuickIssueDrawerToggle';
 import { SearchToggle } from './search/SearchToggle';
 import { UserDropdownMenu } from './UserDropdown';
 
-const AsideMobileToggle: FunctionComponent = () => (
-  <Tip
-    label={translate('Toggle navigation menu')}
-    id="aside-mobile-toggle"
-    placement="bottom"
-  >
-    <button
-      className="btn-nav-item me-1"
-      id="kt_aside_mobile_toggle"
-      type="button"
-      aria-label={translate('Toggle navigation menu')}
-    >
-      <span className="svg-icon svg-icon-1x">
-        <ListIcon weight="bold" />
-      </span>
-    </button>
-  </Tip>
-);
+const AsideMobileToggle: FunctionComponent = () => {
+  const { openMobile, toggleSidebar } = useSidebar();
+  return (
+    <Tooltip label={translate('Toggle navigation menu')} side="bottom">
+      <button
+        id="kt_aside_mobile_toggle"
+        type="button"
+        aria-label={translate('Toggle navigation menu')}
+        aria-expanded={openMobile}
+        onClick={toggleSidebar}
+        className="btn-nav-item me-1"
+      >
+        <span className="svg-icon svg-icon-1x">
+          <ListIcon weight="bold" />
+        </span>
+      </button>
+    </Tooltip>
+  );
+};
 
 interface AppHeaderProps {
   hasBreadcrumbs?: boolean;

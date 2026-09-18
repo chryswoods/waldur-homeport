@@ -1,14 +1,15 @@
 import { FC } from 'react';
 
-import { Badge } from '@/core/Badge';
-import { Tip } from '@/core/Tooltip';
+import { BadgeVariant, Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { translate } from '@/i18n';
 
-export const ROOM_STATE_VARIANT: Record<string, string> = {
+export const ROOM_STATE_VARIANT: Record<string, BadgeVariant> = {
   creating: 'blue',
   active: 'success',
   disabling: 'warning',
-  archived: 'default',
+  archived: 'neutral',
   error: 'danger',
 };
 
@@ -38,17 +39,17 @@ export const MatrixRoomStateBadge: FC<MatrixRoomStateBadgeProps> = ({
   state,
   errorMessage,
 }) => {
-  const variant = ROOM_STATE_VARIANT[state] || 'default';
+  const variant = ROOM_STATE_VARIANT[state] || 'neutral';
   const badge = (
-    <Badge variant={variant} pill outline>
+    <Badge variant={variant} shape="pill" tone="outline">
       {stateLabel(state)}
     </Badge>
   );
   if (state === 'error' && errorMessage) {
     return (
-      <Tip id="matrix-room-error" label={errorMessage}>
-        {badge}
-      </Tip>
+      <Tooltip label={errorMessage}>
+        <span>{badge}</span>
+      </Tooltip>
     );
   }
   return badge;

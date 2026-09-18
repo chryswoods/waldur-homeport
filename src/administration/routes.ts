@@ -10,10 +10,13 @@ import {
   ProjectFeatures,
   ResellerFeatures,
   SupportFeatures,
+  SramFeatures,
   UserFeatures,
 } from '@/FeaturesEnums';
 import { translate } from '@/i18n';
 import { hasSupport } from '@/issues/hooks';
+import { getMarketplaceTitle } from '@/marketplace/title';
+import { isSramUiEnabled } from '@/sram/utils';
 import { isStaff, isStaffOrSupport } from '@/workspace/selectors';
 
 export const states: StateDeclaration[] = [
@@ -95,7 +98,7 @@ export const states: StateDeclaration[] = [
     component: UIView,
     url: '',
     data: {
-      breadcrumb: () => translate('Marketplace'),
+      breadcrumb: () => getMarketplaceTitle(),
     },
   },
 
@@ -714,6 +717,21 @@ export const states: StateDeclaration[] = [
   },
 
   {
+    name: 'admin-role-hygiene',
+    url: 'role-hygiene/',
+    parent: 'admin-configuration',
+    component: lazyComponent(() =>
+      import('./roles/hygiene/RoleHygienePage').then((module) => ({
+        default: module.RoleHygienePage,
+      })),
+    ),
+    data: {
+      breadcrumb: () => translate('Role hygiene'),
+      permissions: [isStaff],
+    },
+  },
+
+  {
     name: 'admin-auto-provisioning-rules',
     url: 'auto-provisioning-rules/',
     parent: 'admin-configuration',
@@ -724,6 +742,24 @@ export const states: StateDeclaration[] = [
     ),
     data: {
       breadcrumb: () => translate('Auto-provisioning rules'),
+    },
+  },
+
+  {
+    name: 'admin-sram-integration',
+    url: 'sram-integration/?tab',
+    parent: 'admin-configuration',
+    component: lazyComponent(() =>
+      import('./sram/SramIntegrationPage').then((module) => ({
+        default: module.SramIntegrationPage,
+      })),
+    ),
+    data: {
+      breadcrumb: () => translate('SRAM integration'),
+      feature: SramFeatures.integration,
+      // The SRAM API is staff-only and answers 404 while the integration is
+      // off, so the page follows both.
+      permissions: [isStaff, () => isSramUiEnabled()],
     },
   },
 

@@ -1,8 +1,9 @@
 import { QuestionIcon } from '@phosphor-icons/react';
 import { FC, useMemo } from 'react';
 
-import { Badge } from '@/core/Badge';
-import { Tip } from '@/core/Tooltip';
+import { Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { translate } from '@/i18n';
 
 interface InvitationStatusBadgeProps {
@@ -34,18 +35,17 @@ export const InvitationStatusBadge: FC<InvitationStatusBadgeProps> = ({
       variant={variant}
       rightIcon={
         status === 'pending' ? (
-          <Tip
-            id={`pending-info-${statusDisplay}`}
+          <Tooltip
             label={translate(
               'This reviewer has not yet accepted the invitation or created a profile.',
             )}
           >
             <QuestionIcon size={14} weight="bold" />
-          </Tip>
+          </Tooltip>
         ) : undefined
       }
-      pill
-      outline
+      shape="pill"
+      tone="outline"
     >
       {statusDisplay}
     </Badge>

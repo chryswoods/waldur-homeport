@@ -1,13 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { FC } from 'react';
-import { Dropdown } from 'react-bootstrap';
 import {
   marketplaceProviderOfferingsSyncResources,
   ProviderOfferingDetails,
 } from 'waldur-js-client';
 
+import { Tooltip } from 'waldur-ui';
+
 import { lazyComponent } from '@/core/lazyComponent';
-import { Tip } from '@/core/Tooltip';
 import { translate } from '@/i18n';
 import { getServiceProviderByCustomer } from '@/marketplace/common/api';
 import { useModal } from '@/modal/actions';
@@ -15,6 +15,7 @@ import { useManagedMutation } from '@/modal/useManagedMutation';
 import { PermissionEnum } from '@/permissions/enums';
 import { hasPermission } from '@/permissions/hasPermission';
 import { ActionDropdownButton } from '@/table/ActionDropdownButton';
+import { ActionsDropdownItem } from '@/table/ActionsDropdown';
 import { useUser } from '@/workspace/hooks';
 
 import { SITE_AGENT_PLUGIN } from './constants';
@@ -120,43 +121,45 @@ export const SlurmOfferingActions: FC<SlurmOfferingActionsProps> = ({
       align="end"
     >
       {showSiteAgentConfig && (
-        <Tip
-          id="site-agent-config-item"
+        <Tooltip
           label={
             !serviceProvider
               ? translate('Service provider not found for this offering.')
               : null
           }
         >
-          <Dropdown.Item
-            onClick={openSiteAgentConfig}
-            disabled={!serviceProvider}
-          >
-            {translate('Generate Site Agent Config')}
-          </Dropdown.Item>
-        </Tip>
+          <span>
+            <ActionsDropdownItem
+              onSelect={openSiteAgentConfig}
+              disabled={!serviceProvider}
+            >
+              {translate('Generate Site Agent Config')}
+            </ActionsDropdownItem>
+          </span>
+        </Tooltip>
       )}
       {showLdapAgentEnv && (
-        <Dropdown.Item onClick={openLdapAgentEnv}>
+        <ActionsDropdownItem onSelect={openLdapAgentEnv}>
           {translate('Generate LDAP Agent Env')}
-        </Dropdown.Item>
+        </ActionsDropdownItem>
       )}
       {showSiteAgentConfig && canSyncResources && (
-        <Tip
-          id="sync-resources-item"
+        <Tooltip
           label={
             isSyncPending
               ? translate('Resource synchronization is in progress…')
               : null
           }
         >
-          <Dropdown.Item
-            onClick={() => syncResources()}
-            disabled={isSyncPending}
-          >
-            {translate('Synchronize resources')}
-          </Dropdown.Item>
-        </Tip>
+          <span>
+            <ActionsDropdownItem
+              onSelect={() => syncResources()}
+              disabled={isSyncPending}
+            >
+              {translate('Synchronize resources')}
+            </ActionsDropdownItem>
+          </span>
+        </Tooltip>
       )}
     </ActionDropdownButton>
   );

@@ -2,9 +2,10 @@ import { QuestionIcon } from '@phosphor-icons/react';
 import { FC, useMemo } from 'react';
 import { Card, Col, Row } from 'react-bootstrap';
 
-import { Badge } from '@/core/Badge';
+import { Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { Link } from '@/core/Link';
-import { Tip } from '@/core/Tooltip';
 import { isFeatureVisible } from '@/features/connect';
 import { translate } from '@/i18n';
 import { isExperimentalUiComponentsVisible } from '@/marketplace/utils';
@@ -33,32 +34,32 @@ const AnalyticsColumn = ({ report }: { report: ReportDefinition }) => {
   return (
     <div className="d-flex gap-2">
       {hasWhatIf && (
-        <Tip id={`${report.key}-whatif`} label={translate('What-If analysis')}>
+        <Tooltip label={translate('What-If analysis')}>
           <Link state={report.analyticsState} params={{ mode: 'what-if' }}>
             <Badge
-              variant="gray"
+              variant="neutral"
               leftIcon={<QuestionIcon weight="bold" />}
-              outline
+              tone="outline"
               className="cursor-pointer"
             >
               {translate('What if')}
             </Badge>
           </Link>
-        </Tip>
+        </Tooltip>
       )}
       {hasWhySo && (
-        <Tip id={`${report.key}-whyso`} label={translate('Why-So analysis')}>
+        <Tooltip label={translate('Why-So analysis')}>
           <Link state={report.analyticsState} params={{ mode: 'why-so' }}>
             <Badge
-              variant="gray"
+              variant="neutral"
               leftIcon={<QuestionIcon weight="bold" />}
-              outline
+              tone="outline"
               className="cursor-pointer"
             >
               {translate('Why so')}
             </Badge>
           </Link>
-        </Tip>
+        </Tooltip>
       )}
     </div>
   );

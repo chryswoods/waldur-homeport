@@ -30,6 +30,8 @@ const mandatoryFields = [
   'user_username',
   // Needed by the show_slug_as_id column in TeamTableComponent.
   'user_slug',
+  // Marks grants made by the SRAM integration
+  'source',
 ];
 
 const TeamSecondaryDropdownActions = ({ project, refetch }) => {

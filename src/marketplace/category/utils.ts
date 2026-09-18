@@ -73,7 +73,13 @@ export const getCategoryItems = (
 export const getGroupedCategories = (
   categories: Pick<
     Category,
-    'uuid' | 'offering_count' | 'group' | 'icon' | 'title' | 'resource_count'
+    | 'uuid'
+    | 'offering_count'
+    | 'group'
+    | 'icon'
+    | 'title'
+    | 'description'
+    | 'resource_count'
   >[],
   categoryGroups: CategoryGroup[],
 ): CategoryGroup[] => {
@@ -86,14 +92,15 @@ export const getGroupedCategories = (
       if (existGroup) {
         existGroup.categories.push(category);
         existGroup.offering_count += category.offering_count;
-        existGroup.resource_count += category.resource_count;
+        existGroup.resource_count =
+          (existGroup.resource_count || 0) + (category.resource_count || 0);
       } else {
-        Object.assign(categoryGroup, { categories: [category] });
-        Object.assign(categoryGroup, {
+        acc.push({
+          ...categoryGroup,
+          categories: [category],
           offering_count: category.offering_count,
           resource_count: category.resource_count,
         });
-        acc.push(categoryGroup);
       }
     } else {
       acc.push(category);

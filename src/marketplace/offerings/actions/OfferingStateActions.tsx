@@ -1,6 +1,11 @@
-import { PencilSimpleIcon } from '@phosphor-icons/react';
-import type { MouseEvent } from 'react';
-import { ButtonGroup, Dropdown } from 'react-bootstrap';
+import {
+  CheckCircleIcon,
+  PauseIcon,
+  PencilSimpleIcon,
+  PlayIcon,
+} from '@phosphor-icons/react';
+import classNames from 'classnames';
+import { type MouseEvent } from 'react';
 import {
   marketplaceProviderOfferingsActivate,
   marketplaceProviderOfferingsDraft,
@@ -60,6 +65,7 @@ export const OfferingStateActions = ({
   offering,
   refreshOffering,
   className = undefined,
+  asMenuItems = false,
 }) => {
   const runActionAndBlurOnPointerClick = (
     event: MouseEvent<HTMLElement>,
@@ -149,7 +155,7 @@ export const OfferingStateActions = ({
   const title = {
     [DRAFT]: activateTitle,
     [ACTIVE]: translate('Pause'),
-    [PAUSED]: translate('Unpause'),
+    [PAUSED]: translate('Resume'),
     [ARCHIVED]: draftTitle,
   }[offering.state];
 
@@ -159,6 +165,33 @@ export const OfferingStateActions = ({
     [PAUSED]: unpause,
     [ARCHIVED]: setDraft,
   }[offering.state];
+
+  if (asMenuItems) {
+    return (
+      <>
+        {offering.state !== DRAFT && (
+          <ActionItem
+            title={draftTitle}
+            action={() => setDraft()}
+            iconNode={<PencilSimpleIcon weight="bold" />}
+          />
+        )}
+        <MakeUnavailableAction
+          offering={offering}
+          refreshOffering={refreshOffering}
+          canManageOfferingLifecycle={canManageOfferingLifecycle}
+        />
+        <ArchiveOfferingAction
+          offering={offering}
+          refreshOffering={refreshOffering}
+        />
+        <DeleteOfferingAction
+          offering={offering}
+          canManageOfferingLifecycle={canManageOfferingLifecycle}
+        />
+      </>
+    );
+  }
 
   if (offering.state == UNAVAILABLE) {
     if (!canManageOfferingLifecycle) return null;
@@ -181,37 +214,20 @@ export const OfferingStateActions = ({
       />
     );
   }
+  const icon = {
+    [DRAFT]: <CheckCircleIcon weight="bold" />,
+    [ACTIVE]: <PauseIcon weight="bold" />,
+    [PAUSED]: <PlayIcon weight="bold" />,
+  }[offering.state];
+
   return (
-    <Dropdown as={ButtonGroup} className={className}>
-      <ActionButton
-        variant="primary"
-        action={(event) => runActionAndBlurOnPointerClick(event, callback)}
-        title={title}
-        data-testid="offering-primary-state-action"
-      />
-      <Dropdown.Toggle split variant="primary" className="px-4" />
-      <Dropdown.Menu>
-        {offering.state !== DRAFT && (
-          <ActionItem
-            title={draftTitle}
-            action={() => setDraft()}
-            iconNode={<PencilSimpleIcon weight="bold" />}
-          />
-        )}
-        <ArchiveOfferingAction
-          offering={offering}
-          refreshOffering={refreshOffering}
-        />
-        <MakeUnavailableAction
-          offering={offering}
-          refreshOffering={refreshOffering}
-          canManageOfferingLifecycle={canManageOfferingLifecycle}
-        />
-        <DeleteOfferingAction
-          offering={offering}
-          canManageOfferingLifecycle={canManageOfferingLifecycle}
-        />
-      </Dropdown.Menu>
-    </Dropdown>
+    <ActionButton
+      variant={offering.state === DRAFT ? 'primary' : 'secondary'}
+      action={(event) => runActionAndBlurOnPointerClick(event, callback)}
+      className={classNames('min-w-26', className)}
+      title={title}
+      iconNode={icon}
+      data-testid="offering-primary-state-action"
+    />
   );
 };

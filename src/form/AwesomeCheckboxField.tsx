@@ -3,7 +3,7 @@ import classNames from 'classnames';
 import { FunctionComponent, ReactNode } from 'react';
 import { Form } from 'react-bootstrap';
 
-import { Tip } from '@/core/Tooltip';
+import { Tooltip } from 'waldur-ui';
 
 import { FormField } from './types';
 
@@ -56,26 +56,27 @@ export const AwesomeCheckboxField: FunctionComponent<
       {(tooltip || label || help_text) && (
         <Form.Check.Label htmlFor={id}>
           {tooltip && !tooltipEnd && (
-            <Tip id={'form-field-tooltip-' + input.name} label={tooltip}>
-              <QuestionIcon
-                weight="bold"
-                size={20}
-                className="text-muted"
-              />{' '}
-            </Tip>
+            <>
+              <Tooltip label={tooltip}>
+                <QuestionIcon weight="bold" size={20} className="text-muted" />
+              </Tooltip>{' '}
+            </>
           )}
           {label}
-          {help_text && <p className="text-muted">{help_text}</p>}
+          {/* mb-0: the paragraph's own bottom margin lands inside the
+              control's box, so the gap below a toggle with help text came out
+              13px larger than the one above it. */}
+          {help_text && <p className="text-muted mb-0">{help_text}</p>}
         </Form.Check.Label>
       )}
       {tooltip && tooltipEnd && (
-        <Tip
-          id={'form-field-tooltip-' + input.name}
-          className="align-self-center ms-auto"
-          label={tooltip}
-        >
-          <QuestionIcon weight="bold" size={20} className="text-muted" />
-        </Tip>
+        <Tooltip label={tooltip}>
+          <QuestionIcon
+            weight="bold"
+            size={20}
+            className="align-self-center ms-auto text-muted"
+          />
+        </Tooltip>
       )}
     </div>
   );

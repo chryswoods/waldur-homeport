@@ -52,6 +52,77 @@ const preview: Preview = {
       },
     },
 
+    options: {
+      storySort: {
+        order: [
+          'Foundations',
+          ['Colors', 'Typography', 'Elevation'],
+          'Primitives',
+          [
+            'BaseButton',
+            'Badge',
+            'StatusPill',
+            'Avatar',
+            'Tooltip',
+            'Switch',
+            'LoadingSpinner',
+            'CopyButton',
+            'Card',
+          ],
+          'Overlays',
+          ['Popover', 'DropdownMenu', 'Dialog', 'Sheet'],
+          'Data Display',
+          ['Table', 'DataTable', 'StatCard'],
+          'Navigation',
+          [
+            'TopBar',
+            'Sidebar',
+            'ModePicker',
+            'LanguageMenu',
+            'ActionsDropdown',
+          ],
+          'Migration',
+          [
+            'BaseButton (Legacy)',
+            'BaseButton Parity',
+            'Badge Parity',
+            'StatCard Parity',
+          ],
+        ],
+      },
+    },
+
+    // Storybook 10's core viewport feature reads `options` (a Record<string,
+    // Viewport>) — not `viewports`, the old addon-viewport (Storybook 6/7)
+    // key. With `viewports`, this whole block was silently ignored and the
+    // toolbar fell back to its own built-in `MINIMAL_VIEWPORTS` list
+    // (Small mobile/Large mobile/Tablet/Desktop) instead, with no error —
+    // confirmed by inspecting node_modules/storybook/dist/chunk-*.d.ts's
+    // `ViewportParameters` type. Selecting one of these presets is a
+    // `globals.viewport` value (e.g. `{ globals: { viewport: 'mobile' } }`
+    // on a story/meta), not a `parameters.viewport.defaultViewport` —  that
+    // parameter doesn't exist in this version either.
+    viewport: {
+      options: {
+        mobile: {
+          name: 'Mobile (xs)',
+          styles: { width: '375px', height: '667px' },
+        },
+        tablet: {
+          name: 'Tablet (md)',
+          styles: { width: '768px', height: '1024px' },
+        },
+        desktop: {
+          name: 'Desktop (lg)',
+          styles: { width: '1024px', height: '768px' },
+        },
+        widescreen: {
+          name: 'Widescreen (xl)',
+          styles: { width: '1440px', height: '900px' },
+        },
+      },
+    },
+
     a11y: {
       // 'todo' - show a11y violations in the test UI only
       // 'error' - fail CI on a11y violations

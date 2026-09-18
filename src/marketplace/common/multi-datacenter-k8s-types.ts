@@ -8,6 +8,8 @@
  * 4. Per-Datacenter Worker/Storage Groups with flavor selection
  */
 
+import { LoadBalancerModeEnum, TopologyModeEnum } from 'waldur-js-client';
+
 import { translate } from '@/i18n';
 
 export interface LocalOpenStackFlavor {
@@ -43,13 +45,19 @@ export interface DatacenterConfiguration {
   node_groups: DatacenterNodeGroup[];
 }
 
+export type K8sClusterTopology = '1-datacenter' | '3-datacenter';
+
 export interface MultiDatacenterK8sClusterConfig {
   kubernetes_version: string;
-  topology: '1-datacenter' | '3-datacenter';
+  topology: K8sClusterTopology;
   datacenters: DatacenterConfiguration[];
   public_access_rules?: any[]; // Security rules for public access
   administrative_access_rules?: any[]; // Security rules for admin access
   install_longhorn?: boolean; // Optional Longhorn distributed storage installation
+  // Whether the cluster gets load balancer nodes. Absent in orders placed
+  // before the provider could make the load balancer optional, which always
+  // had one.
+  load_balancer?: boolean;
 }
 
 export interface K8sDefaultConfiguration {
@@ -61,6 +69,8 @@ export interface K8sDefaultConfiguration {
   default_lb_ram_gb?: number;
   default_lb_system_disk_gb?: number;
   default_lb_logs_disk_gb?: number;
+  load_balancer_mode?: LoadBalancerModeEnum;
+  topology_mode?: TopologyModeEnum;
   minimal_worker_vcpus?: number;
   minimal_worker_ram_gb?: number;
   default_worker_data_disk_gb?: number;
@@ -169,6 +179,78 @@ export const isK8sConfigurationComplete = (
 
 // Utility functions
 
+export const getLoadBalancerMode = (
+  defaultConfigs?: K8sDefaultConfiguration,
+): LoadBalancerModeEnum => defaultConfigs?.load_balancer_mode || 'required';
+
+/**
+ * The provider's topology setting. Options that predate it take the topology
+ * from their type: one site for single_datacenter_k8s_config, three sites for
+ * multi_datacenter_k8s_config.
+ */
+export const getTopologyMode = (
+  fieldType: string | undefined,
+  defaultConfigs?: K8sDefaultConfiguration,
+): TopologyModeEnum =>
+  defaultConfigs?.topology_mode ||
+  (fieldType === 'multi_datacenter_k8s_config'
+    ? '3-datacenter'
+    : '1-datacenter');
+
+const isClusterTopology = (value: unknown): value is K8sClusterTopology =>
+  value === '1-datacenter' || value === '3-datacenter';
+
+/**
+ * The topology the form starts with. A fixed mode always wins. With
+ * customer_choice the stored pick is kept, and a fresh form starts from the
+ * option type's topology.
+ */
+export const getInitialTopology = (
+  fieldType: string | undefined,
+  value: Partial<MultiDatacenterK8sClusterConfig> | undefined,
+  defaultConfigs?: K8sDefaultConfiguration,
+): K8sClusterTopology => {
+  const mode = getTopologyMode(fieldType, defaultConfigs);
+  if (mode !== 'customer_choice') {
+    return mode;
+  }
+  if (isClusterTopology(value?.topology)) {
+    return value.topology;
+  }
+  return fieldType === 'multi_datacenter_k8s_config'
+    ? '3-datacenter'
+    : '1-datacenter';
+};
+
+export const getTopologyOptions = (): Array<{
+  value: K8sClusterTopology;
+  label: string;
+}> => [
+  { value: '1-datacenter', label: translate('Single site, 3 controllers') },
+  {
+    value: '3-datacenter',
+    label: translate('Three sites, 1 controller each'),
+  },
+];
+
+/**
+ * The offering's mode wins over the stored flag, so a flag left over from a
+ * different mode cannot add or drop the load balancer.
+ */
+export const hasLoadBalancer = (
+  config: Pick<MultiDatacenterK8sClusterConfig, 'load_balancer'>,
+  defaultConfigs?: K8sDefaultConfiguration,
+): boolean => {
+  switch (getLoadBalancerMode(defaultConfigs)) {
+    case 'disabled':
+      return false;
+    case 'optional':
+      return config.load_balancer !== false;
+    default:
+      return true;
+  }
+};
+
 export const getDefaultDatacenterDiskConfig = (
   defaultConfigs?: K8sDefaultConfiguration,
 ): DatacenterDiskConfiguration => ({
@@ -184,23 +266,28 @@ export const getDefaultStorageDiskConfig = (
   virtual_san_disk_size_gb: defaultConfigs?.default_storage_san_disk_gb || 500,
 });
 
+const getDatacenterCount = (topology: K8sClusterTopology): number =>
+  topology === '1-datacenter' ? 1 : 3;
+
 export const createDefaultClusterConfig = (
-  topology: '1-datacenter' | '3-datacenter',
+  topology: K8sClusterTopology,
   defaultConfigs?: K8sDefaultConfiguration,
 ): MultiDatacenterK8sClusterConfig => {
-  const datacenterCount = topology === '1-datacenter' ? 1 : 3;
-  const datacenters = Array.from({ length: datacenterCount }, (_, i) => ({
-    id: `datacenter-${i + 1}`,
-    name: `Datacenter ${i + 1}`,
-    node_groups: [
-      {
-        id: `dc${i + 1}-worker-1`,
-        type: 'worker' as const,
-        node_count: 3,
-        disk_config: getDefaultDatacenterDiskConfig(defaultConfigs),
-      },
-    ],
-  }));
+  const datacenters = Array.from(
+    { length: getDatacenterCount(topology) },
+    (_, i) => ({
+      id: `datacenter-${i + 1}`,
+      name: `Datacenter ${i + 1}`,
+      node_groups: [
+        {
+          id: `dc${i + 1}-worker-1`,
+          type: 'worker' as const,
+          node_count: 3,
+          disk_config: getDefaultDatacenterDiskConfig(defaultConfigs),
+        },
+      ],
+    }),
+  );
 
   // Preselect the first version the offering actually advertises. A hardcoded
   // default would leave the select showing its placeholder (the value is not
@@ -213,11 +300,98 @@ export const createDefaultClusterConfig = (
     kubernetes_version: defaultVersion?.value ?? '',
     topology,
     datacenters,
+    load_balancer: getLoadBalancerMode(defaultConfigs) !== 'disabled',
   };
 };
 
+/**
+ * Rebuild the sites for another topology. Cluster-wide choices (version,
+ * access rules, Longhorn, load balancer) are kept; per-site infrastructure and
+ * node groups start over, because they cannot be mapped between one site and
+ * three.
+ */
+export const changeClusterTopology = (
+  config: MultiDatacenterK8sClusterConfig,
+  topology: K8sClusterTopology,
+  defaultConfigs?: K8sDefaultConfiguration,
+): MultiDatacenterK8sClusterConfig => ({
+  ...config,
+  topology,
+  datacenters: createDefaultClusterConfig(topology, defaultConfigs).datacenters,
+});
+
+const inferTopology = (
+  datacenters: unknown[],
+  fallback: K8sClusterTopology,
+): K8sClusterTopology => {
+  if (datacenters.length === 1) {
+    return '1-datacenter';
+  }
+  if (datacenters.length === 3) {
+    return '3-datacenter';
+  }
+  return fallback;
+};
+
+/**
+ * Initial form value: the stored config (or a fresh one) with the load
+ * balancer flag settled against the offering's mode, so the submitted order
+ * always states whether a load balancer is wanted.
+ *
+ * A stored config keeps its own sites and topology even when the offering's
+ * topology setting has changed since: rebuilding it would silently replace a
+ * resource's real cluster with empty default sites. The form warns about the
+ * mismatch instead (see isTopologyAllowed).
+ */
+export const getInitialClusterConfig = (
+  topology: K8sClusterTopology,
+  value: MultiDatacenterK8sClusterConfig | undefined,
+  defaultConfigs?: K8sDefaultConfiguration,
+): MultiDatacenterK8sClusterConfig => {
+  if (!value || typeof value !== 'object') {
+    return createDefaultClusterConfig(topology, defaultConfigs);
+  }
+  if (!Array.isArray(value.datacenters)) {
+    // Nothing stored describes any sites, so there is nothing to lose.
+    const fresh = createDefaultClusterConfig(topology, defaultConfigs);
+    return {
+      ...fresh,
+      ...value,
+      topology,
+      datacenters: fresh.datacenters,
+      load_balancer: hasLoadBalancer(value, defaultConfigs),
+    };
+  }
+  return {
+    ...value,
+    // Configs saved before the topology was recorded lack the key.
+    topology: isClusterTopology(value.topology)
+      ? value.topology
+      : inferTopology(value.datacenters, topology),
+    load_balancer: hasLoadBalancer(value, defaultConfigs),
+  };
+};
+
+/**
+ * Whether the offering's current topology setting allows this config.
+ */
+export const isTopologyAllowed = (
+  config: Pick<MultiDatacenterK8sClusterConfig, 'topology' | 'datacenters'>,
+  fieldType: string | undefined,
+  defaultConfigs?: K8sDefaultConfiguration,
+): boolean => {
+  const mode = getTopologyMode(fieldType, defaultConfigs);
+  if (mode !== 'customer_choice' && config.topology !== mode) {
+    return false;
+  }
+  return (
+    isClusterTopology(config.topology) &&
+    config.datacenters.length === getDatacenterCount(config.topology)
+  );
+};
+
 export const getControllerNodesCount = (
-  topology: '1-datacenter' | '3-datacenter',
+  topology: K8sClusterTopology,
   datacenterIndex: number,
 ): number => {
   if (topology === '1-datacenter') {
@@ -230,9 +404,13 @@ export const getControllerNodesCount = (
 };
 
 export const getLoadBalancerNodesCount = (
-  topology: '1-datacenter' | '3-datacenter',
+  topology: K8sClusterTopology,
   datacenterIndex: number,
+  loadBalancer = true,
 ): number => {
+  if (!loadBalancer) {
+    return 0;
+  }
   if (topology === '1-datacenter') {
     // For single datacenter: 1 load balancer in the single datacenter
     return datacenterIndex === 0 ? 1 : 0;
@@ -244,9 +422,10 @@ export const getLoadBalancerNodesCount = (
 
 export const calculateDatacenterResources = (
   datacenter: DatacenterConfiguration,
-  topology: '1-datacenter' | '3-datacenter',
+  topology: K8sClusterTopology,
   datacenterIndex: number,
   defaultConfigs: K8sDefaultConfiguration = DEFAULT_K8S_CONFIGURATION,
+  loadBalancer = true,
 ) => {
   let workerNodes = 0;
   let storageNodes = 0;
@@ -286,6 +465,7 @@ export const calculateDatacenterResources = (
   const loadBalancerNodes = getLoadBalancerNodesCount(
     topology,
     datacenterIndex,
+    loadBalancer,
   );
   const totalNodes =
     workerNodes + storageNodes + controllerNodes + loadBalancerNodes;
@@ -327,6 +507,7 @@ export const calculateTotalClusterResources = (
   config: MultiDatacenterK8sClusterConfig,
   defaultConfigs?: K8sDefaultConfiguration,
 ) => {
+  const loadBalancer = hasLoadBalancer(config, defaultConfigs);
   return config.datacenters.reduce(
     (totals, datacenter, index) => {
       const dcResources = calculateDatacenterResources(
@@ -334,6 +515,7 @@ export const calculateTotalClusterResources = (
         config.topology,
         index,
         defaultConfigs,
+        loadBalancer,
       );
       return {
         totalNodes: totals.totalNodes + dcResources.totalNodes,
@@ -435,7 +617,7 @@ export const validateMultiDatacenterConfiguration = (
     errors.push('Cluster topology must be selected');
   }
 
-  const expectedDatacenters = config.topology === '1-datacenter' ? 1 : 3;
+  const expectedDatacenters = getDatacenterCount(config.topology);
   if (config.datacenters.length !== expectedDatacenters) {
     errors.push(
       `${config.topology} requires exactly ${expectedDatacenters} datacenter(s), but ${config.datacenters.length} configured`,

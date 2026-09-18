@@ -1,7 +1,8 @@
 import { FC } from 'react';
 
-import { Badge } from '@/core/Badge';
-import { Tip } from '@/core/Tooltip';
+import { Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
 import { translate } from '@/i18n';
 
 import { CallReviewerPoolExtended } from './types';
@@ -22,18 +23,18 @@ export const ReviewerReviews: FC<ReviewerReviewsProps> = ({ row }) => {
   return (
     <div className="d-flex gap-1">
       {inProgress > 0 && (
-        <Tip id={`in-progress-${row.uuid}`} label={translate('In progress')}>
-          <Badge variant="warning" pill outline>
+        <Tooltip label={translate('In progress')}>
+          <Badge variant="warning" shape="pill" tone="outline">
             {inProgress}
           </Badge>
-        </Tip>
+        </Tooltip>
       )}
       {completed > 0 && (
-        <Tip id={`completed-${row.uuid}`} label={translate('Completed')}>
-          <Badge variant="success" pill outline>
+        <Tooltip label={translate('Completed')}>
+          <Badge variant="success" shape="pill" tone="outline">
             {completed}
           </Badge>
-        </Tip>
+        </Tooltip>
       )}
     </div>
   );
