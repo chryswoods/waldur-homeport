@@ -66,5 +66,44 @@ describe('AwardPaceCard', () => {
 
     expect(screen.getByText('Just getting started')).toBeInTheDocument();
     expect(screen.getByText(/5 of 364 days used/)).toBeInTheDocument();
+    expect(screen.getByText(/Too early to judge/)).toBeInTheDocument();
+  });
+});
+
+// Two bare percentages beside each other — a share of the window and a share
+// of the money — left the reader to work out that they measured different
+// things. Each verdict now names both and says which is which.
+describe('the pace verdict', () => {
+  it('spells out both percentages when behind', () => {
+    render(<AwardPaceCard pace={pace(10000)} />);
+
+    expect(
+      screen.getByText(
+        /would have used 50% of the allocation by today, but only 19% has been used/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/not used by the end date is lost/),
+    ).toBeInTheDocument();
+  });
+
+  it('spells them out when on pace', () => {
+    render(<AwardPaceCard pace={pace(26875)} />);
+
+    expect(
+      screen.getByText(
+        /would have used 50% of the allocation by today, and 50% has been used/,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('spells them out when ahead', () => {
+    render(<AwardPaceCard pace={pace(40000)} />);
+
+    expect(
+      screen.getByText(
+        /would have used 50% of the allocation by today, and 74% has already been used/,
+      ),
+    ).toBeInTheDocument();
   });
 });

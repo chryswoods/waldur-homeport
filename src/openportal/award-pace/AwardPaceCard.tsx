@@ -55,6 +55,58 @@ const statusLabel = (status: AwardPaceStatus): string =>
     ended: translate('Award has ended'),
   })[status];
 
+/**
+ * The verdict as a sentence rather than two bare percentages side by side.
+ *
+ * "Even spend by today 31%" next to "12% of the allocation" put two numbers on
+ * different axes — one a share of the window, the other a share of the money —
+ * beside each other with nothing saying they were different things. Naming both
+ * in one sentence is longer, but it is the difference between a reader doing
+ * the comparison and a reader guessing at it.
+ *
+ * Each status gets its own whole string: assembling one from fragments would
+ * fix English word order onto every other language.
+ */
+const paceSentence = (pace: AwardPace): string => {
+  const expected = pct0(pace.elapsedFraction);
+  const actual = pct0(pace.usedFraction);
+
+  switch (pace.status) {
+    case 'settling':
+      return translate(
+        'Too early to judge. An even spend from the award start would have used {expected} of the allocation by today, and {actual} has been used.',
+        { expected, actual },
+      );
+    case 'behind':
+      return translate(
+        'An even spend from the award start would have used {expected} of the allocation by today, but only {actual} has been used. Allocation not used by the end date is lost.',
+        { expected, actual },
+      );
+    case 'on-track':
+      return translate(
+        'An even spend from the award start would have used {expected} of the allocation by today, and {actual} has been used.',
+        { expected, actual },
+      );
+    case 'ahead':
+      return translate(
+        'An even spend from the award start would have used {expected} of the allocation by today, and {actual} has already been used.',
+        { expected, actual },
+      );
+    case 'exhausted':
+      return translate(
+        'The whole allocation has been used, with {remaining} days of the award still to run.',
+        { remaining: String(pace.remainingDays) },
+      );
+    case 'ended':
+      return translate(
+        'The award has ended. {actual} of the allocation was used.',
+        { actual },
+      );
+    default:
+      return '';
+  }
+};
+
 const statusHint = (pace: AwardPace): string | undefined => {
   switch (pace.status) {
     case 'settling':
@@ -253,12 +305,9 @@ export const AwardPaceCard: FC<Props> = ({ pace }) => {
         </div>
       </div>
 
-      <div className="d-flex flex-wrap gap-2 mt-3">
-        <Badge variant="secondary" size="sm" pill outline hasBullet>
-          {translate('Even spend by today {pct}', {
-            pct: pct0(pace.elapsedFraction),
-          })}
-        </Badge>
+      <p className="text-muted mt-4 mb-2">{paceSentence(pace)}</p>
+
+      <div className="d-flex flex-wrap gap-2">
         {pace.exhaustionDate && (
           <Badge
             variant="info"
