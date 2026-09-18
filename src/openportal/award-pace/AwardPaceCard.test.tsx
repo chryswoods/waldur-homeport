@@ -27,7 +27,7 @@ describe('AwardPaceCard', () => {
     // 35,650 left over the 183 days remaining is what to aim at from today —
     // not the 53,750 over 364 the whole-window average would give.
     expect(
-      screen.getByText(/194\.81\/d from today uses the rest/),
+      screen.getByText(/194\.81 per day from today uses the rest/),
     ).toBeInTheDocument();
     expect(screen.getByText('Spending rate')).toBeInTheDocument();
     expect(screen.getByText(/181 of 364 days used/)).toBeInTheDocument();
@@ -40,7 +40,7 @@ describe('AwardPaceCard', () => {
     expect(screen.getByText('Behind pace')).toBeInTheDocument();
     // The headline is what is at stake, not a date: "At this rate, by 31 Dec"
     // reads as permission to keep spending until then.
-    expect(screen.getByText('Lost at this rate')).toBeInTheDocument();
+    expect(screen.getByText('At this rate you will lose')).toBeInTheDocument();
     expect(screen.getByText(/used by 31 Dec 2026/)).toBeInTheDocument();
   });
 
@@ -50,6 +50,13 @@ describe('AwardPaceCard', () => {
     render(<AwardPaceCard pace={pace(10000)} />);
 
     expect(screen.queryByText(/Runs out/)).toBeNull();
+  });
+
+  // The funder reads this card, and "/d" is jargon to them.
+  it('spells out the rate unit', () => {
+    render(<AwardPaceCard pace={pace(18100)} />);
+
+    expect(screen.getAllByText('per day').length).toBeGreaterThan(0);
   });
 
   it('warns that the allocation runs out early when spending fast', () => {

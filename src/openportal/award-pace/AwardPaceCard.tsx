@@ -19,6 +19,9 @@ const clampPct = (value: number) => `${Math.min(Math.max(value, 0), 1) * 100}%`;
 
 // The "today" tick is centred on its position, except near the ends of the bar
 // where centring would push half the label outside the card.
+// The "today" tick is what the reader compares the fill against, so it is the
+// one mark on the bar that has to be unmissable: a full-height rule in the body
+// text colour with a bold label, rather than a hairline in muted grey.
 const markerLabel = (fraction: number): CSSProperties => ({
   position: 'absolute',
   transform:
@@ -28,8 +31,10 @@ const markerLabel = (fraction: number): CSSProperties => ({
         ? 'none'
         : 'translateX(-50%)',
   whiteSpace: 'nowrap',
-  fontSize: 11,
-  top: -18,
+  fontSize: 13,
+  fontWeight: 700,
+  letterSpacing: '0.02em',
+  top: -24,
 });
 
 // Under-spending is the case worth flagging: the allocation is use-it-or-lose-it,
@@ -196,14 +201,14 @@ export const AwardPaceCard: FC<Props> = ({ pace }) => {
             value={
               <>
                 {defaultCurrency(pace.actualPerDay.toFixed(2))}
-                <span className="fs-4">{translate('/d')}</span>
+                <span className="fs-4"> {translate('per day')}</span>
               </>
             }
             footer={
               <span className="text-muted fs-7">
                 {pace.requiredPerDay === null
                   ? translate('Last day of the award')
-                  : translate('{required}/d from today uses the rest', {
+                  : translate('{required} per day from today uses the rest', {
                       required: defaultCurrency(pace.requiredPerDay.toFixed(2)),
                     })}
               </span>
@@ -217,7 +222,7 @@ export const AwardPaceCard: FC<Props> = ({ pace }) => {
           <StatsCard
             label={
               underspending
-                ? translate('Lost at this rate')
+                ? translate('At this rate you will lose')
                 : translate('Over the allocation at this rate')
             }
             icon={
@@ -288,18 +293,16 @@ export const AwardPaceCard: FC<Props> = ({ pace }) => {
           <div
             style={{
               position: 'absolute',
-              top: -3,
-              bottom: -3,
+              top: -8,
+              bottom: -8,
               left: clampPct(pace.elapsedFraction),
-              borderLeft: `2px solid ${c.muted}`,
+              borderLeft: `4px solid ${c.text}`,
+              borderRadius: 2,
             }}
             title={translate('Where an even spend would be today')}
           >
-            <span
-              style={markerLabel(pace.elapsedFraction)}
-              className="text-muted"
-            >
-              {translate('today')}
+            <span style={markerLabel(pace.elapsedFraction)}>
+              {translate('TODAY')}
             </span>
           </div>
         </div>

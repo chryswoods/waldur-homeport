@@ -182,7 +182,7 @@ const CreditMetrics: FC<{ data: PolicyWatchData }> = ({ data }) => {
           value={
             <>
               {defaultCurrency(runway.burnPerDay.toFixed(2))}
-              <span className="fs-4">{translate('/d')}</span>
+              <span className="fs-4"> {translate('per day')}</span>
             </>
           }
           caption={
