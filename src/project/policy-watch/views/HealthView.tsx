@@ -11,6 +11,8 @@ import { isFeatureVisible } from '@/features/connect';
 import { DashboardFeatures } from '@/FeaturesEnums';
 import { translate } from '@/i18n';
 import { NoResult } from '@/navigation/header/search/NoResult';
+import { AwardPace } from '@/openportal/award-pace/awardPace';
+import { AwardPaceCard } from '@/openportal/award-pace/AwardPaceCard';
 
 import { CreditBreakdownCard } from '../components/CreditBreakdownCard';
 import { CreditBurnDownChart } from '../components/CreditBurnDownChart';
@@ -239,9 +241,17 @@ const CreditMetrics: FC<{ data: PolicyWatchData }> = ({ data }) => {
 
 interface Props {
   data: PolicyWatchData;
+  /**
+   * Set when the project is backed by an OpenPortal award whose window can be
+   * resolved. Its presence replaces the monthly pacing card: the two measure
+   * different things and only one of them applies.
+   */
+  awardPace?: AwardPace | null;
 }
 
-export const HealthView: FC<Props> = ({ data }) => {
+export const HealthView: FC<Props> = ({ data, awardPace }) => {
+  const fromAward = data.creditBreakdown?.source === 'award';
+
   if (data.resources.length === 0) {
     return (
       <NoResult
@@ -257,21 +267,31 @@ export const HealthView: FC<Props> = ({ data }) => {
     <>
       {/* Each card names the subject its figures belong to. Without that frame,
           "Remaining" and "Burning" read as generic dashboard numbers rather
-          than as this project's credit. */}
-      <WidgetCard
-        cardTitle={translate("This month's credit consumption")}
-        className="mb-5"
-      >
-        <div className="separator mt-4 mb-5" />
-        <PacingIndicator
-          pacing={data.pacing}
-          creditTerms={data.creditTerms}
-          isLimitedByOrganizationCredit={
-            data.runway.isLimitedByOrganizationCredit
-          }
-          isCreditExpired={data.runway.isCreditExpired}
-        />
-      </WidgetCard>
+          than as this project's credit.
+
+          An award-backed project gets the award pace card in place of the
+          monthly one, and nothing at all when its window cannot be resolved.
+          The monthly card measures a credit against an expected consumption, a
+          minimum-draw floor and a grace coefficient — none of which an award
+          has, so it reported a plan the team was never given. */}
+      {fromAward ? (
+        awardPace && <AwardPaceCard pace={awardPace} />
+      ) : (
+        <WidgetCard
+          cardTitle={translate("This month's credit consumption")}
+          className="mb-5"
+        >
+          <div className="separator mt-4 mb-5" />
+          <PacingIndicator
+            pacing={data.pacing}
+            creditTerms={data.creditTerms}
+            isLimitedByOrganizationCredit={
+              data.runway.isLimitedByOrganizationCredit
+            }
+            isCreditExpired={data.runway.isCreditExpired}
+          />
+        </WidgetCard>
+      )}
 
       <WidgetCard cardTitle={translate('Overall credit')} className="mb-5">
         <div className="separator mt-4 mb-5" />

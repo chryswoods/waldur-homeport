@@ -215,11 +215,15 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
     staleTime: STALE_TIME,
   });
 
-  const hasAnyManagedProjects =
-    showManagedProjects &&
-    (managedProjects?.filter(
+  const activeManagedProjects =
+    managedProjects?.filter(
       (mp) => mp.state === 'approved' || mp.state === 'pending',
-    ).length ?? 0) > 0;
+    ) ?? [];
+  const hasAnyManagedProjects =
+    showManagedProjects && activeManagedProjects.length > 0;
+  // A project holds at most one award at a time — the backend looks it up with
+  // a plain get() — so the first is the one attached now.
+  const currentAward = hasAnyManagedProjects ? activeManagedProjects[0] : null;
 
   // When the award controls membership, the team widget's Add button explains
   // that rather than opening the invitation flow.
@@ -341,6 +345,7 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
         <ProjectCreditHealthBlock
           project={project}
           hasAward={hasAnyManagedProjects}
+          award={currentAward}
         />
       )}
       <UsageViewsSection project={project} />

@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { FC } from 'react';
 import { Col, Row } from 'react-bootstrap';
-import { projectCreditsList } from 'waldur-js-client';
+import { type ManagedProject, projectCreditsList } from 'waldur-js-client';
 
 import { SHORT_STALE_TIME } from '@/core/constants';
+import { useAwardPace } from '@/openportal/award-pace/useAwardPace';
 import { useProjectAccountingSummary } from '@/openportal/useProjectAccountingSummary';
 import { Project } from '@/workspace/types';
 
@@ -18,6 +19,8 @@ interface Props {
    * Decided by the dashboard, which already establishes it for the award card.
    */
   hasAward?: boolean;
+  /** The award attached now, whose window the pace card measures against. */
+  award?: ManagedProject | null;
 }
 
 /**
@@ -29,7 +32,11 @@ interface Props {
  * hit mounts the inner component whose hook fans out to policies, resources,
  * invoices and organization credit.
  */
-export const ProjectCreditHealthBlock: FC<Props> = ({ project, hasAward }) => {
+export const ProjectCreditHealthBlock: FC<Props> = ({
+  project,
+  hasAward,
+  award,
+}) => {
   const { data: credit } = useQuery({
     queryKey: ['policy-watch-project-credit', project?.uuid],
     queryFn: () =>
@@ -44,10 +51,10 @@ export const ProjectCreditHealthBlock: FC<Props> = ({ project, hasAward }) => {
   if (!credit) {
     return null;
   }
-  return <CreditHealth project={project} hasAward={hasAward} />;
+  return <CreditHealth project={project} hasAward={hasAward} award={award} />;
 };
 
-const CreditHealth: FC<Props> = ({ project, hasAward }) => {
+const CreditHealth: FC<Props> = ({ project, hasAward, award }) => {
   // Shares the award card's request rather than adding one: same query key.
   const { data: awardAccounting } = useProjectAccountingSummary(
     project?.uuid,
@@ -61,6 +68,12 @@ const CreditHealth: FC<Props> = ({ project, hasAward }) => {
     project,
     awardAccounting?.has_award ? awardAccounting : null,
   );
+  const awardPace = useAwardPace(
+    award,
+    awardAccounting,
+    project?.uuid,
+    project?.end_date,
+  );
 
   if (data.isLoading || data.hasError || !data.runway.credit) {
     return null;
@@ -69,7 +82,7 @@ const CreditHealth: FC<Props> = ({ project, hasAward }) => {
   return (
     <Row className="mt-3">
       <Col xs={12} className="mb-3">
-        <HealthView data={data} />
+        <HealthView data={data} awardPace={awardPace} />
       </Col>
     </Row>
   );
