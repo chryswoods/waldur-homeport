@@ -29,9 +29,12 @@ import { AggregateLimitWidget } from '@/marketplace/aggregate-limits/AggregateLi
 import { UsageViewsSection } from '@/marketplace/aggregate-limits/usage-views/UsageViewsSection';
 import { NON_TERMINATED_STATES } from '@/marketplace/resources/list/constants';
 import { useModal } from '@/modal/actions';
+import { AwardConsumptionChart } from '@/openportal/award-pace/AwardConsumptionChart';
+import { useAwardPace } from '@/openportal/award-pace/useAwardPace';
 import { canChangeMembership } from '@/openportal/awardPolicy';
 import { ManagedProjectDashboardCards } from '@/openportal/managed-projects/ManagedProjectDashboardCards';
 import { RemoteProjectDashboardCards } from '@/openportal/remote-projects/RemoteProjectDashboardCards';
+import { useProjectAccountingSummary } from '@/openportal/useProjectAccountingSummary';
 import { PermissionEnum } from '@/permissions/enums';
 import { hasPermission } from '@/permissions/hasPermission';
 import { ActionButton } from '@/table/ActionButton';
@@ -225,6 +228,18 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
   // a plain get() — so the first is the one attached now.
   const currentAward = hasAnyManagedProjects ? activeManagedProjects[0] : null;
 
+  // Shares the award card's request: same query key, so no extra call.
+  const { data: awardAccounting } = useProjectAccountingSummary(
+    project?.uuid,
+    hasAnyManagedProjects,
+  );
+  const awardPace = useAwardPace(
+    currentAward,
+    awardAccounting,
+    project?.uuid,
+    project?.end_date,
+  );
+
   // When the award controls membership, the team widget's Add button explains
   // that rather than opening the invitation flow.
   const { data: awardDetails } = useProjectAwardDetails(project?.uuid);
@@ -333,13 +348,22 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
           </Col>
         )}
         {/* Award-backed projects get the monthly usage chart in the health
-            block instead: this one plots credit compensation, which OpenPortal
+            slot instead: this one plots credit compensation, which OpenPortal
             never writes, so it is flat zero for every one of them. */}
         {showBillingInfo &&
           !hasManyRemoteProjects &&
           !hasAnyManagedProjects && (
             <ProjectDashboardCredit project={project} className="mb-5" />
           )}
+        {showBillingInfo && hasAnyManagedProjects && awardPace && (
+          <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
+            <AwardConsumptionChart
+              projectUuid={project.uuid}
+              pace={awardPace}
+              className="h-100"
+            />
+          </Col>
+        )}
       </Row>
       {/* The Health block is for projects with a credit allocation and gates
           itself on one — it renders nothing without. The usage views are about

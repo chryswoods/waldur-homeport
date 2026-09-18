@@ -114,13 +114,16 @@ export const ProjectsListTable: FC<TableProps & ProjectsListProps> = ({
     },
   ];
 
-  // Money columns share one precondition -- prices are not concealed and the
-  // organisation shows billing figures in projects -- and then differ.
-  const showsMoney =
-    !isFeatureVisible(MarketplaceFeatures.conceal_prices) &&
-    customer?.display_billing_info_in_projects !== false;
+  // Both money columns need the organisation to show billing figures in
+  // projects. Only the cost one is also subject to conceal_prices: that setting
+  // hides marketplace *prices*, and a credit balance is not a price -- a
+  // deployment that conceals what things cost still wants to tell a project how
+  // much of its allocation is left.
+  const showsBillingInfo = customer?.display_billing_info_in_projects !== false;
+  const showsPrices =
+    showsBillingInfo && !isFeatureVisible(MarketplaceFeatures.conceal_prices);
 
-  if (showsMoney && isFeatureVisible(ProjectFeatures.estimated_cost)) {
+  if (showsPrices && isFeatureVisible(ProjectFeatures.estimated_cost)) {
     columns.push({
       title: translate('Spent this month'),
       render: ProjectCostField,
@@ -130,7 +133,7 @@ export const ProjectsListTable: FC<TableProps & ProjectsListProps> = ({
       keys: ['billing_price_estimate'],
     });
   }
-  if (showsMoney) {
+  if (showsBillingInfo) {
     // Not behind project.estimated_cost: that flag governs a cost estimate,
     // and this is a credit balance -- a deployment that runs on credit wants
     // the balance whether or not it shows estimates.

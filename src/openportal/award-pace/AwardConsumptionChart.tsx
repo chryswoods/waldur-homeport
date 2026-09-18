@@ -12,12 +12,13 @@ import { getChartThemeColors } from '@/dashboard/chartColors';
 import { WidgetCard } from '@/dashboard/WidgetCard';
 import { translate } from '@/i18n';
 
-import { buildAwardConsumption, consumptionTotal } from './awardConsumption';
+import { buildAwardConsumption } from './awardConsumption';
 import { type AwardPace } from './awardPace';
 
 interface Props {
   projectUuid: string;
   pace: AwardPace;
+  className?: string;
 }
 
 /**
@@ -32,7 +33,11 @@ interface Props {
  * One request. The per-month usage is already aggregated by
  * /api/invoice-items/costs/, so nothing here needs the OpenPortal usage reports.
  */
-export const AwardConsumptionChart: FC<Props> = ({ projectUuid, pace }) => {
+export const AwardConsumptionChart: FC<Props> = ({
+  projectUuid,
+  pace,
+  className,
+}) => {
   const { data: invoices } = useQuery({
     queryKey: ['award-consumption', projectUuid],
     queryFn: () =>
@@ -93,15 +98,11 @@ export const AwardConsumptionChart: FC<Props> = ({ projectUuid, pace }) => {
   }
 
   return (
-    <WidgetCard
-      cardTitle={translate('Monthly usage')}
-      className="mb-5"
-      title={translate('{total} used across the award so far', {
-        total: defaultCurrency(consumptionTotal(months)),
-      })}
-    >
+    // No total in the subtitle: this sits beside the award card, which states
+    // it already.
+    <WidgetCard cardTitle={translate('Monthly usage')} className={className}>
       <div className="separator mt-4 mb-5" />
-      <EChart options={options} height="320px" />
+      <EChart options={options} height="260px" />
     </WidgetCard>
   );
 };
