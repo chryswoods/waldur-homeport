@@ -66,7 +66,7 @@ const STYLES_XML =
 
 // ── Sheet XML builder ─────────────────────────────────────────────────────────
 
-interface SheetSpec {
+export interface SheetSpec {
   name: string;
   rows: any[][];
 }
@@ -94,7 +94,7 @@ function buildSheetXml(ss: SharedStrings, rows: any[][]): string {
 
 // ── Multi-sheet XLSX builder ──────────────────────────────────────────────────
 
-async function downloadMultiSheetExcel(
+export async function downloadMultiSheetExcel(
   filename: string,
   sheets: SheetSpec[],
   onProgress?: (current: number, total: number) => void,

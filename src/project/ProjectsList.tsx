@@ -163,7 +163,11 @@ export const ProjectsListTable: FC<TableProps & ProjectsListProps> = ({
       hasQuery={true}
       showPageSizeSelector={true}
       tableActions={
-        <ProjectsTableActions customer={customer} refetch={props.fetch} />
+        <ProjectsTableActions
+          customer={customer}
+          refetch={props.fetch}
+          filter={props.filter}
+        />
       }
       rowActions={({ row }) => (
         <ProjectsListActions project={row} refetch={props.fetch} />
