@@ -11,6 +11,7 @@ import { isFeatureVisible } from '@/features/connect';
 import { DashboardFeatures } from '@/FeaturesEnums';
 import { translate } from '@/i18n';
 import { NoResult } from '@/navigation/header/search/NoResult';
+import { AwardConsumptionChart } from '@/openportal/award-pace/AwardConsumptionChart';
 import { AwardPace } from '@/openportal/award-pace/awardPace';
 import { AwardPaceCard } from '@/openportal/award-pace/AwardPaceCard';
 
@@ -247,9 +248,11 @@ interface Props {
    * different things and only one of them applies.
    */
   awardPace?: AwardPace | null;
+  /** Needed by the award charts, which fetch per project. */
+  projectUuid?: string;
 }
 
-export const HealthView: FC<Props> = ({ data, awardPace }) => {
+export const HealthView: FC<Props> = ({ data, awardPace, projectUuid }) => {
   const fromAward = data.creditBreakdown?.source === 'award';
 
   if (data.resources.length === 0) {
@@ -275,7 +278,21 @@ export const HealthView: FC<Props> = ({ data, awardPace }) => {
           minimum-draw floor and a grace coefficient — none of which an award
           has, so it reported a plan the team was never given. */}
       {fromAward ? (
-        awardPace && <AwardPaceCard pace={awardPace} />
+        awardPace && (
+          <>
+            <AwardPaceCard pace={awardPace} />
+            {/* The stock credit consumption chart plots the monthly credit
+                compensation, which is zero for every award-backed project
+                because OpenPortal sets the balance directly. This plots what
+                was used instead, across the award's own window. */}
+            {projectUuid && (
+              <AwardConsumptionChart
+                projectUuid={projectUuid}
+                pace={awardPace}
+              />
+            )}
+          </>
+        )
       ) : (
         <WidgetCard
           cardTitle={translate("This month's credit consumption")}

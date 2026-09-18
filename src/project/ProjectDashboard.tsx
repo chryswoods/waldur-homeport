@@ -332,9 +332,14 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
             />
           </Col>
         )}
-        {showBillingInfo && !hasManyRemoteProjects && (
-          <ProjectDashboardCredit project={project} className="mb-5" />
-        )}
+        {/* Award-backed projects get the monthly usage chart in the health
+            block instead: this one plots credit compensation, which OpenPortal
+            never writes, so it is flat zero for every one of them. */}
+        {showBillingInfo &&
+          !hasManyRemoteProjects &&
+          !hasAnyManagedProjects && (
+            <ProjectDashboardCredit project={project} className="mb-5" />
+          )}
       </Row>
       {/* The Health block is for projects with a credit allocation and gates
           itself on one — it renders nothing without. The usage views are about

@@ -82,7 +82,11 @@ const CreditHealth: FC<Props> = ({ project, hasAward, award }) => {
   return (
     <Row className="mt-3">
       <Col xs={12} className="mb-3">
-        <HealthView data={data} awardPace={awardPace} />
+        <HealthView
+          data={data}
+          awardPace={awardPace}
+          projectUuid={project?.uuid}
+        />
       </Col>
     </Row>
   );
