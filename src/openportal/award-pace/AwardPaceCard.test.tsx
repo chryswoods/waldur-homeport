@@ -24,8 +24,10 @@ describe('AwardPaceCard', () => {
 
     // 53,750 over 364 days is the rate that uses it exactly; 18,100 over the
     // 181 elapsed is the rate actually being run at.
+    // 35,650 left over the 183 days remaining is what to aim at from today —
+    // not the 53,750 over 364 the whole-window average would give.
     expect(
-      screen.getByText(/147\.66.*uses the allocation exactly/),
+      screen.getByText(/194\.81\/d from today uses the rest/),
     ).toBeInTheDocument();
     expect(screen.getByText('Spending rate')).toBeInTheDocument();
     expect(screen.getByText(/181 of 364 days used/)).toBeInTheDocument();
@@ -36,7 +38,18 @@ describe('AwardPaceCard', () => {
     render(<AwardPaceCard pace={pace(10000)} />);
 
     expect(screen.getByText('Behind pace')).toBeInTheDocument();
-    expect(screen.getByText(/of the allocation unused/)).toBeInTheDocument();
+    // The headline is what is at stake, not a date: "At this rate, by 31 Dec"
+    // reads as permission to keep spending until then.
+    expect(screen.getByText('Lost at this rate')).toBeInTheDocument();
+    expect(screen.getByText(/used by 31 Dec 2026/)).toBeInTheDocument();
+  });
+
+  // An underspending award never runs out — the window closes first — so a
+  // run-out badge would contradict the loss figure beside it.
+  it('offers no run-out date when the award ends first', () => {
+    render(<AwardPaceCard pace={pace(10000)} />);
+
+    expect(screen.queryByText(/Runs out/)).toBeNull();
   });
 
   it('warns that the allocation runs out early when spending fast', () => {

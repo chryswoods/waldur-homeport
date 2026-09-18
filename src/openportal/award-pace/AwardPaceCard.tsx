@@ -1,4 +1,5 @@
-import { CSSProperties, FC } from 'react';
+import { InfoIcon } from '@phosphor-icons/react';
+import { CSSProperties, FC, ReactNode } from 'react';
 import { Col, Row } from 'react-bootstrap';
 import { Variant } from 'react-bootstrap/types';
 
@@ -6,6 +7,7 @@ import { Badge } from '@/core/Badge';
 import { formatDate } from '@/core/dateUtils';
 import { defaultCurrency } from '@/core/formatCurrency';
 import { StatsCard } from '@/core/StatsCard';
+import { Tip } from '@/core/Tooltip';
 import { getChartThemeColors } from '@/dashboard/chartColors';
 import { WidgetCard } from '@/dashboard/WidgetCard';
 import { translate } from '@/i18n';
@@ -76,6 +78,14 @@ const statusHint = (pace: AwardPace): string | undefined => {
   }
 };
 
+/** An info tip in the tile's corner, for a figure whose derivation is not
+ *  obvious from its label. Matches the credit cards below. */
+const MetricTip: FC<{ id: string; label: ReactNode }> = ({ id, label }) => (
+  <Tip id={id} label={label}>
+    <InfoIcon weight="bold" className="text-muted" />
+  </Tip>
+);
+
 interface Props {
   pace: AwardPace;
 }
@@ -101,6 +111,14 @@ export const AwardPaceCard: FC<Props> = ({ pace }) => {
         <Col md={4}>
           <StatsCard
             label={translate('Used so far')}
+            icon={
+              <MetricTip
+                id="award-pace-used"
+                label={translate(
+                  "Usage recorded against this award, converted to credits, over the whole time it has been attached. It is the award's total, so an award that has moved between projects shows the same figure on each.",
+                )}
+              />
+            }
             value={defaultCurrency(pace.used)}
             footer={
               <span className="text-muted fs-7">
@@ -115,6 +133,14 @@ export const AwardPaceCard: FC<Props> = ({ pace }) => {
         <Col md={4}>
           <StatsCard
             label={translate('Spending rate')}
+            icon={
+              <MetricTip
+                id="award-pace-rate"
+                label={translate(
+                  'What has been used so far divided by the days elapsed since the award started. The figure below it is what is left divided by the days remaining — the rate from today that finishes the allocation exactly, which is the one to aim at.',
+                )}
+              />
+            }
             value={
               <>
                 {defaultCurrency(pace.actualPerDay.toFixed(2))}
@@ -123,30 +149,47 @@ export const AwardPaceCard: FC<Props> = ({ pace }) => {
             }
             footer={
               <span className="text-muted fs-7">
-                {translate('{required}/d uses the allocation exactly', {
-                  required: defaultCurrency(pace.requiredPerDay.toFixed(2)),
-                })}
+                {pace.requiredPerDay === null
+                  ? translate('Last day of the award')
+                  : translate('{required}/d from today uses the rest', {
+                      required: defaultCurrency(pace.requiredPerDay.toFixed(2)),
+                    })}
               </span>
             }
           />
         </Col>
         <Col md={4}>
+          {/* The headline is what is at stake, not a date: "At this rate, by
+              19 Nov" read as permission to keep spending until the 19th, which
+              is the opposite of what an underspend warning should say. */}
           <StatsCard
-            label={translate('At this rate, by {date}', {
-              date: formatDate(pace.endDate),
-            })}
-            value={defaultCurrency(pace.projectedTotal)}
+            label={
+              underspending
+                ? translate('Lost at this rate')
+                : translate('Over the allocation at this rate')
+            }
+            icon={
+              <MetricTip
+                id="award-pace-projection"
+                label={
+                  underspending
+                    ? translate(
+                        "Today's rate carried on to the end of the award would leave this much of the allocation unspent. Allocation not used by the end date is lost, so this is what is at stake if nothing changes.",
+                      )
+                    : translate(
+                        "Today's rate carried on to the end of the award would need this much more than the allocation holds. The allocation runs out before the award does.",
+                      )
+                }
+              />
+            }
+            value={defaultCurrency(Math.abs(pace.projectedDifference))}
             footer={
               <span className="text-muted fs-7">
-                {underspending
-                  ? translate('{amount} of the allocation unused', {
-                      amount: defaultCurrency(
-                        Math.abs(pace.projectedDifference),
-                      ),
-                    })
-                  : translate('{amount} more than the allocation', {
-                      amount: defaultCurrency(pace.projectedDifference),
-                    })}
+                {translate('{total} of {allocation} used by {date}', {
+                  total: defaultCurrency(pace.projectedTotal),
+                  allocation: defaultCurrency(pace.allocation),
+                  date: formatDate(pace.endDate),
+                })}
               </span>
             }
           />

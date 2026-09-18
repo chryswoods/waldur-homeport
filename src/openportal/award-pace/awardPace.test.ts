@@ -23,10 +23,26 @@ describe('buildAwardPace', () => {
     expect(pace.remainingDays).toBe(183);
   });
 
-  it('derives the rate the allocation has to be spent at', () => {
-    const pace = buildAwardPace(award, on(2026, 7, 1))!;
+  // The actionable rate is measured from today over what is left, not over the
+  // whole window: once any of the allocation has gone, the whole-window average
+  // is history and aiming at it under-spends for the rest of the award.
+  it('derives the rate needed from today, not the whole-window average', () => {
+    const pace = buildAwardPace(
+      { ...award, usageCredits: 10000 },
+      on(2026, 7, 1),
+    )!;
 
-    expect(pace.requiredPerDay).toBeCloseTo(53750 / 364, 2);
+    expect(pace.requiredPerDay).toBeCloseTo((53750 - 10000) / 183, 2);
+    expect(pace.requiredPerDayOverall).toBeCloseTo(53750 / 364, 2);
+  });
+
+  it('has no rate to aim at on the last day', () => {
+    const pace = buildAwardPace(
+      { ...award, usageCredits: 10000, endDate: '2026-07-01' },
+      on(2026, 7, 1),
+    )!;
+
+    expect(pace.requiredPerDay).toBeNull();
   });
 
   it('measures the actual rate over the elapsed window, not the whole one', () => {
@@ -72,6 +88,19 @@ describe('buildAwardPace', () => {
     expect(pace.status).toBe('ahead');
     expect(pace.exhaustionDate).not.toBeNull();
     expect(pace.exhaustionDate! < pace.endDate).toBe(true);
+  });
+
+  // An underspending award never runs out: the window closes first and the
+  // rest is lost. A run-out date past the end date contradicts the unused
+  // figure beside it, so there is none.
+  it('gives no run-out date when the award ends first', () => {
+    const pace = buildAwardPace(
+      { ...award, usageCredits: 10000 },
+      on(2026, 7, 1),
+    )!;
+
+    expect(pace.exhaustionDate).toBeNull();
+    expect(pace.projectedDifference).toBeLessThan(0);
   });
 
   it('reports the allocation exhausted rather than merely ahead', () => {

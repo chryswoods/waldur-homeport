@@ -50,15 +50,26 @@ export interface AwardPace {
   elapsedFraction: number;
   /** How much of the allocation is gone, 0 upwards — over 1 when overspent. */
   usedFraction: number;
-  /** Spend per day that uses the allocation exactly by the end date. */
-  requiredPerDay: number;
+  /**
+   * Spend per day *from today* that uses up what is left by the end date. This
+   * is the number a team can act on — what the whole allocation averaged over
+   * the whole window would have needed is history once any of it has gone.
+   * Null on the last day, when there are no days left to spread it over.
+   */
+  requiredPerDay: number | null;
+  /** The same figure over the whole window, for reference. */
+  requiredPerDayOverall: number;
   /** Spend per day so far, over the elapsed part of the window. */
   actualPerDay: number;
   /** Where the current rate lands by the end date. */
   projectedTotal: number;
   /** Positive when the current rate overspends, negative when it underspends. */
   projectedDifference: number;
-  /** When the allocation runs out at the current rate, if before the end date. */
+  /**
+   * When the allocation runs out at the current rate — null when that falls
+   * after the award ends, because it does not then happen: the award closes
+   * first and the rest is lost rather than spent.
+   */
   exhaustionDate: string | null;
   status: AwardPaceStatus;
 }
@@ -110,15 +121,23 @@ export const buildAwardPace = (
 
   const elapsedFraction = elapsedDays / totalDays;
   const usedFraction = used / allocation;
-  const requiredPerDay = allocation / totalDays;
+  const requiredPerDayOverall = allocation / totalDays;
   const actualPerDay = elapsedDays > 0 ? used / elapsedDays : 0;
   const projectedTotal = actualPerDay * totalDays;
 
   const remaining = allocation - used;
-  const exhaustionDate =
+  const requiredPerDay =
+    remainingDays > 0 ? Math.max(0, remaining) / remainingDays : null;
+
+  const runsOutOn =
     actualPerDay > 0 && remaining > 0
-      ? formatISODate(now.plus({ days: remaining / actualPerDay }))
+      ? now.plus({ days: remaining / actualPerDay })
       : null;
+  // A run-out date past the end of the award is not an event: the award closes
+  // first, and the balance still sitting there is lost rather than spent. Shown
+  // anyway it contradicts the unused figure beside it.
+  const exhaustionDate =
+    runsOutOn && runsOutOn <= end ? formatISODate(runsOutOn) : null;
 
   // Capped so a short award is not most of the way through before it can say
   // anything, and floored at nothing for an award shorter than that.
@@ -153,6 +172,7 @@ export const buildAwardPace = (
     elapsedFraction,
     usedFraction,
     requiredPerDay,
+    requiredPerDayOverall,
     actualPerDay,
     projectedTotal,
     projectedDifference: projectedTotal - allocation,
