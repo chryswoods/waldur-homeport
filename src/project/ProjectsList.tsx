@@ -114,11 +114,13 @@ export const ProjectsListTable: FC<TableProps & ProjectsListProps> = ({
     },
   ];
 
-  if (
-    isFeatureVisible(ProjectFeatures.estimated_cost) &&
+  // Money columns share one precondition -- prices are not concealed and the
+  // organisation shows billing figures in projects -- and then differ.
+  const showsMoney =
     !isFeatureVisible(MarketplaceFeatures.conceal_prices) &&
-    customer?.display_billing_info_in_projects !== false
-  ) {
+    customer?.display_billing_info_in_projects !== false;
+
+  if (showsMoney && isFeatureVisible(ProjectFeatures.estimated_cost)) {
     columns.push({
       title: translate('Spent this month'),
       render: ProjectCostField,
@@ -127,11 +129,19 @@ export const ProjectsListTable: FC<TableProps & ProjectsListProps> = ({
       id: 'estimated_cost',
       keys: ['billing_price_estimate'],
     });
-    // The balance the month opened with. Scanning this column beside the one
-    // above is how you find the projects that have not started spending and
-    // the ones about to run out — which is the question this list gets asked.
+  }
+  if (showsMoney) {
+    // Not behind project.estimated_cost: that flag governs a cost estimate,
+    // and this is a credit balance -- a deployment that runs on credit wants
+    // the balance whether or not it shows estimates.
+    //
+    // The balance the month opened with, which for an award-backed project is
+    // the award's allocation less everything spent before this month
+    // (set_project_credits in waldur_openportal). Reading it beside the column
+    // above is how you spot the projects that have not started spending and
+    // the ones about to run out, which is what this list gets scanned for.
     columns.push({
-      title: translate('Balance'),
+      title: translate('Credit balance'),
       render: ({ row }) =>
         row.project_credit === null || row.project_credit === undefined ? (
           DASH_ESCAPE_CODE
@@ -167,6 +177,7 @@ export const ProjectsListTable: FC<TableProps & ProjectsListProps> = ({
           customer={customer}
           refetch={props.fetch}
           filter={props.filter}
+          query={props.query}
         />
       }
       rowActions={({ row }) => (

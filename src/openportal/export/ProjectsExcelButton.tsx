@@ -7,26 +7,39 @@ import { translate } from '@/i18n';
 import { useModal } from '@/modal/actions';
 import { ActionButton } from '@/table/ActionButton';
 
+import { projectExportFilter } from './projectExportFilter';
 import { ProjectsExcelDialog } from './ProjectsExcelDialog';
 
 interface Props {
   /**
-   * The table's current filter. The export covers every page matching it, so
-   * the contract is the same as the built-in Export: narrow the list, then
-   * export what it shows.
+   * The table's current filter and search string. The export covers every page
+   * matching them, so the contract is the same as the built-in Export: narrow
+   * the list, then export what it shows.
    */
   filter: Record<string, any>;
+  query?: string;
+  queryField?: string;
 }
 
-export const ProjectsExcelButton: FC<Props> = ({ filter }) => {
+export const ProjectsExcelButton: FC<Props> = ({
+  filter,
+  query,
+  queryField,
+}) => {
   const { openDialog } = useModal();
 
   const fetchProjects = useCallback(
     () =>
       getAllPages((page) =>
-        projectsList({ query: { ...filter, page, page_size: 200 } }),
+        projectsList({
+          query: {
+            ...projectExportFilter(filter, query, queryField),
+            page,
+            page_size: 200,
+          },
+        }),
       ),
-    [filter],
+    [filter, query, queryField],
   );
 
   return (

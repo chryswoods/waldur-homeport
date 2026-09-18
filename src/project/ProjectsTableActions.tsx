@@ -7,9 +7,10 @@ export const ProjectsTableActions = ({
   customer,
   refetch = undefined,
   filter = undefined,
+  query = undefined,
 }) => (
   <>
-    {filter && <ProjectsExcelButton filter={filter} />}
+    {filter && <ProjectsExcelButton filter={filter} query={query} />}
     <ProjectImportButton customer={customer} refetch={refetch} />
     <ProjectCreateButton customer={customer} refetch={refetch} />
   </>
