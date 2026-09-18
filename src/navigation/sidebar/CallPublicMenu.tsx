@@ -196,35 +196,20 @@ export const CallPublicMenu: FC<CallPublicMenuProps> = ({
     );
   }
 
-  // 'both' from here: the calls section sits beside the marketplace. Whether
-  // it carries the management items is a separate question from the mode.
+  // 'both' from here: the calls section sits beside the marketplace.
+  //
+  // Without call management there are no calls. The feature reads as if it
+  // governed a management screen, but management *is* the call lifecycle --
+  // reviewing, approving, awarding -- so a deployment with it switched off
+  // cannot run a call at all, and the proposals and reviews below would have
+  // nothing to list. The marketplace branch above already treats it this way;
+  // this branch used to answer the same state with a smaller menu instead,
+  // leaving a portal that runs no calls with a Proposals section it could not
+  // switch off. See docs/guides/upstream-bug-reports.md, finding 9.
   if (
     !isFeatureVisible(MarketplaceFeatures.show_call_management_functionality)
   ) {
-    return (
-      <MenuAccordion
-        title={translate('Proposals')}
-        itemId="calls-menu"
-        icon={<ChatTeardropTextIcon weight="bold" />}
-        disabled={disabled}
-        disabledTooltip={disabledTooltip}
-      >
-        <MenuItem
-          title={translate('My proposals')}
-          state="proposals-all-proposals"
-          activeState={
-            isDescendantOf('proposals', state) ? state.name : undefined
-          }
-        />
-        <MenuItem
-          title={translate('My reviews')}
-          state="reviews-all-reviews"
-          activeState={
-            isDescendantOf('reviews', state) ? state.name : undefined
-          }
-        />
-      </MenuAccordion>
-    );
+    return null;
   }
 
   const showAdminItems =

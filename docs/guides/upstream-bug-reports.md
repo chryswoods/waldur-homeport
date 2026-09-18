@@ -1,6 +1,6 @@
 # Bugs found in upstream, with fixes carried in this fork
 
-Eight defects in `waldur/waldur-homeport` that this fork has already fixed
+Nine defects in `waldur/waldur-homeport` that this fork has already fixed
 locally, written up so they can be discussed with the upstream maintainers and,
 if they agree, offered back as patches.
 
@@ -13,7 +13,7 @@ if they agree, offered back as patches.
 | Fork branch carrying the fixes | `claude/waldur-homeport-resync-ttwxn2` |
 | How they were found | Resyncing this fork onto upstream, September 2026 |
 
-All eight are present in both the newest release candidate and the current
+All nine are present in both the newest release candidate and the current
 development head, so none of them is something upstream has already fixed and
 not yet tagged.
 
@@ -554,6 +554,73 @@ useEffect(() => {
   }
 }, [columnIdsKey, hasOptionalColumns]);
 ```
+
+---
+
+## 9. A deployment that runs no calls cannot switch off its Proposals menu
+
+**Severity:** low — a permanent menu leading to pages that can never have
+content.
+**Fork fix:** `src/navigation/sidebar/CallPublicMenu.tsx`
+
+### What is wrong
+
+`show_call_management_functionality` governs the call lifecycle: reviewing,
+approving and awarding. A deployment with it switched off cannot run a call at
+all — its description ("Enabled display of call management functionality")
+reads as though it only hides a management screen, but management *is* how a
+call happens.
+
+The sidebar treats it that way in one branch and not the other. In
+marketplace-only mode (`SERVICE_ACCESS_MODE = 'marketplace'`) the section is
+withheld when the feature is off:
+
+```tsx
+if (mode === 'marketplace') {
+  if (!isOperator || !isFeatureVisible(MarketplaceFeatures.show_call_management_functionality)) {
+    return null;
+  }
+```
+
+In `both` mode — the default — the same state produced a *smaller* menu
+instead:
+
+```tsx
+if (!isFeatureVisible(MarketplaceFeatures.show_call_management_functionality)) {
+  return (
+    <MenuAccordion title={translate('Proposals')} ...>
+      <MenuItem title={translate('My proposals')} ... />
+      <MenuItem title={translate('My reviews')} ... />
+```
+
+### Why it matters
+
+Switching the feature off is the natural way to say "this portal does not run
+calls", and in the default mode it does the opposite of what an operator
+expects: a Proposals section appears and cannot be removed. Both items lead to
+pages that can never list anything, because no call exists to propose against
+or review.
+
+The only combination that removes the section is
+`SERVICE_ACCESS_MODE = 'marketplace'` **and** the feature off — which requires
+an operator to reach for a setting about how applicants browse the catalogue in
+order to express something unrelated to browsing.
+
+### Suggested fix
+
+Make the `both` branch answer the state the same way the marketplace branch
+already does:
+
+```tsx
+if (!isFeatureVisible(MarketplaceFeatures.show_call_management_functionality)) {
+  return null;
+}
+```
+
+Worth renaming the feature at the same time. "Call management functionality"
+describes a screen; what it actually governs is whether the deployment runs
+calls, and the gap between those two readings is what makes the current
+behaviour look deliberate.
 
 ---
 
