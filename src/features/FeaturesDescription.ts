@@ -423,6 +423,10 @@ export const FeaturesDescription: FeatureSection[] = [
         description: translate('Show identity bridge information in user profiles and admin views.'),
       },
       {
+        key: 'show_openportal_identifier',
+        description: translate('Show the OpenPortal username on the user profile, and let a user choose it once if it has not been set.'),
+      },
+      {
         key: 'show_slug',
         description: translate('Enable display of slug field in user summary.'),
       },

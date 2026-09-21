@@ -122,6 +122,7 @@ export enum UserFeatures {
   preferred_language = 'user.preferred_language',
   show_data_access = 'user.show_data_access',
   show_identity_bridge = 'user.show_identity_bridge',
+  show_openportal_identifier = 'user.show_openportal_identifier',
   show_slug = 'user.show_slug',
   show_slug_as_id = 'user.show_slug_as_id',
   show_username = 'user.show_username',

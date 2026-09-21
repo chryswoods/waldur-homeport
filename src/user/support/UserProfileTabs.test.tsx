@@ -67,6 +67,12 @@ vi.mock('./UserEditAvatarFormItem', () => ({
   UserEditAvatarFormItem: () => null,
 }));
 
+vi.mock('@/openportal/user-identifier/OpenPortalUsernameField', () => ({
+  OpenPortalUsernameField: () => (
+    <div data-testid="openportal-username-field" />
+  ),
+}));
+
 const makeUser = (overrides = {}): any => ({
   uuid: 'user-1',
   first_name: 'John',
@@ -95,6 +101,10 @@ describe('UserProfileTabs', () => {
       is_support: false,
     } as any);
     vi.mocked(useSetUser).mockReturnValue(vi.fn());
+    // clearAllMocks clears calls but keeps implementations, so a blanket
+    // mockReturnValue would otherwise leak into later tests. Default every
+    // flag off and let each test enable the one it is about.
+    vi.mocked(isFeatureVisible).mockReturnValue(false);
     (ENV.plugins.WALDUR_CORE as any).ENABLED_USER_PROFILE_ATTRIBUTES =
       ALL_ATTRIBUTES;
     vi.mocked(useModal).mockReturnValue({
@@ -570,7 +580,9 @@ describe('UserProfileTabs', () => {
 
   describe('Additional System Tab details', () => {
     it('renders slug field when feature is visible and user is staff', async () => {
-      vi.mocked(isFeatureVisible).mockReturnValue(true);
+      vi.mocked(isFeatureVisible).mockImplementation(
+        (flag: any) => flag === 'user.show_slug',
+      );
       const user = userEvent.setup();
       renderTabs();
 
@@ -695,6 +707,66 @@ describe('UserProfileTabs', () => {
       expect(() =>
         renderTabs(makeUser({ eduperson_assurance: undefined })),
       ).not.toThrow();
+    });
+  });
+
+  // ── Minimal profile ─────────────────────────────────────────────────────────
+
+  describe('minimal_user_profile', () => {
+    const enableFlags = (...flags: string[]) =>
+      vi
+        .mocked(isFeatureVisible)
+        .mockImplementation((flag: any) => flags.includes(flag));
+
+    it('keeps only the name, email and OpenPortal username rows', () => {
+      enableFlags(
+        'user.minimal_user_profile',
+        'user.show_openportal_identifier',
+      );
+      renderTabs();
+
+      expect(screen.getByText('First name')).toBeInTheDocument();
+      expect(screen.getByText('Last name')).toBeInTheDocument();
+      expect(screen.getByText('Email')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('openportal-username-field'),
+      ).toBeInTheDocument();
+
+      // Everything else in Basic info goes, including the fields that are
+      // hard-coded `enabled: true` and so survive an empty attribute list.
+      expect(screen.queryByText('Phone number')).not.toBeInTheDocument();
+      expect(screen.queryByText('Native name')).not.toBeInTheDocument();
+    });
+
+    it('leaves only the Basic info tab', () => {
+      enableFlags('user.minimal_user_profile');
+      renderTabs();
+
+      expect(screen.getByText('Basic info')).toBeInTheDocument();
+      expect(screen.queryByText('Personal')).not.toBeInTheDocument();
+      expect(screen.queryByText('Geographic')).not.toBeInTheDocument();
+      expect(screen.queryByText('Affiliation')).not.toBeInTheDocument();
+      expect(screen.queryByText('System')).not.toBeInTheDocument();
+      expect(screen.queryByText('Internal')).not.toBeInTheDocument();
+    });
+
+    it('omits the OpenPortal username when its own flag is off', () => {
+      enableFlags('user.minimal_user_profile');
+      renderTabs();
+
+      expect(
+        screen.queryByTestId('openportal-username-field'),
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows the OpenPortal username on a full profile too', () => {
+      enableFlags('user.show_openportal_identifier');
+      renderTabs();
+
+      expect(
+        screen.getByTestId('openportal-username-field'),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Affiliation')).toBeInTheDocument();
     });
   });
 });

@@ -24,6 +24,7 @@ import { TabbedSection } from '@/form/TabbedSection';
 import { translate } from '@/i18n';
 import { CountryFlag } from '@/marketplace/common/CountryFlag';
 import { useModal } from '@/modal/actions';
+import { OpenPortalUsernameField } from '@/openportal/user-identifier/OpenPortalUsernameField';
 import { formatUserStatus } from '@/user/support/utils';
 import { useUser } from '@/workspace/hooks';
 
@@ -244,6 +245,23 @@ const buildBasicFields = ({
               : translate("Display the user's last name on their profile")
           }
           {...lastNameProps}
+        />
+      ),
+    },
+    {
+      // The OpenPortal username, when this deployment uses them. It writes
+      // through `openportal-userinfo`, not the user record, so the component
+      // owns its own fetch and save; `countable: false` keeps a value the tab
+      // does not hold out of the completeness badge.
+      name: 'openportal_username',
+      label: translate('Username'),
+      enabled: isFeatureVisible(UserFeatures.show_openportal_identifier),
+      countable: false,
+      node: (
+        <OpenPortalUsernameField
+          user={user}
+          disabled={disabled}
+          disabledReason={disabledReason}
         />
       ),
     },
@@ -1007,21 +1025,53 @@ interface UserProfileTabsProps {
   disabledReason?: string;
 }
 
+/**
+ * The fields a minimal profile keeps, by field name.
+ *
+ * `user.minimal_user_profile` is documented as showing "a minimal set of user
+ * profile fields (e.g. just name and email)", which is exactly this list plus
+ * the OpenPortal username where that is enabled. Which of them are editable is
+ * a separate matter, decided per field by `identity_provider_fields` — a
+ * deployment whose IdP owns the names and email gets them read-only, with the
+ * padlock and provenance tooltip, without this flag having to say so.
+ */
+const MINIMAL_PROFILE_FIELDS = new Set([
+  'first_name',
+  'last_name',
+  'email',
+  'openportal_username',
+]);
+
+const EMPTY_FIELDS: ProfileField[] = [];
+
 const useProfileTabFields = (
   ctx: FieldBuilderContext,
 ): Record<TabKey, ProfileField[]> => {
   const { user, currentUser, disabled, disabledReason, isSelf } = ctx;
+  const minimal = isFeatureVisible(UserFeatures.minimal_user_profile);
   return useMemo(
-    () => ({
-      basic: buildBasicFields(ctx),
-      personal: buildPersonalFields(ctx),
-      geographic: buildGeographicFields(ctx),
-      organization: buildOrganizationFields(ctx),
-      system: buildSystemFields(ctx),
-      staff: buildStaffFields(ctx),
-    }),
+    () =>
+      minimal
+        ? {
+            basic: buildBasicFields(ctx).filter((field) =>
+              MINIMAL_PROFILE_FIELDS.has(field.name),
+            ),
+            personal: EMPTY_FIELDS,
+            geographic: EMPTY_FIELDS,
+            organization: EMPTY_FIELDS,
+            system: EMPTY_FIELDS,
+            staff: EMPTY_FIELDS,
+          }
+        : {
+            basic: buildBasicFields(ctx),
+            personal: buildPersonalFields(ctx),
+            geographic: buildGeographicFields(ctx),
+            organization: buildOrganizationFields(ctx),
+            system: buildSystemFields(ctx),
+            staff: buildStaffFields(ctx),
+          },
     // ctx is rebuilt from these primitives on every render; depend on them.
-    [user, currentUser, disabled, disabledReason, isSelf],
+    [user, currentUser, disabled, disabledReason, isSelf, minimal],
   );
 };
 
@@ -1044,8 +1094,15 @@ export const UserProfileTabs = ({
     isSelf,
   });
 
+  // A tab with nothing enabled in it is an empty tab, so every tab is gated on
+  // having content. Personal and Geographic already were; the rest were not,
+  // which is why a minimal profile would otherwise leave Affiliation, System
+  // and Internal rendering as empty shells.
   const hasPersonalFields = tabFields.personal.some((f) => f.enabled);
   const hasGeographicFields = tabFields.geographic.some((f) => f.enabled);
+  const hasOrganizationFields = tabFields.organization.some((f) => f.enabled);
+  const hasSystemFields = tabFields.system.some((f) => f.enabled);
+  const hasStaffFields = tabFields.staff.some((f) => f.enabled);
 
   const { callback: baseCallback } = useUpdateUser(user);
   const { data: fieldWarnings } = useProfileFieldWarnings();
@@ -1150,35 +1207,39 @@ export const UserProfileTabs = ({
             />
           </TabbedSection.Tab>
         )}
-        <TabbedSection.Tab
-          id="organization"
-          title={
-            <>
-              {translate('Affiliation')}
-              <TabBadge
-                stats={computeStats(tabFields.organization)}
-                tabKey="organization"
-              />
-            </>
-          }
-        >
-          <FieldList fields={tabFields.organization} />
-        </TabbedSection.Tab>
-        <TabbedSection.Tab
-          id="system"
-          title={
-            <>
-              {translate('System')}
-              <TabBadge
-                stats={computeStats(tabFields.system)}
-                tabKey="system"
-              />
-            </>
-          }
-        >
-          <FieldList fields={tabFields.system} />
-        </TabbedSection.Tab>
-        {isVisibleStaffOrSupport && (
+        {hasOrganizationFields && (
+          <TabbedSection.Tab
+            id="organization"
+            title={
+              <>
+                {translate('Affiliation')}
+                <TabBadge
+                  stats={computeStats(tabFields.organization)}
+                  tabKey="organization"
+                />
+              </>
+            }
+          >
+            <FieldList fields={tabFields.organization} />
+          </TabbedSection.Tab>
+        )}
+        {hasSystemFields && (
+          <TabbedSection.Tab
+            id="system"
+            title={
+              <>
+                {translate('System')}
+                <TabBadge
+                  stats={computeStats(tabFields.system)}
+                  tabKey="system"
+                />
+              </>
+            }
+          >
+            <FieldList fields={tabFields.system} />
+          </TabbedSection.Tab>
+        )}
+        {isVisibleStaffOrSupport && hasStaffFields && (
           <TabbedSection.Tab
             id="staff"
             title={
