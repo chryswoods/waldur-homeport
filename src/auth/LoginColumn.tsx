@@ -10,7 +10,6 @@ import { translate } from '@/i18n';
 import { LanguageSelectorBox } from '@/i18n/LanguageSelectorBox';
 import { LanguageUtilsService } from '@/i18n/LanguageUtilsService';
 import { FooterLinks } from '@/navigation/footer/FooterLinks';
-import { ThemeSwitcherButton } from '@/theme/ThemeSwitcher';
 import { useThemeFeatures } from '@/theme/useThemeFeatures';
 
 import { AuthHeader } from './AuthHeader';

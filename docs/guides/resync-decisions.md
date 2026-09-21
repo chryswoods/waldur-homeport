@@ -279,30 +279,32 @@ One upstream bug found and fixed here, worth offering back: upstream's
 ## Moving to 8.1.3-rc.15
 
 The merge from `8.1.3-rc.8` to `8.1.3-rc.15` (326 commits, 1,416 files) is
-committed, with every conflict resolved. It **does not typecheck yet**, by
-decision: the tree is correct and the remaining errors all wait on a
-regenerated SDK. The resolutions are recorded here so the reasoning survives.
+committed and green: `yarn tsgo -b` clean, lint clean, 4,381 tests passing.
 
-### What still blocks the typecheck
+### The SDK was the whole of the blocker
 
-`yarn tsgo -b` reports **194 errors, none of them in this fork's code**. Every
-one is a type the rc.15 frontend expects from a newer mastermind schema than
-this fork's `waldur-js-client` was generated from — `rolesHygieneReportRetrieve`,
-`RoleHygieneFinding`, `Rule.user_identity_sources`, `RmqQueueStats.queue_kind`,
-`EventConsumer.user_username`, and so on across the administration, marketplace
-and openstack areas.
+On the merge commit itself the tree had **194 type errors, none of them in this
+fork's code**. Every one was a symbol the rc.15 frontend expects from a newer
+mastermind schema than the fork's `waldur-js-client` had been generated from —
+`rolesHygieneReportRetrieve`, `RoleHygieneFinding`, `Rule.user_identity_sources`,
+`RmqQueueStats.queue_kind`, `EventConsumer.user_username`, and so on across the
+administration, marketplace and openstack areas. All were present in the client
+upstream itself pinned, so nothing was missing upstream; the fork's client was
+simply older.
 
-All of them are present in the published client upstream itself pins
-(`8.1.3-rc.14.dev.20260917151209.353`), so nothing is missing upstream — this
-fork's client is simply older, being generated from a mastermind that predates
-them.
+Shimming or casting around them was rejected. The strict typing is precisely
+what shows when the schema has moved, and hiding that would have hidden a real
+signal. The branch was left red instead until `chryswoods/js-client` was
+regenerated and tagged `8.1.3-rc.15-openportal.1`. Bumping to that tag took the
+194 errors to zero, which is the confirmation that the diagnosis was right and
+that nothing in this fork's code needed changing for rc.15.
 
-**The remaining order of work:** `chryswoods/waldur-mastermind` merges upstream
-mastermind up to the rc.15-era backend, the SDK fork is regenerated and re-tagged
-from it, HomePort points at the new tag, and the tree then compiles. Until that
-tag exists the branch is intentionally red — do not paper over the errors with
-casts or shims, since the whole point of the strict typing is that it shows when
-the schema has moved.
+Two errors did surface that were genuinely ours, both slips in the same
+conflict resolution: unioning two import blocks dropped `PlusCircleIcon` in
+`TeamDropdownActions.tsx`, and kept a now-dead `ThemeSwitcherButton` import in
+`LoginColumn.tsx` (upstream moved the switcher inside `AuthHeaderControls`).
+The lesson for the next resync: a union of import blocks is not automatically
+safe — the body may have moved out from under it either way.
 
 ### The eleven conflicts and how they were resolved
 

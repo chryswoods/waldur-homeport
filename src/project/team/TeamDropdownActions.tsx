@@ -1,3 +1,4 @@
+import { PlusCircleIcon } from '@phosphor-icons/react';
 import * as RadixDropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useSelector } from 'react-redux';
 import { Project } from 'waldur-js-client';
