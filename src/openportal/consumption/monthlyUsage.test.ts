@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildAwardConsumption, consumptionTotal } from './awardConsumption';
+import { buildMonthlyUsage, consumptionTotal } from './monthlyUsage';
 
 const invoice = (year: number, month: number, incurred: number) =>
   ({ year, month, incurred, compensation: 0, price: incurred }) as any;
 
 const today = new Date(2026, 8, 18); // 18 Sep 2026
 
-describe('buildAwardConsumption', () => {
+describe('buildMonthlyUsage', () => {
   // The bug this replaces: the stock chart plots `compensation`, which under
   // award accounting is zero every month because OpenPortal sets the balance
   // directly and writes no compensation items.
   it('reads usage, not credit compensation', () => {
-    const months = buildAwardConsumption(
+    const months = buildMonthlyUsage(
       [{ year: 2026, month: 7, incurred: 16800, compensation: 0 } as any],
       '2026-06-01',
       '2026-08-31',
@@ -25,7 +25,7 @@ describe('buildAwardConsumption', () => {
   // A fixed frame, so the bars march across it as the award runs rather than
   // the axis rescaling every month.
   it('spans the award window, not the months that have invoices', () => {
-    const months = buildAwardConsumption(
+    const months = buildMonthlyUsage(
       [invoice(2026, 7, 100)],
       '2026-04-01',
       '2026-09-30',
@@ -38,13 +38,13 @@ describe('buildAwardConsumption', () => {
   });
 
   it('marks months beyond today as still to come', () => {
-    const months = buildAwardConsumption([], '2026-08-01', '2026-11-30', today);
+    const months = buildMonthlyUsage([], '2026-08-01', '2026-11-30', today);
 
     expect(months.map((m) => m.isFuture)).toEqual([false, false, true, true]);
   });
 
   it('tells an empty month from one with no invoice at all', () => {
-    const months = buildAwardConsumption(
+    const months = buildMonthlyUsage(
       [invoice(2026, 8, 0)],
       '2026-08-01',
       '2026-09-30',
@@ -59,11 +59,11 @@ describe('buildAwardConsumption', () => {
     ['a window that runs backwards', '2026-09-01', '2026-04-01'],
     ['an unparseable start', 'not-a-date', '2026-09-01'],
   ])('returns nothing for %s', (_label, start, end) => {
-    expect(buildAwardConsumption([], start, end, today)).toEqual([]);
+    expect(buildMonthlyUsage([], start, end, today)).toEqual([]);
   });
 
   it('sums the window', () => {
-    const months = buildAwardConsumption(
+    const months = buildMonthlyUsage(
       [invoice(2026, 7, 100), invoice(2026, 8, 250)],
       '2026-07-01',
       '2026-09-30',

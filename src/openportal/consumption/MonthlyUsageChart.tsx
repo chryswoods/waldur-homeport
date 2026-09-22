@@ -12,30 +12,36 @@ import { getChartThemeColors } from '@/dashboard/chartColors';
 import { WidgetCard } from '@/dashboard/WidgetCard';
 import { translate } from '@/i18n';
 
-import { buildAwardConsumption } from './awardConsumption';
-import { type AwardPace } from './awardPace';
+import { buildMonthlyUsage } from './monthlyUsage';
 
 interface Props {
   projectUuid: string;
-  pace: AwardPace;
+  /** First day of the window to plot, e.g. the award's or the project's start. */
+  startDate: string;
+  endDate: string;
   className?: string;
 }
 
 /**
- * Monthly usage over the award's window.
+ * Monthly usage over a window.
  *
- * Replaces the stock credit consumption chart for award-backed projects, which
- * plots the credit compensation per month and is therefore flat zero for every
- * one of them: OpenPortal sets the credit balance directly and writes no
- * compensation items. This plots what was used instead, which is the figure the
- * chart was always understood to show.
+ * Replaces the stock credit consumption chart wherever OpenPortal owns the
+ * accounting. That chart plots the credit compensation per month, which for an
+ * award-backed project is flat zero — OpenPortal sets the credit balance
+ * directly and writes no compensation items. This plots what was used instead,
+ * which is the figure the chart was always understood to show.
+ *
+ * The window is a parameter rather than an award, so the same chart serves a
+ * project whose budget comes from an award and one whose OpenPortal resources
+ * are accounted for over the project's own dates.
  *
  * One request. The per-month usage is already aggregated by
  * /api/invoice-items/costs/, so nothing here needs the OpenPortal usage reports.
  */
-export const AwardConsumptionChart: FC<Props> = ({
+export const MonthlyUsageChart: FC<Props> = ({
   projectUuid,
-  pace,
+  startDate,
+  endDate,
   className,
 }) => {
   const { data: invoices } = useQuery({
@@ -52,11 +58,8 @@ export const AwardConsumptionChart: FC<Props> = ({
   });
 
   const months = useMemo(
-    () =>
-      invoices
-        ? buildAwardConsumption(invoices, pace.startDate, pace.endDate)
-        : [],
-    [invoices, pace.startDate, pace.endDate],
+    () => (invoices ? buildMonthlyUsage(invoices, startDate, endDate) : []),
+    [invoices, startDate, endDate],
   );
 
   const options = useMemo(() => {
@@ -104,8 +107,8 @@ export const AwardConsumptionChart: FC<Props> = ({
   }
 
   return (
-    // No total in the subtitle: this sits beside the award card, which states
-    // it already.
+    // No total in the subtitle: this sits beside a card that states it
+    // already.
     <WidgetCard cardTitle={translate('Monthly usage')} className={className}>
       <div className="separator mt-4 mb-4" />
       {/* The same height as the credit chart this replaces, so the card

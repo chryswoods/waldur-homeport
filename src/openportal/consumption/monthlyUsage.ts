@@ -10,13 +10,13 @@ export interface ConsumptionMonth {
   label: string;
   /** Usage booked that month, gross of any credit compensation. */
   value: number;
-  /** False when the award window covers a month with no invoice at all. */
+  /** False when the window covers a month with no invoice at all. */
   hasInvoice: boolean;
   isFuture: boolean;
 }
 
 /**
- * Monthly usage across an award's whole window.
+ * Monthly usage across a window — an award's, or a project's own.
  *
  * Reads `incurred` -- the sum of the positively-priced invoice items, i.e. what
  * was actually used -- rather than `compensation`, which is what the credit was
@@ -25,11 +25,11 @@ export interface ConsumptionMonth {
  * keyed on compensation is flat zero for every month while the project is
  * plainly consuming.
  *
- * The axis spans the award's own window rather than the months that happen to
- * have invoices, so the bars march across a fixed frame as the award runs and
- * an empty month reads as an empty month rather than being absent.
+ * The axis spans the given window rather than the months that happen to have
+ * invoices, so the bars march across a fixed frame as the window runs and an
+ * empty month reads as an empty month rather than being absent.
  */
-export const buildAwardConsumption = (
+export const buildMonthlyUsage = (
   invoices: InvoiceCost[],
   startDate: string,
   endDate: string,

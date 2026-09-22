@@ -30,10 +30,13 @@ import { AggregateLimitWidget } from '@/marketplace/aggregate-limits/AggregateLi
 import { UsageViewsSection } from '@/marketplace/aggregate-limits/usage-views/UsageViewsSection';
 import { NON_TERMINATED_STATES } from '@/marketplace/resources/list/constants';
 import { useModal } from '@/modal/actions';
-import { AwardConsumptionChart } from '@/openportal/award-pace/AwardConsumptionChart';
 import { useAwardPace } from '@/openportal/award-pace/useAwardPace';
 import { canChangeMembership } from '@/openportal/awardPolicy';
+import { MonthlyUsageChart } from '@/openportal/consumption/MonthlyUsageChart';
 import { ManagedProjectDashboardCards } from '@/openportal/managed-projects/ManagedProjectDashboardCards';
+import { getAccountingMode } from '@/openportal/project-accounting/accountingMode';
+import { ProjectSpendCard } from '@/openportal/project-accounting/ProjectSpendCard';
+import { useProjectSpend } from '@/openportal/project-accounting/useProjectSpend';
 import { RemoteProjectDashboardCards } from '@/openportal/remote-projects/RemoteProjectDashboardCards';
 import { useProjectAccountingSummary } from '@/openportal/useProjectAccountingSummary';
 import { PermissionEnum } from '@/permissions/enums';
@@ -158,11 +161,24 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
     aggregateLimitDataForCurrentMonth,
   );
 
+  // The organisation has said its accounting is OpenPortal's absolute model,
+  // so the marketplace widgets — a balance, aggregate limits, a credit
+  // consumption chart — describe a different one and contradict the figures
+  // beside them. The same feature already does this on the organisation
+  // dashboard; a project belongs to exactly one organisation, so it follows.
+  const openPortalAccountingOnly = isFeatureVisible(
+    CustomerFeatures.show_openportal_accounting_only,
+  );
+
   const shouldShowAggregateLimitWidget =
-    aggregateLimitData?.components?.length > 0 && ShowResourceLimits;
+    aggregateLimitData?.components?.length > 0 &&
+    ShowResourceLimits &&
+    !openPortalAccountingOnly;
 
   const shouldShowCurrentMonthWidget =
-    currentMonthFilteredData?.components?.length > 0 && ShowResourceLimits;
+    currentMonthFilteredData?.components?.length > 0 &&
+    ShowResourceLimits &&
+    !openPortalAccountingOnly;
 
   // Check if there are limit-based resources to show
   const { data: limitBasedResourcesCount } = useQuery({
@@ -239,6 +255,16 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
     project?.uuid,
     hasAnyManagedProjects,
   );
+  const accountingMode = getAccountingMode({
+    hasAward: hasAnyManagedProjects,
+    openPortalAccountingOnly,
+  });
+  const showProjectSpend = accountingMode === 'project';
+  const { data: projectSpend } = useProjectSpend(
+    project?.uuid,
+    showProjectSpend,
+  );
+
   const awardPace = useAwardPace(
     currentAward,
     awardAccounting,
@@ -292,11 +318,20 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
             project={project}
           />
         )}
-        {!hasManyRemoteProjects && !hasAnyManagedProjects && (
-          <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
-            <ProjectDashboardBalance project={project} />
+        {/* The award card's counterpart for a project with no award: the same
+            absolute figures, minus everything that needs an allocation. */}
+        {showProjectSpend && projectSpend && (
+          <Col sm={12} className="mb-5">
+            <ProjectSpendCard spend={projectSpend} />
           </Col>
         )}
+        {!hasManyRemoteProjects &&
+          !hasAnyManagedProjects &&
+          !openPortalAccountingOnly && (
+            <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
+              <ProjectDashboardBalance project={project} />
+            </Col>
+          )}
         {showTeam && !hasAnyRemoteProjects && !hasAnyManagedProjects && (
           <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
             <TeamWidget
@@ -358,14 +393,29 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
             never writes, so it is flat zero for every one of them. */}
         {showBillingInfo &&
           !hasManyRemoteProjects &&
-          !hasAnyManagedProjects && (
+          !hasAnyManagedProjects &&
+          !openPortalAccountingOnly && (
             <ProjectDashboardCredit project={project} className="mb-5" />
           )}
         {showBillingInfo && hasAnyManagedProjects && awardPace && (
           <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
-            <AwardConsumptionChart
+            <MonthlyUsageChart
               projectUuid={project.uuid}
-              pace={awardPace}
+              startDate={awardPace.startDate}
+              endDate={awardPace.endDate}
+              className="h-100"
+            />
+          </Col>
+        )}
+        {/* No award, but the organisation accounts absolutely: the same
+            monthly usage over the project's own window, beside the spend
+            figures rather than a pace bar there is no allocation to draw. */}
+        {showBillingInfo && showProjectSpend && projectSpend?.endDate && (
+          <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
+            <MonthlyUsageChart
+              projectUuid={project.uuid}
+              startDate={projectSpend.startDate}
+              endDate={projectSpend.endDate}
               className="h-100"
             />
           </Col>
