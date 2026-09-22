@@ -1,16 +1,15 @@
 import { XIcon } from '@phosphor-icons/react';
 import { FC, PropsWithChildren, useEffect } from 'react';
-import { Button, Form } from 'react-bootstrap';
-import { BaseFieldProps, Field } from 'redux-form';
+import { Form } from 'react-bootstrap';
+import { Field, useForm } from 'react-final-form';
 
-import { ENV } from '@waldur/core/config';
-import { SelectField, StringField } from '@waldur/form';
-import { BoxNumberField } from '@waldur/form/BoxNumberField';
-import { translate } from '@waldur/i18n';
-import {
-  formatIntField,
-  parseIntField,
-} from '@waldur/marketplace/common/utils';
+import { ENV } from '@/core/config';
+import { composeValidators } from '@/core/validators';
+import { SelectField, StringField } from '@/form';
+import { BoxNumberField } from '@/form/BoxNumberField';
+import { translate } from '@/i18n';
+import { formatIntField, parseIntField } from '@/marketplace/common/utils';
+import { ActionButton } from '@/table/ActionButton';
 
 interface FormNodeStorageTableProps {
   title?: string;
@@ -26,9 +25,8 @@ interface FormNodeStorageRowProps {
   defaultVolumeType?: any;
   /** In GB */
   sizeLimit: number;
-  typeValidate?: BaseFieldProps['validate'];
-  sizeValidate?: BaseFieldProps['validate'];
-  change(field: string, value: any): void;
+  typeValidate?: any;
+  sizeValidate?: any;
   onDeleteRow?(): void;
 }
 
@@ -56,20 +54,29 @@ export const FormNodeStorageTable: FC<
 };
 
 export const FormNodeStorageRow: FC<FormNodeStorageRowProps> = (props) => {
+  const form = useForm();
   useEffect(() => {
     if (props?.defaultVolumeType) {
-      props.change(
+      form.change(
         `${props.parentName}.${props.typeName}`,
         props.defaultVolumeType.value,
       );
     }
     if (props.sizeName === 'system_volume_size') {
-      props.change(
+      form.change(
         `${props.parentName}.${props.sizeName}`,
         ENV.plugins.WALDUR_RANCHER.SYSTEM_VOLUME_MIN_SIZE || 1,
       );
     }
-  }, [props?.defaultVolumeType, props.change]);
+  }, [props?.defaultVolumeType, form]);
+
+  const finalSizeValidate = Array.isArray(props.sizeValidate)
+    ? composeValidators(...props.sizeValidate)
+    : props.sizeValidate;
+
+  const finalTypeValidate = Array.isArray(props.typeValidate)
+    ? composeValidators(...props.typeValidate)
+    : props.typeValidate;
 
   return (
     <tr>
@@ -82,49 +89,61 @@ export const FormNodeStorageRow: FC<FormNodeStorageRowProps> = (props) => {
             readOnly
           />
         ) : (
-          <Field
-            name="name"
-            component={StringField}
-            placeholder={translate('Node name')}
-            readOnly
-          />
+          <Field name={`${props.parentName}.name`}>
+            {({ input, meta }) => (
+              <StringField
+                input={input}
+                meta={meta}
+                placeholder={translate('Node name')}
+                readOnly
+              />
+            )}
+          </Field>
         )}
       </td>
       <td>
         <Field
-          name={props.sizeName}
-          component={BoxNumberField}
-          validate={props.sizeValidate}
-          min={1}
-          max={props.sizeLimit}
+          name={`${props.parentName}.${props.sizeName}`}
+          validate={finalSizeValidate}
           parse={parseIntField}
           format={formatIntField}
-        />
+        >
+          {({ input, meta }) => (
+            <BoxNumberField
+              input={input}
+              meta={meta}
+              min={1}
+              max={props.sizeLimit}
+            />
+          )}
+        </Field>
       </td>
       {props?.volumeTypeChoices?.length > 0 && (
         <td>
           <Field
-            name={props.typeName}
-            component={SelectField}
-            validate={props.typeValidate}
-            placeholder={translate('Select volume type...')}
-            options={props.volumeTypeChoices}
-            getOptionValue={(option) => option.value}
-            simpleValue
-          />
+            name={`${props.parentName}.${props.typeName}`}
+            validate={finalTypeValidate}
+          >
+            {({ input, meta }) => (
+              <SelectField
+                input={input}
+                meta={meta}
+                placeholder={translate('Select volume type...')}
+                options={props.volumeTypeChoices}
+                getOptionValue={(option) => option.value}
+                simpleValue
+              />
+            )}
+          </Field>
         </td>
       )}
       {props.onDeleteRow && (
         <td className="w-60px">
-          <Button
+          <ActionButton
             variant="text-danger"
-            className="btn-icon"
-            onClick={props.onDeleteRow}
-          >
-            <span className="svg-icon svg-icon-2">
-              <XIcon weight="bold" />
-            </span>
-          </Button>
+            action={props.onDeleteRow}
+            iconNode={<XIcon weight="bold" />}
+          />
         </td>
       )}
     </tr>

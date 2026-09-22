@@ -1,23 +1,28 @@
-import { Field } from 'react-final-form';
+import { StringGroup } from '@/form';
+import { translate } from '@/i18n';
+import { useUser } from '@/workspace/hooks';
+import { Customer } from '@/workspace/types';
 
-import { StringField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-import { useUser } from '@waldur/workspace/hooks';
-
-export const SlugGroup = () => {
+export const SlugGroup = ({ customer }: { customer?: Customer }) => {
   const user = useUser();
   if (!user.is_staff) {
     return null;
   }
+  const template = customer?.project_slug_template;
+  const helpText = template
+    ? translate(
+        'If left empty, a slug in the format of "{template}" will be generated automatically.',
+        { template },
+      )
+    : translate(
+        'If left empty, the slug will be generated from the project name.',
+      );
   return (
-    <FormGroup
+    <StringGroup
+      name="slug"
+      placeholder={template || translate('Auto-generated')}
       label={translate('Project slug')}
-      help={translate(
-        'Warning: The slug will be used for external integrations and APIs. Choose carefully as changing it later may break dependent systems.',
-      )}
-    >
-      <Field component={StringField as any} name="slug" />
-    </FormGroup>
+      description={helpText}
+    />
   );
 };

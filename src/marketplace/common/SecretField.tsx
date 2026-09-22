@@ -14,12 +14,12 @@ export class SecretField extends Component<
       <>
         <button className="text-btn" type="button" onClick={this.toggle}>
           {this.state.showSecret ? (
-            <EyeSlashIcon size={20} />
+            <EyeSlashIcon size={20} weight="bold" />
           ) : (
-            <EyeIcon size={20} />
+            <EyeIcon size={20} weight="bold" />
           )}
         </button>{' '}
-        {this.getValue()}
+        <span className="text-break">{this.getValue()}</span>
       </>
     );
   }
@@ -33,8 +33,7 @@ export class SecretField extends Component<
   getValue = () =>
     this.state.showSecret
       ? this.props.value
-      : (this.props.value || '')
-          .split('')
-          .map(() => '*')
-          .join('');
+      : this.props.value
+        ? '••••••••••••'
+        : '';
 }

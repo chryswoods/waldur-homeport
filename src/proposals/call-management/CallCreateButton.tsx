@@ -1,11 +1,9 @@
-import { useDispatch, useSelector } from 'react-redux';
-
-import { AddButton } from '@waldur/core/AddButton';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { openModalDialog } from '@waldur/modal/actions';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { getCustomer, getUser } from '@waldur/workspace/selectors';
+import { AddButton } from '@/core/AddButton';
+import { lazyComponent } from '@/core/lazyComponent';
+import { useModal } from '@/modal/actions';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { useUser, useCustomer } from '@/workspace/hooks';
 
 const CallCreateDialog = lazyComponent(() =>
   import('./CallFormDialog').then((module) => ({
@@ -13,24 +11,30 @@ const CallCreateDialog = lazyComponent(() =>
   })),
 );
 
-const callCreateDialog = (refetch) =>
-  openModalDialog(CallCreateDialog, {
-    resolve: { refetch },
-    size: 'lg',
-  });
-
 export const CallCreateButton = ({ refetch }) => {
-  const user = useSelector(getUser);
-  const customer = useSelector(getCustomer);
+  const user = useUser();
+  const customer = useCustomer();
   const canCreateCall = hasPermission(user, {
     permission: PermissionEnum.CREATE_CALL,
-    callOrganizerId: customer.call_managing_organization_uuid,
+    callOrganizerId: customer?.call_managing_organization_uuid,
   });
+  const { openDialog } = useModal();
 
-  if (!canCreateCall) {
+  // A call belongs to a managing organisation, so there is nothing to create
+  // from a cross-organisation list. The organisation's own Call management tab
+  // is where a call is started.
+  if (!customer || !canCreateCall) {
     return null;
   }
-  const dispatch = useDispatch();
 
-  return <AddButton action={() => dispatch(callCreateDialog(refetch))} />;
+  return (
+    <AddButton
+      action={() =>
+        openDialog(CallCreateDialog, {
+          resolve: { refetch },
+          size: 'lg',
+        })
+      }
+    />
+  );
 };

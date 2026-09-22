@@ -1,0 +1,95 @@
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { marketplaceProviderOfferingsUpdateIntegration } from 'waldur-js-client';
+
+import { renderWithProviders } from '@/test/harness';
+
+import { EditVarsDialog } from './EditVarsDialog';
+
+const fakeOffering = {
+  uuid: 'offering-uuid',
+  name: 'Test Offering',
+  secret_options: {
+    environ: [{ name: 'VAR1', value: 'VAL1' }],
+  },
+};
+
+const renderDialog = (offering: any = fakeOffering) => {
+  return renderWithProviders(
+    <EditVarsDialog
+      resolve={
+        {
+          offering: offering as any,
+          refetch: vi.fn(),
+        } as any
+      }
+    />,
+  );
+};
+
+describe('EditVarsDialog', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders initial environment variables', () => {
+    renderDialog();
+    expect(screen.getByDisplayValue('VAR1')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('VAL1')).toBeInTheDocument();
+  });
+
+  // The backend omits secret_options from the payload of a user who may not
+  // see it, and reading environ off it used to throw as the dialog rendered.
+  it('renders an empty list when secret_options are not visible', () => {
+    renderDialog({ uuid: 'offering-uuid', name: 'Test Offering' });
+    expect(screen.getByText('No variable defined')).toBeInTheDocument();
+  });
+
+  it('adds a new variable row when clicking add button', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    const addButton = screen.getByLabelText('Add variable');
+    await user.click(addButton);
+
+    const inputs = screen.getAllByPlaceholderText('Key');
+    expect(inputs.length).toBe(2);
+  });
+
+  it('removes a variable row when clicking delete button', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    const removeButton = screen.getByRole('button', { name: '' }); // CompactActionButton with XIcon
+    await user.click(removeButton);
+
+    expect(screen.queryByDisplayValue('VAR1')).not.toBeInTheDocument();
+    expect(screen.getByText('No variable defined')).toBeInTheDocument();
+  });
+
+  it('submits updated environment variables', async () => {
+    const user = userEvent.setup();
+    vi.mocked(marketplaceProviderOfferingsUpdateIntegration).mockResolvedValue(
+      {} as any,
+    );
+    renderDialog();
+
+    const keyInput = screen.getByDisplayValue('VAR1');
+    await user.clear(keyInput);
+    await user.type(keyInput, 'NEW_VAR');
+
+    await user.click(screen.getByText('Save'));
+
+    await waitFor(() => {
+      expect(
+        marketplaceProviderOfferingsUpdateIntegration,
+      ).toHaveBeenCalledWith({
+        path: { uuid: 'offering-uuid' },
+        body: expect.objectContaining({
+          secret_options: expect.objectContaining({
+            environ: [{ name: 'NEW_VAR', value: 'VAL1' }],
+          }),
+        }),
+      });
+    });
+  });
+});

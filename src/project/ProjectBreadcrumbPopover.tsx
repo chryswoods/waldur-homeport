@@ -1,54 +1,30 @@
 import { projectsList } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { BreadcrumbDropdown } from '@waldur/navigation/header/breadcrumb/BreadcrumbDropdown';
-import { useFavoritePages } from '@waldur/navigation/header/favorite-pages/FavoritePageService';
-import { SearchItem } from '@waldur/navigation/header/search/SearchItem';
+import { translate } from '@/i18n';
+import { BreadcrumbDropdown } from '@/navigation/header/breadcrumb/BreadcrumbDropdown';
+import { BreadcrumbSearchItem } from '@/navigation/header/breadcrumb/BreadcrumbSearchItem';
 
-const ProjectListItem = ({
-  row,
-  addFavoritePage,
-  removeFavorite,
-  isFavorite,
-  close,
-}) => (
-  <SearchItem
-    key={row.uuid}
-    to="project.dashboard"
-    params={{ uuid: row.uuid }}
-    title={row.name}
-    subtitle={row.customer_name}
-    image={row.image}
-    addFavoritePage={addFavoritePage}
-    removeFavorite={removeFavorite}
-    isFavorite={isFavorite}
-    onClick={close}
+export const ProjectBreadcrumbPopover = ({ project, close }) => (
+  <BreadcrumbDropdown
+    fetcher={projectsList}
+    queryKey="projects"
+    queryField="query"
+    params={{
+      customer: project.customer_uuid,
+      field: ['name', 'uuid', 'image', 'customer_name'],
+    }}
+    RowComponent={({ row }) => (
+      <BreadcrumbSearchItem
+        to="project.dashboard"
+        params={{ uuid: row.uuid }}
+        title={row.name}
+        subtitle={row.customer_name}
+        image={row.image}
+        isCurrent={row.uuid === project.uuid}
+      />
+    )}
+    placeholder={translate('Type in name of project...')}
+    emptyMessage={translate('There are no projects.')}
+    close={close}
   />
 );
-
-export const ProjectBreadcrumbPopover = ({ project, close }) => {
-  const { addFavoritePage, removeFavorite, isFavorite } = useFavoritePages();
-
-  return (
-    <BreadcrumbDropdown
-      fetcher={projectsList}
-      queryKey="projects"
-      queryField="query"
-      params={{
-        customer: project.customer_uuid,
-        field: ['name', 'uuid', 'image'],
-      }}
-      RowComponent={({ row }) => (
-        <ProjectListItem
-          row={row}
-          addFavoritePage={addFavoritePage}
-          removeFavorite={removeFavorite}
-          isFavorite={isFavorite}
-          close={close}
-        />
-      )}
-      placeholder={translate('Type in name of project...')}
-      emptyMessage={translate('There are no projects.')}
-    />
-  );
-};

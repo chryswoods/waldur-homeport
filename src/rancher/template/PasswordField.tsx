@@ -1,14 +1,13 @@
 import React from 'react';
-import { Button, FormControl, InputGroup } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
-import { change } from 'redux-form';
+import { FormControl, InputGroup } from 'react-bootstrap';
+import { useForm } from 'react-final-form';
 
-import { range } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
+import { range } from '@/core/utils';
+import { translate } from '@/i18n';
+import { ActionButton } from '@/table/ActionButton';
 
 import { FieldProps } from '../types';
 
-import { FORM_ID } from './constants';
 import { DecoratedField } from './DecoratedField';
 
 export function generatePassword(length) {
@@ -19,21 +18,21 @@ export function generatePassword(length) {
 }
 
 export const PasswordField: React.FC<FieldProps> = (props) => {
-  const dispatch = useDispatch();
+  const form = useForm();
 
   const setGeneratedPassword = React.useCallback(() => {
     const password = generatePassword(10);
-
-    dispatch(change(FORM_ID, `answers.${props.variable}`, password));
-  }, [dispatch, props.variable]);
+    form.change(props.variable, password);
+  }, [form, props.variable]);
 
   const renderControl = React.useCallback(
-    (props) => (
+    (fieldProps) => (
       <InputGroup>
-        <FormControl {...props.input} />
-        <Button onClick={setGeneratedPassword}>
-          {translate('Generate password')}
-        </Button>
+        <FormControl {...fieldProps.input} />
+        <ActionButton
+          action={setGeneratedPassword}
+          title={translate('Generate password')}
+        />
       </InputGroup>
     ),
 

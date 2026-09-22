@@ -1,19 +1,32 @@
-import { useSelector } from 'react-redux';
-import { Field } from 'redux-form';
+import { useMemo } from 'react';
 
-import { FormGroup, TextField } from '@waldur/form';
-import { VStepperFormStepCard } from '@waldur/form/VStepperFormStep';
-import { translate } from '@waldur/i18n';
+import { ENV } from '@/core/config';
+import { DateGroup, TextGroup } from '@/form';
+import { translate } from '@/i18n';
+import { VStepperFormStepCard } from '@/wizard';
 
-import { orderProjectSelector } from '../selectors';
+import { useOrderFormData } from '../selectors';
 import { FormStepProps } from '../types';
 
-import { OrderStartDateField } from './OrderStartDateField';
 import { ResourceNameGroup } from './ResourceNameGroup';
 import { TerminationDateField } from './TerminationDateField';
+import { useOrderStartDateBounds } from './useOrderStartDateBounds';
 
 export const FormFinalConfigurationStep = (props: FormStepProps) => {
-  const project = useSelector(orderProjectSelector);
+  const { project } = useOrderFormData();
+
+  const hasPrepaidComponents = useMemo(
+    () => props.offering?.components?.some((c) => c.is_prepaid),
+    [props.offering],
+  );
+
+  const isStartDateEnabled = ENV.plugins.WALDUR_CORE.ENABLE_ORDER_START_DATE;
+
+  // When prepaid is active and start date is enabled, the start date
+  // is embedded in the PrepaidDurationSelector instead.
+  const startDateEmbeddedInPrepaid = hasPrepaidComponents && isStartDateEnabled;
+
+  const dateFieldProps = useOrderStartDateBounds(project);
 
   return (
     <VStepperFormStepCard
@@ -27,19 +40,27 @@ export const FormFinalConfigurationStep = (props: FormStepProps) => {
         nameLabel={props.params?.nameLabel}
         offering={props.offering}
         project={project}
+        formatSuggestedName={props.params?.formatSuggestedName}
       />
-
-      <Field
+      <TextGroup
         name="attributes.description"
-        component={FormGroup}
         maxLength={1000}
         label={translate('Description')}
-      >
-        <TextField />
-      </Field>
+      />
       <div className="mb-7 border-bottom" />
-      <TerminationDateField offering={props.offering} />
-      <OrderStartDateField project={project} />
+      {isStartDateEnabled && !startDateEmbeddedInPrepaid && (
+        <DateGroup
+          name="start_date"
+          label={translate('Start date')}
+          description={translate(
+            'The date when the resource provisioning will be initiated. If not set, the order is processed immediately after approval.',
+          )}
+          {...dateFieldProps}
+        />
+      )}
+      {!hasPrepaidComponents && (
+        <TerminationDateField offering={props.offering} />
+      )}
     </VStepperFormStepCard>
   );
 };

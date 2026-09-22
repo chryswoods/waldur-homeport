@@ -1,18 +1,15 @@
-import { TrashIcon } from '@phosphor-icons/react';
-import { useDispatch } from 'react-redux';
 import {
   marketplaceOfferingEstimatedCostPoliciesDestroy,
   marketplaceOfferingUsagePoliciesDestroy,
 } from 'waldur-js-client';
 
-import { formatJsxTemplate, translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { showErrorResponse } from '@waldur/store/notify';
-import { RowActionButton } from '@waldur/table/ActionButton';
+import { formatJsxTemplate, translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { RemovalActionItem } from '@/resource/actions/RemovalActionItem';
 
 import { OfferingPolicyType } from './types';
 
-export const PolicyDeleteButton = ({
+export const PolicyDeleteAction = ({
   row,
   type,
   refetch,
@@ -21,44 +18,34 @@ export const PolicyDeleteButton = ({
   type: OfferingPolicyType;
   refetch;
 }) => {
-  const dispatch = useDispatch();
-  const openDialog = async () => {
-    try {
-      await waitForConfirmation(
-        dispatch,
-        translate('Confirmation'),
-        translate(
-          'Are you sure you want to delete the policy for offering {name}?',
-          { name: <strong>{row.scope_name}</strong> },
-          formatJsxTemplate,
-        ),
-        { forDeletion: true },
-      );
-    } catch {
-      return;
-    }
-    try {
-      if (type === 'usage') {
-        await marketplaceOfferingUsagePoliciesDestroy({
-          path: { uuid: row.uuid },
-        });
-      } else {
-        await marketplaceOfferingEstimatedCostPoliciesDestroy({
-          path: { uuid: row.uuid },
-        });
-      }
-      refetch();
-    } catch (e) {
-      dispatch(showErrorResponse(e, translate('Unable to delete policy.')));
-    }
-  };
+  const { mutate, isPending } = useManagedMutation<any, any, void>({
+    mutationFn: () =>
+      type === 'usage'
+        ? marketplaceOfferingUsagePoliciesDestroy({
+            path: { uuid: row.uuid },
+          })
+        : marketplaceOfferingEstimatedCostPoliciesDestroy({
+            path: { uuid: row.uuid },
+          }),
+    successMessage: translate('Policy has been removed.'),
+    errorMessage: translate('Unable to delete policy.'),
+    refetch,
+    confirmation: {
+      title: translate('Confirmation'),
+      body: translate(
+        'Are you sure you want to delete the policy for offering {name}?',
+        { name: <strong>{row.scope_name}</strong> },
+        formatJsxTemplate,
+      ),
+      options: { forDeletion: true },
+    },
+  });
+
   return (
-    <RowActionButton
+    <RemovalActionItem
       title={translate('Remove')}
-      action={openDialog}
-      variant="danger"
-      iconNode={<TrashIcon weight="bold" />}
-      size="sm"
+      action={mutate}
+      disabled={isPending}
     />
   );
 };

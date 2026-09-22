@@ -1,12 +1,12 @@
 import { FunctionComponent } from 'react';
-import { components, Props as SelectProps } from 'react-select';
+import { components } from 'react-select';
 
-import { ImagePlaceholder } from '@waldur/core/ImagePlaceholder';
+import { ImagePlaceholder } from '@/core/ImagePlaceholder';
 import {
-  AsyncPaginate,
+  AsyncSelect,
   FilterSelectClearIndicator,
   FilterSelectControl,
-} from '@waldur/form/themed-select';
+} from '@/form/select';
 
 const renderIcon = (src: string, imgStyle: any) =>
   src ? (
@@ -30,7 +30,7 @@ const renderIcon = (src: string, imgStyle: any) =>
     />
   );
 
-const Option = (props) => {
+export const Option = (props) => {
   const img = renderIcon(props.data.thumbnail, { width: 19 });
   return (
     <components.Option {...props}>
@@ -44,7 +44,7 @@ const Option = (props) => {
   );
 };
 
-const SingleValue = (props) => {
+export const SingleValue = (props) => {
   const img = renderIcon(props.data.thumbnail, { width: 19 });
   return (
     <components.SingleValue {...props}>
@@ -64,13 +64,13 @@ interface AutocompleteFieldProps {
   onChange: (offeringId: string) => void;
   value?: any;
   noOptionsMessage?: (message) => string;
-  reactSelectProps?: Partial<SelectProps>;
+  reactSelectProps?: any;
 }
 
 export const AutocompleteField: FunctionComponent<AutocompleteFieldProps> = (
   props,
 ) => (
-  <AsyncPaginate
+  <AsyncSelect
     placeholder={props.placeholder}
     loadOptions={props.loadOfferings}
     defaultOptions
@@ -80,8 +80,6 @@ export const AutocompleteField: FunctionComponent<AutocompleteFieldProps> = (
     onChange={(value: any) => props.onChange(value)}
     noOptionsMessage={props.noOptionsMessage}
     isClearable={true}
-    className="metronic-select-container"
-    classNamePrefix="metronic-select"
     {...props.reactSelectProps}
     components={{
       Option,

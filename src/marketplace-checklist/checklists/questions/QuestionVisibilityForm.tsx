@@ -1,27 +1,38 @@
 import { PlusIcon, TrashIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { ComponentType, useCallback } from 'react';
-import { Alert, Button, Card } from 'react-bootstrap';
+import { Card } from 'react-bootstrap';
 import { Field } from 'react-final-form';
 import { FieldArray, FieldArrayRenderProps } from 'react-final-form-arrays';
 import {
-  checklistsAdminQuestionsList,
   ChecklistOperators,
+  checklistsAdminQuestionsList,
   QuestionAdmin,
   QuestionTypeEnum,
 } from 'waldur-js-client';
 
-import { AwesomeRadioButton } from '@waldur/core/AwesomeRadioButton';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { required } from '@waldur/core/validators';
-import { NumberField, SelectField } from '@waldur/form';
-import { AwesomeCheckboxField } from '@waldur/form/AwesomeCheckboxField';
-import { CommaSeparatedListField } from '@waldur/form/CommaSeparatedListField';
-import { DateField } from '@waldur/form/DateField';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-import { questionConditionOperatorOptions } from '@waldur/marketplace-checklist/utils';
+import { UI_STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { required } from '@/core/validators';
+import {
+  RadioGroup,
+  SelectGroup,
+  SelectField,
+  CommaSeparatedListGroup,
+  BooleanGroup,
+  NumberGroup,
+  DateGroup,
+  DateTimeGroup,
+  FileUploadGroup,
+  YearGroup,
+} from '@/form';
+import { FormGroup } from '@/form';
+import { translate } from '@/i18n';
+import { questionConditionOperatorOptions } from '@/marketplace-checklist/utils';
+import { NoResult } from '@/navigation/header/search/NoResult';
+import { ActionButton } from '@/table/ActionButton';
+import { CompactActionButton } from '@/table/CompactActionButton';
 
 interface FieldValue {
   depends_on_question?;
@@ -36,20 +47,32 @@ const getConditionOptions = (questionType: QuestionTypeEnum) =>
       )
     : questionConditionOperatorOptions;
 
-const questionComponent: Record<
+const questionGroupComponent: Record<
   Exclude<QuestionTypeEnum, 'file'>,
-  ComponentType
+  ComponentType<any>
 > = {
-  text_input: CommaSeparatedListField,
-  text_area: CommaSeparatedListField,
-  boolean: AwesomeCheckboxField,
-  number: NumberField,
-  date: DateField,
-  single_select: SelectField,
-  multi_select: SelectField,
+  text_input: CommaSeparatedListGroup,
+  text_area: CommaSeparatedListGroup,
+  boolean: BooleanGroup,
+  number: NumberGroup,
+  date: DateGroup,
+  datetime: DateTimeGroup,
+  single_select: SelectGroup,
+  multi_select: SelectGroup,
+  multiple_files: FileUploadGroup,
+  url: CommaSeparatedListGroup,
+  email: CommaSeparatedListGroup,
+  country: CommaSeparatedListGroup,
+  phone_number: CommaSeparatedListGroup,
+  year: YearGroup,
+  rating: NumberGroup,
+  likert: NumberGroup,
+  // No condition operators are compatible with RICH_TEXT, but the type
+  // requires an entry; CommaSeparatedListGroup is unreachable in practice.
+  rich_text: CommaSeparatedListGroup,
 };
 
-const FieldsListGroup = ({
+export const FieldsListGroup = ({
   fields,
   questions,
 }: FieldArrayRenderProps<FieldValue, HTMLElement> & {
@@ -87,38 +110,31 @@ const FieldsListGroup = ({
 
   return (
     <>
-      <div className="mb-2">
-        <Field
+      <div className="mb-5">
+        <RadioGroup
           name="dependency_logic_operator"
           defaultValue="and"
-          render={({ input }) => (
-            <AwesomeRadioButton
-              label={translate(
-                'When multiple conditions exist, show this question if:',
-              )}
-              choices={[
-                {
-                  label: translate('All conditions match (AND)'),
-                  value: 'and',
-                },
-                {
-                  label: translate('Any condition matches (OR)'),
-                  value: 'or',
-                },
-              ]}
-              direction="horizontal"
-              justify="start"
-              input={input as any}
-              disabled={fields.length < 2}
-              tooltip={
-                fields.length < 2
-                  ? translate(
-                      'Add more conditions to configure logic combination',
-                    )
-                  : undefined
-              }
-            />
+          label={translate(
+            'When multiple conditions exist, show this question if:',
           )}
+          choices={[
+            {
+              label: translate('All conditions match (AND)'),
+              value: 'and',
+            },
+            {
+              label: translate('Any condition matches (OR)'),
+              value: 'or',
+            },
+          ]}
+          direction="horizontal"
+          justify="start"
+          disabled={fields.length < 2}
+          tooltip={
+            fields.length < 2
+              ? translate('Add more conditions to configure logic combination')
+              : undefined
+          }
         />
       </div>
       {fields.map((name, i) => {
@@ -137,15 +153,11 @@ const FieldsListGroup = ({
                 {translate('Condition {index}', { index: i + 1 })}
               </h6>
               <div className="card-toolbar m-0">
-                <Button
+                <ActionButton
+                  action={() => removeRow(i)}
+                  iconNode={<TrashIcon weight="bold" />}
                   variant="text-danger"
-                  className="btn-icon"
-                  onClick={() => removeRow(i)}
-                >
-                  <span className="svg-icon svg-icon-1">
-                    <TrashIcon weight="bold" />
-                  </span>
-                </Button>
+                />
               </div>
             </Card.Header>
             <Card.Body key={name + i} className="px-4">
@@ -154,12 +166,14 @@ const FieldsListGroup = ({
                 description={translate(
                   'Only show this question based on previous answers',
                 )}
+                id={`${name}.depends_on_question`}
               >
                 <Field
                   name={`${name}.depends_on_question`}
                   validate={required}
-                  render={({ input, meta }) => (
+                  render={({ input }) => (
                     <SelectField
+                      id={`${name}.depends_on_question`}
                       input={{
                         ...input,
                         onChange: (value) => {
@@ -186,77 +200,80 @@ const FieldsListGroup = ({
                       getOptionValue={(option) => option.url}
                       getOptionLabel={(option) => option.description}
                       simpleValue
-                      isInvalid={meta.touched && meta.error}
                     />
                   )}
                 />
               </FormGroup>
-              <FormGroup label={translate('Condition')}>
-                <Field
-                  component={SelectField}
-                  name={`${name}.operator`}
-                  options={getConditionOptions(selectedQuestion?.question_type)}
-                  simpleValue
-                  validate={required}
-                  isDisabled={!fields.value[i]?.depends_on_question}
-                />
-              </FormGroup>
-              <FormGroup
-                label={translate('Value')}
-                description={
-                  ['text_area', 'text_input'].includes(
-                    selectedQuestion?.question_type,
-                  )
-                    ? translate(
-                        'Comma separated values that trigger this question',
+              <SelectGroup
+                name={`${name}.operator`}
+                options={getConditionOptions(selectedQuestion?.question_type)}
+                simpleValue
+                validate={required}
+                isDisabled={!fields.value[i]?.depends_on_question}
+                label={translate('Condition')}
+              />
+              {(() => {
+                const DynamicGroupComponent =
+                  questionGroupComponent[selectedQuestion?.question_type] ||
+                  CommaSeparatedListGroup;
+
+                return (
+                  <DynamicGroupComponent
+                    label={translate('Value')}
+                    description={
+                      ['text_area', 'text_input'].includes(
+                        selectedQuestion?.question_type,
                       )
-                    : translate('Values that trigger this question')
-                }
-                spaceless
-              >
-                <Field
-                  component={
-                    (questionComponent[selectedQuestion?.question_type] ||
-                      CommaSeparatedListField) as any
-                  }
-                  name={`${name}.required_answer_value`}
-                  validate={required}
-                  disabled={!fields.value[i]?.operator}
-                  format={(value) =>
-                    value && selectedQuestion?.question_type === 'single_select'
-                      ? value[0]
-                      : value
-                  }
-                  parse={(value) =>
-                    selectedQuestion?.question_type === 'number'
-                      ? Number(value)
-                      : selectedQuestion?.question_type === 'single_select'
-                        ? [value]
+                        ? translate(
+                            'Comma separated values that trigger this question',
+                          )
+                        : translate('Values that trigger this question')
+                    }
+                    spaceless
+                    name={`${name}.required_answer_value`}
+                    validate={required}
+                    disabled={!fields.value[i]?.operator}
+                    format={(value) =>
+                      value &&
+                      selectedQuestion?.question_type === 'single_select'
+                        ? value[0]
                         : value
-                  }
-                  {...(isSelectType
-                    ? {
-                        isDisabled: !fields.value[i]?.operator,
-                        options: selectedQuestion?.question_options,
-                        getOptionValue: (opt) => opt.uuid,
-                        simpleValue: true,
-                        isMulti:
-                          selectedQuestion?.question_type === 'multi_select',
-                      }
-                    : {})}
-                />
-              </FormGroup>
+                    }
+                    parse={(value) =>
+                      selectedQuestion?.question_type === 'number'
+                        ? Number(value)
+                        : selectedQuestion?.question_type === 'single_select'
+                          ? [value]
+                          : value
+                    }
+                    {...(isSelectType
+                      ? {
+                          isDisabled: !fields.value[i]?.operator,
+                          options: selectedQuestion?.question_options,
+                          getOptionValue: (opt) => opt.uuid,
+                          simpleValue: true,
+                          isMulti:
+                            selectedQuestion?.question_type === 'multi_select',
+                        }
+                      : {})}
+                  />
+                );
+              })()}
             </Card.Body>
           </Card>
         );
       })}
       <div>
-        <Button variant="text-primary" onClick={addRow} disabled={addDisabled}>
-          <span className="svg-icon svg-icon-2">
-            <PlusIcon weight="bold" />
-          </span>
-          {translate('Add condition')}
-        </Button>
+        <CompactActionButton
+          action={addRow}
+          title={translate('Add condition')}
+          iconNode={<PlusIcon weight="bold" />}
+          variant="text-primary"
+          disabled={addDisabled}
+          disabledReason={translate(
+            'Complete all condition fields before adding another',
+          )}
+        />
       </div>
     </>
   );
@@ -275,7 +292,7 @@ export const QuestionVisibilityForm = ({
       checklistsAdminQuestionsList({
         query: { checklist_uuid: checklistUuid },
       }).then((res) => res.data),
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
 
   if (isLoading) {
@@ -286,9 +303,14 @@ export const QuestionVisibilityForm = ({
 
   if (!data.length) {
     return (
-      <Alert variant="warning">
-        {translate('There are no questions in this checklist yet.')}
-      </Alert>
+      <NoResult
+        title={translate('There are no questions in this checklist yet')}
+        message={translate(
+          'Please add questions to the checklist before setting visibility conditions.',
+        )}
+        callback={refetch}
+        buttonTitle={translate('Refresh')}
+      />
     );
   }
 

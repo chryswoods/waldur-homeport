@@ -1,28 +1,37 @@
-import { Button } from 'react-bootstrap';
+import { useRouter } from '@uirouter/react';
+import { Offering } from 'waldur-js-client';
 
-import { Link } from '@waldur/core/Link';
-import { translate } from '@waldur/i18n';
-
-import { Offering } from '../types';
+import { CompactSubmitButton } from '@/form/CompactSubmitButton';
+import { translate } from '@/i18n';
 
 export const ViewOfferingButton = ({
   offering,
   disabled,
+  disabledReason,
 }: {
   offering: Offering;
   disabled?: boolean;
-}) =>
-  disabled ? (
-    <Button variant="text-primary" className="btn-sm" disabled>
-      {translate('Details')}
-    </Button>
-  ) : (
-    <Link
-      state="public-offering.marketplace-public-offering"
-      params={{ uuid: offering.uuid }}
-      buttonVariant="text-primary"
-      className="btn-sm"
-    >
-      {translate('Details')}
-    </Link>
+  disabledReason?: string;
+}) => {
+  const router = useRouter();
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    router.stateService.go('public-offering.marketplace-public-offering', {
+      uuid: offering.uuid,
+    });
+  };
+
+  return (
+    <CompactSubmitButton
+      submitting={false}
+      type="button"
+      variant="text-primary"
+      disabled={disabled}
+      onClick={handleClick}
+      label={translate('View offering')}
+      disabledReason={disabledReason}
+    />
   );
+};

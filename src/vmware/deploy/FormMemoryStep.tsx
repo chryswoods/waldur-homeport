@@ -1,26 +1,26 @@
 import { useMemo } from 'react';
-import { Field } from 'redux-form';
 
-import { FormGroup } from '@waldur/form';
-import { SliderNumberField } from '@waldur/form/SliderNumberField';
-import { VStepperFormStepCard } from '@waldur/form/VStepperFormStep';
-import { translate } from '@waldur/i18n';
+import { composeValidators } from '@/core/validators';
+import { SliderNumberGroup } from '@/form';
+import { translate } from '@/i18n';
 import {
   formatIntField,
   maxAmount,
   parseIntField,
-} from '@waldur/marketplace/common/utils';
-import { FormStepProps } from '@waldur/marketplace/deploy/types';
+} from '@/marketplace/common/utils';
+import { FormStepProps } from '@/marketplace/deploy/types';
+import { VStepperFormStepCard } from '@/wizard';
 
 import { minOne, useVMwareLimitsLoader } from './utils';
 
 export const FormMemoryStep = (props: FormStepProps) => {
-  const { limits, isLoading } = useVMwareLimitsLoader(
-    props.offering.scope_uuid,
-  );
+  const { limits } = useVMwareLimitsLoader(props.offering.scope_uuid);
 
   const ramValidator = useMemo(
-    () => (limits.max_ram ? [minOne, maxAmount(limits.max_ram)] : minOne),
+    () =>
+      limits.max_ram
+        ? composeValidators(minOne, maxAmount(limits.max_ram))
+        : minOne,
     [limits.max_ram],
   );
 
@@ -28,26 +28,20 @@ export const FormMemoryStep = (props: FormStepProps) => {
     <VStepperFormStepCard
       title={translate('Memory')}
       id={props.id}
-      loading={isLoading}
       disabled={props.disabled}
       disabledTooltip={props.disabledTooltip}
     >
-      <Field
+      <SliderNumberGroup
         name="limits.ram"
-        component={FormGroup}
         min={1}
         validate={ramValidator}
         parse={parseIntField}
         format={formatIntField}
         tooltip={translate('Memory size in GiB')}
-      >
-        <SliderNumberField
-          unit={translate('GB')}
-          required={true}
-          min={1}
-          max={limits.max_ram}
-        />
-      </Field>
+        unit={translate('GB')}
+        required={true}
+        max={limits.max_ram}
+      />
     </VStepperFormStepCard>
   );
 };

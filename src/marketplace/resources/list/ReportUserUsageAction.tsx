@@ -1,20 +1,21 @@
 import { UserListIcon } from '@phosphor-icons/react';
-import { useDispatch } from 'react-redux';
 import { Resource } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { UsageReportContext } from '@waldur/marketplace/resources/usage/types';
-import { openModalDialog } from '@waldur/modal/actions';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { validateState } from '@waldur/resource/actions/base';
-import { useValidators } from '@waldur/resource/actions/useValidators';
-import { useUser } from '@waldur/workspace/hooks';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { UsageReportContext } from '@/marketplace/resources/usage/types';
+import { useModal } from '@/modal/actions';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { validateState } from '@/resource/actions/base';
+import { useValidators } from '@/resource/actions/useValidators';
+import { useUser } from '@/workspace/hooks';
+
+import { ResourceAction } from '../actions/constants';
 
 const ResourceCreateUsageDialog = lazyComponent(() =>
-  import('@waldur/marketplace/resources/usage/ResourceCreateUsageDialog').then(
+  import('@/marketplace/resources/usage/ResourceCreateUsageDialog').then(
     (module) => ({ default: module.ResourceCreateUsageDialog }),
   ),
 );
@@ -22,14 +23,12 @@ const ResourceCreateUsageDialog = lazyComponent(() =>
 const validators = [validateState('OK')];
 
 export const ReportUserUsageAction = ({ resource }: { resource: Resource }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
 
   const callback = (props: UsageReportContext) => {
-    dispatch(
-      openModalDialog(ResourceCreateUsageDialog, {
-        resolve: { ...props, userUsage: true },
-      }),
-    );
+    openDialog(ResourceCreateUsageDialog, {
+      resolve: { ...props, userUsage: true },
+    });
   };
 
   const user = useUser();
@@ -50,7 +49,7 @@ export const ReportUserUsageAction = ({ resource }: { resource: Resource }) => {
   if (!spCanCreateOfferingUser) {
     return null;
   }
-  if (!canSetUsage && !user.is_staff && !spCanCreateOfferingUser) {
+  if (!user.is_staff && !canSetUsage) {
     return null;
   }
 
@@ -68,6 +67,8 @@ export const ReportUserUsageAction = ({ resource }: { resource: Resource }) => {
           backend_id: resource.backend_id,
         })
       }
+      actionId={ResourceAction.REPORT_USAGE}
+      resource={resource}
       disabled={isDisabled || isDisabledState}
       tooltip={[
         isDisabled &&

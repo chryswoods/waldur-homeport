@@ -1,10 +1,6 @@
-import { useCallback } from 'react';
-import { useDispatch } from 'react-redux';
-
-import { AddButton } from '@waldur/core/AddButton';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { openModalDialog } from '@waldur/modal/actions';
-import { Call } from '@waldur/proposals/types';
+import { CreateModalButton } from '@/core/buttons';
+import { lazyComponent } from '@/core/lazyComponent';
+import { Call } from '@/proposals/types';
 
 const CallRoundCreateDialog = lazyComponent(() =>
   import('./CallRoundCreateDialog').then((module) => ({
@@ -15,23 +11,23 @@ const CallRoundCreateDialog = lazyComponent(() =>
 interface RoundCreateButtonProps {
   call: Call;
   refetch(): void;
+  disabled?: boolean;
+  tooltip?: string;
 }
 
 export const RoundCreateButton = ({
   call,
   refetch,
-}: RoundCreateButtonProps) => {
-  const dispatch = useDispatch();
-  const openRoundCreateDialog = useCallback(
-    () =>
-      dispatch(
-        openModalDialog(CallRoundCreateDialog, {
-          resolve: { call, refetch },
-          size: 'lg',
-        }),
-      ),
-    [dispatch],
-  );
-
-  return <AddButton action={openRoundCreateDialog} />;
-};
+  disabled,
+  tooltip,
+}: RoundCreateButtonProps) => (
+  <CreateModalButton
+    dialog={CallRoundCreateDialog}
+    resolve={{ call, refetch }}
+    size="md"
+    dialogClassName="modal-md modal-dialog-centered"
+    formId="CallRoundForm"
+    disabled={disabled}
+    tooltip={tooltip}
+  />
+);

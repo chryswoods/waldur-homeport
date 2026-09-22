@@ -1,10 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { openportalManagedProjectsList } from 'waldur-js-client';
+import {
+  type AwardDetails,
+  openportalManagedProjectsList,
+} from 'waldur-js-client';
 
-import type { AwardDetails } from '@waldur/openportal/bindings/AwardDetails';
+import { STALE_TIME } from '@/core/constants';
 
+/**
+ * The OpenPortal award backing a project, if it has one. Returns null for a
+ * project that is not externally managed.
+ */
 export const useProjectAwardDetails = (projectUuid: string | undefined) =>
-  useQuery({
+  useQuery<AwardDetails | null>({
     queryKey: ['project-managed', projectUuid],
     queryFn: async () => {
       const { data } = await openportalManagedProjectsList({
@@ -15,8 +22,8 @@ export const useProjectAwardDetails = (projectUuid: string | undefined) =>
         },
       });
       if (!Array.isArray(data) || data.length === 0) return null;
-      return data[0].details as AwardDetails;
+      return data[0].details;
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_TIME,
     enabled: Boolean(projectUuid),
   });

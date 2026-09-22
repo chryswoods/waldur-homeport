@@ -1,15 +1,17 @@
 import { UsersThreeIcon } from '@phosphor-icons/react';
+import { useQuery } from '@tanstack/react-query';
 import { FC, useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { rolesList } from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { getCustomer, getUser } from '@waldur/workspace/selectors';
+import { getAllPages } from '@/core/api';
+import { ENV } from '@/core/config';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { useUser, useCustomer } from '@/workspace/hooks';
 
 import { InvitationPolicyService } from './InvitationPolicyService';
 
@@ -22,12 +24,24 @@ const GroupInvitationCreateDialog = lazyComponent(() =>
 export const GroupInvitationCreateButton: FC<{
   refetch(): void;
 }> = ({ refetch }) => {
-  const user = useSelector(getUser);
-  const customer = useSelector(getCustomer);
-  const dispatch = useDispatch();
+  const user = useUser();
+  const customer = useCustomer();
+  const { openDialog } = useModal();
+  // Offer this organization's roles (system + org-private clones, minus
+  // concealed) rather than the global ENV.roles list, so group invitations
+  // respect the same org scoping as the other invite/add-member pickers.
+  const { data: scopedRoles } = useQuery({
+    queryKey: ['available-roles-for-customer', customer?.uuid],
+    queryFn: () =>
+      getAllPages((page) =>
+        rolesList({ query: { available_for_customer: customer.uuid, page } }),
+      ),
+    enabled: Boolean(customer?.uuid),
+    staleTime: 5 * 60 * 1000,
+  });
   const roles = useMemo(
     () =>
-      ENV.roles.filter(
+      (scopedRoles ?? []).filter(
         (role) =>
           InvitationPolicyService.canManageRole(
             {
@@ -38,21 +52,19 @@ export const GroupInvitationCreateButton: FC<{
             role,
           ) && role.is_active, // Enabling/disabling roles toggles their 'is_active' property; therefore, we filter based on that property
       ),
-    [customer, user],
+    [scopedRoles, customer, user],
   );
   const callback = () =>
-    dispatch(
-      openModalDialog(GroupInvitationCreateDialog, {
-        resolve: {
-          refetch,
-          roles,
-        },
-        initialValues: {
-          role: roles[0],
-          type: 'private',
-        },
-      }),
-    );
+    openDialog(GroupInvitationCreateDialog, {
+      resolve: {
+        refetch,
+        roles,
+      },
+      initialValues: {
+        role: roles[0],
+        type: 'private',
+      },
+    });
 
   const canManage =
     hasPermission(user, {

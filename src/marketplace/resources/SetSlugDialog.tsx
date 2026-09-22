@@ -1,26 +1,44 @@
 import { FC } from 'react';
-import { useDispatch } from 'react-redux';
 import { marketplaceResourcesSetSlug } from 'waldur-js-client';
 
-import { isFeatureVisible } from '@waldur/features/connect';
-import { DeploymentFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ResourceActionDialog } from '@waldur/resource/actions/ResourceActionDialog';
-import { ActionDialogProps } from '@waldur/resource/actions/types';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
+import { isFeatureVisible } from '@/features/connect';
+import { DeploymentFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ResourceActionDialog } from '@/resource/actions/ResourceActionDialog';
+import { ActionDialogProps } from '@/resource/actions/types';
 
 export const SetSlugDialog: FC<ActionDialogProps> = ({
   resolve: { resource, refetch },
 }) => {
-  const dispatch = useDispatch();
+  // Where the deployment treats slugs as permanent identifiers, a slug that
+  // has already been set cannot be changed — external systems key off it.
   const slugsImmutable =
     isFeatureVisible(DeploymentFeatures.make_slugs_immutable) &&
     !!resource.slug;
 
+  const mutation = useManagedMutation<any, any, { slug: string }>({
+    mutationFn: (formData) =>
+      marketplaceResourcesSetSlug({
+        path: { uuid: resource.uuid },
+        body: formData,
+      }),
+
+    successMessage: translate('Slug has been successfully set.'),
+    errorMessage: translate('Unable to set slug.'),
+    refetch: refetch,
+  });
+
   return (
     <ResourceActionDialog
       dialogTitle={translate('Set slug')}
+      dialogSubtitle={
+        <ScopeSubtitle
+          label={translate('Resource name')}
+          name={resource.name}
+        />
+      }
       formFields={[
         {
           name: 'slug',
@@ -38,21 +56,7 @@ export const SetSlugDialog: FC<ActionDialogProps> = ({
       initialValues={{
         slug: resource.slug,
       }}
-      submitForm={async (formData) => {
-        try {
-          await marketplaceResourcesSetSlug({
-            path: { uuid: resource.uuid },
-            body: formData,
-          });
-          dispatch(showSuccess(translate('Slug has been successfully set.')));
-          if (refetch) {
-            await refetch();
-          }
-          dispatch(closeModalDialog());
-        } catch (e) {
-          dispatch(showErrorResponse(e, translate('Unable to set slug.')));
-        }
-      }}
+      submitForm={mutation.mutateAsync}
     />
   );
 };

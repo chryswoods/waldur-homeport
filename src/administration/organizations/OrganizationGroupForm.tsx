@@ -1,69 +1,65 @@
 import { PlusCircleIcon } from '@phosphor-icons/react';
-import { Field, Form } from 'react-final-form';
-import { useDispatch } from 'react-redux';
+import { Form } from 'react-final-form';
 import {
   organizationGroupsCreate,
   organizationGroupsUpdate,
 } from 'waldur-js-client';
 
-import { required } from '@waldur/core/validators';
-import { FormGroup, SubmitButton } from '@waldur/form';
-import { StringField } from '@waldur/form/StringField';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { required } from '@/core/validators';
+import { StringGroup, SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
-import { SelectOrganizationGroupField } from './SelectOrganizationGroupField';
+import { SelectParentOrganizationGroup } from './SelectParentOrganizationGroup';
 
-interface FormData {
+interface FormValues {
   name: string;
+  parent?: { url: string; name: string };
 }
-
 export const OrganizationGroupForm = ({ resolve }) => {
   const isEdit = Boolean(resolve.organizationGroup?.uuid);
-  const dispatch = useDispatch();
-
-  const onSubmit = async (values: FormData) => {
-    values['parent'] = values['parent']?.url;
-    try {
+  const onSubmitMutation = useManagedMutation<any, any, FormValues>({
+    mutationFn: (values) => {
       if (isEdit) {
-        await organizationGroupsUpdate({
+        return organizationGroupsUpdate({
           path: { uuid: resolve.organizationGroup.uuid },
-          body: values,
+          body: {
+            name: values.name,
+            parent: values.parent?.url,
+          },
         });
       } else {
-        await organizationGroupsCreate({ body: values });
+        return organizationGroupsCreate({
+          body: {
+            name: values.name,
+            parent: values.parent?.url,
+          },
+        });
       }
-      resolve.refetch();
-      dispatch(
-        showSuccess(
-          isEdit
-            ? translate('The organization group has been updated.')
-            : translate('The organization group has been created.'),
-        ),
-      );
-      dispatch(closeModalDialog());
-    } catch (e) {
-      dispatch(
-        showErrorResponse(
-          e,
-          isEdit
-            ? translate('Unable to update organization group.')
-            : translate('Unable to create organization group.'),
-        ),
-      );
-    }
-  };
+    },
+    successMessage: isEdit
+      ? translate('The organization group has been updated.')
+      : translate('The organization group has been created.'),
+    errorMessage: isEdit
+      ? translate('Unable to update organization group.')
+      : translate('Unable to create organization group.'),
+    refetch: resolve.refetch,
+  });
 
   return (
-    <Form
-      onSubmit={onSubmit}
+    <Form<FormValues>
+      onSubmit={(values) => onSubmitMutation.mutateAsync(values)}
       initialValues={
         resolve.organizationGroup
           ? {
               name: resolve.organizationGroup.name,
-              parent: resolve.organizationGroup.parent,
+              parent: resolve.organizationGroup.parent
+                ? {
+                    url: resolve.organizationGroup.parent,
+                    name: resolve.organizationGroup.parent_name,
+                  }
+                : undefined,
             }
           : undefined
       }
@@ -79,7 +75,6 @@ export const OrganizationGroupForm = ({ resolve }) => {
                   })
                 : translate('Create organization group')
             }
-            closeButton
             footer={
               <SubmitButton
                 disabled={invalid || submitting}
@@ -88,24 +83,15 @@ export const OrganizationGroupForm = ({ resolve }) => {
               />
             }
           >
-            <Field
+            <StringGroup
               name="name"
-              component={FormGroup as any}
               label={translate('Name')}
               required
               validate={required}
-            >
-              <StringField />
-            </Field>
-            <Field
-              name="parent"
-              component={FormGroup as any}
-              label={translate('Parent group')}
-            >
-              <SelectOrganizationGroupField
-                currentOrganizationGroup={resolve.organizationGroup}
-              />
-            </Field>
+            />
+            <SelectParentOrganizationGroup
+              currentOrganizationGroup={resolve.organizationGroup}
+            />
           </ModalDialog>
         </form>
       )}

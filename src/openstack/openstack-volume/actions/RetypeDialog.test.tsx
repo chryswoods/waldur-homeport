@@ -1,21 +1,18 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { openstackVolumesRetype, OpenStackVolumeType } from 'waldur-js-client';
-import { OpenStackVolume } from 'waldur-js-client';
+import {
+  OpenStackVolume,
+  openstackVolumesRetype,
+  OpenStackVolumeType,
+  openstackVolumeTypesList,
+} from 'waldur-js-client';
 
-import { useModal } from '@waldur/modal/hooks';
-import * as api from '@waldur/openstack/api';
-import { useNotify } from '@waldur/store/hooks';
+import { useNotify } from '@/store/notify';
+import { renderWithProviders } from '@/test/harness';
+import { openAndSelectOption } from '@/test/select';
 
 import { RetypeDialog } from './RetypeDialog';
-
-vi.mock('waldur-js-client');
-vi.mock('@waldur/openstack/api');
-vi.mock('@waldur/store/hooks');
-vi.mock('@waldur/modal/hooks');
-
-const apiMock = vi.mocked(api);
 
 const resource = {
   uuid: 'volume_uuid',
@@ -41,23 +38,16 @@ const fakeVolumeTypes = [
   },
 ] as unknown as OpenStackVolumeType[];
 
-const renderDialog = () =>
-  render(<RetypeDialog resolve={{ resource, refetch: vi.fn() }} />);
+const renderDialog = () => {
+  return renderWithProviders(
+    <RetypeDialog resolve={{ resource, refetch: vi.fn() }} />,
+  );
+};
 
 describe('RetypeDialog', () => {
-  const mockShowSuccess = vi.fn();
-  const mockShowErrorResponse = vi.fn();
-  const mockCloseDialog = vi.fn();
-
   beforeEach(() => {
-    apiMock.loadVolumeTypes.mockResolvedValue([]);
-    vi.mocked(useNotify).mockReturnValue({
-      showSuccess: mockShowSuccess,
-      showErrorResponse: mockShowErrorResponse,
-    } as any);
-    vi.mocked(useModal).mockReturnValue({
-      closeDialog: mockCloseDialog,
-    } as any);
+    vi.clearAllMocks();
+    vi.mocked(openstackVolumeTypesList).mockResolvedValue({ data: [] } as any);
   });
 
   it('renders current volume type label', async () => {
@@ -78,7 +68,9 @@ describe('RetypeDialog', () => {
   });
 
   it('renders list of volume types excluding current volume type', async () => {
-    apiMock.loadVolumeTypes.mockResolvedValue(fakeVolumeTypes);
+    vi.mocked(openstackVolumeTypesList).mockResolvedValue({
+      data: fakeVolumeTypes,
+    } as any);
 
     renderDialog();
 
@@ -86,20 +78,25 @@ describe('RetypeDialog', () => {
       expect(screen.getByText('Current type:')).toBeInTheDocument();
     });
 
-    const select = screen.getByRole('combobox');
-    await userEvent.click(select);
+    const user = userEvent.setup();
+    await user.click(screen.getByLabelText(/Volume type/i));
 
     await waitFor(() => {
       expect(screen.getByText('prod (HPC production HDD)')).toBeInTheDocument();
       expect(
         screen.getByText('scratch (IOPS intensive SSD)'),
       ).toBeInTheDocument();
-      expect(within(select).queryByText('Fast SSD')).not.toBeInTheDocument();
     });
+
+    // Check that 'Fast SSD' is NOT in the list of options
+    const listbox = screen.getByRole('listbox');
+    expect(within(listbox).queryByText('Fast SSD')).not.toBeInTheDocument();
   });
 
   it('makes API request when form is submitted', async () => {
-    apiMock.loadVolumeTypes.mockResolvedValue(fakeVolumeTypes);
+    vi.mocked(openstackVolumeTypesList).mockResolvedValue({
+      data: fakeVolumeTypes,
+    } as any);
     vi.mocked(openstackVolumesRetype).mockResolvedValue(null);
 
     renderDialog();
@@ -109,24 +106,27 @@ describe('RetypeDialog', () => {
     });
 
     const user = userEvent.setup();
-    const select = screen.getByRole('combobox');
-    await user.click(select);
-    await user.click(screen.getByText('prod (HPC production HDD)'));
+    // Using simple regex for option text to avoid issues with special characters if any
+    await openAndSelectOption(user, /Volume type/i, /prod/);
 
     const submitButton = screen.getByRole('button', { name: /submit/i });
     await user.click(submitButton);
 
-    expect(vi.mocked(openstackVolumesRetype)).toHaveBeenCalledWith({
-      path: { uuid: resource.uuid },
-      body: {
-        type: 'prod',
-      },
+    await waitFor(() => {
+      expect(vi.mocked(openstackVolumesRetype)).toHaveBeenCalledWith({
+        path: { uuid: resource.uuid },
+        body: {
+          type: 'prod',
+        },
+      });
     });
   });
 
   it('displays error message when API call fails', async () => {
     const error = new Error('Network error');
-    apiMock.loadVolumeTypes.mockResolvedValue(fakeVolumeTypes);
+    vi.mocked(openstackVolumeTypesList).mockResolvedValue({
+      data: fakeVolumeTypes,
+    } as any);
     vi.mocked(openstackVolumesRetype).mockRejectedValue(error);
 
     renderDialog();
@@ -136,21 +136,23 @@ describe('RetypeDialog', () => {
     });
 
     const user = userEvent.setup();
-    const select = screen.getByRole('combobox');
-    await user.click(select);
-    await user.click(screen.getByText('prod (HPC production HDD)'));
+    await openAndSelectOption(user, /Volume type/i, /prod/);
 
     const submitButton = screen.getByRole('button', { name: /submit/i });
     await user.click(submitButton);
 
-    expect(mockShowErrorResponse).toHaveBeenCalledWith(
-      error,
-      'Unable to retype volume.',
-    );
+    await waitFor(() => {
+      expect(useNotify().showErrorResponse).toHaveBeenCalledWith(
+        error,
+        'Unable to retype volume.',
+      );
+    });
   });
 
   it('submit button is disabled when volume type is not selected', async () => {
-    apiMock.loadVolumeTypes.mockResolvedValue(fakeVolumeTypes);
+    vi.mocked(openstackVolumeTypesList).mockResolvedValue({
+      data: fakeVolumeTypes,
+    } as any);
     renderDialog();
 
     await waitFor(() => {

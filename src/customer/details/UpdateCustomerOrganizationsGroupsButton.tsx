@@ -1,12 +1,10 @@
-import { useDispatch } from 'react-redux';
-
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { EditButton } from '@waldur/form/EditButton';
-import { useOrganizationGroups } from '@waldur/marketplace/common/utils';
-import { openModalDialog } from '@waldur/modal/actions';
+import { lazyComponent } from '@/core/lazyComponent';
+import { CompactEditButton } from '@/form/CompactEditButton';
+import { useOrganizationGroups } from '@/marketplace/common/utils';
+import { useModal } from '@/modal/actions';
 
 const SetAccessPolicyDialog = lazyComponent(() =>
-  import('@waldur/marketplace/offerings/actions/SetAccessPolicyDialog').then(
+  import('@/marketplace/offerings/actions/SetAccessPolicyDialog').then(
     (module) => ({
       default: module.SetAccessPolicyDialog,
     }),
@@ -25,26 +23,24 @@ export const UpdateCustomerOrganizationsGroupsButton = ({
     tooltip,
     refetch: refetchGroups,
   } = useOrganizationGroups();
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const callback = () =>
-    dispatch(
-      openModalDialog(SetAccessPolicyDialog, {
-        resolve: {
-          organizationGroups,
-          loading: isLoading,
-          error: isError,
-          customer,
-          refetch,
-          refetchGroups,
-        },
-      }),
-    );
+    openDialog(SetAccessPolicyDialog, {
+      resolve: {
+        organizationGroups,
+        loading: isLoading,
+        error: isError,
+        customer,
+        refetch,
+        refetchGroups,
+      },
+    });
   return (
-    <EditButton
+    <CompactEditButton
       onClick={callback}
-      size="sm"
       disabled={disabled}
       tooltip={tooltip}
+      variant="secondary"
     />
   );
 };

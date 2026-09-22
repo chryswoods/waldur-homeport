@@ -1,9 +1,9 @@
 import { FunctionComponent } from 'react';
 import { Card } from 'react-bootstrap';
+import { ProviderOfferingDetails as Offering } from 'waldur-js-client';
 
-import { CodePreview } from '@waldur/core/CodePreview';
-import { translate } from '@waldur/i18n';
-import { Offering } from '@waldur/marketplace/types';
+import { CodePreview } from '@/core/CodePreview';
+import { translate } from '@/i18n';
 
 import { PublicOfferingCardTitle } from './PublicOfferingCardTitle';
 

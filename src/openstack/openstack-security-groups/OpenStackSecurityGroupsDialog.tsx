@@ -1,21 +1,27 @@
 import { Fragment, FunctionComponent } from 'react';
 import { Table } from 'react-bootstrap';
-import { OpenStackNestedSecurityGroup } from 'waldur-js-client';
+import { OpenStackSecurityGroup } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
 
 import { SecurityGroupRuleCell } from './SecurityGroupRuleCell';
 import { SecurityGroupRuleHeader } from './SecurityGroupRuleHeader';
 
 interface OpenStackSecurityGroupsDialogProps {
   resolve: {
-    securityGroups: OpenStackNestedSecurityGroup[];
+    securityGroups: Pick<
+      OpenStackSecurityGroup,
+      'name' | 'description' | 'rules'
+    >[];
   };
 }
 
 export const OpenStackSecurityGroupsTable: FunctionComponent<{
-  securityGroups: OpenStackNestedSecurityGroup[];
+  securityGroups: Pick<
+    OpenStackSecurityGroup,
+    'name' | 'description' | 'rules'
+  >[];
 }> = ({ securityGroups }) => {
   return (
     <Table responsive className="table-row-bordered">
@@ -69,11 +75,7 @@ export const OpenStackSecurityGroupsTable: FunctionComponent<{
 export const OpenStackSecurityGroupsDialog = (
   props: OpenStackSecurityGroupsDialogProps,
 ) => (
-  <ModalDialog
-    title={translate('Security groups details')}
-    className="card card-table"
-    bodyClassName="card-body pt-4"
-  >
+  <ModalDialog title={translate('Security groups details')}>
     {props.resolve.securityGroups.length === 0 &&
       translate('Instance does not have any security groups yet.')}
     {props.resolve.securityGroups.length > 0 && (

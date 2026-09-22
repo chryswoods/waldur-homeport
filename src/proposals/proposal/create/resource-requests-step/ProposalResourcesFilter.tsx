@@ -1,26 +1,13 @@
 import { FC } from 'react';
-import { reduxForm } from 'redux-form';
-
-import { translate } from '@waldur/i18n';
-import { TableFilterItem } from '@waldur/table/TableFilterItem';
 
 import { CallOfferingFilter } from './CallOfferingFilter';
 
+export const FORM_ID = 'ProposalResourcesFilter';
+
 interface OwnProps {
-  offerings: Parameters<typeof CallOfferingFilter>['0']['options'];
+  offerings?: Parameters<typeof CallOfferingFilter>['0']['options'];
 }
 
-const PureProposalResourcesFilter: FC<OwnProps> = ({ offerings }) => (
-  <TableFilterItem
-    title={translate('Offering')}
-    name="offering"
-    badgeValue={(value) => value?.offering_name}
-  >
-    <CallOfferingFilter options={offerings} />
-  </TableFilterItem>
+export const ProposalResourcesFilter: FC<OwnProps> = ({ offerings }) => (
+  <CallOfferingFilter options={offerings} />
 );
-
-export const ProposalResourcesFilter = reduxForm<{}, OwnProps>({
-  form: 'ProposalResourcesFilter',
-  destroyOnUnmount: false,
-})(PureProposalResourcesFilter);

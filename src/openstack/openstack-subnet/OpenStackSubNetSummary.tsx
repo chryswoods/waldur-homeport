@@ -1,8 +1,11 @@
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
-import { formatAllocationPool } from '@waldur/openstack/openstack-network/utils';
-import { Field, ResourceSummaryProps } from '@waldur/resource/summary';
-import { formatDefault } from '@waldur/resource/utils';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import { formatAllocationPool } from '@/openstack/openstack-network/utils';
+import { Field, ResourceSummaryProps } from '@/resource/summary';
+import { formatDefault } from '@/resource/utils';
+import { renderFieldOrDash } from '@/table/utils';
+
+import { formatIpv6Mode } from './ipv6Modes';
 
 export const OpenStackSubNetSummary = (props: ResourceSummaryProps) => {
   const { resource } = props;
@@ -11,9 +14,14 @@ export const OpenStackSubNetSummary = (props: ResourceSummaryProps) => {
     <>
       <Component label={translate('Network')} value={resource.network_name} />
       <Component
+        label={translate('Router')}
+        value={renderFieldOrDash(resource.router_name)}
+      />
+      <Component
         label={translate('CIDR')}
         value={formatDefault(resource.cidr)}
         valueClass="ellipsis"
+        hasCopy={!!formatDefault(resource.cidr)}
       />
 
       <Component
@@ -25,8 +33,13 @@ export const OpenStackSubNetSummary = (props: ResourceSummaryProps) => {
       <Component
         label={translate('Gateway IP')}
         value={formatDefault(resource.gateway_ip)}
+        hasCopy={!!resource.gateway_ip}
       />
-
+      <Component
+        label={translate('Backend ID')}
+        value={renderFieldOrDash(resource.backend_id)}
+        hasCopy={!!resource.backend_id}
+      />
       <Component
         label={translate('Enabled default gateway')}
         value={resource.is_connected ? translate('Yes') : translate('No')}
@@ -36,6 +49,19 @@ export const OpenStackSubNetSummary = (props: ResourceSummaryProps) => {
         label={translate('IP version')}
         value={formatDefault(resource.ip_version)}
       />
+
+      {resource.ip_version === 6 && (
+        <>
+          <Component
+            label={translate('IPv6 router advertisement mode')}
+            value={formatIpv6Mode(resource.ipv6_ra_mode)}
+          />
+          <Component
+            label={translate('IPv6 address mode')}
+            value={formatIpv6Mode(resource.ipv6_address_mode)}
+          />
+        </>
+      )}
 
       <Component
         label={translate('Enable DHCP')}

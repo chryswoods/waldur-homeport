@@ -1,11 +1,13 @@
 import { FC } from 'react';
-import { Form, InputGroup, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Form, InputGroup } from 'react-bootstrap';
 import { Field, FieldRenderProps } from 'react-final-form';
 
-import { ENV } from '@waldur/core/config';
-import { FieldError } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
+import { Tooltip } from 'waldur-ui';
+
+import { ENV } from '@/core/config';
+import { FieldError } from '@/form';
+import { FormGroup } from '@/form';
+import { translate } from '@/i18n';
 
 // These limitations are imposed by underlying operating system
 const MAXIMUM_USERNAME_LENGTH = 32;
@@ -54,18 +56,11 @@ const UsernameField: FC<UsernameFieldProps> = ({
   <>
     <InputGroup className="mb-2">
       {ENV.plugins.WALDUR_CORE.FREEIPA_USERNAME_PREFIX && (
-        <OverlayTrigger
-          placement="top"
-          overlay={
-            <Tooltip id="freeipa-username-prefix">
-              {translate('Username prefix')}
-            </Tooltip>
-          }
-        >
+        <Tooltip label={translate('Username prefix')}>
           <InputGroup.Text>
             {ENV.plugins.WALDUR_CORE.FREEIPA_USERNAME_PREFIX}
           </InputGroup.Text>
-        </OverlayTrigger>
+        </Tooltip>
       )}
       <Form.Control
         type="text"

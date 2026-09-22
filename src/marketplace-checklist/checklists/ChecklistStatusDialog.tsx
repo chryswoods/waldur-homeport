@@ -1,13 +1,12 @@
 import { FC } from 'react';
-import { Field, Form } from 'react-final-form';
+import { Form } from 'react-final-form';
 
-import { required } from '@waldur/core/validators';
-import { SelectField, SubmitButton } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { useModal } from '@waldur/modal/hooks';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { useNotify } from '@waldur/store/hooks';
+import { required } from '@/core/validators';
+import { SelectGroup, SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
 interface ChecklistStatusDialogProps {
   resolve: {
@@ -21,35 +20,26 @@ export const ChecklistStatusDialog: FC<ChecklistStatusDialogProps> = ({
   resolve: { checklistUuid, refetch },
   initialValues,
 }) => {
-  const { closeDialog } = useModal();
-  const { showSuccess, showErrorResponse } = useNotify();
-
-  // FIX THIS: not available atm
-  const onSubmit = async (formData) => {
-    try {
-      await Promise.resolve({
+  const updateMutation = useManagedMutation<any, any, any>({
+    mutationFn: (formData) =>
+      Promise.resolve({
         path: { uuid: checklistUuid },
         body: { status: formData.status },
         data: 'test',
-      }).then((response) => response.data);
-
-      refetch();
-      showSuccess(translate('Checklist status has been updated.'));
-      closeDialog();
-    } catch (e) {
-      showErrorResponse(e, translate('Unable to update checklist status.'));
-    }
-  };
+      }).then((response) => response.data),
+    successMessage: translate('Checklist status has been updated.'),
+    errorMessage: translate('Unable to update checklist status.'),
+    refetch,
+  });
 
   return (
     <Form
-      onSubmit={onSubmit}
+      onSubmit={(values) => updateMutation.mutateAsync(values)}
       initialValues={initialValues}
       render={({ handleSubmit, submitting, pristine, invalid }) => (
         <form onSubmit={handleSubmit}>
           <ModalDialog
             title={translate('Change status')}
-            closeButton
             footer={
               <>
                 <CloseDialogButton className="flex-equal" />
@@ -62,14 +52,13 @@ export const ChecklistStatusDialog: FC<ChecklistStatusDialogProps> = ({
               </>
             }
           >
-            <Field
+            <SelectGroup
               name="status"
-              component={SelectField as any}
+              validate={required}
               options={[
                 { label: 'Test', value: 'test' },
                 { label: 'Test 2', value: 'test2' },
               ]}
-              validate={required}
               simpleValue
             />
           </ModalDialog>

@@ -1,8 +1,14 @@
 import { FunctionComponent } from 'react';
 
-import { ExternalLink } from '@waldur/core/ExternalLink';
-import { translate } from '@waldur/i18n';
-import { ExpandableContainer } from '@waldur/table/ExpandableContainer';
+import { ExternalLink } from '@/core/ExternalLink';
+import { translate } from '@/i18n';
+import {
+  AllowedAddressPairsChangedContext,
+  AllowedAddressPairsDiff,
+  RulesChangedContext,
+  SecurityGroupRulesDiff,
+} from '@/openstack/events';
+import { ExpandableContainer } from '@/table/ExpandableContainer';
 
 import { ExpandableEventField } from './ExpandableEventField';
 import { Event } from './types';
@@ -22,8 +28,8 @@ export const ExpandableEventDetailsTable: FunctionComponent<
     {isStaffOrSupport ? (
       <ExpandableEventField
         label={translate('User')}
-        state="users.details"
-        params={{ uuid: event.context.user_uuid }}
+        state="support-user-manage"
+        params={{ user_uuid: event.context.user_uuid }}
         value={event.context.user_full_name || event.context.user_username}
       />
     ) : (
@@ -36,6 +42,19 @@ export const ExpandableEventDetailsTable: FunctionComponent<
       label={translate('IP address')}
       value={event.context.ip_address}
     />
+
+    {event.context?.auth_method && (
+      <ExpandableEventField
+        label={translate('Authenticated via')}
+        value={
+          event.context.auth_method === 'pat'
+            ? translate('Personal access token: {name}', {
+                name: event.context.pat_name,
+              })
+            : event.context.auth_method
+        }
+      />
+    )}
 
     <ExpandableEventField
       label={translate('Event type')}
@@ -85,7 +104,7 @@ export const ExpandableEventDetailsTable: FunctionComponent<
     <ExpandableEventField
       label={translate('Resource')}
       value={event.context.resource_full_name}
-      state="resource-details"
+      state="marketplace-resource-details"
       params={{
         uuid: event.context.project_uuid,
         resource_uuid: event.context.resource_uuid,
@@ -131,6 +150,32 @@ export const ExpandableEventDetailsTable: FunctionComponent<
       <ExpandableEventField
         label={translate('New value')}
         value={event.context.new_value}
+      />
+    )}
+
+    {(event.context.added_rules ||
+      event.context.removed_rules ||
+      event.context.modified_rules) && (
+      <ExpandableEventField
+        label={translate('Rule changes')}
+        value={
+          <SecurityGroupRulesDiff
+            context={event.context as RulesChangedContext}
+          />
+        }
+      />
+    )}
+
+    {(event.context.added_pairs ||
+      event.context.removed_pairs ||
+      event.context.modified_pairs) && (
+      <ExpandableEventField
+        label={translate('Allowed address pair changes')}
+        value={
+          <AllowedAddressPairsDiff
+            context={event.context as AllowedAddressPairsChangedContext}
+          />
+        }
       />
     )}
   </ExpandableContainer>

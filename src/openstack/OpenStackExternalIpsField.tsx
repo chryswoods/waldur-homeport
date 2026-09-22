@@ -1,17 +1,19 @@
-import { PlusIcon, TrashIcon } from '@phosphor-icons/react';
-import { Button, Form } from 'react-bootstrap';
-import { BaseFieldArrayProps, FieldArray, FormSection } from 'redux-form';
+import { PlusIcon } from '@phosphor-icons/react';
+import { FC } from 'react';
+import { Form } from 'react-bootstrap';
+import { FieldArray, FieldArrayRenderProps } from 'react-final-form-arrays';
 
-import { translate } from '@waldur/i18n';
+import { StringGroup } from '@/form';
+import { translate } from '@/i18n';
+import { ActionButton } from '@/table/ActionButton';
+import { RemovalActionButton } from '@/table/RemovalActionButton';
 
-import { StringField } from './StringField';
-
-const FieldsListGroup = ({ fields }: BaseFieldArrayProps<any>) => {
+const FieldsListGroup: FC<FieldArrayRenderProps<any, any>> = ({ fields }) => {
   const addRow = () => {
     fields.push({});
   };
 
-  const removeRow = (index) => fields._isFieldArray && fields.remove(index);
+  const removeRow = (index) => fields.remove(index);
 
   return (
     <>
@@ -27,28 +29,18 @@ const FieldsListGroup = ({ fields }: BaseFieldArrayProps<any>) => {
                 </tr>
               </thead>
               <tbody>
-                {fields.map((component, i) => (
-                  <FormSection name={component} key={i}>
-                    <tr>
-                      <td>
-                        <StringField name="floating_ip" />
-                      </td>
-                      <td>
-                        <StringField name="external_ip" />
-                      </td>
-                      <td>
-                        <Button
-                          variant="danger"
-                          className="btn-icon"
-                          onClick={() => removeRow(i)}
-                        >
-                          <span className="svg-icon svg-icon-2">
-                            <TrashIcon />
-                          </span>
-                        </Button>
-                      </td>
-                    </tr>
-                  </FormSection>
+                {fields.map((member, i) => (
+                  <tr key={member}>
+                    <td>
+                      <StringGroup name={`${member}.floating_ip`} />
+                    </td>
+                    <td>
+                      <StringGroup name={`${member}.external_ip`} />
+                    </td>
+                    <td>
+                      <RemovalActionButton action={() => removeRow(i)} />
+                    </td>
+                  </tr>
                 ))}
               </tbody>
             </table>
@@ -56,17 +48,17 @@ const FieldsListGroup = ({ fields }: BaseFieldArrayProps<any>) => {
         </Form.Group>
       )}
       <div>
-        <Button variant="tertiary" onClick={addRow}>
-          <span className="svg-icon svg-icon-2">
-            <PlusIcon weight="bold" />
-          </span>{' '}
-          {translate('Add')}
-        </Button>
+        <ActionButton
+          title={translate('Add')}
+          action={addRow}
+          iconNode={<PlusIcon weight="bold" />}
+          variant="tertiary"
+        />
       </div>
     </>
   );
 };
 
 export const OpenStackExternalIpsField = () => (
-  <FieldArray name="value" component={FieldsListGroup} rerenderOnEveryChange />
+  <FieldArray name="value" component={FieldsListGroup} />
 );

@@ -1,15 +1,16 @@
 import { FunctionComponent, useMemo } from 'react';
 import { RancherCatalog, rancherCatalogsList } from 'waldur-js-client';
 
-import { Link } from '@waldur/core/Link';
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { Column, TableWithPortal } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
+import { Link } from '@/core/Link';
+import { translate } from '@/i18n';
+import { ActionsDropdown } from '@/table/ActionsDropdown';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { Column, TableWithPortal } from '@/table/types';
+import { useTable } from '@/table/useTable';
 
 import { CatalogCreateButton } from './CatalogCreateButton';
-import { CatalogDeleteButton } from './CatalogDeleteButton';
+import { CatalogDeleteAction } from './CatalogDeleteButton';
 
 export const ClusterCatalogList: FunctionComponent<
   TableWithPortal<{ resourceScope }>
@@ -68,7 +69,9 @@ export const ClusterCatalogList: FunctionComponent<
       tableActions={<CatalogCreateButton cluster={resourceScope} />}
       rowActions={({ row }) =>
         row.scope_type === 'cluster' ? (
-          <CatalogDeleteButton catalog={row} refetch={props.fetch} />
+          <ActionsDropdown row={row} refetch={props.fetch}>
+            <CatalogDeleteAction row={row} refetch={props.fetch} />
+          </ActionsDropdown>
         ) : null
       }
       portal={portal}

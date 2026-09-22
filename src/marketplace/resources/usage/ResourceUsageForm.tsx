@@ -3,45 +3,54 @@ import {
   QuestionIcon,
   WarningCircleIcon,
 } from '@phosphor-icons/react';
+import * as RadixDropdownMenu from '@radix-ui/react-dropdown-menu';
+import SelectableContext from '@restart/ui/SelectableContext';
 import { useQuery } from '@tanstack/react-query';
 import { debounce } from 'lodash-es';
 import {
   FunctionComponent,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
-import { Dropdown, Nav, Tab } from 'react-bootstrap';
+import { Nav, Tab } from 'react-bootstrap';
 import { Field, useField, useForm } from 'react-final-form';
 import {
   ComponentUserUsage,
   marketplaceComponentUserUsagesList,
   marketplaceOfferingUsersList,
-  type ResourcePlanPeriod,
+  ResourcePlanPeriod,
+  OfferingComponent,
 } from 'waldur-js-client';
 
-import { parseDate } from '@waldur/core/dateUtils';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { Tip } from '@waldur/core/Tooltip';
-import { required } from '@waldur/core/validators';
+import { Tooltip } from 'waldur-ui';
+
+import { AwesomeRadioButton } from '@/core/AwesomeRadioButton';
+import { UI_STALE_TIME } from '@/core/constants';
+import { parseDate } from '@/core/dateUtils';
+import { LoadingErred } from '@/core/LoadingErred';
+import { required } from '@/core/validators';
 import {
   FieldError,
   NumberField,
-  SelectField,
-  StringField,
   TextField,
-} from '@waldur/form';
-import { AwesomeCheckboxField } from '@waldur/form/AwesomeCheckboxField';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-import { OfferingComponent } from '@waldur/marketplace/types';
-import { HeaderButtonBullet } from '@waldur/navigation/header/HeaderButtonBullet';
+  SelectGroup,
+  StringGroup,
+} from '@/form';
+import { translate } from '@/i18n';
+import { HeaderButtonBullet } from '@/navigation/header/HeaderButtonBullet';
+import { ActionsDropdownItem } from '@/table/ActionsDropdown';
 
 import { getPeriodRange } from './api';
+import {
+  getMissingUsagePolicyChoices,
+  MISSING_USAGE_POLICY_DEFAULT,
+} from './missingUsagePolicy';
 import { UsageReportContext } from './types';
-import { getBillingTypeLabel } from './utils';
+import { getBillingTypeLabelOrDash } from './utils';
 
 interface Period {
   label: string;
@@ -82,6 +91,10 @@ export const ResourceUsageForm: FunctionComponent<ResourceUsageFormProps> = (
   const form = useForm();
   const formState = form.getState();
   const errors = formState.errors || {};
+  // Tab.Container below is uncontrolled (defaultActiveKey only), so switching
+  // tabs from this overflow dropdown has to go through the same internal
+  // SelectableContext that Nav.Link's own eventKey taps into.
+  const selectTab = useContext(SelectableContext);
 
   const handleWindowResize = useCallback(
     debounce(() => {
@@ -137,7 +150,7 @@ export const ResourceUsageForm: FunctionComponent<ResourceUsageFormProps> = (
           }).then((r) => r.data)
         : null,
 
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
 
   const { data: userUsages } = useQuery({
@@ -170,7 +183,10 @@ export const ResourceUsageForm: FunctionComponent<ResourceUsageFormProps> = (
     const usagesByComponentType: Record<string, number> = {};
 
     props.components.forEach((component) => {
-      let recentUserRecord: ComponentUserUsage;
+      let recentUserRecord: Pick<
+        ComponentUserUsage,
+        'usage' | 'component_type' | 'uuid' | 'modified' | 'user'
+      >;
       userUsages.forEach((record) => {
         if (
           record.user === user.url &&
@@ -228,35 +244,31 @@ export const ResourceUsageForm: FunctionComponent<ResourceUsageFormProps> = (
           </>
         )}
         {props.periods.length > 1 ? (
-          <FormGroup
+          <SelectGroup
+            name="period"
+            options={props.periods}
+            onChange={(value) => {
+              const period = value;
+              if (period?.value?.components) {
+                for (const component of period.value.components) {
+                  form.change(
+                    `components.${component.type}.amount`,
+                    component.usage,
+                  );
+                  form.change(
+                    `components.${component.type}.description`,
+                    component.description,
+                  );
+                }
+              }
+              return value;
+            }}
+            isClearable={false}
             label={translate('Plan')}
             help={translate(
               'Each usage report must be connected with a billing plan to assure correct calculation of accounting data.',
             )}
-          >
-            <Field
-              component={SelectField as any}
-              name="period"
-              options={props.periods}
-              onChange={(value) => {
-                const period = value;
-                if (period?.value?.components) {
-                  for (const component of period.value.components) {
-                    form.change(
-                      `components.${component.type}.amount`,
-                      component.usage,
-                    );
-                    form.change(
-                      `components.${component.type}.description`,
-                      component.description,
-                    );
-                  }
-                }
-                return value;
-              }}
-              isClearable={false}
-            />
-          </FormGroup>
+          />
         ) : (
           <StaticPlanField />
         )}
@@ -268,29 +280,26 @@ export const ResourceUsageForm: FunctionComponent<ResourceUsageFormProps> = (
             {teamError ? (
               <LoadingErred loadData={refetchTeam} />
             ) : (
-              <FormGroup label={translate('User')}>
-                <Field
-                  component={SelectField as any}
-                  name="user"
-                  options={team}
-                  getOptionValue={(option) => option.uuid}
-                  getOptionLabel={(option) => option.user_full_name}
-                  onChange={onChangeUser}
-                  isLoading={teamIsLoading}
-                  isClearable
-                  placeholder={translate('Select team member')}
-                />
-              </FormGroup>
-            )}
-            <FormGroup label={translate('Username')} required>
-              <Field
-                component={StringField as any}
-                name="username"
-                placeholder={translate('Enter username(s)')}
-                validate={required}
-                readOnly={Boolean(user)}
+              <SelectGroup
+                name="user"
+                options={team}
+                getOptionValue={(option) => option.uuid}
+                getOptionLabel={(option) => option.user_full_name}
+                onChange={onChangeUser}
+                isLoading={teamIsLoading}
+                isClearable
+                placeholder={translate('Select team member')}
+                label={translate('User')}
               />
-            </FormGroup>
+            )}
+            <StringGroup
+              name="username"
+              placeholder={translate('Enter username(s)')}
+              validate={required}
+              readOnly={Boolean(user)}
+              label={translate('Username')}
+              required
+            />
           </>
         )}
       </div>
@@ -310,8 +319,7 @@ export const ResourceUsageForm: FunctionComponent<ResourceUsageFormProps> = (
                   <Nav.Item key={component.uuid} className={isHidden && 'h-0'}>
                     <Nav.Link eventKey={component.uuid}>
                       {Boolean(errors.components?.[component.type]) && (
-                        <Tip
-                          id={`tip-${component.uuid}-error`}
+                        <Tooltip
                           label={
                             isHidden ? null : (
                               <FieldError
@@ -326,15 +334,14 @@ export const ResourceUsageForm: FunctionComponent<ResourceUsageFormProps> = (
                             weight="bold"
                             className="text-danger me-1"
                           />
-                        </Tip>
+                        </Tooltip>
                       )}
                       {component.name}
-                      <Tip
-                        id={`tip-${component.uuid}-type`}
+                      <Tooltip
                         label={
                           isHidden
                             ? null
-                            : getBillingTypeLabel(component.billing_type)
+                            : getBillingTypeLabelOrDash(component.billing_type)
                         }
                       >
                         <QuestionIcon
@@ -342,7 +349,7 @@ export const ResourceUsageForm: FunctionComponent<ResourceUsageFormProps> = (
                           weight="bold"
                           className="ms-1"
                         />
-                      </Tip>
+                      </Tooltip>
                     </Nav.Link>
                   </Nav.Item>
                 );
@@ -351,62 +358,73 @@ export const ResourceUsageForm: FunctionComponent<ResourceUsageFormProps> = (
             {wrappedComponents.length > 0 ? (
               <Nav variant="tabs" className="nav-line-tabs mb-4">
                 <Nav.Item>
-                  <Dropdown>
-                    <Dropdown.Toggle
-                      variant="text-secondary"
-                      className="btn-icon no-arrow w-35px h-35px"
-                    >
-                      <DotsThreeIcon size={22} weight="bold" />
-                      {wrappedComponents.some((comp) =>
-                        Boolean(errors.components?.[comp.type]),
-                      ) && (
-                        <HeaderButtonBullet
-                          size={10}
-                          blink={false}
-                          variant="danger"
-                          className="me-n2"
-                        />
-                      )}
-                    </Dropdown.Toggle>
-                    <Dropdown.Menu>
-                      <div className="mh-200px overflow-auto">
-                        {wrappedComponents.map((component) => (
-                          <Dropdown.Item
-                            key={component.uuid}
-                            eventKey={component.uuid}
-                            className="d-flex justify-content-between"
-                          >
-                            {Boolean(errors.components?.[component.type]) && (
-                              <Tip
-                                id={`tip-${component.uuid}-error`}
-                                label={
-                                  <FieldError
-                                    error={errors.components[component.type]}
+                  <RadixDropdownMenu.Root>
+                    <RadixDropdownMenu.Trigger asChild>
+                      <button
+                        type="button"
+                        className="btn dropdown-toggle btn-text-secondary btn-icon no-arrow w-35px h-35px position-relative"
+                      >
+                        <DotsThreeIcon size={22} weight="bold" />
+                        {wrappedComponents.some((comp) =>
+                          Boolean(errors.components?.[comp.type]),
+                        ) && (
+                          <HeaderButtonBullet
+                            size={10}
+                            blink={false}
+                            variant="danger"
+                            className="me-n2"
+                          />
+                        )}
+                      </button>
+                    </RadixDropdownMenu.Trigger>
+                    <RadixDropdownMenu.Portal>
+                      <RadixDropdownMenu.Content
+                        sideOffset={2}
+                        className="dropdown-menu show position-static"
+                      >
+                        <div className="mh-200px overflow-auto">
+                          {wrappedComponents.map((component) => (
+                            <ActionsDropdownItem
+                              key={component.uuid}
+                              className="d-flex justify-content-between"
+                              onClick={(event) =>
+                                selectTab?.(component.uuid, event)
+                              }
+                            >
+                              {Boolean(errors.components?.[component.type]) && (
+                                <Tooltip
+                                  label={
+                                    <FieldError
+                                      error={errors.components[component.type]}
+                                    />
+                                  }
+                                  autoWidth
+                                >
+                                  <WarningCircleIcon
+                                    size={18}
+                                    weight="bold"
+                                    className="text-danger me-1"
                                   />
-                                }
-                                autoWidth
+                                </Tooltip>
+                              )}
+                              {component.name}
+                              <Tooltip
+                                label={getBillingTypeLabelOrDash(
+                                  component.billing_type,
+                                )}
                               >
-                                <WarningCircleIcon
+                                <QuestionIcon
                                   size={18}
                                   weight="bold"
-                                  className="text-danger me-1"
+                                  className="ms-1"
                                 />
-                              </Tip>
-                            )}
-                            {component.name}
-                            <Tip
-                              id={`tip-${component.uuid}-type`}
-                              label={getBillingTypeLabel(
-                                component.billing_type,
-                              )}
-                            >
-                              <QuestionIcon size={18} className="ms-1" />
-                            </Tip>
-                          </Dropdown.Item>
-                        ))}
-                      </div>
-                    </Dropdown.Menu>
-                  </Dropdown>
+                              </Tooltip>
+                            </ActionsDropdownItem>
+                          ))}
+                        </div>
+                      </RadixDropdownMenu.Content>
+                    </RadixDropdownMenu.Portal>
+                  </RadixDropdownMenu.Root>
                 </Nav.Item>
               </Nav>
             ) : (
@@ -427,44 +445,69 @@ export const ResourceUsageForm: FunctionComponent<ResourceUsageFormProps> = (
                       </div>
                     )}
                     <Field
-                      component={NumberField as any}
                       name={`components.${component.type}.amount`}
-                      unit={component.measured_unit}
-                      max={
-                        component.limit_period
-                          ? component.limit_amount
-                          : undefined
-                      }
                       validate={required}
-                      placeholder={translate('Amount *')}
-                      aria-label={translate('{amount} for {name}', {
-                        amount: translate('Amount'),
-                        name: component.name,
-                      })}
-                      aria-describedby={`${component.type}-description`}
-                    />
+                    >
+                      {({ input, meta }) => (
+                        <NumberField
+                          input={input}
+                          meta={meta}
+                          unit={component.measured_unit}
+                          max={
+                            component.limit_period
+                              ? component.limit_amount
+                              : undefined
+                          }
+                          placeholder={translate('Amount *')}
+                          aria-label={translate('{amount} for {name}', {
+                            amount: translate('Amount'),
+                            name: component.name,
+                          })}
+                          aria-describedby={`${component.type}-description`}
+                        />
+                      )}
+                    </Field>
                   </div>
 
                   <div className="mb-7">
-                    <Field
-                      component={TextField as any}
-                      name={`components.${component.type}.description`}
-                      placeholder={translate('Enter a description...')}
-                      rows={3}
-                      aria-label={translate('{description} for {name}', {
-                        description: translate('Description'),
-                        name: component.name,
-                      })}
-                    />
+                    <Field name={`components.${component.type}.description`}>
+                      {({ input, meta }) => (
+                        <TextField
+                          input={input}
+                          meta={meta}
+                          placeholder={translate('Enter a description...')}
+                          rows={3}
+                          aria-label={translate('{description} for {name}', {
+                            description: translate('Description'),
+                            name: component.name,
+                          })}
+                        />
+                      )}
+                    </Field>
                   </div>
 
-                  <Field
-                    component={AwesomeCheckboxField as any}
-                    name={`components.${component.type}.recurring`}
-                    label={translate(
-                      'Reported value is reused every month until changed.',
-                    )}
-                  />
+                  {/* The policy belongs to the total usage record; the
+                      per-user endpoint neither accepts nor stores it. */}
+                  {!isUserUsage && (
+                    <Field
+                      name={`components.${component.type}.missing_usage_policy`}
+                      // A component with no usage record for the period has no
+                      // entry in initialValues; without this the radio group
+                      // renders with nothing selected.
+                      defaultValue={MISSING_USAGE_POLICY_DEFAULT}
+                    >
+                      {({ input }) => (
+                        <AwesomeRadioButton
+                          input={input}
+                          label={translate(
+                            'When no usage is reported for the next month',
+                          )}
+                          choices={getMissingUsagePolicyChoices()}
+                          gap={2}
+                        />
+                      )}
+                    </Field>
+                  )}
                 </div>
               </Tab.Pane>
             ))}

@@ -18,14 +18,18 @@ import {
 const LAYOUT_CONFIG_KEY = 'LayoutConfig';
 
 function getLayout(): ILayout {
-  const ls = localStorage.getItem(LAYOUT_CONFIG_KEY);
-  if (ls) {
-    try {
-      return JSON.parse(ls) as ILayout;
-    } catch (er) {
-      // eslint-disable-next-line no-console
-      console.error(er);
+  try {
+    const ls = localStorage.getItem(LAYOUT_CONFIG_KEY);
+    if (ls) {
+      try {
+        return JSON.parse(ls) as ILayout;
+      } catch (er) {
+        // eslint-disable-next-line no-console
+        console.error(er);
+      }
     }
+  } catch {
+    // localStorage might not be available in test environments
   }
   return DefaultLayoutConfig;
 }
@@ -215,13 +219,6 @@ export class LayoutSetup {
     if (config.responsive) {
       this.classes.pageTitle.push('mb-5');
       this.classes.pageTitle.push('mb-lg-0');
-
-      LayoutSetup.attributes.pageTitle.set('data-kt-swapper', true);
-      LayoutSetup.attributes.pageTitle.set('data-kt-swapper-mode', 'prepend');
-      LayoutSetup.attributes.pageTitle.set(
-        'data-kt-swapper-parent',
-        `{ default: '#kt_content_container', '${config.responsiveBreakpoint}': '${config.responsiveTarget}'}`,
-      );
     }
   }
 

@@ -20,32 +20,24 @@ export const SET_SAVED_FILTERS = 'waldur/table/SET_SAVED_FILTERS';
 export const SELECT_SAVED_FILTER = 'waldur/table/SELECT_SAVED_FILTER';
 export const APPLY_FILTERS = 'waldur/table/APPLY_FILTERS';
 export const TOGGLE_ROW = 'waldur/table/TOGGLE_ROW';
+export const SET_TOGGLED = 'waldur/table/SET_TOGGLED';
 export const SELECT_ROW = 'waldur/table/SELECT_ROW';
 export const SELECT_ALL_ROWS = 'waldur/table/SELECT_ALL_ROWS';
 export const RESET_SELECTION = 'waldur/table/RESET_SELECTION';
 export const TOGGLE_COLUMN = 'waldur/table/TOGGLE_COLUMN';
+export const RESET_COLUMNS = 'waldur/table/RESET_COLUMNS';
 export const INIT_COLUMN_POSITIONS = 'waldur/table/INIT_COLUMN_POSITIONS';
 export const SWAP_COLUMNS = 'waldur/table/SWAP_COLUMNS';
-
-export const fetchListStart = (
-  table: string,
-  extraFilter?: Record<string, any>,
-  pullInterval?: number | (() => number),
-  force?: boolean,
-) => ({
-  type: FETCH_LIST_START,
-  payload: {
-    table,
-    extraFilter,
-    pullInterval,
-    force,
-  },
-});
+export const TOGGLE_COLUMN_PIN = 'waldur/table/TOGGLE_COLUMN_PIN';
+export const CLEAR_ALL_FILTERS = 'waldur/table/CLEAR_ALL_FILTERS';
+export const REGISTER_FILTER_NAME = 'waldur/table/REGISTER_FILTER_NAME';
+export const CLEAR_REGISTERED_FILTER_NAMES =
+  'waldur/table/CLEAR_REGISTERED_FILTER_NAMES';
 
 export const fetchListDone = (
   table: string,
   entities: object,
-  order: number[],
+  order: string[],
   resultCount: number,
 ) => ({
   type: FETCH_LIST_DONE,
@@ -101,36 +93,6 @@ export const updatePageSize = (table: string, size: number) => ({
   payload: {
     table,
     size,
-  },
-});
-
-export const createEntity = (table: string, uuid: string, content: object) => ({
-  type: ENTITY_CREATE,
-  payload: {
-    table,
-    uuid,
-    content,
-  },
-});
-
-export const updateEntity = (
-  table: string,
-  uuid: string,
-  content: object | ((entity) => object),
-) => ({
-  type: ENTITY_UPDATE,
-  payload: {
-    table,
-    uuid,
-    content,
-  },
-});
-
-export const deleteEntity = (table: string, uuid: string) => ({
-  type: ENTITY_DELETE,
-  payload: {
-    table,
-    uuid,
   },
 });
 
@@ -200,6 +162,14 @@ export const toggleRow = (table: string, row: string | number) => ({
   },
 });
 
+export const setToggled = (
+  table: string,
+  toggled: Record<string, boolean>,
+) => ({
+  type: SET_TOGGLED,
+  payload: { table, toggled },
+});
+
 export const selectRow = (table: string, row: any) => ({
   type: SELECT_ROW,
   payload: {
@@ -233,6 +203,13 @@ export const toggleColumn = (table: string, id, column, value?: boolean) => ({
   },
 });
 
+export const resetColumns = (table: string) => ({
+  type: RESET_COLUMNS,
+  payload: {
+    table,
+  },
+});
+
 export const initColumnPositions = (
   table: string,
   columnPositions: string[],
@@ -255,4 +232,33 @@ export const swapColumns = (
     column1,
     column2,
   },
+});
+
+export const toggleColumnPin = (table: string, id: string) => ({
+  type: TOGGLE_COLUMN_PIN,
+  payload: {
+    table,
+    id,
+  },
+});
+
+export const clearAllFilters = (table: string) => ({
+  type: CLEAR_ALL_FILTERS,
+  payload: { table },
+});
+
+/** Record that a filter field with the given `name` is rendered by this table.
+ * Emitted by every leaf filter via `withTableFilter`. Lets the table tell its
+ * own filter fields apart from unrelated global URL params. */
+export const registerFilterName = (table: string, name: string) => ({
+  type: REGISTER_FILTER_NAME,
+  payload: { table, name },
+});
+
+/** Drop the registered filter names for a table. Dispatched when the table is
+ * fully unmounted so a later mount (possibly a different view reusing the same
+ * table id) rebuilds the set from the fields it actually renders. */
+export const clearRegisteredFilterNames = (table: string) => ({
+  type: CLEAR_REGISTERED_FILTER_NAMES,
+  payload: { table },
 });

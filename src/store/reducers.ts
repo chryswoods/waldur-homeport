@@ -1,34 +1,28 @@
-import { reducer as notificationsReducer } from 'reapop';
 import { combineReducers } from 'redux';
-import { reducer as form } from 'redux-form';
 
-import { reducer as drawer } from '@waldur/drawer/reducer';
-import { type IssueAttachmentState } from '@waldur/issues/attachments/types';
-import { type IssueCommentState } from '@waldur/issues/comments/types';
-import { reducer as marketplace } from '@waldur/marketplace/store/reducers';
-import { reducer as modal } from '@waldur/modal/reducer';
-import { reducer as title } from '@waldur/navigation/title';
-import { tableInitialReducer as tables } from '@waldur/table/store';
-import { type TableState } from '@waldur/table/types';
-import { reducer as workspace } from '@waldur/workspace/reducers';
+import { reducer as marketplace } from '@/marketplace/store/reducers';
+import { tableInitialReducer as tables } from '@/table/store';
+import { type TableState } from '@/table/types';
+import { reducer as workspace } from '@/workspace/reducers';
 
-export const staticReducers = {
-  form,
-  notifications: notificationsReducer(),
-  modal,
-  drawer,
+const staticReducers = {
   workspace,
   marketplace,
-  title,
   tables,
 };
 
-const _rootReducer = combineReducers(staticReducers);
+const combined = combineReducers(staticReducers);
 
-export type RootState = ReturnType<typeof _rootReducer> & {
+export const RESET_SESSION = 'waldur/session/RESET';
+
+/** Drops every slice at once — what a document reload used to do for free. */
+export const resetSession = () => ({ type: RESET_SESSION });
+
+export const rootReducer: typeof combined = (state, action) =>
+  action.type === RESET_SESSION
+    ? combined(undefined, action)
+    : combined(state, action);
+
+export type RootState = ReturnType<typeof combined> & {
   tables: Record<string, TableState>;
-  issues: {
-    attachments: IssueAttachmentState;
-    comments: IssueCommentState;
-  };
 };

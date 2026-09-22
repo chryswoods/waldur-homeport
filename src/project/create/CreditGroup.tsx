@@ -1,14 +1,11 @@
-import { Form } from 'react-bootstrap';
-import { Field } from 'react-final-form';
 import { Customer } from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
-import { defaultCurrency } from '@waldur/core/formatCurrency';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { ProjectFeatures } from '@waldur/FeaturesEnums';
-import { NumberField } from '@waldur/form';
-import { formatJsxTemplate, translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
+import { ENV } from '@/core/config';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { isFeatureVisible } from '@/features/connect';
+import { ProjectFeatures } from '@/FeaturesEnums';
+import { NumberGroup } from '@/form';
+import { formatJsxTemplate, translate } from '@/i18n';
 
 export const CreditGroup = ({ customer }: { customer: Customer }) => {
   if (
@@ -24,24 +21,15 @@ export const CreditGroup = ({ customer }: { customer: Customer }) => {
   };
 
   return (
-    <FormGroup
+    <NumberGroup
+      name="project_credit"
       label={translate('Allocate credit to the project (optional)')}
-      controlId="project_credit"
-    >
-      <Field
-        component={NumberField as any}
-        name="project_credit"
-        placeholder={defaultCurrency(0)}
-        customer={customer}
-      />
-
-      <Form.Text className="text-muted">
-        {translate(
-          'Credits available for this organization: {customer_credit}',
-          valueFieldDescriptionData,
-          formatJsxTemplate,
-        )}
-      </Form.Text>
-    </FormGroup>
+      placeholder={defaultCurrency(0)}
+      description={translate(
+        'Credits available for this organization: {customer_credit}',
+        valueFieldDescriptionData,
+        formatJsxTemplate,
+      )}
+    />
   );
 };

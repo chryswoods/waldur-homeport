@@ -1,8 +1,8 @@
-import { Editor, loader } from '@monaco-editor/react';
-import * as monacoEditor from 'monaco-editor';
+import { Editor } from '@monaco-editor/react';
 import { useEffect, useState } from 'react';
 
-import { LoadingSpinner } from '@waldur/table/TableRefreshButton';
+import { initMonaco } from '@/form/monacoSetup';
+import { LoadingSpinner } from '@/table/TableRefreshButton';
 
 // Django HTML language configuration based on official Django documentation
 const configureDjangoHTML = (monaco) => {
@@ -542,20 +542,27 @@ const configureDjangoHTML = (monaco) => {
   });
 };
 
+export interface MonacoEditorProps {
+  value: string;
+  onChange?(value: string);
+  language?: string;
+  theme?: string;
+  height?: number;
+  readOnly?: boolean;
+}
+
 export const MonacoEditor = ({
   value,
   onChange,
   language,
   theme = 'vs-dark',
-  height,
+  height = 300,
   readOnly = false,
-}) => {
+}: MonacoEditorProps) => {
   const [isMonacoReady, setIsMonacoReady] = useState(false);
 
   useEffect(() => {
-    // Use local version of editor (not CDN)
-    loader.config({ monaco: monacoEditor });
-    loader.init().then((monaco) => {
+    initMonaco().then((monaco) => {
       configureDjangoHTML(monaco);
       setIsMonacoReady(true);
     });

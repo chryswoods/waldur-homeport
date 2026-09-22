@@ -1,34 +1,32 @@
-import { FC } from 'react';
+import { FieldValidator } from 'final-form';
+import { FC, useMemo } from 'react';
 import { FormText } from 'react-bootstrap';
-import { Props as SelectProps } from 'react-select';
-import { Field, Validator } from 'redux-form';
+import { Field } from 'react-final-form';
 import {
   MarketplaceProviderOfferingsListData,
   MarketplacePublicOfferingsListData,
 } from 'waldur-js-client';
 
-import { FieldError } from '@waldur/form';
-import { translate } from '@waldur/i18n';
+import { FieldError } from '@/form';
+import { translate } from '@/i18n';
 import {
   providerOfferingsAutocomplete,
   publicOfferingsAutocomplete,
-} from '@waldur/marketplace/common/autocompletes';
-import { AutocompleteField } from '@waldur/marketplace/landing/AutocompleteField';
+} from '@/marketplace/common/autocompletes';
+import { AutocompleteField } from '@/marketplace/landing/AutocompleteField';
 
 interface OfferingAutocompleteProps {
   offeringFilter?: object;
   name?: string;
-  field?: (
-    | MarketplacePublicOfferingsListData
-    | MarketplaceProviderOfferingsListData
-  )['query']['field'];
+  field?: MarketplacePublicOfferingsListData['query']['field'] &
+    MarketplaceProviderOfferingsListData['query']['field'];
   providerOfferings?: boolean;
   className?: string;
   description?: string;
-  reactSelectProps?: Partial<SelectProps>;
+  reactSelectProps?: any;
   onChange?(value): any;
   showError?: boolean;
-  validate?: Validator | Validator[];
+  validate?: FieldValidator<any>;
 }
 
 export const OfferingAutocomplete: FC<OfferingAutocompleteProps> = ({
@@ -36,49 +34,59 @@ export const OfferingAutocomplete: FC<OfferingAutocompleteProps> = ({
   name = 'offering',
   field,
   ...props
-}) => (
-  <Field
-    name={name}
-    validate={props.validate}
-    onChange={props.onChange}
-    component={(fieldProps) => (
-      <>
-        <AutocompleteField
-          placeholder={translate('Select offering...')}
-          loadOfferings={(query, prevOptions, { page }) =>
-            providerOfferings
-              ? providerOfferingsAutocomplete(
-                  {
-                    name: query,
-                    ...props.offeringFilter,
-                  },
-                  prevOptions,
-                  page,
-                  field as any,
-                )
-              : publicOfferingsAutocomplete(
-                  {
-                    name: query,
-                    ...props.offeringFilter,
-                  },
-                  prevOptions,
-                  page,
-                  field as any,
-                )
-          }
-          value={fieldProps.input.value}
-          onChange={(value) => fieldProps.input.onChange(value)}
-          noOptionsMessage={() => translate('No offerings')}
-          reactSelectProps={props.reactSelectProps}
-        />
+}) => {
+  const loadPublicOfferings = useMemo(
+    () =>
+      publicOfferingsAutocomplete({
+        ...props.offeringFilter,
+        ...(field ? { field } : {}),
+      }),
+    [props.offeringFilter, field],
+  );
 
-        {props.description && (
-          <FormText className="text-muted">{props.description}</FormText>
-        )}
-        {props.showError && fieldProps.meta.touched && (
-          <FieldError error={fieldProps.meta.error} />
-        )}
-      </>
-    )}
-  />
-);
+  const loadProviderOfferings = useMemo(
+    () =>
+      providerOfferingsAutocomplete({
+        ...props.offeringFilter,
+        ...(field ? { field } : {}),
+      }),
+    [props.offeringFilter, field],
+  );
+
+  const renderComponent = (fieldProps) => (
+    <>
+      <AutocompleteField
+        placeholder={translate('Select offering...')}
+        loadOfferings={
+          providerOfferings ? loadProviderOfferings : loadPublicOfferings
+        }
+        value={fieldProps.input.value}
+        onChange={(value) => {
+          fieldProps.input.onChange(value);
+          if (props.onChange) {
+            props.onChange(value);
+          }
+        }}
+        noOptionsMessage={() => translate('No offerings')}
+        reactSelectProps={{
+          // Drop react-select-async-paginate's per-query cache when the
+          // filter changes (e.g. the sibling category field in the
+          // proposal wizard), otherwise the old filter's options persist.
+          cacheUniqs: [props.offeringFilter, field, providerOfferings],
+          ...props.reactSelectProps,
+        }}
+      />
+
+      {props.description && (
+        <FormText className="text-muted">{props.description}</FormText>
+      )}
+      {props.showError && fieldProps.meta.touched && (
+        <FieldError error={fieldProps.meta.error} />
+      )}
+    </>
+  );
+
+  return (
+    <Field name={name} validate={props.validate} component={renderComponent} />
+  );
+};

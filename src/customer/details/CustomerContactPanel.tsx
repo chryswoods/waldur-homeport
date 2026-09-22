@@ -1,67 +1,100 @@
-import { FC, useMemo } from 'react';
+import { FC } from 'react';
+import { customersContact } from 'waldur-js-client';
 
-import { formatPhoneNumber } from '@waldur/core/utils';
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
+import { formatPhoneNumber } from '@/core/utils';
+import { validateEmails } from '@/core/validators';
+import {
+  CommaSeparatedListEditField,
+  EditFieldProvider,
+  EmailEditField,
+  StringEditField,
+  TextEditField,
+} from '@/form/editFields';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { useNotify } from '@/store/notify';
+import { useSetCustomer, useUser } from '@/workspace/hooks';
 
-import { FieldEditButton } from './FieldEditButton';
 import { CustomerEditPanelProps } from './types';
+import { serializeNotificationEmails } from './utils';
 
-export const CustomerContactPanel: FC<CustomerEditPanelProps> = (props) => {
-  const rows = useMemo(
-    () => [
-      {
-        label: translate('Email'),
-        key: 'email',
-        value: props.customer.email,
-      },
-      {
-        label: translate('Phone number'),
-        key: 'phone_number',
-        value: formatPhoneNumber(props.customer.phone_number),
-      },
-      {
-        label: translate('Contact details'),
-        key: 'contact_details',
-        value: props.customer.contact_details,
-      },
-      {
-        label: translate('Homepage'),
-        key: 'homepage',
-        value: props.customer.homepage,
-      },
-      {
-        label: translate('Notification emails'),
-        key: 'notification_emails',
-        value: Array.isArray(props.customer.notification_emails)
-          ? props.customer.notification_emails.join(', ')
-          : props.customer.notification_emails,
-      },
-    ],
+export const CustomerContactPanel: FC<CustomerEditPanelProps> = ({
+  customer,
+}) => {
+  const user = useUser();
+  const setCustomer = useSetCustomer();
+  const { showError } = useNotify();
 
-    [props.customer],
-  );
+  const canUpdate =
+    hasPermission(user, {
+      permission: PermissionEnum.CUSTOMER_CONTACT_UPDATE,
+      customerId: customer.uuid,
+    }) ||
+    hasPermission(user, {
+      permission: PermissionEnum.UPDATE_CUSTOMER,
+      customerId: customer.uuid,
+    });
+
+  const { mutateAsync: updateContact } = useManagedMutation({
+    mutationFn: (formData: Record<string, any>) => {
+      if ('notification_emails' in formData) {
+        // Surface a bad email through the notification system before hitting
+        // the API, so the user gets the exact offending address back.
+        const emailError = validateEmails(formData.notification_emails);
+        if (emailError) {
+          showError(emailError);
+          return Promise.reject(new Error(emailError));
+        }
+      }
+      return customersContact({
+        path: { uuid: customer.uuid },
+        body: {
+          ...formData,
+          ...('notification_emails' in formData && {
+            notification_emails: serializeNotificationEmails(
+              formData.notification_emails,
+            ),
+          }),
+        },
+      });
+    },
+    successMessage: translate('Organization updated successfully'),
+    // The contact endpoint returns only the contact fields, so merge them onto
+    // the current customer instead of replacing the whole workspace customer.
+    onSuccess: (response) => {
+      setCustomer({ ...customer, ...response.data });
+    },
+    closeModal: false,
+  });
 
   return (
     <FormTable.Card className="card-bordered">
-      <FormTable>
-        {rows.map((row) => (
-          <FormTable.Item
-            key={row.key}
-            label={row.label}
-            value={row.value || 'N/A'}
-            actions={
-              props.canUpdate ? (
-                <FieldEditButton
-                  customer={props.customer}
-                  name={row.key}
-                  callback={props.callback}
-                />
-              ) : null
-            }
+      <EditFieldProvider scope={customer} callback={updateContact}>
+        <FormTable hideActions={!canUpdate}>
+          <EmailEditField name="email" label={translate('Email')} />
+          <StringEditField
+            name="phone_number"
+            label={translate('Phone number')}
+            renderValue={(v) => formatPhoneNumber(v)}
           />
-        ))}
-      </FormTable>
+          <TextEditField
+            name="contact_details"
+            label={translate('Contact details')}
+          />
+          <StringEditField name="homepage" label={translate('Homepage')} />
+          <CommaSeparatedListEditField
+            name="notification_emails"
+            label={translate('Notification emails')}
+            placeholder={translate('Enter email addresses separated by commas')}
+            description={translate(
+              'Email addresses for receiving notifications, separated by commas',
+            )}
+          />
+        </FormTable>
+      </EditFieldProvider>
     </FormTable.Card>
   );
 };

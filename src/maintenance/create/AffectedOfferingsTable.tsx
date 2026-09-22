@@ -1,10 +1,11 @@
 import { FC } from 'react';
 
-import { AtLeast } from '@waldur/core/types';
-import { translate } from '@waldur/i18n';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { renderFieldOrDash } from '@waldur/table/utils';
+import { AtLeast } from '@/core/types';
+import { translate } from '@/i18n';
+import { createClientPaginatedFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 import { MaintenanceForm, MAINTENANCE_IMPACT_LEVEL } from '../types';
 
@@ -22,7 +23,7 @@ export const AffectedOfferingsTable: FC<AffectedOfferingsTableProps> = ({
 
   const tableProps = useTable({
     table: 'MaintenanceProviderOfferingsPreview',
-    fetchData: () => Promise.resolve({ rows: selectedOfferings }),
+    fetchData: createClientPaginatedFetcher(selectedOfferings),
   });
 
   if (!selectedOfferings?.length) {
@@ -44,11 +45,14 @@ export const AffectedOfferingsTable: FC<AffectedOfferingsTableProps> = ({
         {
           title: translate('Impact level'),
           render: ({ row }) =>
-            MAINTENANCE_IMPACT_LEVEL[values.impact_level?.[row.uuid]] || 'N/A',
+            renderFieldOrDash(
+              MAINTENANCE_IMPACT_LEVEL[values.impact_level?.[row.uuid]],
+            ),
         },
         {
           title: translate('Description'),
-          render: ({ row }) => values.impact_description?.[row.uuid] || 'N/A',
+          render: ({ row }) =>
+            renderFieldOrDash(values.impact_description?.[row.uuid]),
         },
       ]}
       verboseName={translate('Affected offerings')}

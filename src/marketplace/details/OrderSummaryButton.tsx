@@ -1,10 +1,12 @@
-import { EyeIcon } from '@phosphor-icons/react';
-import { Button } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
+import { ClipboardTextIcon } from '@phosphor-icons/react';
+import { useForm } from 'react-final-form';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { ActionButton } from '@/table/ActionButton';
+
+import { FormStepProps } from '../deploy/types';
 
 const OrderSummaryDialog = lazyComponent(() =>
   import('./OrderSummaryDialog').then((module) => ({
@@ -17,21 +19,31 @@ export const OrderSummaryButton = ({
   label = translate('View summary'),
   className = undefined,
   disabled = false,
+  disabledReason = undefined,
+}: {
+  offering: FormStepProps['offering'];
+  label?: string;
+  className?: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
+  const form = useForm();
   return (
-    <Button
-      variant="secondary"
+    <ActionButton
+      variant="tertiary"
       className={className}
-      onClick={() =>
-        dispatch(openModalDialog(OrderSummaryDialog, { offering, size: 'sm' }))
+      action={() =>
+        openDialog(OrderSummaryDialog, {
+          offering,
+          formValues: form.getState().values,
+          size: 'sm',
+        })
       }
       disabled={disabled}
-    >
-      <span className="svg-icon svg-icon-2">
-        <EyeIcon weight="bold" />
-      </span>
-      {label}
-    </Button>
+      disabledReason={disabledReason}
+      title={label}
+      iconNode={<ClipboardTextIcon weight="bold" />}
+    />
   );
 };

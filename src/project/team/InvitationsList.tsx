@@ -1,26 +1,28 @@
 import { useRouter } from '@uirouter/react';
-import { FunctionComponent, useEffect } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
+import { FunctionComponent, useEffect, useMemo } from 'react';
 import { Invitation, userInvitationsList } from 'waldur-js-client';
 
-import Avatar from '@waldur/core/Avatar';
-import { CopyToClipboardButton } from '@waldur/core/CopyToClipboardButton';
-import { formatDate } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { InvitationPolicyService } from '@waldur/invitations/actions/InvitationPolicyService';
-import { InvitationActions } from '@waldur/invitations/InvitationActions';
-import { InvitationExpandableRow } from '@waldur/invitations/InvitationExpandableRow';
-import { InvitationsFilter } from '@waldur/invitations/InvitationsFilter';
-import { formatInvitationState } from '@waldur/invitations/InvitationStateFilter';
-import { choices } from '@waldur/invitations/InvitationStateFilter';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { RoleField } from '@waldur/user/affiliations/RoleField';
-import { useUser } from '@waldur/workspace/hooks';
-import { getCustomer, getProject } from '@waldur/workspace/selectors';
+import Avatar from '@/core/Avatar';
+import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
+import { formatDate } from '@/core/dateUtils';
+import { translate } from '@/i18n';
+import { InvitationPolicyService } from '@/invitations/actions/InvitationPolicyService';
+import { formatInvitationState } from '@/invitations/choices';
+import { choices } from '@/invitations/choices';
+import { InvitationActions } from '@/invitations/InvitationActions';
+import { InvitationExpandableRow } from '@/invitations/InvitationExpandableRow';
+import { InvitationsMultiSelectActions } from '@/invitations/InvitationsMultiSelectActions';
+import { createFetcher } from '@/table/api';
+import {
+  selectUserInvitationsFilter,
+  UserInvitationsFilter,
+  UserInvitationsFilterFormId,
+} from '@/table/generated/UserInvitationsFilter';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { RoleField } from '@/user/affiliations/RoleField';
+import { useUser, useCustomer, useProject } from '@/workspace/hooks';
 
 import { ProjectPermissionsLogButton } from './ProjectPermissionsLogButton';
 import { useTeamTableTabs } from './tabs';
@@ -28,20 +30,32 @@ import { TeamDropdownActions } from './TeamDropdownActions';
 import { useRedirectCourseProjects } from './utils';
 
 const InvitationsListComponent: FunctionComponent = () => {
-  const filter = useSelector(mapStateToFilter);
+  const project = useProject();
+  const values = useFilterValues('user-invitations');
+  const stateFilter = useMemo(
+    () => selectUserInvitationsFilter(values),
+    [values],
+  );
+
+  const filter = useMemo(
+    () => ({ ...stateFilter, scope: project?.url }),
+    [stateFilter, project],
+  );
+
   const props = useTable({
     table: 'user-invitations',
+    syncFiltersToURL: true,
     fetchData: createFetcher(userInvitationsList),
     filter,
     queryField: 'email',
   });
-  const project = useSelector(getProject);
 
   const tabs = useTeamTableTabs(project);
 
   return (
     <Table<Invitation>
       {...props}
+      formId={UserInvitationsFilterFormId}
       columns={[
         {
           title: translate('Email'),
@@ -97,35 +111,23 @@ const InvitationsListComponent: FunctionComponent = () => {
       }
       hasQuery={true}
       expandableRow={InvitationExpandableRow}
-      filters={<InvitationsFilter />}
+      filters={<UserInvitationsFilter />}
+      enableMultiSelect
+      multiSelectActions={InvitationsMultiSelectActions}
     />
   );
 };
 
-const mapStateToFilter = createSelector(
-  getProject,
-  getFormValues('InvitationsFilter'),
-  (project, stateFilter: any) => ({
-    ...stateFilter,
-    scope: project.url,
-    state: stateFilter?.state?.map((option) => option.value),
-  }),
-);
-
 export const InvitationsList: FunctionComponent = () => {
   const user = useUser();
-  const project = useSelector(getProject);
-  const customer = useSelector(getCustomer);
+  const project = useProject();
+  const customer = useCustomer();
   const router = useRouter();
   useEffect(() => {
     if (
-      !InvitationPolicyService.canAccessInvitations({
-        user,
-        customer,
-        project,
-      })
+      !InvitationPolicyService.canAccessInvitations({ user, customer, project })
     ) {
-      router.stateService.target('errorPage.notFound');
+      router.stateService.target('errorPage.noPermission');
     }
   }, [user, project, customer, router]);
 

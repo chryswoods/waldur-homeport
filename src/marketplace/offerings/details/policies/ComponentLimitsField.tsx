@@ -1,26 +1,35 @@
-import { PlusCircleIcon, TrashIcon } from '@phosphor-icons/react';
+import { PlusCircleIcon } from '@phosphor-icons/react';
 import { Fragment } from 'react';
-import { Button, Form, FormLabel } from 'react-bootstrap';
+import { Form, FormLabel } from 'react-bootstrap';
 import { Field } from 'react-final-form';
 import { FieldArray, FieldArrayRenderProps } from 'react-final-form-arrays';
+import { OfferingComponent } from 'waldur-js-client';
 
-import { required } from '@waldur/core/validators';
-import { NumberField, SelectField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { OfferingComponent } from '@waldur/marketplace/types';
+import { required } from '@/core/validators';
+import { NumberField, SelectField } from '@/form';
+import { translate } from '@/i18n';
+import { ActionButton } from '@/table/ActionButton';
+import { RemovalActionButton } from '@/table/RemovalActionButton';
 
-interface ComponentLimitsFieldProps
-  extends FieldArrayRenderProps<any, HTMLElement> {
+interface ComponentLimitsFieldProps extends FieldArrayRenderProps<
+  any,
+  HTMLElement
+> {
   components: OfferingComponent[];
 }
 
-const FieldsListGroup = ({ fields, components }: ComponentLimitsFieldProps) => {
+export const useComponentLimitsArrayFieldFunctions = (
+  fields,
+  components: OfferingComponent[],
+  fieldName: string = 'type',
+  findKey: 'type' | 'uuid' = 'type',
+) => {
   const availableComponentsFilter = (item) => {
     let res = true;
     if (fields.length > 0) {
       fields.forEach((_, i) => {
         const comp = fields.value[i];
-        if (comp && comp.type === item.type) {
+        if (comp && comp[fieldName] === item[findKey]) {
           res = false;
         }
       });
@@ -40,6 +49,13 @@ const FieldsListGroup = ({ fields, components }: ComponentLimitsFieldProps) => {
   };
 
   const removeRow = (index) => fields.length > 1 && fields.remove(index);
+
+  return { addRow, removeRow, getAvailableOptions };
+};
+
+const FieldsListGroup = ({ fields, components }: ComponentLimitsFieldProps) => {
+  const { addRow, removeRow, getAvailableOptions } =
+    useComponentLimitsArrayFieldFunctions(fields, components);
 
   return (
     <>
@@ -64,38 +80,44 @@ const FieldsListGroup = ({ fields, components }: ComponentLimitsFieldProps) => {
                     <Fragment key={component}>
                       <tr>
                         <td>
-                          <Field
-                            name={`${component}.type`}
-                            component={SelectField as any}
-                            validate={required}
-                            placeholder={translate('Select component...')}
-                            options={getAvailableOptions(details)}
-                            getOptionValue={(option) => option.type}
-                            getOptionLabel={(option) => option.name}
-                            simpleValue
-                            isClearable={false}
-                          />
+                          <Field name={`${component}.type`} validate={required}>
+                            {({ input, meta }) => (
+                              <SelectField
+                                input={input}
+                                meta={meta}
+                                placeholder={translate('Select component...')}
+                                options={getAvailableOptions(details)}
+                                getOptionValue={(option) => option.type}
+                                getOptionLabel={(option) => option.name}
+                                simpleValue
+                                isClearable={false}
+                              />
+                            )}
+                          </Field>
                         </td>
                         <td>
                           <Field
                             name={`${component}.limit`}
-                            component={NumberField as any}
                             validate={required}
-                            unit={details?.measured_unit}
-                          />
+                          >
+                            {({ input, meta }) => (
+                              <NumberField
+                                input={input}
+                                meta={meta}
+                                unit={details?.measured_unit}
+                              />
+                            )}
+                          </Field>
                         </td>
                         <td>
-                          <Button
-                            variant="danger"
-                            className="btn-icon"
-                            onClick={() => removeRow(i)}
+                          <RemovalActionButton
+                            title={translate('Remove')}
+                            action={() => removeRow(i)}
                             disabled={fields.length === 1}
-                            aria-label="Remove"
-                          >
-                            <span className="svg-icon svg-icon-2">
-                              <TrashIcon />
-                            </span>
-                          </Button>
+                            disabledReason={translate(
+                              'At least one component limit is required',
+                            )}
+                          />
                         </td>
                       </tr>
                     </Fragment>
@@ -108,16 +130,12 @@ const FieldsListGroup = ({ fields, components }: ComponentLimitsFieldProps) => {
       )}
       {fields.length < components.length && (
         <div>
-          <Button
+          <ActionButton
+            title={translate('Add')}
             variant="tertiary"
-            className="btn-icon"
-            onClick={addRow}
-            aria-label="Add"
-          >
-            <span className="svg-icon svg-icon-2">
-              <PlusCircleIcon weight="bold" />
-            </span>
-          </Button>
+            action={addRow}
+            iconNode={<PlusCircleIcon weight="bold" />}
+          />
         </div>
       )}
     </>

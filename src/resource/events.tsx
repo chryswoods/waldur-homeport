@@ -1,6 +1,6 @@
-import { Link } from '@waldur/core/Link';
-import { getUserContext } from '@waldur/events/utils';
-import { translate } from '@waldur/i18n';
+import { Link } from '@/core/Link';
+import { getUserContext } from '@/events/utils';
+import { translate } from '@/i18n';
 
 import { ResourcesEnum } from '../EventsEnums';
 
@@ -8,7 +8,7 @@ const getResourceContext = (event) => ({
   ...getUserContext(event),
   resource_link: (
     <Link
-      state="resource-details"
+      state="marketplace-resource-details"
       params={{
         resource_type: event.resource_type,
         resource_uuid: event.resource_uuid,

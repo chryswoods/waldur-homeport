@@ -1,26 +1,30 @@
 import { FunctionComponent } from 'react';
-import { Resource } from 'waldur-js-client';
+import { NestedColumn, Resource } from 'waldur-js-client';
 
-import { formatFilesize } from '@waldur/core/utils';
-import { CategoryColumn } from '@waldur/marketplace/types';
-import { validateIP } from '@waldur/marketplace/utils';
-import { IPList } from '@waldur/resource/IPList';
+import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
+import { formatFilesize } from '@/core/utils';
+import { translate } from '@/i18n';
+import { validateIP } from '@/marketplace/utils';
+import { IPList } from '@/resource/IPList';
+import { BooleanField } from '@/table/BooleanField';
+import { renderFieldOrDash } from '@/table/utils';
 
 interface CategoryColumnFieldProps {
   row: Resource;
-  column: CategoryColumn;
+  column: NestedColumn;
   for_export?: boolean;
 }
 
 export const CategoryColumnField: FunctionComponent<
   CategoryColumnFieldProps
 > = (props) => {
-  const metadata = props.row.backend_metadata;
-  const value = props.column.attribute
-    ? metadata[props.column.attribute]
-    : undefined;
+  const { row, column } = props;
+  const metadata = row.backend_metadata;
+  const attr = column.attribute;
 
-  switch (props.column.widget) {
+  const value = attr ? (row[attr] ?? metadata?.[attr]) : undefined;
+
+  switch (column.widget) {
     case 'csv':
       if (!Array.isArray(value) || value.length === 0) {
         return 'N/A';
@@ -34,11 +38,24 @@ export const CategoryColumnField: FunctionComponent<
     case 'filesize':
       return formatFilesize(value);
 
-    case 'attached_instance':
-      // TODO: render as a link to the instance after - building different resource relationships architecture
-      return metadata.instance_name;
-
     default:
-      return value || 'N/A';
+      if (typeof value === 'boolean') {
+        return props.for_export ? (
+          value ? (
+            translate('Yes')
+          ) : (
+            translate('No')
+          )
+        ) : (
+          <BooleanField value={value} />
+        );
+      } else if (typeof value === 'string' && value) {
+        return (
+          <>
+            {value} <CopyToClipboardButton value={value} />
+          </>
+        );
+      }
+      return renderFieldOrDash(value);
   }
 };

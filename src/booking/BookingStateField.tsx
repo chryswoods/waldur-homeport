@@ -1,7 +1,7 @@
 import { FunctionComponent } from 'react';
 
-import { StateIndicator } from '@waldur/core/StateIndicator';
-import { translate } from '@waldur/i18n';
+import { StateIndicator } from '@/core/StateIndicator';
+import { translate } from '@/i18n';
 
 export const bookingStateAliases = (state: string): string => {
   switch (state) {
@@ -33,8 +33,8 @@ export const BookingStateField: FunctionComponent<{ row }> = ({ row }) => {
             : 'primary'
       }
       active={state === 'Unconfirmed'}
-      outline
-      pill
+      tone="outline"
+      shape="pill"
     />
   );
 };

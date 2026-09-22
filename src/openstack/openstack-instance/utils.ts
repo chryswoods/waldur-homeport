@@ -1,8 +1,9 @@
 import { OpenStackNestedPort, OpenStackVolumeType } from 'waldur-js-client';
 import { OpenStackFloatingIp } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { formatFlavor } from '@waldur/resource/utils';
+import { translate } from '@/i18n';
+import { formatFlavor } from '@/resource/utils';
+import { renderFieldOrDash } from '@/table/utils';
 
 import { Quota } from '../types';
 
@@ -133,41 +134,60 @@ export function flavorValidator(model, choice) {
   if (!model.image) {
     return true;
   }
-  if (model.image.min_ram > choice.ram) {
-    return true;
-  }
-  return false;
+  return model.image.min_ram > choice.ram;
 }
 
-export const formatAddressList = (row: OpenStackNestedPort) =>
-  row.fixed_ips.map((fip) => fip.ip_address).join(', ') || 'N/A';
+export const formatAddressList = (
+  row: Pick<OpenStackNestedPort, 'fixed_ips'>,
+) =>
+  renderFieldOrDash(
+    row.fixed_ips?.map((fip) => fip.ip_address).join(', ') || null,
+  );
 
-export const getQuotas = ({ formData, usages, limits }) => {
+const countAutoAssignFips = (attributes) => {
+  if (!attributes.networks || !Array.isArray(attributes.networks)) return 0;
+  return attributes.networks.filter((row) => row?.floatingIp?.url === 'true')
+    .length;
+};
+
+export const getQuotas = ({ attributes, usages, limits }) => {
   const quotas: Quota[] = [
     {
       name: 'vcpu',
       usage: usages.cores,
       limit: limits.cores,
-      required: formData.flavor ? formData.flavor.cores : 0,
+      required: attributes.flavor ? attributes.flavor.cores : 0,
     },
     {
       name: 'ram',
       usage: usages.ram,
       limit: limits.ram,
-      required: formData.flavor ? formData.flavor.ram : 0,
+      required: attributes.flavor ? attributes.flavor.ram : 0,
     },
     {
       name: 'storage',
       usage: usages.disk,
       limit: limits.disk,
-      required: getTotalStorage(formData) || 0,
+      required: getTotalStorage(attributes) || 0,
     },
-    ...extendVolumeTypeQuotas(formData, usages, limits),
+    {
+      name: 'instances',
+      usage: usages.instances,
+      limit: limits.instances,
+      required: 1,
+    },
+    {
+      name: 'floating_ip_count',
+      usage: usages.floating_ip_count,
+      limit: limits.floating_ip_count,
+      required: countAutoAssignFips(attributes),
+    },
+    ...extendVolumeTypeQuotas(attributes, usages, limits),
   ];
   return quotas;
 };
 
-export const getDefaultFloatingIps = () =>
+export const getDefaultFloatingIps = (opts?: { fipQuotaExhausted?: boolean }) =>
   [
     {
       address: translate('Skip floating IP assignment'),
@@ -176,5 +196,13 @@ export const getDefaultFloatingIps = () =>
     {
       address: translate('Auto-assign floating IP'),
       url: 'true',
+      ...(opts?.fipQuotaExhausted
+        ? {
+            isDisabled: true,
+            disabledReason: translate(
+              'Floating IP quota is exhausted; ask the administrator to raise the limit',
+            ),
+          }
+        : {}),
     },
   ] as OpenStackFloatingIp[];

@@ -1,12 +1,13 @@
 import { FunctionComponent } from 'react';
-import { useSelector } from 'react-redux';
 import { GroupInvitation } from 'waldur-js-client';
 
-import { GroupInvitationCancelButton } from '@waldur/invitations/GroupInvitationCancelButton';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { ActionsDropdownComponent } from '@waldur/table/ActionsDropdown';
-import { getCustomer, getUser } from '@waldur/workspace/selectors';
+import { GroupInvitationEditButton } from '@/invitations/actions/GroupInvitationEditButton';
+import { GroupInvitationCancelButton } from '@/invitations/GroupInvitationCancelButton';
+import { GroupInvitationDeleteButton } from '@/invitations/GroupInvitationDeleteButton';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { ActionsDropdownComponent } from '@/table/ActionsDropdown';
+import { useUser, useCustomer } from '@/workspace/hooks';
 
 interface GroupInvitationRowActionsProps {
   refetch;
@@ -16,15 +17,17 @@ interface GroupInvitationRowActionsProps {
 export const GroupInvitationRowActions: FunctionComponent<
   GroupInvitationRowActionsProps
 > = ({ row, refetch }) => {
-  const customer = useSelector(getCustomer);
-  const user = useSelector(getUser);
+  const customer = useCustomer();
+  const user = useUser();
   const canCancel = hasPermission(user, {
     permission: PermissionEnum.DELETE_CUSTOMER_PERMISSION,
     customerId: customer.uuid,
   });
   return canCancel ? (
     <ActionsDropdownComponent>
+      <GroupInvitationEditButton row={row} refetch={refetch} />
       <GroupInvitationCancelButton invitation={row} refetch={refetch} />
+      <GroupInvitationDeleteButton row={row} refetch={refetch} />
     </ActionsDropdownComponent>
   ) : null;
 };

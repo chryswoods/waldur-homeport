@@ -1,23 +1,29 @@
-import { CaretDownIcon, SquaresFourIcon } from '@phosphor-icons/react';
+import { SquaresFourIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useCurrentStateAndParams } from '@uirouter/react';
-import classNames from 'classnames';
-import { useMemo, useState } from 'react';
-import { Badge } from 'react-bootstrap';
+import { useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import {
   marketplaceGlobalCategoriesRetrieve,
   MarketplaceGlobalCategoriesRetrieveData,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { getGroupedCategories } from '@waldur/marketplace/category/utils';
-import { getCategoryGroups } from '@waldur/marketplace/common/api';
-import { ALL_RESOURCES_TABLE_ID } from '@waldur/marketplace/resources/list/constants';
-import { selectFiltersStorage } from '@waldur/table/selectors';
-import { getResource } from '@waldur/workspace/selectors';
+import {
+  SidebarMenuAccordion,
+  SidebarMenuTree,
+  SidebarMenuTreeItem,
+} from 'waldur-ui';
 
-import { MenuAccordion } from './MenuAccordion';
+import { SHORT_STALE_TIME } from '@/core/constants';
+import { translate } from '@/i18n';
+import { getGroupedCategories } from '@/marketplace/category/utils';
+import { getCategoryGroups } from '@/marketplace/common/api';
+import { ALL_RESOURCES_TABLE_ID } from '@/marketplace/resources/list/constants';
+import { selectFiltersStorage } from '@/table/selectors';
+import { getCustomer, getProject, getResource } from '@/workspace/selectors';
+
+import { isDescendantOf } from '../useTabs';
+
 import { MenuItem } from './MenuItem';
 import { ResourcesMenuFilterButton } from './resources-filter/ResourcesMenuFilterButton';
 import { ResourcesMenuFilters } from './resources-filter/ResourcesMenuFilters';
@@ -25,110 +31,124 @@ import { useOfferingCategories } from './utils';
 
 const MAX_COLLAPSE_MENU_COUNT = 5;
 
-const CustomToggle = ({
-  onClick,
-  itemsCount,
-  moreResourcesCount,
-  expanded,
-}) => (
-  <div
-    className={classNames('menu-item menu-show-more', expanded && 'active')}
-    data-kt-menu-trigger="trigger"
-    aria-hidden="true"
-    onClick={onClick}
-  >
-    <span
-      className="menu-link"
-      title={
-        !expanded
-          ? translate('{count} More resources', { count: moreResourcesCount })
-          : null
-      }
-    >
-      <span className="menu-bullet" />
-      <span className="menu-title">
-        <div className="btn btn-flex btn-color-primary-300 p-0 collapsible collapsed">
-          <span>
-            {expanded
-              ? translate('Show less')
-              : translate('Show {count} more', { count: itemsCount })}
-          </span>
-        </div>
-      </span>
-      <span className={classNames('menu-badge rotate', expanded && 'active')}>
-        <span className="svg-icon svg-icon-3 svg-icon-primary-300 rotate-180">
-          <CaretDownIcon weight="bold" />
-        </span>
-      </span>
-    </span>
-  </div>
-);
+interface CategoryGroupNode {
+  uuid: string;
+  title?: string;
+  resource_count?: number;
+  categories?: CategoryGroupNode[];
+}
 
-const RenderMenuItems = ({ items }) => {
-  const { state } = useCurrentStateAndParams();
-  const resource = useSelector(getResource);
-  return (
-    <>
-      {items.map((item) =>
-        !item.categories?.length ? (
-          <MenuItem
-            key={item.uuid}
-            title={item.title}
-            badge={item.resource_count}
-            state="category-resources"
-            params={{
-              category_uuid: item.uuid,
-            }}
-            activeState={
-              state.name === 'marketplace-resource-details' &&
-              resource?.category_uuid === item.uuid
-                ? state.name
-                : undefined
-            }
-          />
-        ) : (
-          <MenuAccordion
-            key={item.uuid}
-            title={item.title}
-            itemId={item.uuid}
-            child
-            badge={
-              <Badge bg="" pill className="badge">
-                {item.resource_count}
-              </Badge>
-            }
-          >
-            <RenderMenuItems items={item.categories} />
-          </MenuAccordion>
-        ),
-      )}
-    </>
-  );
-};
+/** category-group tree -> SidebarMenuTree's generic {id, title, badge,
+ * children} shape. Recursive to match ResourcesMenu's own data (a
+ * category-with-sub-categories isn't exercised by today's data, but
+ * SidebarMenuTree itself supports arbitrary depth, so this stays
+ * recursive rather than assuming one level). */
+const toTreeItems = (nodes: CategoryGroupNode[]): SidebarMenuTreeItem[] =>
+  nodes.map((node) => ({
+    id: node.uuid,
+    title: node.title,
+    badge: node.resource_count,
+    children: node.categories?.length
+      ? toTreeItems(node.categories)
+      : undefined,
+  }));
 
-export const ResourcesMenu = ({ user }) => {
+interface ResourcesMenuProps {
+  user;
+  disabled?: boolean;
+  disabledTooltip?: string;
+  /** Threaded from UnifiedSidebar's own top-level useExclusiveOpen — this
+   * accordion competes with CallPublicMenu's for "only one open at a
+   * time" at the sidebar's top level. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export const ResourcesMenu = ({
+  user,
+  disabled,
+  disabledTooltip,
+  open,
+  onOpenChange,
+}: ResourcesMenuProps) => {
   const categories = useOfferingCategories();
 
   const { data: categoryGroups } = useQuery({
     queryKey: ['MarketplaceCategoryGroups'],
     queryFn: () => getCategoryGroups({ field: ['uuid', 'title', 'url'] }),
-    staleTime: 1 * 60 * 1000,
+    staleTime: SHORT_STALE_TIME,
   });
 
   const resourcesFilters = useSelector((state: any) =>
     selectFiltersStorage(state, ALL_RESOURCES_TABLE_ID),
   );
-  const query = useMemo(() => {
-    if (!resourcesFilters) return undefined;
-    const project = resourcesFilters.find((item) => item.name === 'project');
-    const organization = resourcesFilters.find(
+  const workspaceProject = useSelector(getProject);
+  const workspaceCustomer = useSelector(getCustomer);
+  const resource = useSelector(getResource);
+
+  const { state } = useCurrentStateAndParams();
+  const isProjectContext = useMemo(
+    () => isDescendantOf('project', state),
+    [state],
+  );
+  const isCustomerContext = useMemo(
+    () =>
+      isDescendantOf('organization', state) ||
+      isDescendantOf('call-management', state) ||
+      isDescendantOf('marketplace-provider', state),
+    [state],
+  );
+
+  // Resolve project/customer to scope sidebar links by, preferring the active
+  // workspace (project detail / organization detail page) over whatever is
+  // persisted in the resources-filter storage. Without this, clicking
+  // "Virtual machines" while inside a project drops the project filter.
+  const scope = useMemo(() => {
+    const storedProject = resourcesFilters?.find(
+      (item) => item.name === 'project',
+    )?.value;
+    const storedCustomer = resourcesFilters?.find(
       (item) => item.name === 'organization',
-    );
+    )?.value;
     return {
-      project_uuid: project?.value?.uuid,
-      customer_uuid: organization?.value?.uuid,
-    } satisfies MarketplaceGlobalCategoriesRetrieveData['query'];
-  }, [resourcesFilters]);
+      project: isProjectContext
+        ? (workspaceProject ?? storedProject)
+        : storedProject,
+      customer:
+        isProjectContext || isCustomerContext
+          ? (workspaceCustomer ??
+            (workspaceProject as any)?.customer ??
+            storedCustomer)
+          : storedCustomer,
+    };
+  }, [
+    resourcesFilters,
+    workspaceProject,
+    workspaceCustomer,
+    isProjectContext,
+    isCustomerContext,
+  ]);
+
+  // Encoded as "uuid::name" to match the compact format produced by
+  // src/core/filters.ts (compactFilterValue); AllResourcesList /
+  // CategoryResourcesList expand these back to {uuid, name} on mount.
+  const filterParams = useMemo(() => {
+    const encode = (entity?: { uuid?: string; name?: string }) =>
+      entity?.uuid ? `${entity.uuid}::${entity.name ?? ''}` : undefined;
+    return {
+      project: encode(scope.project as any),
+      organization: encode(scope.customer as any),
+    };
+  }, [scope]);
+
+  const query = useMemo(
+    () =>
+      ({
+        project_uuid: (scope.project as any)?.uuid,
+        customer_uuid: (scope.customer as any)?.uuid,
+      }) satisfies MarketplaceGlobalCategoriesRetrieveData['query'],
+    [scope],
+  );
 
   // We will clean counters on impersonation (on change user)
   const { data: counters = {} } = useQuery({
@@ -147,22 +167,21 @@ export const ResourcesMenu = ({ user }) => {
 
     refetchOnWindowFocus: false,
   });
-  const [expanded, setExpanded] = useState(false);
 
   const sortedCategoryGroups = useMemo(() => {
     if (!categories) return [];
-    const _categories = categories.map((category) => {
-      category['resource_count'] = counters[category.uuid] || 0;
-      return category;
-    });
+    const _categories = categories.map((category) => ({
+      ...category,
+      resource_count: Number(counters[category.uuid]) || 0,
+    }));
 
     const groupedCategories = getGroupedCategories(_categories, categoryGroups);
 
     if (!counters) return groupedCategories;
 
-    return groupedCategories.sort((a, b) => {
-      const aCount = counters[a.uuid] || 0;
-      const bCount = counters[b.uuid] || 0;
+    return [...groupedCategories].sort((a, b) => {
+      const aCount = Number(counters[a.uuid]) || 0;
+      const bCount = Number(counters[b.uuid]) || 0;
       return bCount - aCount;
     });
   }, [categories, categoryGroups, counters]);
@@ -179,41 +198,63 @@ export const ResourcesMenu = ({ user }) => {
     return [all, collapsed];
   }, [sortedCategoryGroups, counters]);
 
+  const treeItems = useMemo(
+    () => toTreeItems(sortedCategoryGroups),
+    [sortedCategoryGroups],
+  );
+
   return sortedCategoryGroups ? (
-    <MenuAccordion
+    <SidebarMenuAccordion
+      // Purely for waldur-integration-testing's Sidebar page object
+      // (tests/pages/sidebar.py), which locates this specific accordion
+      // by id — no styling or app logic reads it.
+      id="resources-menu"
       title={translate('Resources')}
-      itemId="resources-menu"
       icon={<SquaresFourIcon weight="bold" />}
       badge={<ResourcesMenuFilterButton />}
+      disabled={disabled}
+      disabledTooltip={disabledTooltip}
+      open={open}
+      onOpenChange={onOpenChange}
     >
       <ResourcesMenuFilters />
       <MenuItem
         title={translate('All resources')}
         badge={allResourcesCount}
         state="all-resources"
+        params={filterParams}
       />
 
-      <RenderMenuItems
-        items={sortedCategoryGroups.slice(0, MAX_COLLAPSE_MENU_COUNT)}
-      />
-
-      {sortedCategoryGroups.length > MAX_COLLAPSE_MENU_COUNT ? (
-        <>
-          {expanded && (
-            <RenderMenuItems
-              items={sortedCategoryGroups.slice(MAX_COLLAPSE_MENU_COUNT)}
-            />
-          )}
-          <CustomToggle
-            itemsCount={
-              sortedCategoryGroups.slice(MAX_COLLAPSE_MENU_COUNT).length
+      <SidebarMenuTree
+        items={treeItems}
+        maxVisibleItems={MAX_COLLAPSE_MENU_COUNT}
+        moreTooltip={() =>
+          translate('{count} More resources', {
+            count: collapsedResourcesCount,
+          })
+        }
+        moreLabel={(hiddenCount) =>
+          translate('Show {count} more', { count: hiddenCount })
+        }
+        lessLabel={translate('Show less')}
+        renderItem={(item) => (
+          <MenuItem
+            title={item.title}
+            badge={item.badge}
+            state="category-resources"
+            params={{
+              category_uuid: item.id,
+              ...filterParams,
+            }}
+            activeState={
+              state.name === 'marketplace-resource-details' &&
+              resource?.category_uuid === item.id
+                ? state.name
+                : undefined
             }
-            moreResourcesCount={collapsedResourcesCount}
-            onClick={() => setExpanded(!expanded)}
-            expanded={expanded}
           />
-        </>
-      ) : null}
-    </MenuAccordion>
+        )}
+      />
+    </SidebarMenuAccordion>
   ) : null;
 };

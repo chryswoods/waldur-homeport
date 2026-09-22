@@ -2,12 +2,12 @@ import { ArrowDownIcon, ArrowUpIcon, MinusIcon } from '@phosphor-icons/react';
 import { FunctionComponent, useMemo } from 'react';
 import { Card, Col, Row } from 'react-bootstrap';
 
-import { ENV } from '@waldur/core/config';
-import { parseDate } from '@waldur/core/dateUtils';
-import { defaultCurrency } from '@waldur/core/formatCurrency';
-import { Link } from '@waldur/core/Link';
-import { translate } from '@waldur/i18n';
-import { Customer } from '@waldur/workspace/types';
+import { ENV } from '@/core/config';
+import { parseDate } from '@/core/dateUtils';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { Link } from '@/core/Link';
+import { translate } from '@/i18n';
+import { Customer } from '@/workspace/types';
 
 import { groupInvoiceItems } from '../details/utils';
 import { Invoice } from '../types';
@@ -16,7 +16,18 @@ import { formatPeriod } from '../utils';
 import { EstimatedCost } from './EstimatedCost';
 
 interface MonthOverviewProps {
-  invoice: Invoice;
+  invoice: Pick<
+    Invoice,
+    | 'uuid'
+    | 'state'
+    | 'month'
+    | 'year'
+    | 'invoice_date'
+    | 'items'
+    | 'price'
+    | 'tax'
+    | 'total'
+  >;
   customer: Customer;
   costTrend?: -1 | 0 | 1;
 }
@@ -36,7 +47,8 @@ export const MonthOverview: FunctionComponent<MonthOverviewProps> = ({
   costTrend,
 }) => {
   const isCurrentMonth = Boolean(
-    invoice.state === 'pending' && !invoice.invoice_date,
+    (invoice.state === 'pending' || invoice.state === 'pending_finalization') &&
+    !invoice.invoice_date,
   );
   const isAccountingMode = ENV.accountingMode === 'accounting';
   const maxProjectsShowCount = isCurrentMonth && !isAccountingMode ? 4 : 5;
@@ -79,11 +91,11 @@ export const MonthOverview: FunctionComponent<MonthOverviewProps> = ({
                 </div>
                 <span className="text-dark ms-4 svg-icon svg-icon-2">
                   {costTrend === -1 ? (
-                    <ArrowDownIcon size={20} />
+                    <ArrowDownIcon size={20} weight="bold" />
                   ) : costTrend === 1 ? (
-                    <ArrowUpIcon size={20} />
+                    <ArrowUpIcon size={20} weight="bold" />
                   ) : (
-                    <MinusIcon size={20} />
+                    <MinusIcon size={20} weight="bold" />
                   )}
                 </span>
               </div>

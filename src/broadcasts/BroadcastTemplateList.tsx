@@ -1,14 +1,21 @@
+import { FC } from 'react';
 import { broadcastMessageTemplatesList } from 'waldur-js-client';
 
-import { BroadcastTemplateActions } from '@waldur/broadcasts/BroadcastTemplateActions';
-import { BroadcastTemplateCreateButton } from '@waldur/broadcasts/BroadcastTemplateCreateButton';
-import { BroadcastTemplateExpandableRow } from '@waldur/broadcasts/BroadcastTemplateExpandableRow';
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { BroadcastTemplateActions } from '@/broadcasts/BroadcastTemplateActions';
+import { BroadcastTemplateCreateButton } from '@/broadcasts/BroadcastTemplateCreateButton';
+import { BroadcastTemplateExpandableRow } from '@/broadcasts/BroadcastTemplateExpandableRow';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
 
-export const BroadcastTemplateList = () => {
+interface BroadcastTemplateListProps {
+  standalone?: boolean;
+}
+
+export const BroadcastTemplateList: FC<BroadcastTemplateListProps> = ({
+  standalone = false,
+}) => {
   const tableProps = useTable({
     table: 'broadcast-templates',
     fetchData: createFetcher(broadcastMessageTemplatesList),
@@ -38,7 +45,7 @@ export const BroadcastTemplateList = () => {
         <BroadcastTemplateActions row={row} refetch={tableProps.fetch} />
       )}
       hasQuery={true}
-      standalone
+      standalone={standalone}
     />
   );
 };

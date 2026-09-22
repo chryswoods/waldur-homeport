@@ -1,8 +1,5 @@
-import { useDispatch } from 'react-redux';
-
-import { AddButton } from '@waldur/core/AddButton';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { openModalDialog } from '@waldur/modal/actions';
+import { CreateModalButton } from '@/core/buttons';
+import { lazyComponent } from '@/core/lazyComponent';
 
 const CategoryCreateDialog = lazyComponent(() =>
   import('./CategoryEditDialog').then((module) => ({
@@ -10,18 +7,10 @@ const CategoryCreateDialog = lazyComponent(() =>
   })),
 );
 
-export const CategoryCreateButton = ({ refetch }) => {
-  const dispatch = useDispatch();
-  return (
-    <AddButton
-      action={() =>
-        dispatch(
-          openModalDialog(CategoryCreateDialog, {
-            resolve: { refetch },
-            size: 'lg',
-          }),
-        )
-      }
-    />
-  );
-};
+export const CategoryCreateButton = ({ refetch }) => (
+  <CreateModalButton
+    dialog={CategoryCreateDialog}
+    resolve={{ refetch }}
+    size="lg"
+  />
+);

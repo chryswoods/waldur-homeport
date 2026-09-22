@@ -1,44 +1,13 @@
-import { useDispatch } from 'react-redux';
-import { marketplaceOfferingUserRolesDestroy } from 'waldur-js-client';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { RemovalActionItem } from '@/resource/actions/RemovalActionItem';
 
-import { formatJsxTemplate, translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { RowActionButton } from '@waldur/table/ActionButton';
+import { DeleteRoleDialog } from './DeleteRoleDialog';
 
-export const DeleteRoleButton = ({ role, refetch }) => {
-  const dispatch = useDispatch();
-  const handler = async () => {
-    try {
-      await waitForConfirmation(
-        dispatch,
-        translate('Confirmation'),
-        translate(
-          'Are you sure you want to delete role {name}?',
-          {
-            name: <b>{role.name}</b>,
-          },
-          formatJsxTemplate,
-        ),
-        { forDeletion: true },
-      );
-    } catch {
-      return;
-    }
-    try {
-      await marketplaceOfferingUserRolesDestroy({ path: { uuid: role.uuid } });
-      dispatch(showSuccess(translate('Role has been removed.')));
-      await refetch();
-    } catch (error) {
-      dispatch(showErrorResponse(error, translate('Unable to remove role.')));
-    }
+export const DeleteRoleAction = ({ row, refetch }) => {
+  const { openDialog } = useModal();
+  const handler = () => {
+    openDialog(DeleteRoleDialog, { resolve: { row, refetch } });
   };
-  return (
-    <RowActionButton
-      title={translate('Delete')}
-      action={handler}
-      variant="danger"
-      size="sm"
-    />
-  );
+  return <RemovalActionItem title={translate('Delete')} action={handler} />;
 };

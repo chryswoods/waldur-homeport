@@ -1,109 +1,25 @@
-import { DateTime } from 'luxon';
-import { FunctionComponent } from 'react';
-import { OptionProps, components } from 'react-select';
-import { useDispatch, useSelector } from 'react-redux';
-import { Field, reduxForm } from 'redux-form';
-import { CustomerUser, Project, projectsAddUser } from 'waldur-js-client';
+import { FC } from 'react';
+import { Form } from 'react-final-form';
+import { CustomerUser, Project, User, projectsAddUser } from 'waldur-js-client';
 
-import { SubmitButton } from '@waldur/auth/SubmitButton';
-import { required } from '@waldur/core/validators';
-import { DateField } from '@waldur/form/DateField';
-import { FormContainer } from '@waldur/form';
-import { SelectField } from '@waldur/form/SelectField';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { Role, RoleType } from '@waldur/permissions/types';
-import { getRoles } from '@waldur/permissions/utils';
-import { showErrorResponse } from '@waldur/store/notify';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { Role } from '@/permissions/types';
+import { ExpirationTimeGroup } from '@/project/team/ExpirationTimeGroup';
+import {
+  getOnlyOneProjectManagerTooltip,
+  isProjectManagerSelectionBlocked,
+} from '@/project/team/onlyOneProjectManager';
+import { RoleGroup } from '@/project/team/RoleGroup';
+import { useProjectHasActiveManager } from '@/project/team/useProjectHasActiveManager';
+import { useCustomer, useUser } from '@/workspace/hooks';
 
+import { OrganizationProjectSelectField } from './OrganizationProjectSelectField';
 import { UserGroup } from './UserGroup';
-import { useCustomerProjects } from '../workspace/fetchCustomer';
-
-const FORM_ID = 'AddProjectUserDialog';
-
-// Redux-form compatible OrganizationProjectSelectField component
-const OrganizationProjectSelectField = ({ disabled = false }) => {
-  const currentCustomer = useSelector(getCustomer);
-  const { loading } = useCustomerProjects();
-
-  return (
-    <FormGroup label={translate('Project')} required>
-      <Field
-        name="project"
-        component={SelectField as any}
-        options={currentCustomer?.projects}
-        getOptionLabel={(option) => option.name}
-        getOptionValue={(option) => option.url}
-        isClearable={false}
-        isDisabled={disabled}
-        isLoading={loading}
-        validate={required}
-      />
-    </FormGroup>
-  );
-};
-
-// Redux-form compatible RoleGroup component
-const renderRoleType = (roleType: RoleType) =>
-  ({
-    customer: 'O',
-    project: 'P',
-    service_provider: 'SP',
-    call_organizer: 'CO',
-  })[roleType] || '';
-
-const RoleOption: FunctionComponent<OptionProps<Role>> = (props) => (
-  <components.Option {...props}>
-    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-      {props.data.description || props.data.name}
-      <span
-        style={{
-          alignSelf: 'center',
-          marginLeft: 'auto',
-        }}
-      >
-        {renderRoleType(props.data.content_type)}
-      </span>
-    </div>
-  </components.Option>
-);
-
-const RoleGroup: FunctionComponent<{ types: RoleType[] }> = ({ types }) => (
-  <FormGroup label={translate('Role')}>
-    <Field
-      name="role"
-      component={SelectField as any}
-      options={getRoles(types)}
-      getOptionLabel={(role: Role) => role.description || role.name}
-      getOptionValue={({ name }) => name}
-      validate={required}
-      components={{ Option: RoleOption }}
-    />
-  </FormGroup>
-);
-
-// Redux-form compatible ExpirationTimeGroup component
-const ExpirationTimeGroup: FunctionComponent<{ disabled?: boolean }> = ({
-  disabled,
-}) => (
-  <FormGroup
-    id="expiration-time-group"
-    label={translate('Role expires on')}
-    spaceless
-  >
-    <Field
-      name="expiration_time"
-      component={DateField as any}
-      disabled={disabled}
-      minDate={DateTime.now().plus({ days: 1 }).toISO()}
-      placeholder="YYYY-MM-DD"
-    />
-  </FormGroup>
-);
 
 interface AddProjectUserDialogFormData {
   role: Role;
@@ -116,57 +32,122 @@ interface AddProjectUserDialogResolve {
   refetch;
 }
 
-interface AddProjectUserDialogOwnProps {
+interface AddProjectUserDialogProps {
   resolve: AddProjectUserDialogResolve;
 }
 
-export const AddProjectUserDialog = reduxForm<
-  AddProjectUserDialogFormData,
-  AddProjectUserDialogOwnProps
->({
-  form: FORM_ID,
-})(({ submitting, handleSubmit, resolve }) => {
-  const dispatch = useDispatch();
+const AddProjectUserDialogForm: FC<{
+  resolve: AddProjectUserDialogResolve;
+  updateMutation: ReturnType<
+    typeof useManagedMutation<any, any, AddProjectUserDialogFormData>
+  >;
+}> = ({ resolve, updateMutation }) => {
+  return (
+    <Form<AddProjectUserDialogFormData>
+      onSubmit={(values) => updateMutation.mutateAsync(values)}
+      render={({ handleSubmit, invalid, values }) => (
+        <AddProjectUserDialogFormBody
+          handleSubmit={handleSubmit}
+          invalid={invalid}
+          values={values}
+          resolve={resolve}
+          updateMutation={updateMutation}
+        />
+      )}
+    />
+  );
+};
+
+const AddProjectUserDialogFormBody: FC<{
+  handleSubmit: () => void;
+  invalid: boolean;
+  values: AddProjectUserDialogFormData;
+  resolve: AddProjectUserDialogResolve;
+  updateMutation: ReturnType<
+    typeof useManagedMutation<any, any, AddProjectUserDialogFormData>
+  >;
+}> = ({ handleSubmit, invalid, values, resolve, updateMutation }) => {
+  const currentUser = useUser() as User;
+  const customer = useCustomer();
+  const { data: hasActiveManager } = useProjectHasActiveManager(
+    values.project?.uuid,
+  );
+  const isProjectManagerBlocked = isProjectManagerSelectionBlocked(
+    hasActiveManager,
+    values.role,
+  );
 
   return (
-    <form
-      onSubmit={handleSubmit(async (formData) => {
-        try {
-          await projectsAddUser({
-            path: { uuid: formData.project.uuid },
-            body: {
-              user: resolve.customer.uuid,
-              role: formData.role.name,
-              expiration_time: formData.expiration_time,
-            },
-          });
-          await resolve.refetch();
-          dispatch(closeModalDialog());
-        } catch (error) {
-          dispatch(
-            showErrorResponse(error, translate('Unable to update permission.')),
-          );
-        }
-      })}
-    >
+    <form onSubmit={handleSubmit}>
       <ModalDialog
         title={translate('Add project role')}
+        subtitle={
+          <ScopeSubtitle
+            label={translate('Member')}
+            name={resolve.customer.full_name || resolve.customer.username}
+          />
+        }
         footer={
           <>
             <CloseDialogButton />
-            <SubmitButton submitting={submitting}>
+            <SubmitButton
+              submitting={updateMutation.isPending}
+              disabled={invalid || isProjectManagerBlocked}
+              disabledReason={
+                isProjectManagerBlocked
+                  ? getOnlyOneProjectManagerTooltip()
+                  : undefined
+              }
+              data-testid="submit-button"
+            >
               {translate('Save')}
             </SubmitButton>
           </>
         }
       >
-        <FormContainer submitting={submitting}>
+        <div className="size-sm">
           <UserGroup permission={resolve.customer} />
           <OrganizationProjectSelectField />
-          <RoleGroup types={['project']} />
-          <ExpirationTimeGroup disabled={submitting} />
-        </FormContainer>
+          <RoleGroup
+            types={['project']}
+            user={currentUser}
+            scope={{
+              customerId: customer?.uuid,
+              projectId: values.project?.uuid,
+            }}
+          />
+          <ExpirationTimeGroup disabled={updateMutation.isPending} />
+        </div>
       </ModalDialog>
     </form>
   );
-});
+};
+
+export const AddProjectUserDialog: FC<AddProjectUserDialogProps> = ({
+  resolve,
+}) => {
+  const updateMutation = useManagedMutation<
+    any,
+    any,
+    AddProjectUserDialogFormData
+  >({
+    mutationFn: (formData) =>
+      projectsAddUser({
+        path: { uuid: formData.project.uuid },
+        body: {
+          user: resolve.customer.uuid,
+          role: formData.role.name,
+          expiration_time: formData.expiration_time,
+        },
+      }),
+    errorMessage: translate('Unable to update permission.'),
+    refetch: resolve.refetch,
+  });
+
+  return (
+    <AddProjectUserDialogForm
+      resolve={resolve}
+      updateMutation={updateMutation}
+    />
+  );
+};

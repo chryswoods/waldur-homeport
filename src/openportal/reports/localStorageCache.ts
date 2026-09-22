@@ -6,11 +6,17 @@
  * when the storage quota is exceeded, so callers never need to handle errors.
  */
 
+import { DateTime } from 'luxon';
+
+import { translate } from '@/i18n';
+
 const CACHE_VERSION = 2;
 const PREFIX = `openportal-v${CACHE_VERSION}-`;
 
 /** TTL constants in milliseconds. */
 export const TTL = {
+  /** Report data is generated once per day — 24-hour TTL. */
+  REPORTS: 24 * 60 * 60 * 1000,
   /** Project lists and accounting summaries — 1-hour TTL. */
   LISTS: 60 * 60 * 1000,
   /** Name mappings (offering / project / user) — 12-hour TTL. */
@@ -114,6 +120,10 @@ function evictOne(keepKey: string): boolean {
  * Persist data under `key`. If the storage quota is exceeded, evicts other
  * cache entries (largest first, oldest as a tiebreaker) and retries, so
  * callers never need to handle storage failures.
+ *
+ * Eviction is what makes it safe to keep caching whole report payloads: a
+ * large write pushes out the biggest stale entries rather than being dropped
+ * itself, so the small per-identifier mapping entries survive.
  */
 export function setCached(key: string, data: unknown): void {
   const fullKey = `${PREFIX}${key}`;
@@ -122,6 +132,7 @@ export function setCached(key: string, data: unknown): void {
     const entry: CacheEntry<unknown> = { data, cachedAt: Date.now() };
     serialized = JSON.stringify(entry);
   } catch {
+    // Serialisation error — continue without caching.
     return;
   }
   for (let attempt = 0; attempt <= MAX_EVICTIONS; attempt++) {
@@ -166,13 +177,10 @@ export function clearMappingCache(): void {
   }
 }
 
-/** Format a cache age for display, e.g. "3 h 12 min ago". */
+/** Format a cache age for display, e.g. "3 hr ago". */
 export function formatCacheAge(cachedAt: Date): string {
-  const ms = Date.now() - cachedAt.getTime();
-  const mins = Math.floor(ms / 60_000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins} min ago`;
-  const hrs = Math.floor(mins / 60);
-  const rem = mins % 60;
-  return rem > 0 ? `${hrs} h ${rem} min ago` : `${hrs} h ago`;
+  return (
+    DateTime.fromJSDate(cachedAt).toRelative({ style: 'short' }) ??
+    translate('just now')
+  );
 }

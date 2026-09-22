@@ -1,7 +1,7 @@
 import { FC, useMemo } from 'react';
+import { OfferingComponent } from 'waldur-js-client';
 
-import { OfferingComponent } from '@waldur/marketplace/types';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
+import { ModalDialog } from '@/modal/ModalDialog';
 
 import { ComponentUserUsage } from './types';
 
@@ -23,7 +23,6 @@ export const UserUsagesDialog: FC<UserUsagesDialogProps> = ({
   return (
     <ModalDialog
       title={component.name + ': ' + sumUsages + ' ' + component.measured_unit}
-      closeButton
     >
       <ul className="mb-0">
         {userUsages.map((item, i) => (

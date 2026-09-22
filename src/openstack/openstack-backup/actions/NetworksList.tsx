@@ -1,9 +1,9 @@
 import { PlusIcon, TrashIcon } from '@phosphor-icons/react';
 import { FC, useMemo } from 'react';
-import { Button } from 'react-bootstrap';
 import { Field } from 'react-final-form';
 
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
+import { ActionButton } from '@/table/ActionButton';
 
 import {
   BackupFormChoices,
@@ -16,24 +16,23 @@ import {
 type NetworkChoices = Pick<BackupFormChoices, 'subnets' | 'floatingIps'>;
 
 const AddButton = ({ onClick, disabled }) => (
-  <Button variant="text-secondary" onClick={onClick} disabled={disabled}>
-    <span className="svg-icon svg-icon-2">
-      <PlusIcon weight="bold" />
-    </span>{' '}
-    {translate('Add')}
-  </Button>
+  <ActionButton
+    action={onClick}
+    disabled={disabled}
+    disabledReason={translate('No available subnets')}
+    title={translate('Add')}
+    iconNode={<PlusIcon weight="bold" />}
+    variant="text-secondary"
+  />
 );
 
 const DeleteButton = ({ onClick }) => (
-  <Button
+  <ActionButton
+    action={onClick}
+    tooltip={translate('Delete')}
+    iconNode={<TrashIcon weight="bold" />}
     variant="text-secondary"
-    title={translate('Delete')}
-    onClick={onClick}
-  >
-    <span className="svg-icon svg-icon-2">
-      <TrashIcon />
-    </span>
-  </Button>
+  />
 );
 
 const SubnetField = ({ name, subnets, networks, network }) => {
@@ -43,7 +42,12 @@ const SubnetField = ({ name, subnets, networks, network }) => {
   );
 
   return (
-    <Field name={`${name}.subnet`} component="select" className="form-control">
+    <Field
+      name={`${name}.subnet`}
+      component="select"
+      className="form-control"
+      aria-label={translate('Subnet')}
+    >
       {freeSubnets.map((option, index) => (
         <option value={option.value} key={index}>
           {option.label}
@@ -64,6 +68,7 @@ const FloatingIpField = ({ name, floatingIps, networks, network }) => {
       name={`${name}.floating_ip`}
       component="select"
       className="form-control"
+      aria-label={translate('Floating IP')}
     >
       {freeFloatingIps.map((option, index) => (
         <option value={option.value} key={index}>

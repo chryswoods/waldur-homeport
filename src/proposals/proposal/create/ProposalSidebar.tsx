@@ -1,81 +1,102 @@
-import { Button } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
-import { getFormSyncErrors } from 'redux-form';
+import { useMemo } from 'react';
 
-import { LoadingSpinnerIcon } from '@waldur/core/LoadingSpinner';
-import { Panel } from '@waldur/core/Panel';
-import { FloatingSubmitButton } from '@waldur/form/FloatingSubmitButton';
-import { FormSteps } from '@waldur/form/FormSteps';
-import { SidebarProps } from '@waldur/form/SidebarProps';
-import { TosNotification } from '@waldur/form/TosNotification';
-import { translate } from '@waldur/i18n';
-import { PROPOSAL_UPDATE_SUBMISSION_FORM_ID } from '@waldur/proposals/constants';
-
-import { ProposalDeleteButton } from './ProposalDeleteButton';
+import { Panel } from '@/core/Panel';
+import { FloatingSubmitButton } from '@/form/FloatingSubmitButton';
+import { SidebarProps } from '@/form/SidebarProps';
+import { TosNotification } from '@/form/TosNotification';
+import { translate } from '@/i18n';
+import { ProposalCostTotal } from '@/proposals/ProposalCostTotal';
+import { ActionButton } from '@/table/ActionButton';
+import { FormSteps } from '@/wizard';
 
 interface CompletionPageSidebarProps extends SidebarProps {
   saveAsDraft(): void;
   isSaving?: boolean;
   editable?: boolean;
-  proposal?: {
-    uuid: string;
-    name: string;
-  };
+  /** Every requested resource, for the summary. */
+  resourceRows?: any[];
+  /** The call's fixed duration, for the summary's project length. */
+  fixedDurationDays?: number | null;
+  /**
+   * What the backend says about submitting, and why not when it refuses.
+   * The steps below only know whether a section was filled in; this covers
+   * the rules the submit action itself enforces — a missing requested amount,
+   * a missing purchase order — which otherwise surface as a rejected request
+   * after the applicant has already pressed the button.
+   */
+  canSubmit?: { can_submit: boolean; error: string | null };
 }
 
-const formErrorsSelector = (state) =>
-  getFormSyncErrors(PROPOSAL_UPDATE_SUBMISSION_FORM_ID)(state) as any;
-
 export const ProposalSidebar = (props: CompletionPageSidebarProps) => {
-  const errors = useSelector(formErrorsSelector);
+  // Check which required steps are incomplete based on completedSteps
+  const incompleteRequiredSteps = useMemo(() => {
+    return props.steps.filter(
+      (step, index) => step.required && !props.completedSteps?.[index],
+    );
+  }, [props.steps, props.completedSteps]);
+
+  const hasIncompleteSteps = incompleteRequiredSteps.length > 0;
+  const serverRefusal =
+    props.canSubmit && props.canSubmit.can_submit === false
+      ? props.canSubmit.error
+      : null;
+
+  const submitErrors = useMemo(() => {
+    const reasons: string[] = [];
+    if (hasIncompleteSteps) {
+      reasons.push(
+        translate('Complete all required sections to proceed: {sections}', {
+          sections: incompleteRequiredSteps
+            .map((step) => step.label)
+            .join(', '),
+        }),
+      );
+    }
+    if (serverRefusal) {
+      reasons.push(serverRefusal);
+    }
+    return reasons.length ? reasons : undefined;
+  }, [hasIncompleteSteps, incompleteRequiredSteps, serverRefusal]);
 
   return (
     <>
       <Panel title={translate('Progress')} cardBordered className="mb-5">
         <FormSteps
+          key={`steps-${props.steps.length}`}
           steps={props.steps}
           completedSteps={props.completedSteps}
-          errors={errors}
+          errors={{}}
           showRequiredErrors
         />
       </Panel>
+      {/* In view wherever the applicant has scrolled to. Renders nothing when
+          there is nothing to total. */}
+      <ProposalCostTotal
+        rows={props.resourceRows || []}
+        fixedDurationDays={props.fixedDurationDays}
+        panel
+      />
       {props.editable && (
         <>
           <FloatingSubmitButton
             submitting={props.submitting}
             label={translate('Submit')}
             variant="primary"
-            disabled={props.isSaving}
-            errors={
-              Object.keys(errors).length
-                ? [
-                    translate(
-                      'Complete all required sections: {sections} and {lastSection} to proceed.',
-                      {
-                        sections: [
-                          translate('Project details'),
-                          translate('Resource requests'),
-                        ].join(', '),
-                        lastSection: translate('Project team'),
-                      },
-                    ),
-                  ]
-                : undefined
+            disabled={
+              props.isSaving || hasIncompleteSteps || Boolean(serverRefusal)
             }
+            errors={submitErrors}
           />
 
-          <Button
+          <ActionButton
+            action={props.saveAsDraft}
+            title={translate('Save as draft')}
             variant="secondary"
-            onClick={props.saveAsDraft}
             className="w-100 mt-2"
-            disabled={props.submitting || props.isSaving}
-          >
-            {props.isSaving && <LoadingSpinnerIcon className="me-1" />}
-            {translate('Save as draft')}
-          </Button>
-
-          {props.proposal && <ProposalDeleteButton proposal={props.proposal} />}
-
+            disabled={props.submitting}
+            disabledReason={translate('Saving draft...')}
+            pending={props.isSaving}
+          />
           <TosNotification />
         </>
       )}

@@ -1,53 +1,52 @@
-import { TrashIcon } from '@phosphor-icons/react';
-import { FC, useState } from 'react';
-import { useDispatch } from 'react-redux';
+import { FC } from 'react';
 import { userAgreementsDestroy } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { ENV } from '@/core/config';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { RemovalActionItem } from '@/resource/actions/RemovalActionItem';
+
+const agreementTypeLabels = {
+  PP: translate('Privacy policy'),
+  TOS: translate('Terms of service'),
+};
+
+const getLanguageLabel = (code: string) => {
+  if (!code) return translate('Default');
+  const lang = ENV.languageChoices.find((l) => l.code === code);
+  return lang?.label || code;
+};
 
 export const UserAgreementDeleteButton: FC<{ row; refetch }> = ({
   row,
   refetch,
 }) => {
-  const [removing, setRemoving] = useState(false);
-  const dispatch = useDispatch();
+  const typeLabel =
+    agreementTypeLabels[row.agreement_type] || row.agreement_type;
+  const languageLabel = getLanguageLabel(row.language);
 
-  const action = async () => {
-    try {
-      await waitForConfirmation(
-        dispatch,
-        translate('Delete user agreement'),
-        translate('Are you sure you would like to delete the user agreement?'),
-        { forDeletion: true },
-      );
-    } catch {
-      return;
-    }
-    try {
-      setRemoving(true);
-      await userAgreementsDestroy({ path: { uuid: row.uuid } });
-      await refetch();
-      dispatch(showSuccess(translate('User agreement has been deleted.')));
-    } catch (e) {
-      dispatch(
-        showErrorResponse(e, translate('Unable to delete the user agreement.')),
-      );
-    }
-    setRemoving(false);
-  };
+  const { mutate, isPending } = useManagedMutation<any, any, void>({
+    mutationFn: () => userAgreementsDestroy({ path: { uuid: row.uuid } }),
+    refetch,
+    confirmation: {
+      title: translate('Delete user agreement'),
+      body: translate(
+        'Are you sure you would like to delete the {type} ({language})?',
+        { type: typeLabel, language: languageLabel },
+      ),
+      options: {
+        forDeletion: true,
+      },
+    },
+    successMessage: translate('User agreement has been deleted.'),
+    errorMessage: translate('Unable to delete the user agreement.'),
+  });
 
   return (
-    <ActionItem
+    <RemovalActionItem
       title={translate('Delete')}
-      action={action}
-      iconNode={<TrashIcon weight="bold" />}
-      size="sm"
-      disabled={removing}
-      className="text-danger"
-      iconColor="danger"
+      action={mutate}
+      disabled={isPending}
     />
   );
 };

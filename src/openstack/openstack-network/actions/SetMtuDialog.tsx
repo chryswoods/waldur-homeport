@@ -1,20 +1,33 @@
 import { FC } from 'react';
-import { useDispatch } from 'react-redux';
 import { openstackNetworksSetMtu } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ResourceActionDialog } from '@waldur/resource/actions/ResourceActionDialog';
-import { ActionDialogProps } from '@waldur/resource/actions/types';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
+import { translate } from '@/i18n';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ResourceActionDialog } from '@/resource/actions/ResourceActionDialog';
+import { ActionDialogProps } from '@/resource/actions/types';
 
 export const SetMtuDialog: FC<ActionDialogProps> = ({
   resolve: { resource, refetch },
 }) => {
-  const dispatch = useDispatch();
+  const mutation = useManagedMutation<any, any, { mtu: number }>({
+    mutationFn: (formData) =>
+      openstackNetworksSetMtu({
+        path: { uuid: resource.uuid },
+        body: { mtu: formData.mtu },
+      }),
+
+    successMessage: translate('Network MTU has been updated.'),
+    errorMessage: translate('Unable to update network MTU.'),
+    refetch: refetch,
+  });
+
   return (
     <ResourceActionDialog
       dialogTitle={translate('Set MTU')}
+      dialogSubtitle={
+        <ScopeSubtitle label={translate('Network name')} name={resource.name} />
+      }
       formFields={[
         {
           name: 'mtu',
@@ -27,23 +40,7 @@ export const SetMtuDialog: FC<ActionDialogProps> = ({
       initialValues={{
         mtu: resource.mtu,
       }}
-      submitForm={async (formData) => {
-        try {
-          await openstackNetworksSetMtu({
-            path: { uuid: resource.uuid },
-            body: { mtu: formData.mtu },
-          });
-          dispatch(showSuccess(translate('Network MTU has been updated.')));
-          dispatch(closeModalDialog());
-          if (refetch) {
-            await refetch();
-          }
-        } catch (e) {
-          dispatch(
-            showErrorResponse(e, translate('Unable to update network MTU.')),
-          );
-        }
-      }}
+      submitForm={mutation.mutateAsync}
     />
   );
 };

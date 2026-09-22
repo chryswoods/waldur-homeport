@@ -1,15 +1,15 @@
-import { useDispatch } from 'react-redux';
 import { PublicOfferingDetails } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { Tip } from '@waldur/core/Tooltip';
-import { truncate } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { Field } from '@waldur/resource/summary';
+import { Tooltip } from 'waldur-ui';
+
+import { lazyComponent } from '@/core/lazyComponent';
+import { truncate } from '@/core/utils';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { Field } from '@/resource/summary';
 
 const OfferingDetailsDialog = lazyComponent(() =>
-  import('@waldur/marketplace/offerings/details/OfferingDetailsDialog').then(
+  import('@/marketplace/offerings/details/OfferingDetailsDialog').then(
     (module) => ({
       default: module.OfferingDetailsDialog,
     }),
@@ -23,28 +23,23 @@ export const OfferingDetailsField = ({
   offering: PublicOfferingDetails;
   concealBillingInfo?: boolean;
 }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   return (
     <Field
       label={translate('Offering name')}
       value={
         <>
-          <Tip
-            label={offering.name?.length > 30 ? offering.name : null}
-            id={offering.uuid}
-          >
-            {truncate(offering.name)}
-          </Tip>{' '}
+          <Tooltip label={offering.name?.length > 30 ? offering.name : null}>
+            <span>{truncate(offering.name)}</span>
+          </Tooltip>{' '}
           <button
             className="text-link"
             type="button"
             onClick={() =>
-              dispatch(
-                openModalDialog(OfferingDetailsDialog, {
-                  resolve: { offering, concealBillingInfo },
-                  size: 'lg',
-                }),
-              )
+              openDialog(OfferingDetailsDialog, {
+                resolve: { offering, concealBillingInfo },
+                size: 'lg',
+              })
             }
           >
             [{translate('Show offering')}]

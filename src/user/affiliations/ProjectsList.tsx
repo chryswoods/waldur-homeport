@@ -1,77 +1,104 @@
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
+import { useCallback, useMemo } from 'react';
+import { useMediaQuery } from 'react-responsive';
 import { Project, projectsList } from 'waldur-js-client';
 
-import { formatDate, formatDateTime } from '@waldur/core/dateUtils';
-import { defaultCurrency } from '@waldur/core/formatCurrency';
-import { OrganizationLink } from '@waldur/customer/list/OrganizationLink';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { ProjectFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { useOrganizationAndProjectFiltersForResources } from '@waldur/navigation/sidebar/resources-filter/utils';
-import { useTitle } from '@waldur/navigation/title';
-import { PROJECTS_LIST } from '@waldur/project/constants';
-import { GlobalProjectCreateButton } from '@waldur/project/create/GlobalProjectCreateButton';
-import { ProjectImportButton } from '@waldur/project/import/ProjectImportButton';
-import { ProjectCard } from '@waldur/project/ProjectCard';
-import { ProjectEndDateField } from '@waldur/project/ProjectEndDateField';
-import { ProjectKindField } from '@waldur/project/ProjectKindField';
-import { ProjectLink } from '@waldur/project/ProjectLink';
-import { ProjectsListActions } from '@waldur/project/ProjectsListActions';
-import { createFetcher } from '@waldur/table/api';
-import { DASH_ESCAPE_CODE } from '@waldur/table/constants';
-import { SLUG_COLUMN } from '@waldur/table/slug';
-import Table from '@waldur/table/Table';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { getUser } from '@waldur/workspace/selectors';
+import { GRID_BREAKPOINTS } from '@/core/constants';
+import { formatDate, formatDateTime } from '@/core/dateUtils';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { OrganizationLink } from '@/customer/list/OrganizationLink';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures, ProjectFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { useOrganizationAndProjectAutocompletesForResources } from '@/navigation/sidebar/resources-filter/utils';
+import { useTitle } from '@/navigation/title';
+import { BatchProjectActions } from '@/project/BatchProjectActions';
+import { PROJECTS_LIST } from '@/project/constants';
+import { GlobalProjectCreateButton } from '@/project/create/GlobalProjectCreateButton';
+import { ProjectImportButton } from '@/project/import/ProjectImportButton';
+import { ProjectCard } from '@/project/ProjectCard';
+import { ProjectEndDateField } from '@/project/ProjectEndDateField';
+import { ProjectKindField } from '@/project/ProjectKindField';
+import { ProjectLink } from '@/project/ProjectLink';
+import { ProjectsListActions } from '@/project/ProjectsListActions';
+import { createFetcher } from '@/table/api';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
+import { SLUG_COLUMN } from '@/table/slug';
+import Table from '@/table/Table';
+import { Column, DisplayMode } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { useUser } from '@/workspace/hooks';
 
 import { ProjectExpandableRow } from './ProjectExpandableRow';
 import { ProjectsListFilter } from './ProjectsListFilter';
 
-const mapStateToFilter = createSelector(
-  getFormValues('affiliationProjectsListFilter'),
-  getUser,
-  (stateFilter: any, user) => {
-    const filter: any = {};
-    if (
-      stateFilter &&
-      stateFilter.organization &&
-      Array.isArray(stateFilter.organization)
-    ) {
-      filter.customer = stateFilter.organization.map((x) => x.uuid).join(',');
+const FILTER_FORM_ID = 'affiliationProjectsListFilter';
+
+export const ProjectsList = () => {
+  useTitle(translate('Projects'), '', 'browser');
+
+  const stateFilter = useFilterValues(PROJECTS_LIST);
+  const user = useUser();
+
+  // Sync filter form values to URL when they change
+
+  const filter = useMemo(() => {
+    const filterObj: any = {};
+    if (stateFilter && stateFilter.customer_uuid) {
+      if (Array.isArray(stateFilter.customer_uuid)) {
+        filterObj.customer = stateFilter.customer_uuid
+          .map((x) => x.uuid)
+          .join(',');
+      } else {
+        filterObj.customer = stateFilter.customer_uuid.uuid;
+      }
     }
     if (stateFilter && stateFilter.conceal_finished_projects) {
-      filter.conceal_finished_projects = stateFilter.conceal_finished_projects;
+      filterObj.conceal_finished_projects =
+        stateFilter.conceal_finished_projects;
     }
     if (stateFilter && stateFilter.include_terminated) {
-      filter.include_terminated = stateFilter.include_terminated;
+      filterObj.include_terminated = stateFilter.include_terminated;
     }
     if (
       stateFilter &&
       stateFilter.is_removed !== undefined &&
       stateFilter.is_removed !== ''
     ) {
-      filter.is_removed = stateFilter.is_removed;
+      filterObj.is_removed = stateFilter.is_removed;
     }
-    filter.user_uuid = user.uuid;
-    return filter;
-  },
-);
+    if (user) {
+      filterObj.user_uuid = user.uuid;
+    }
+    return filterObj;
+  }, [stateFilter, user]);
 
-export const ProjectsList = () => {
-  useTitle(translate('Projects'), '', 'browser');
-  const filter = useSelector(mapStateToFilter);
   const props = useTable({
     table: PROJECTS_LIST,
+    syncFiltersToURL: true,
     fetchData: createFetcher(projectsList),
-    queryField: 'name',
+    queryField: 'query',
     filter,
+    mandatoryFields: [
+      'uuid',
+      'name',
+      'customer_uuid',
+      'customer_name',
+      'customer_display_billing_info_in_projects',
+      // The grid view's ProjectCard always shows a cost estimation row, while
+      // the table column for it only exists when project.estimated_cost is on.
+      // Without this the field is never requested and the card renders a
+      // fabricated 0 instead of the real estimate.
+      'billing_price_estimate',
+      'image',
+      'grace_period_days',
+      'is_in_grace_period',
+      'effective_end_date',
+    ],
   });
 
   const { syncResourceFilters } =
-    useOrganizationAndProjectFiltersForResources();
+    useOrganizationAndProjectAutocompletesForResources();
 
   const onClickDetails = (row) =>
     syncResourceFilters({
@@ -116,7 +143,7 @@ export const ProjectsList = () => {
       ),
 
       keys: ['customer_uuid', 'customer_name'],
-      filter: 'organization',
+      filter: 'customer_uuid',
       inlineFilter: (row) => [
         { name: row.customer_name, uuid: row.customer_uuid },
       ],
@@ -155,7 +182,12 @@ export const ProjectsList = () => {
       title: translate('End date'),
       orderField: 'end_date',
       render: ProjectEndDateField,
-      keys: ['end_date'],
+      keys: [
+        'end_date',
+        'grace_period_days',
+        'is_in_grace_period',
+        'effective_end_date',
+      ],
       id: 'end_date',
       export: (row) =>
         row.end_date ? formatDate(row.end_date) : DASH_ESCAPE_CODE,
@@ -199,24 +231,35 @@ export const ProjectsList = () => {
     SLUG_COLUMN as Column<Project>,
   ];
 
-  if (isFeatureVisible(ProjectFeatures.estimated_cost)) {
+  if (
+    isFeatureVisible(ProjectFeatures.estimated_cost) &&
+    !isFeatureVisible(MarketplaceFeatures.conceal_prices)
+  ) {
     columns.push({
       title: translate('Cost estimation'),
-      render: ({ row }) => (
-        <>
-          {defaultCurrency(
-            (row.billing_price_estimate && row.billing_price_estimate.total) ||
-              0,
-          )}
-        </>
-      ),
+      render: ({ row }) =>
+        row.customer_display_billing_info_in_projects === false ? (
+          <>{DASH_ESCAPE_CODE}</>
+        ) : (
+          <>
+            {defaultCurrency(
+              (row.billing_price_estimate &&
+                row.billing_price_estimate.total) ||
+                0,
+            )}
+          </>
+        ),
 
       keys: ['billing_price_estimate'],
       id: 'cost_estimation',
       export: (row) =>
-        defaultCurrency(
-          (row.billing_price_estimate && row.billing_price_estimate.total) || 0,
-        ),
+        row.customer_display_billing_info_in_projects === false
+          ? DASH_ESCAPE_CODE
+          : defaultCurrency(
+              (row.billing_price_estimate &&
+                row.billing_price_estimate.total) ||
+                0,
+            ),
     });
   }
 
@@ -265,15 +308,40 @@ export const ProjectsList = () => {
     });
   }
 
+  // Grid shows 3 cards per row on xl+ screens, 2 cards per row on smaller screens
+  // Default to grid view if visible rows fit nicely
+  const CARDS_PER_ROW_XL = 3;
+  const CARDS_PER_ROW_MD = 2;
+  const isXlScreen = useMediaQuery({ minWidth: GRID_BREAKPOINTS.xl });
+  // Reduce visible rows on shorter viewports (e.g., 13" laptop vs 16" laptop)
+  const isShortViewport = useMediaQuery({ maxHeight: 900 });
+  const VISIBLE_ROWS = isShortViewport ? 2 : 3;
+  const gridThreshold = isXlScreen
+    ? VISIBLE_ROWS * CARDS_PER_ROW_XL
+    : VISIBLE_ROWS * CARDS_PER_ROW_MD;
+
+  const initialModeResolver = useCallback(
+    (resultCount: number): DisplayMode =>
+      resultCount <= gridThreshold ? 'grid' : 'table',
+    [gridThreshold],
+  );
+
   return (
     <Table
       {...props}
       columns={columns}
+      formId={FILTER_FORM_ID}
       verboseName={translate('projects')}
       title={translate('Projects')}
       gridSize={{ md: 6, xl: 4 }}
+      initialModeResolver={initialModeResolver}
+      gridFixedWidth={true}
       gridItem={({ row }) => (
-        <ProjectCard project={row} onClickDetails={() => onClickDetails(row)} />
+        <ProjectCard
+          project={row}
+          onClickDetails={() => onClickDetails(row)}
+          refetch={props.fetch}
+        />
       )}
       hoverShadow={{ grid: false }}
       hasQuery={true}
@@ -293,6 +361,8 @@ export const ProjectsList = () => {
       rowActions={({ row }) => (
         <ProjectsListActions project={row} refetch={props.fetch} />
       )}
+      enableMultiSelect
+      multiSelectActions={BatchProjectActions}
     />
   );
 };

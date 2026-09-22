@@ -1,24 +1,29 @@
 import { FunctionComponent, useMemo } from 'react';
 import { eventsList } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import eventsRegistry from '@waldur/events/registry';
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import { DASH_ESCAPE_CODE } from '@waldur/table/constants';
-import Table from '@waldur/table/Table';
-import { TableProps } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
+import { formatDateTime } from '@/core/dateUtils';
+import eventsRegistry from '@/events/registry';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
+import Table from '@/table/Table';
+import { TableOptionsType, TableProps } from '@/table/types';
+import { useTable } from '@/table/useTable';
 
 import { ExpandableEventDetails } from './ExpandableEventDetails';
 
 const EventDateField = ({ row }) => <>{formatDateTime(row.created)}</>;
 
-export const BaseEventsList: FunctionComponent<Partial<TableProps>> = ({
+type BaseEventsListProps = Partial<TableProps> & {
+  initialFilters?: TableOptionsType['initialFilters'];
+};
+
+export const BaseEventsList: FunctionComponent<BaseEventsListProps> = ({
   filter,
   table,
   title,
   hasActionBar = true,
+  initialFilters,
   ...rest
 }) => {
   const options = useMemo(
@@ -27,9 +32,9 @@ export const BaseEventsList: FunctionComponent<Partial<TableProps>> = ({
       filter,
       fetchData: createFetcher(eventsList),
       queryField: 'message',
-      pullInterval: 30 * 1000,
+      initialFilters,
     }),
-    [table, filter],
+    [table, filter, initialFilters],
   );
   const props = useTable(options);
 

@@ -1,0 +1,114 @@
+import { useQuery } from '@tanstack/react-query';
+import { FC, useEffect, useState } from 'react';
+import { Col, Row } from 'react-bootstrap';
+import { useMediaQuery } from 'react-responsive';
+import { marketplaceSiteAgentIdentitiesList, Offering } from 'waldur-js-client';
+
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { GRID_BREAKPOINTS, UI_STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { isExperimentalUiComponentsVisible } from '@/marketplace/utils';
+
+import { ComponentsUsage } from './ComponentsUsage';
+import { OfferingAgentInfo } from './OfferingAgentInfo';
+import { OfferingAlerts } from './OfferingAlerts';
+import { OfferingComponentUsagePanel } from './OfferingComponentUsagePanel';
+import { OfferingResourcesAndUsers } from './OfferingResourcesAndUsers';
+import { OfferingServices } from './OfferingServices';
+
+interface OwnProps {
+  offering: Offering;
+}
+
+export const OfferingDashboard: FC<OwnProps> = ({ offering }) => {
+  const isSmallScr = useMediaQuery({ maxWidth: GRID_BREAKPOINTS.xl });
+  const [agentIdentity, setAgentIdentity] = useState(null);
+
+  const {
+    data: agentIdentities,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['offeringAgentIdentities', offering.uuid],
+    queryFn: () =>
+      getAllPages((page) =>
+        marketplaceSiteAgentIdentitiesList({
+          query: {
+            offering_uuid: offering.uuid,
+            page_size: MAX_PAGE_SIZE,
+            page,
+          },
+        }),
+      ),
+    staleTime: UI_STALE_TIME,
+  });
+
+  useEffect(() => {
+    if (agentIdentity === null && agentIdentities) {
+      setAgentIdentity(agentIdentities?.[0]);
+    }
+  }, [agentIdentities]);
+
+  const showAgentData = !isLoading && !error && agentIdentity;
+  const isAgentDataEmpty = !isLoading && !error && !agentIdentity;
+  const showExperimentalUiComponents = isExperimentalUiComponentsVisible();
+
+  return (
+    <>
+      <ComponentsUsage offering={offering} />
+
+      {isLoading ? (
+        <LoadingSpinner />
+      ) : error ? (
+        <LoadingErred loadData={refetch} className="mb-4" />
+      ) : null}
+
+      {isSmallScr ? (
+        <>
+          {showAgentData ? (
+            <>
+              <OfferingAgentInfo
+                agentIdentities={agentIdentities}
+                agentIdentity={agentIdentity}
+                setAgentIdentity={setAgentIdentity}
+              />
+              <OfferingResourcesAndUsers offering={offering} />
+              {showExperimentalUiComponents && (
+                <OfferingComponentUsagePanel offering={offering} />
+              )}
+              <OfferingServices agentIdentity={agentIdentity} />
+            </>
+          ) : (
+            isAgentDataEmpty && <OfferingAgentInfo empty />
+          )}
+        </>
+      ) : (
+        <Row>
+          <Col md={6}>
+            {showAgentData && (
+              <OfferingAgentInfo
+                agentIdentities={agentIdentities}
+                agentIdentity={agentIdentity}
+                setAgentIdentity={setAgentIdentity}
+              />
+            )}
+            <OfferingResourcesAndUsers offering={offering} />
+            {showExperimentalUiComponents && (
+              <OfferingComponentUsagePanel offering={offering} />
+            )}
+          </Col>
+          <Col md={6}>
+            {showAgentData ? (
+              <OfferingServices agentIdentity={agentIdentity} />
+            ) : (
+              isAgentDataEmpty && <OfferingAgentInfo empty />
+            )}
+          </Col>
+        </Row>
+      )}
+      <OfferingAlerts offering={offering} />
+    </>
+  );
+};

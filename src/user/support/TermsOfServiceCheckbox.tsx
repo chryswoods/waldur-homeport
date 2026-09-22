@@ -2,10 +2,10 @@ import { FunctionComponent } from 'react';
 import { Form } from 'react-bootstrap';
 import { User } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { Link } from '@waldur/core/Link';
-import { LoadingSpinnerIcon } from '@waldur/core/LoadingSpinner';
-import { formatJsx, translate } from '@waldur/i18n';
+import { formatDateTime } from '@/core/dateUtils';
+import { Link } from '@/core/Link';
+import { LoadingSpinnerSimple } from '@/core/LoadingSpinner';
+import { formatJsx, translate } from '@/i18n';
 
 import { useUpdateUser } from './useUpdateUser';
 
@@ -17,22 +17,27 @@ export const TermsOfServiceCheckbox: FunctionComponent<
   TermsOfServiceCheckboxProps
 > = ({ user }) => {
   const { callback, isLoading } = useUpdateUser(user);
+  const isAgreed = Boolean(user.agreement_date);
+  const inputId = 'tos-agreement-check';
+
   return (
     <div className="d-flex align-items-center">
       <Form.Check type="checkbox">
         <Form.Check.Input
+          id={inputId}
           type="checkbox"
-          checked={Boolean(user.agreement_date)}
+          checked={isAgreed}
           onChange={() => {
-            if (!user.agreement_date) callback({ agree_with_policy: true });
+            if (!isAgreed) callback({ agree_with_policy: true });
           }}
-          disabled={isLoading || Boolean(user.agreement_date)}
+          disabled={isLoading || isAgreed}
+          data-testid="tos-checkbox"
         />
 
-        <Form.Check.Label className="opacity-100">
-          {!user.agreement_date
+        <Form.Check.Label htmlFor={inputId} className="opacity-100">
+          {!isAgreed
             ? translate(
-                'You agree to the <tos>Terms of Service</tos> and <pp>Privacy policy</pp>.',
+                'I agree to the <tos>Terms of Service</tos> and <pp>Privacy Policy</pp>',
                 {
                   tos: (s: string) => <Link state="about.tos" label={s} />,
                   pp: (s: string) => <Link state="about.privacy" label={s} />,
@@ -51,7 +56,9 @@ export const TermsOfServiceCheckbox: FunctionComponent<
         </Form.Check.Label>
       </Form.Check>
 
-      {isLoading && <LoadingSpinnerIcon className="ms-2" />}
+      {isLoading && (
+        <LoadingSpinnerSimple className="ms-2" data-testid="tos-spinner" />
+      )}
     </div>
   );
 };

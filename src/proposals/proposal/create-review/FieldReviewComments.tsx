@@ -1,7 +1,7 @@
 import classNames from 'classnames';
 
-import { formatRelative } from '@waldur/core/dateUtils';
-import { ProposalReview } from '@waldur/proposals/types';
+import { formatRelative } from '@/core/dateUtils';
+import { ProposalReview } from '@/proposals/types';
 
 import { ReviewComment } from './ReviewComment';
 
@@ -27,6 +27,7 @@ export const FieldReviewComments = ({
     .filter(Boolean)
     .map((review) => ({
       reviewer: review.reviewer_full_name || review.anonymous_reviewer_name,
+      image: review.reviewer_image,
       comment: review[fieldName],
       score: hasScore ? review.summary_score : undefined,
       time: review.modified ? formatRelative(review.modified) : null,
@@ -43,6 +44,7 @@ export const FieldReviewComments = ({
         <ReviewComment
           key={i}
           title={item.reviewer}
+          image={item.image}
           score={item.score}
           time={item.time}
         >

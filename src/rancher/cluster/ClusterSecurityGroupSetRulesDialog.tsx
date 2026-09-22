@@ -1,49 +1,71 @@
-import { useDispatch } from 'react-redux';
-import { FieldArray, reduxForm } from 'redux-form';
+import arrayMutators from 'final-form-arrays';
+import { FC, useMemo } from 'react';
+import { Form as FinalForm } from 'react-final-form';
 import { rancherClusterSecurityGroupsUpdate } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { ActionDialog } from '@waldur/modal/ActionDialog';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { RulesList } from '@waldur/openstack/openstack-security-groups/rule-editor/RulesList';
-import { SecurityGroupRulesFormData } from '@waldur/openstack/openstack-security-groups/rule-editor/types';
-import { serializeRulesPayload } from '@waldur/openstack/openstack-security-groups/rule-editor/utils';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { translate } from '@/i18n';
+import { ActionDialogFinal } from '@/modal/ActionDialogFinal';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { RulesList } from '@/openstack/openstack-security-groups/rule-editor/RulesList';
+import { SecurityGroupRulesFormData } from '@/openstack/openstack-security-groups/rule-editor/types';
+import { serializeRulesPayload } from '@/openstack/openstack-security-groups/rule-editor/utils';
 
-export const ClusterSecurityGroupSetRulesDialog = reduxForm<{}, { resolve }>({
-  form: 'ClusterSecurityGroupSetRulesDialog',
-})(({ handleSubmit, submitting, invalid, resolve }) => {
-  const dispatch = useDispatch();
-
-  const submitRequest = async (formData: SecurityGroupRulesFormData) => {
-    try {
-      await rancherClusterSecurityGroupsUpdate({
-        path: { uuid: resolve.resource.uuid },
-        body: { rules: serializeRulesPayload(formData) },
-      });
-      await resolve.refetch();
-      dispatch(showSuccess(translate('Rules have been updated.')));
-      dispatch(closeModalDialog());
-    } catch (error) {
-      dispatch(showErrorResponse(error, translate('Unable to update rules.')));
-    }
+interface ClusterSecurityGroupSetRulesDialogProps {
+  resolve: {
+    resource: any;
+    refetch?: () => void;
   };
+}
+
+export const ClusterSecurityGroupSetRulesDialog: FC<
+  ClusterSecurityGroupSetRulesDialogProps
+> = ({ resolve: { resource, refetch } }) => {
+  const { mutateAsync, isPending } = useManagedMutation<
+    any,
+    any,
+    SecurityGroupRulesFormData
+  >({
+    mutationFn: (formData) =>
+      rancherClusterSecurityGroupsUpdate({
+        path: { uuid: resource.uuid },
+        body: { rules: serializeRulesPayload(formData) },
+      }),
+    successMessage: translate('Rules have been updated.'),
+    errorMessage: translate('Unable to update rules.'),
+    refetch,
+  });
+
+  const initialValues = useMemo(
+    () => ({
+      rules: (resource.rules || []).map(({ from_port, to_port, ...rest }) => ({
+        ...rest,
+        port_range: {
+          min: from_port,
+          max: to_port,
+        },
+      })),
+    }),
+    [resource.rules],
+  );
 
   return (
-    <ActionDialog
-      title={translate('Set rules in {name} security group', {
-        name: resolve.resource.name,
-      })}
-      submitting={submitting}
-      invalid={invalid}
-      onSubmit={handleSubmit(submitRequest)}
-      submitLabel={translate('Set rules')}
-    >
-      <FieldArray
-        name="rules"
-        component={RulesList}
-        remoteSecurityGroups={[]}
-      />
-    </ActionDialog>
+    <FinalForm<SecurityGroupRulesFormData>
+      onSubmit={mutateAsync}
+      mutators={{ ...arrayMutators }}
+      initialValues={initialValues}
+      render={({ handleSubmit, invalid }) => (
+        <ActionDialogFinal
+          title={translate('Set rules in {name} security group', {
+            name: resource.name,
+          })}
+          submitting={isPending}
+          invalid={invalid}
+          onSubmit={handleSubmit}
+          submitLabel={translate('Set rules')}
+        >
+          <RulesList remoteSecurityGroups={[]} />
+        </ActionDialogFinal>
+      )}
+    />
   );
-});
+};

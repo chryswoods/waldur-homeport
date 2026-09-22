@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { FunctionComponent } from 'react';
-import { useSelector } from 'react-redux';
 import {
   PublicOfferingDetails,
   Resource,
@@ -8,7 +7,8 @@ import {
   projectsRetrieve,
 } from 'waldur-js-client';
 
-import { getUser } from '@waldur/workspace/selectors';
+import { STALE_TIME } from '@/core/constants';
+import { useUser } from '@/workspace/hooks';
 
 import { BackendIdField } from './BackendIdField';
 import { EndDateField } from './EndDateField';
@@ -23,7 +23,7 @@ interface ResourceDetailsHeaderBodyProps {
 export const ResourceDetailsHeaderBody: FunctionComponent<
   ResourceDetailsHeaderBodyProps
 > = ({ resource, offering }) => {
-  const user = useSelector(getUser);
+  const user = useUser();
 
   const { data: project } = useQuery({
     queryKey: ['display-project-billing', resource.project_uuid],
@@ -35,7 +35,7 @@ export const ResourceDetailsHeaderBody: FunctionComponent<
           }).then((response) => response.data)
         : null,
     refetchOnWindowFocus: false,
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_TIME,
   });
   const { data: offeringUser } = useQuery({
     queryKey: ['fetchOfferingUser', user?.uuid, offering?.uuid],
@@ -50,7 +50,7 @@ export const ResourceDetailsHeaderBody: FunctionComponent<
           }).then((response) => response.data[0] || null)
         : null,
     enabled: !!(user?.uuid && offering?.uuid),
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_TIME,
   });
 
   return (
@@ -64,7 +64,10 @@ export const ResourceDetailsHeaderBody: FunctionComponent<
       />
       <BackendIdField resource={resource} offering={offering} />
       <EndDateField resource={resource} />
-      <OfferingUserDetailsField offeringUser={offeringUser} />
+      <OfferingUserDetailsField
+        offeringUser={offeringUser}
+        resource={resource}
+      />
     </>
   );
 };

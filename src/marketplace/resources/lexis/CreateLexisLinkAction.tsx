@@ -1,21 +1,16 @@
 import { LinkSimpleIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
+import { lexisLinksCreate } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { validateState } from '@waldur/resource/actions/base';
-import { useModalDialogCallback } from '@waldur/resource/actions/useModalDialogCallback';
-import { useValidators } from '@waldur/resource/actions/useValidators';
-
-const CreateLexisLinkDialog = lazyComponent(() =>
-  import('./CreateLexisLinkDialog').then((module) => ({
-    default: module.CreateLexisLinkDialog,
-  })),
-);
+import { ENV } from '@/core/config';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { PermissionEnum } from '@/permissions/enums';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { validateState } from '@/resource/actions/base';
+import { useValidators } from '@/resource/actions/useValidators';
 
 const validators = [validateState('OK', 'ERRED')];
 
@@ -29,24 +24,43 @@ export const CreateLexisLinkAction: FC<CreateLexisLinkActionProps> = ({
   refetch,
 }) => {
   const { tooltip, disabled } = useValidators(validators, resource);
-  const action = useModalDialogCallback(CreateLexisLinkDialog, resource, {
+
+  const { mutate } = useManagedMutation<any, any, void>({
+    mutationFn: () => {
+      const resource_url = `${ENV.apiEndpoint}api/marketplace-resources/${resource.marketplace_resource_uuid}/`;
+      return lexisLinksCreate({ body: { resource: resource_url } });
+    },
+    successMessage: translate(
+      'LEXIS link creation request has been submitted.',
+    ),
+    errorMessage: translate('Unable to submit LEXIS link creation request.'),
     refetch,
+    confirmation: {
+      title: translate('Create LEXIS Link for the resource {resourceName}', {
+        resourceName: resource.name,
+      }),
+      body: translate(
+        'Are you sure you would like to create a LEXIS link for the resource {resourceName}?',
+        { resourceName: resource.name },
+      ),
+    },
   });
-  const props = {
-    title: translate('Create LEXIS link'),
-    action,
-    tooltip,
-    disabled,
-  };
+
   if (
     disabled ||
     !resource.available_actions?.includes(PermissionEnum.CREATE_LEXIS_LINK) ||
     !isFeatureVisible(MarketplaceFeatures.lexis_links)
   ) {
     return null;
-  } else {
-    return (
-      <ActionItem {...props} iconNode={<LinkSimpleIcon weight="bold" />} />
-    );
   }
+
+  return (
+    <ActionItem
+      title={translate('Create LEXIS link')}
+      action={mutate}
+      tooltip={tooltip}
+      disabled={disabled}
+      iconNode={<LinkSimpleIcon weight="bold" />}
+    />
+  );
 };

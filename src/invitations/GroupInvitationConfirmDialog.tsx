@@ -1,44 +1,51 @@
+import { useQuery } from '@tanstack/react-query';
 import { useCallback, FunctionComponent } from 'react';
-import { useAsync } from 'react-use';
 import { userGroupInvitationsRetrieve } from 'waldur-js-client';
 
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { useModal } from '@waldur/modal/hooks';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { ModalDialog } from '@/modal/ModalDialog';
 
 import { GroupInvitationButtons } from './GroupinvitationButtons';
 import { GroupInvitationErrorMessage } from './GroupInvitationErrorMessage';
 import { GroupInvitationMessage } from './GroupInvitationMessage';
 
 export const GroupInvitationConfirmDialog: FunctionComponent<{
-  resolve: { token; deferred };
-}> = ({ resolve: { token, deferred } }) => {
+  resolve: { token; onConfirm: () => void; onCancel: () => void };
+}> = ({ resolve: { token, onConfirm, onCancel } }) => {
   const { closeDialog } = useModal();
 
   const dismiss = useCallback(() => {
-    deferred.reject();
     closeDialog();
-  }, [closeDialog, deferred]);
+    onCancel();
+  }, [closeDialog, onCancel]);
 
   const submitRequest = useCallback(() => {
     closeDialog();
-    deferred.resolve(true);
-  }, [closeDialog, deferred]);
+    onConfirm();
+  }, [closeDialog, onConfirm]);
 
-  const asyncResult = useAsync(() =>
-    userGroupInvitationsRetrieve({ path: { uuid: token } }).then(
-      (response) => response.data,
-    ),
-  );
+  const asyncResult = useQuery({
+    queryKey: ['GroupInvitationConfirmDialog'],
 
-  const invitation = asyncResult.value;
+    queryFn: () =>
+      userGroupInvitationsRetrieve({ path: { uuid: token } }).then(
+        (response) => response.data,
+      ),
+  });
+
+  const invitation = asyncResult.data;
 
   return (
     <ModalDialog
-      title={translate('Request permission')}
+      title={
+        invitation?.is_public
+          ? translate('Join organization')
+          : translate('Request permission')
+      }
       footer={
-        !asyncResult.loading &&
+        !asyncResult.isLoading &&
         !asyncResult.error && (
           <GroupInvitationButtons
             dismiss={dismiss}
@@ -47,7 +54,7 @@ export const GroupInvitationConfirmDialog: FunctionComponent<{
         )
       }
     >
-      {asyncResult.loading && (
+      {asyncResult.isLoading && (
         <>
           <LoadingSpinner />
           <p className="text-center">
@@ -55,7 +62,7 @@ export const GroupInvitationConfirmDialog: FunctionComponent<{
           </p>
         </>
       )}
-      {!asyncResult.loading &&
+      {!asyncResult.isLoading &&
         (asyncResult.error ? (
           <GroupInvitationErrorMessage dismiss={dismiss} />
         ) : (

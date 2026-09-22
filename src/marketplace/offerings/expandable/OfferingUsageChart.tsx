@@ -1,15 +1,17 @@
+import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { FunctionComponent } from 'react';
 import { Card } from 'react-bootstrap';
-import { useAsync } from 'react-use';
-import { marketplaceProviderOfferingsComponentStatsList } from 'waldur-js-client';
+import {
+  marketplaceComponentUsageMonthlyList,
+  ProviderOfferingDetails as Offering,
+} from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { generateColors } from '@waldur/core/generateColors';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { ResourceUsageTabs } from '@waldur/marketplace/resources/usage/ResourceUsageTabs';
-import { Offering } from '@waldur/marketplace/types';
+import { generateColors } from 'waldur-design-tokens';
+
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { ResourceUsageTabs } from '@/marketplace/resources/usage/ResourceUsageTabs';
 
 interface OfferingUsageChartProps {
   offering: Offering;
@@ -19,26 +21,30 @@ export const OfferingUsageChart: FunctionComponent<OfferingUsageChartProps> = ({
   offering,
 }) => {
   const {
-    loading,
+    isLoading: loading,
     error,
-    value: usages,
-  } = useAsync(
-    () =>
-      getAllPages((page) =>
-        marketplaceProviderOfferingsComponentStatsList({
-          path: { uuid: offering.uuid },
-          query: {
-            page,
-            start: DateTime.now()
-              .minus({ months: 12 })
-              .startOf('month')
-              .toFormat('yyyy-MM'),
-            end: DateTime.now().endOf('month').toFormat('yyyy-MM'),
-          },
-        }),
-      ),
-    [offering],
-  );
+    data: usages,
+  } = useQuery({
+    queryKey: ['OfferingUsageChart', offering],
+
+    queryFn: () =>
+      marketplaceComponentUsageMonthlyList({
+        query: {
+          offering_uuid: offering.uuid,
+          start: DateTime.now()
+            .minus({ months: 12 })
+            .startOf('month')
+            .toFormat('yyyy-MM'),
+          end: DateTime.now().endOf('month').toFormat('yyyy-MM'),
+          field: [
+            'component_type',
+            'total_consumed',
+            'total_allocated',
+            'billing_period',
+          ],
+        },
+      }).then((response) => response.data),
+  });
 
   return (
     <Card className="card-bordered mb-10">
@@ -58,7 +64,7 @@ export const OfferingUsageChart: FunctionComponent<OfferingUsageChartProps> = ({
         ) : (
           <ResourceUsageTabs
             components={offering.components}
-            usages={usages as any}
+            usages={usages}
             months={12}
             colors={generateColors(offering.components.length, {
               colorStart: 0.25,

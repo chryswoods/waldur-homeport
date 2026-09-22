@@ -1,14 +1,17 @@
 import { FC, PropsWithChildren, useMemo, useState } from 'react';
 import { Modal } from 'react-bootstrap';
 
-import { FilterBox } from '@waldur/form/FilterBox';
-import { translate } from '@waldur/i18n';
+import { FilterBox } from '@/form/FilterBox';
+import { translate } from '@/i18n';
 
 import { ResourceActionMenuContext } from './ResourceActionMenuContext';
 
 export const ActionDialogBody: FC<PropsWithChildren> = ({ children }) => {
   const [query, setQuery] = useState('');
-  const queryContextValue = useMemo(() => ({ query }), [query]);
+  const queryContextValue = useMemo(
+    () => ({ query, notInMenu: true }),
+    [query],
+  );
 
   return (
     <>

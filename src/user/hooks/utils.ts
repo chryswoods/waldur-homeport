@@ -1,6 +1,6 @@
 import { eventsEventGroupsRetrieve } from 'waldur-js-client';
 
-import { titleCase } from '@waldur/core/utils';
+import { titleCase } from '@/core/utils';
 
 import { EventGroupOption } from './types';
 
@@ -10,6 +10,9 @@ export const formatEventTitle = (choice) => {
     jira: 'JIRA',
     vms: 'Resources',
     customers: 'Organizations',
+    // Without this the derived label reads "Openstack resources", while the
+    // event filters name the same group "OpenStack resource".
+    openstack_resources: 'OpenStack resource',
   };
   if (map[choice]) {
     choice = map[choice];

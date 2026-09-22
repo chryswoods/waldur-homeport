@@ -1,7 +1,4 @@
-import { translate } from '@waldur/i18n';
-
-export const INVITATION_CREATE_FORM_ID = 'InvitationCreateDialog';
-export const GROUP_INVITATION_CREATE_FORM_ID = 'GroupInvitationCreateForm';
+import { translate } from '@/i18n';
 
 export const invitationTypeOptions = [
   {
@@ -12,6 +9,8 @@ export const invitationTypeOptions = [
   {
     label: translate('Public'),
     value: 'public',
-    description: translate('Anonymous users can list invitation links'),
+    description: translate(
+      'Anonymous users can list invitation links. Only available for staff users.',
+    ),
   },
 ];

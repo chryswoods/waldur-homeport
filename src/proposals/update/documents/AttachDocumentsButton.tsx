@@ -1,10 +1,9 @@
 import { PlusCircleIcon } from '@phosphor-icons/react';
-import { useDispatch } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { ActionButton } from '@waldur/table/ActionButton';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { ActionButton } from '@/table/ActionButton';
 
 const AttachDocumentsDialog = lazyComponent(() =>
   import('./AttachDocumentsDialog').then((module) => ({
@@ -12,21 +11,31 @@ const AttachDocumentsDialog = lazyComponent(() =>
   })),
 );
 
-export const AttachDocumentsButton = ({ call, refetch }) => {
-  const dispatch = useDispatch();
+export const AttachDocumentsButton = ({
+  call,
+  refetch,
+  disabled,
+  tooltip,
+}: {
+  call: any;
+  refetch(): void;
+  disabled?: boolean;
+  tooltip?: string;
+}) => {
+  const { openDialog } = useModal();
   const callback = () => {
-    dispatch(
-      openModalDialog(AttachDocumentsDialog, {
-        resolve: { call, refetch },
-        formId: 'AttachDocumentsDialog',
-      }),
-    );
+    openDialog(AttachDocumentsDialog, {
+      resolve: { call, refetch },
+      formId: 'AttachDocumentsDialog',
+    });
   };
   return (
     <ActionButton
       action={callback}
       title={translate('Add document')}
       iconNode={<PlusCircleIcon weight="bold" />}
+      disabled={disabled}
+      tooltip={tooltip}
     />
   );
 };

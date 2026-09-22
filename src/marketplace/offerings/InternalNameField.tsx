@@ -1,10 +1,10 @@
 import { FunctionComponent } from 'react';
-import { Field } from 'redux-form';
 
-import { required } from '@waldur/core/validators';
-import { translate } from '@waldur/i18n';
+import { composeValidators, required } from '@/core/validators';
+import { StringGroup } from '@/form';
+import { translate } from '@/i18n';
 
-import { FormGroupWithError } from './FormGroupWithError';
+import { INTERNAL_NAME_PATTERN } from './internalName';
 
 interface InternalNameFieldProps {
   name: string;
@@ -12,31 +12,32 @@ interface InternalNameFieldProps {
   readOnly?: boolean;
 }
 
-const INTERNAL_NAME_PATTERN = new RegExp('^[a-zA-Z0-9_\\-/:]+$');
-
 const validateInternalName = (value: string) =>
-  !value.match(INTERNAL_NAME_PATTERN)
+  !value || !value.match(INTERNAL_NAME_PATTERN)
     ? translate(
         'Please use Latin letters, numbers, underscores, hyphens, slashes, and colons only.',
       )
     : undefined;
 
-const validators = [required, validateInternalName];
+const validators = composeValidators(required, validateInternalName);
 
 export const InternalNameField: FunctionComponent<InternalNameFieldProps> = (
   props,
-) => (
-  <Field
-    name={props.name}
-    validate={validators}
-    parse={(v) => v.replace('.', '')}
-    label={translate('Internal name')}
-    required={true}
-    description={translate(
-      'Technical name intended for integration and automated reporting. Please use Latin letters without spaces only.',
-    )}
-    component={FormGroupWithError}
-    disabled={props.disabled}
-    readOnly={props.readOnly}
-  />
-);
+) => {
+  return (
+    <StringGroup
+      name={props.name}
+      validate={validators}
+      parse={(v) => v?.replace('.', '')}
+      label={translate('Internal name')}
+      required={true}
+      tooltip={translate(
+        'Technical name intended for integration and automated reporting. Please use Latin letters without spaces only.',
+      )}
+      tooltipEnd={true}
+      space={5}
+      disabled={props.disabled}
+      readOnly={props.readOnly}
+    />
+  );
+};

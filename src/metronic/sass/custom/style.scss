@@ -2,14 +2,16 @@
 
 // Theme Elements
 @import 'accordion';
-@import 'aside';
+@import 'alerts';
 @import 'base';
 @import 'borders';
 @import 'breadcrumb';
 @import 'buttons';
 @import 'button-group';
 @import 'content';
-@import 'dropzone';
+@import 'dropdown';
+@import 'file-upload';
+@import 'flatpickr';
 @import 'forms';
 @import 'icon';
 @import 'landing';
@@ -17,11 +19,18 @@
 @import 'menu';
 @import 'modal';
 @import 'nav';
-@import 'select';
+@import 'notification';
+
 @import 'table';
+@import 'tag';
 @import 'CopyToClipboardContainer';
 @import 'CodeBlock';
+@import 'ProgressSteps';
 @import 'action-group';
+@import 'drawer/shell';
+@import 'ai-assistant/index';
+@import 'support/helpdesk';
+@import 'matrix/index';
 @import 'progress';
 @import 'rings';
 @import 'tos';

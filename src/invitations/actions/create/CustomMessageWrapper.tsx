@@ -1,25 +1,26 @@
+import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { useAsyncFn, useEffectOnce } from 'react-use';
-import { Field } from 'redux-form';
 import { notificationMessagesTemplatesList } from 'waldur-js-client';
 
-import { FormattedHtml } from '@waldur/core/FormattedHtml';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { TextField } from '@waldur/form';
-import { FormGroup } from '@waldur/form/FormGroup';
-import { validateMaxLength } from '@waldur/form/utils';
-import { translate } from '@waldur/i18n';
+import { FormattedHtml } from '@/core/FormattedHtml';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { validateMaxLength } from '@/core/validators';
+import { TextGroup } from '@/form';
+import { translate } from '@/i18n';
 
 export const CustomMessageWrapper = () => {
-  const [{ loading, error, value }, loadTemplate] = useAsyncFn(() =>
-    notificationMessagesTemplatesList({
-      query: { name: 'invitation_created' },
-    }),
-  );
-
-  useEffectOnce(() => {
-    loadTemplate();
+  const {
+    isLoading: loading,
+    error,
+    data: value,
+    refetch: loadTemplate,
+  } = useQuery({
+    queryKey: ['CustomMessageWrapper', 'invitation_created'],
+    queryFn: () =>
+      notificationMessagesTemplatesList({
+        query: { name: 'invitation_created' },
+      }),
   });
 
   const htmlMessage = useMemo(() => {
@@ -40,17 +41,15 @@ export const CustomMessageWrapper = () => {
       ) : (
         <FormattedHtml html={htmlMessage} />
       )}
-      <Field
+      <TextGroup
         name="extra_invitation_text"
-        component={FormGroup}
+        placeholder={translate('Enter custom message...')}
+        validate={validateMaxLength(2000)}
         label={translate('Custom message')}
         description={translate(
           'You can add a message to be attached to the invitation email the users receive.',
         )}
-        validate={validateMaxLength(250)}
-      >
-        <TextField placeholder={translate('Enter custom message...')} />
-      </Field>
+      />
     </div>
   );
 };

@@ -1,43 +1,71 @@
+import { useQuery } from '@tanstack/react-query';
 import { FC } from 'react';
-import { useDispatch } from 'react-redux';
-import { useAsync } from 'react-use';
 import {
   vmwareNetworksList,
   vmwareVirtualMachineCreatePort,
 } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { createNameField } from '@waldur/resource/actions/base';
-import { ResourceActionDialog } from '@waldur/resource/actions/ResourceActionDialog';
-import { ActionDialogProps } from '@waldur/resource/actions/types';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { UI_STALE_TIME } from '@/core/constants';
+import { translate } from '@/i18n';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { createNameField } from '@/resource/actions/base';
+import { ResourceActionDialog } from '@/resource/actions/ResourceActionDialog';
+import { ActionDialogProps } from '@/resource/actions/types';
 
 export const CreatePortDialog: FC<ActionDialogProps> = ({
   resolve: { resource, refetch },
 }) => {
-  const dispatch = useDispatch();
-
-  const asyncState = useAsync(async () => {
-    const networks = await getAllPages((page) =>
-      vmwareNetworksList({
-        query: {
-          page,
-          customer_pair_uuid: resource.customer_uuid,
-          settings_uuid: resource.settings_uuid,
+  // ResourceActionDialog renders selects with `simpleValue`, so `network` is
+  // the network URL itself, not an option object.
+  const mutation = useManagedMutation<
+    any,
+    any,
+    { name: string; network: string }
+  >({
+    mutationFn: (formData) =>
+      vmwareVirtualMachineCreatePort({
+        path: { uuid: resource.uuid },
+        body: {
+          description: formData.name,
+          network: formData.network,
         },
       }),
-    );
-    return {
-      networks: networks.map((network) => ({
-        value: network.url,
-        label: network.name,
-      })),
-    };
+
+    successMessage: translate('Network adapter creation has been scheduled.'),
+    errorMessage: translate('Unable to create network adapter.'),
+    refetch: refetch,
   });
 
-  const fields = asyncState.value
+  const asyncState = useQuery({
+    queryKey: [
+      'vmwareNetworks',
+      resource.customer_uuid,
+      resource.settings_uuid,
+    ],
+    queryFn: async () => {
+      const networks = await getAllPages((page) =>
+        vmwareNetworksList({
+          query: {
+            page,
+            page_size: MAX_PAGE_SIZE,
+            customer_pair_uuid: resource.customer_uuid,
+            settings_uuid: resource.settings_uuid,
+          },
+        }),
+      );
+      return {
+        networks: networks.map((network) => ({
+          value: network.url,
+          label: network.name,
+        })),
+      };
+    },
+    staleTime: UI_STALE_TIME,
+  });
+
+  const fields = asyncState.data
     ? [
         createNameField(),
         {
@@ -45,33 +73,22 @@ export const CreatePortDialog: FC<ActionDialogProps> = ({
           label: translate('Network'),
           type: 'select',
           required: true,
-          options: asyncState.value.networks,
+          options: asyncState.data.networks,
         },
       ]
     : [];
 
   return (
     <ResourceActionDialog
-      dialogTitle={translate('Create port')}
+      dialogTitle={translate('Create network adapter')}
+      dialogSubtitle={
+        <ScopeSubtitle
+          label={translate('Virtual machine name')}
+          name={resource.name}
+        />
+      }
       formFields={fields}
-      submitForm={async (formData) => {
-        try {
-          await vmwareVirtualMachineCreatePort({
-            path: { uuid: resource.uuid },
-            body: {
-              description: formData.name,
-              network: formData.network.value,
-            },
-          });
-          dispatch(showSuccess(translate('Port has been created.')));
-          dispatch(closeModalDialog());
-          if (refetch) {
-            await refetch();
-          }
-        } catch (e) {
-          dispatch(showErrorResponse(e, translate('Unable to create port.')));
-        }
-      }}
+      submitForm={mutation.mutateAsync}
     />
   );
 };

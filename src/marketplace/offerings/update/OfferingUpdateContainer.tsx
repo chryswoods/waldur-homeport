@@ -1,9 +1,13 @@
+import classNames from 'classnames';
 import { FC } from 'react';
-import { PluginComponent } from 'waldur-js-client';
+import {
+  PluginComponent,
+  ProviderOfferingDetails as Offering,
+} from 'waldur-js-client';
 
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { Category, Offering } from '@waldur/marketplace/types';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { Category } from '@/marketplace/types';
 
 interface OwnProps {
   data: {
@@ -32,7 +36,12 @@ export const OfferingUpdateContainer: FC<OwnProps> = (props) => {
   }
 
   return props.tabSpec ? (
-    <div className="provider-offering">
+    <div
+      className={classNames(
+        'provider-offering',
+        data.offering.state === 'Unavailable' && 'disabled-view',
+      )}
+    >
       <props.tabSpec.component
         offering={data.offering}
         category={data.category}

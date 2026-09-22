@@ -1,34 +1,54 @@
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { formValueSelector } from 'redux-form';
+import { Form } from 'react-final-form';
 import {
   openstackRoutersAddRouterInterface,
   openstackPortsList,
   openstackSubnetsList,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { RESOURCE_ACTION_FORM } from '@waldur/resource/actions/constants';
-import { ResourceActionDialog } from '@waldur/resource/actions/ResourceActionDialog';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { RootState } from '@waldur/store/reducers';
-
-const selector = formValueSelector(RESOURCE_ACTION_FORM);
-const typeSelector = (state: RootState): string => selector(state, 'type');
+import { LoadingErred } from '@/core/LoadingErred';
+import { RadioGroup, SelectGroup } from '@/form';
+import { translate } from '@/i18n';
+import { ActionDialogFinal } from '@/modal/ActionDialogFinal';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { renderFieldOrDash } from '@/table/utils';
 
 const typeChoices = [
   { value: 'subnet', label: translate('Subnet') },
   { value: 'port', label: translate('Port') },
 ];
 
-export const AddRouterInterfaceDialog = ({ resolve: { router } }) => {
-  const dispatch = useDispatch();
-  const type = useSelector(typeSelector);
+export const AddRouterInterfaceDialog = ({
+  // refetchTable, not refetch: the dialog already has a react-query refetch of
+  // its own for the subnet/port options below.
+  resolve: { router, refetch: refetchTable },
+}) => {
+  const mutation = useManagedMutation<
+    any,
+    any,
+    { type: 'subnet' | 'port'; resource: string }
+  >({
+    mutationFn: (formData) => {
+      const body =
+        formData.type === 'subnet'
+          ? { subnet: formData.resource }
+          : { port: formData.resource };
 
-  const query = useQuery({
-    queryKey: ['AddRouterInterface', router.tenant_uuid],
+      return openstackRoutersAddRouterInterface({
+        path: { uuid: router.uuid },
+        body,
+      });
+    },
+    successMessage: translate('Router interface was added.'),
+    errorMessage: translate('Unable to add router interface.'),
+    refetch: refetchTable,
+  });
+
+  const { data, isLoading, error, refetch } = useQuery({
+    // router.uuid, not just the tenant: the port options exclude the subnets
+    // this router already serves, so two routers of one tenant would otherwise
+    // share a cache entry and offer each other's subnets.
+    queryKey: ['AddRouterInterface', router.tenant_uuid, router.uuid],
 
     queryFn: async () => {
       const subnets = (
@@ -51,74 +71,69 @@ export const AddRouterInterfaceDialog = ({ resolve: { router } }) => {
     },
   });
 
-  const fields = useMemo(
-    () =>
-      query.data
-        ? [
-            {
-              name: 'type',
-              label: translate('Type'),
-              type: 'radio',
-              required: true,
-              choices: typeChoices,
-              direction: 'horizontal',
-            },
-            {
-              name: 'resource',
-              label:
-                type === 'subnet'
-                  ? translate('Select subnet')
-                  : translate('Select existing port'),
-              type: 'select',
-              required: true,
-              options:
-                type === 'subnet'
-                  ? query.data.subnets.map((subnet) => ({
-                      value: subnet.url,
-                      label: `${subnet.name} (${subnet.cidr})`,
-                    }))
-                  : query.data.ports.map((port) => {
-                      const ips = port.fixed_ips?.length
-                        ? port.fixed_ips.map((fip) => fip.ip_address).join(', ')
-                        : '—';
-                      const mac = port.mac_address || '—';
-                      const nameOrUuid = port.name || port.uuid;
-                      return {
-                        value: port.url,
-                        label: `${ips} (${mac}) / ${nameOrUuid}`.trim(),
-                      };
-                    }),
-            },
-          ]
-        : [],
-    [type, query.data],
-  );
-
   return (
-    <ResourceActionDialog
-      dialogTitle={translate('Add router interface')}
-      formFields={fields}
-      loading={query.isLoading}
-      error={query.error}
-      initialValues={{ type: typeChoices[0].value, resource: '' }}
-      submitForm={async (formData) => {
+    <Form
+      onSubmit={async (values) => {
         try {
-          const body =
-            formData.type === 'subnet'
-              ? { subnet: formData.resource }
-              : { port: formData.resource };
-          await openstackRoutersAddRouterInterface({
-            path: { uuid: router.uuid },
-            body,
-          });
-          dispatch(showSuccess(translate('Router interface was added.')));
-          dispatch(closeModalDialog());
-        } catch (e) {
-          dispatch(
-            showErrorResponse(e, translate('Unable to add router interface.')),
-          );
+          await mutation.mutateAsync(values as any);
+        } catch {
+          // Handled by useManagedMutation
         }
       }}
+      initialValues={{ type: typeChoices[0].value, resource: '' }}
+      render={({ handleSubmit, submitting, invalid, values }) => (
+        <ActionDialogFinal
+          title={translate('Add router interface')}
+          onSubmit={handleSubmit}
+          submitting={submitting}
+          invalid={invalid}
+          loading={isLoading}
+        >
+          {error ? (
+            <LoadingErred loadData={refetch} />
+          ) : data ? (
+            <>
+              <RadioGroup
+                name="type"
+                label={translate('Type')}
+                required
+                choices={typeChoices}
+                direction="horizontal"
+              />
+              <SelectGroup
+                name="resource"
+                label={
+                  values.type === 'subnet'
+                    ? translate('Select subnet')
+                    : translate('Select existing port')
+                }
+                required
+                simpleValue
+                options={
+                  values.type === 'subnet'
+                    ? data.subnets.map((subnet) => ({
+                        value: subnet.url,
+                        label: `${subnet.name} (${subnet.cidr})`,
+                      }))
+                    : data.ports.map((port) => {
+                        const ips = port.fixed_ips?.length
+                          ? port.fixed_ips
+                              .map((fip) => fip.ip_address)
+                              .join(', ')
+                          : '—';
+                        const mac = renderFieldOrDash(port.mac_address);
+                        const nameOrUuid = port.name || port.uuid;
+                        return {
+                          value: port.url,
+                          label: `${ips} (${mac}) / ${nameOrUuid}`.trim(),
+                        };
+                      })
+                }
+              />
+            </>
+          ) : null}
+        </ActionDialogFinal>
+      )}
     />
   );
 };

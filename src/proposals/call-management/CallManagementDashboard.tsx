@@ -1,20 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 import { Card, Col, Row } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
 import { callManagingOrganisationsStatsRetrieve } from 'waldur-js-client';
 
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { StatisticsCard } from '@waldur/core/StatisticsCard';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
+import { STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { StatisticsCard } from '@/core/StatisticsCard';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
 import {
   getCallStateOptions,
   getProposalStateOptions,
   getReviewStateOptions,
-} from '@waldur/proposals/utils';
-import { getCustomer } from '@waldur/workspace/selectors';
+} from '@/proposals/utils';
+import { useCustomer } from '@/workspace/hooks';
 
 const FlatStatistics = ({ count, title }) => {
   return (
@@ -59,7 +59,7 @@ const getReviewState = (states: string[]) => ({
 });
 
 export const CallManagementDashboard = () => {
-  const customer = useSelector(getCustomer);
+  const customer = useCustomer();
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: [
       'call-management-dashboard',
@@ -71,7 +71,7 @@ export const CallManagementDashboard = () => {
         path: { uuid: customer.call_managing_organization_uuid },
       }).then((response) => response.data),
 
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_TIME,
   });
 
   return (

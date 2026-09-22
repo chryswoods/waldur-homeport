@@ -1,18 +1,28 @@
 import { useQuery } from '@tanstack/react-query';
+import {
+  openportalProjectEmailPolicyRetrieve,
+  type ProjectEmailPolicyResponse,
+} from 'waldur-js-client';
 
-import { isFeatureVisible } from '@waldur/features/connect';
-import { ProjectFeatures } from '@waldur/FeaturesEnums';
-import { get } from '@waldur/openportal/api';
-import type { AwardDetails } from '@waldur/openportal/bindings/AwardDetails';
+import { STALE_TIME } from '@/core/constants';
+import { isFeatureVisible } from '@/features/connect';
+import { ProjectFeatures } from '@/FeaturesEnums';
 
-interface EmailPolicy {
-  allowed_domains: AwardDetails['allowed_domains'];
-}
-
+/**
+ * The email-domain policy enforced for a project, when the deployment enforces
+ * one. Backed by waldur_openportal's project_email_policy endpoint.
+ */
 export const useProjectEmailPolicy = (projectUuid: string | undefined) =>
-  useQuery<EmailPolicy>({
+  useQuery<ProjectEmailPolicyResponse>({
     queryKey: ['project-email-policy', projectUuid],
-    queryFn: () => get<EmailPolicy>(`/openportal/project_email_policy/${projectUuid}/`),
-    enabled: Boolean(projectUuid) && isFeatureVisible(ProjectFeatures.enforce_allowed_domains),
-    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data } = await openportalProjectEmailPolicyRetrieve({
+        path: { project_uuid: projectUuid },
+      });
+      return data;
+    },
+    enabled:
+      Boolean(projectUuid) &&
+      isFeatureVisible(ProjectFeatures.enforce_allowed_domains),
+    staleTime: STALE_TIME,
   });

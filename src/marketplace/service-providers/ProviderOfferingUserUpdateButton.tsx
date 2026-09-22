@@ -1,17 +1,14 @@
 import { ChatTeardropTextIcon, PencilSimpleIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
-import { useDispatch } from 'react-redux';
-import { PublicOfferingDetails } from 'waldur-js-client';
+import { PublicOfferingDetails, ServiceProvider } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { useUser } from '@waldur/workspace/hooks';
-
-import { ServiceProvider } from '../types';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { useUser } from '@/workspace/hooks';
 
 import { ProviderOfferingUserUpdateDialogProps } from './ProviderOfferingUserUpdateDialog';
 
@@ -23,11 +20,11 @@ const ProviderOfferingUserUpdateDialog = lazyComponent(() =>
 
 export const ProviderOfferingUserUpdateButton: FC<
   ProviderOfferingUserUpdateDialogProps['resolve'] & {
-    provider: ServiceProvider;
+    provider?: ServiceProvider;
     offering?: PublicOfferingDetails;
   }
 > = (props) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const user = useUser();
   const canUpdateOfferingUser = hasPermission(user, {
     permission: PermissionEnum.UPDATE_OFFERING_USER,
@@ -35,8 +32,13 @@ export const ProviderOfferingUserUpdateButton: FC<
       ? props.provider.customer_uuid
       : props.offering
         ? props.offering.customer_uuid
-        : undefined,
+        : props.row.customer_uuid, // Use row's customer_uuid for admin context
   });
+
+  if (props.updateScope === 'runtime_state' && props.row.state === 'Deleted') {
+    // We cannot update the runtime state of a deleted offering user
+    return null;
+  }
 
   const icon =
     props.updateScope === 'comment' ? (
@@ -53,15 +55,17 @@ export const ProviderOfferingUserUpdateButton: FC<
             ? translate('Edit comment')
             : props.updateScope === 'state'
               ? translate('Update account state')
-              : translate('Edit external username')
+              : props.updateScope === 'runtime_state'
+                ? translate('Update runtime state')
+                : props.updateScope === 'posix'
+                  ? translate('Edit POSIX attributes')
+                  : translate('Edit external username')
         }
         action={() =>
-          dispatch(
-            openModalDialog(ProviderOfferingUserUpdateDialog, {
-              resolve: props,
-              size: 'lg',
-            }),
-          )
+          openDialog(ProviderOfferingUserUpdateDialog, {
+            resolve: props,
+            size: 'lg',
+          })
         }
         iconNode={icon}
       />

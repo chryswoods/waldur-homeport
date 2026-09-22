@@ -1,171 +1,233 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from '@uirouter/react';
-import React, { useEffect } from 'react';
-import { connect, useSelector } from 'react-redux';
-import { SubmissionError, reduxForm } from 'redux-form';
+import { FC, useCallback, useEffect, useMemo } from 'react';
+import { Form, useForm } from 'react-final-form';
 import {
   callManagingOrganisationsList,
+  proposalProtectedCallsAvailableComplianceChecklistsList,
   proposalProtectedCallsCreate,
   proposalProtectedCallsPartialUpdate,
 } from 'waldur-js-client';
 
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { required } from '@waldur/core/validators';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { SubmitButton } from '@waldur/form';
-import { FormContainer } from '@waldur/form/FormContainer';
-import MarkdownEditor from '@waldur/form/MarkdownEditor';
-import { StringField } from '@waldur/form/StringField';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { SHORT_STALE_TIME, STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { required } from '@/core/validators';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { SubmitButton, StringGroup, SelectGroup, MarkdownGroup } from '@/form';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useNotify } from '@/store/notify';
+import { useCustomer } from '@/workspace/hooks';
 
-interface FormData {
+interface CallFormData {
   name: string;
   description: string;
   manager: string;
+  compliance_checklist?: string;
+  external_url?: string;
 }
 
-export const CallFormDialog = connect<{}, {}, { resolve: { call?; refetch } }>(
-  (_, ownProps) => ({
-    initialValues: ownProps.resolve?.call,
-  }),
-)(
-  reduxForm<FormData, { resolve: { call?; refetch } }>({
-    form: 'ProposalCallForm',
-  })((props) => {
-    const customer = useSelector(getCustomer);
-    const router = useRouter();
-    const {
-      data: manager,
-      isLoading: loadingManager,
-      error: errorManager,
-      refetch,
-    } = useQuery({
-      queryKey: ['CallManagingOrganizations', customer.uuid],
+interface CallFormDialogProps {
+  resolve: { call?; refetch };
+}
 
-      queryFn: () =>
-        callManagingOrganisationsList({
-          query: { customer_uuid: customer.uuid },
-        }).then((response) => response.data[0]),
+const ManagerInitializer: FC<{ manager; isEdit: boolean }> = ({
+  manager,
+  isEdit,
+}) => {
+  const form = useForm();
+  useEffect(() => {
+    if (manager && !isEdit) {
+      form.change('manager', manager.url);
+    }
+  }, [manager, isEdit, form]);
+  return null;
+};
 
-      staleTime: 60 * 1000,
-    });
-    const isEdit = Boolean(props.resolve.call?.uuid);
+export const CallFormDialog: FC<CallFormDialogProps> = ({
+  resolve: { call, refetch: resolveRefetch },
+}) => {
+  const { showErrorResponse, showSuccess } = useNotify();
+  const { closeDialog } = useModal();
+  const customer = useCustomer();
+  const router = useRouter();
 
-    useEffect(() => {
-      if (manager && !isEdit) {
-        props.change('manager', manager.url);
-      }
-    }, [manager, isEdit]);
+  const {
+    data: manager,
+    isLoading: loadingManager,
+    error: errorManager,
+    refetch,
+  } = useQuery({
+    queryKey: ['CallManagingOrganizations', customer.uuid],
+    queryFn: () =>
+      callManagingOrganisationsList({
+        query: { customer_uuid: customer.uuid },
+      }).then((response) => response.data[0]),
+    staleTime: SHORT_STALE_TIME,
+  });
 
-    const processRequest = React.useCallback(
-      (values: FormData, dispatch) => {
-        let action;
+  const {
+    data: complianceChecklists,
+    isLoading: loadingChecklists,
+    error: errorChecklists,
+  } = useQuery({
+    queryKey: ['AvailableComplianceChecklists', customer.uuid],
+    queryFn: () =>
+      proposalProtectedCallsAvailableComplianceChecklistsList({
+        query: {
+          checklist_type: 'proposal_compliance',
+          customer_uuid: customer.uuid,
+        },
+      }).then((response) => response.data),
+    enabled: !!customer?.uuid,
+    staleTime: STALE_TIME,
+  });
+
+  const isEdit = Boolean(call?.uuid);
+
+  const initialValues = useMemo(() => call || {}, [call]);
+
+  const processRequest = useCallback(
+    async (values: CallFormData) => {
+      const requestBody = {
+        ...values,
+        compliance_checklist:
+          (values.compliance_checklist as any)?.value ||
+          values.compliance_checklist ||
+          null,
+      };
+
+      try {
+        let res;
         if (isEdit) {
-          action = proposalProtectedCallsPartialUpdate({
-            body: values,
-            path: { uuid: props.resolve.call.uuid },
+          res = await proposalProtectedCallsPartialUpdate({
+            body: requestBody,
+            path: { uuid: call.uuid },
           });
         } else {
-          action = proposalProtectedCallsCreate({ body: values });
+          res = await proposalProtectedCallsCreate({ body: requestBody });
         }
 
-        return action
-          .then((res) => {
-            if (isEdit) props.resolve.refetch();
-            dispatch(
-              showSuccess(
-                isEdit
-                  ? translate('The call has been updated.')
-                  : translate('The call has been created.'),
-              ),
-            );
-            dispatch(closeModalDialog());
-            if (!isEdit && res.data?.uuid) {
-              router.stateService.go('protected-call.main', {
-                call_uuid: res.data.uuid,
-              });
-            }
-          })
-          .catch((e) => {
-            dispatch(
-              showErrorResponse(
-                e,
-                isEdit
-                  ? translate('Unable to update call.')
-                  : translate('Unable to create call.'),
-              ),
-            );
-            if (e.response && e.response.status === 400) {
-              throw new SubmissionError(e.response.data);
-            }
+        if (isEdit) resolveRefetch();
+        showSuccess(
+          isEdit
+            ? translate('The call has been updated.')
+            : translate('The call has been created.'),
+        );
+        closeDialog();
+        if (!isEdit && res.data?.uuid) {
+          router.stateService.go('protected-call.main', {
+            call_uuid: res.data.uuid,
           });
-      },
-      [props.resolve, router],
-    );
+        }
+      } catch (e) {
+        showErrorResponse(
+          e,
+          isEdit
+            ? translate('Unable to update call.')
+            : translate('Unable to create call.'),
+        );
+        if (e.response && e.response.status === 400) {
+          return e.response.data;
+        }
+      }
+    },
+    [
+      call,
+      resolveRefetch,
+      router,
+      showSuccess,
+      showErrorResponse,
+      closeDialog,
+      isEdit,
+    ],
+  );
 
-    if (loadingManager) {
-      return <LoadingSpinner />;
-    } else if (errorManager) {
-      return (
-        <LoadingErred
-          message={translate('Unable to prepare the form.')}
-          loadData={refetch}
-        />
-      );
-    }
+  if (loadingManager || loadingChecklists) {
+    return <LoadingSpinner />;
+  } else if (errorManager || errorChecklists) {
     return (
-      <form onSubmit={props.handleSubmit(processRequest)}>
-        <ModalDialog
-          title={
-            isEdit
-              ? translate('Edit {title}', {
-                  title: props.resolve.call.name,
-                })
-              : translate('Create call')
-          }
-          closeButton
-          footer={
-            <SubmitButton
-              disabled={props.invalid}
-              submitting={props.submitting}
-              label={isEdit ? translate('Edit') : translate('Create')}
-            />
-          }
-        >
-          <FormContainer submitting={props.submitting} className="size-lg">
-            <StringField
-              label={translate('Name')}
-              name="name"
-              required
-              validate={required}
-            />
+      <LoadingErred
+        message={translate('Unable to prepare the form.')}
+        loadData={refetch}
+      />
+    );
+  }
 
-            {isEdit && (
-              <MarkdownEditor
-                name="description"
-                required
-                autoFocus
-                hideLabel
-                spaceless
+  const checklistOptions = complianceChecklists
+    ? complianceChecklists.map((checklist) => ({
+        value: checklist.uuid,
+        label: checklist.name,
+      }))
+    : [];
+
+  return (
+    <Form<CallFormData>
+      onSubmit={processRequest}
+      initialValues={initialValues}
+      render={({ handleSubmit, submitting, invalid }) => (
+        <form onSubmit={handleSubmit}>
+          <ManagerInitializer manager={manager} isEdit={isEdit} />
+          <ModalDialog
+            title={
+              isEdit
+                ? translate('Edit {title}', { title: call.name })
+                : translate('Create call')
+            }
+            footer={
+              <SubmitButton
+                disabled={invalid}
+                submitting={submitting}
+                label={isEdit ? translate('Edit') : translate('Create')}
               />
-            )}
-            {isEdit && isFeatureVisible(MarketplaceFeatures.call_only) && (
-              <StringField
-                label={translate('External URL')}
-                name="external_url"
+            }
+          >
+            <div className="size-lg">
+              <StringGroup
+                label={translate('Name')}
+                name="name"
                 required
                 validate={required}
+                disabled={submitting}
               />
-            )}
-          </FormContainer>
-        </ModalDialog>
-      </form>
-    );
-  }),
-);
+
+              {isEdit && (
+                <MarkdownGroup
+                  name="description"
+                  label={translate('Description')}
+                  autoFocus
+                />
+              )}
+              {isEdit && isFeatureVisible(MarketplaceFeatures.call_only) && (
+                <StringGroup
+                  label={translate('External URL')}
+                  name="external_url"
+                  required
+                  validate={required}
+                  disabled={submitting}
+                />
+              )}
+
+              <SelectGroup
+                label={translate('Compliance checklist')}
+                name="compliance_checklist"
+                options={checklistOptions}
+                isClearable={true}
+                placeholder={translate(
+                  'Select compliance checklist (optional)',
+                )}
+                description={translate(
+                  'Optional checklist that proposal applicants must complete for compliance evaluation. Can be changed only before any proposals are submitted.',
+                )}
+                isDisabled={submitting}
+              />
+            </div>
+          </ModalDialog>
+        </form>
+      )}
+    />
+  );
+};

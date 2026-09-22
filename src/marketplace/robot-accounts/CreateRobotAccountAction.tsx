@@ -1,14 +1,15 @@
 import { RobotIcon } from '@phosphor-icons/react';
-import { useDispatch } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { ActionItemType } from '@waldur/resource/actions/types';
-import { useUser } from '@waldur/workspace/hooks';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { ActionItemType } from '@/resource/actions/types';
+import { useUser } from '@/workspace/hooks';
+
+import { ResourceAction } from '../resources/actions/constants';
 
 const CreateRobotAccountDialog = lazyComponent(() =>
   import('./CreateRobotAccountDialog').then((module) => ({
@@ -17,16 +18,14 @@ const CreateRobotAccountDialog = lazyComponent(() =>
 );
 
 export const CreateRobotAccountAction: ActionItemType = ({ resource }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
 
   const callback = () =>
-    dispatch(
-      openModalDialog(CreateRobotAccountDialog, {
-        resolve: {
-          resource,
-        },
-      }),
-    );
+    openDialog(CreateRobotAccountDialog, {
+      resolve: {
+        resource,
+      },
+    });
   const user = useUser();
   if (
     !hasPermission(user, {
@@ -42,6 +41,8 @@ export const CreateRobotAccountAction: ActionItemType = ({ resource }) => {
       title={translate('Create robot account')}
       action={callback}
       iconNode={<RobotIcon weight="bold" />}
+      actionId={ResourceAction.CREATE_ROBOT_ACCOUNT}
+      resource={resource}
     />
   );
 };

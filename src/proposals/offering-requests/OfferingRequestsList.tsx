@@ -1,63 +1,50 @@
-import { FC } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
+import { FC, useMemo } from 'react';
 import {
   proposalRequestedOfferingsList,
-  ProposalRequestedOfferingsListData,
   ProtectedRound,
   ProviderRequestedOffering,
 } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { formatDateTime } from '@/core/dateUtils';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import {
+  ProposalRequestedOfferingsFilter,
+  selectProposalRequestedOfferingsFilter,
+  RequestedOfferingStatesOptions,
+  ProposalRequestedOfferingsFilterFormId,
+} from '@/table/generated/ProposalRequestedOfferingsFilter';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { useCustomer } from '@/workspace/hooks';
 
-import { OFFERING_REQUESTS_FILTER_FORM_ID } from '../constants';
 import { CallOfferingStateField } from '../details/CallOfferingStateField';
-import { getCallOfferingStateOptions } from '../utils';
 
 import { OfferingRequestItemActions } from './OfferingRequestItemActions';
 import { OfferingRequestsListExpandableRow } from './OfferingRequestsListExpandableRow';
-import { OfferingRequestsTableFilter } from './OfferingRequestsTableFilter';
 
 interface OfferingRequestsListProps {
   round: ProtectedRound;
 }
 
-const filtersSelctor = createSelector(
-  getCustomer,
-  getFormValues(OFFERING_REQUESTS_FILTER_FORM_ID),
-  (customer, filters: any) => {
-    const result: ProposalRequestedOfferingsListData['query'] = {};
-    result.o = ['-created'];
-    if (customer) {
-      result.provider_uuid = customer.uuid;
-    }
-    if (filters?.state) {
-      result.state = filters.state.map((option) => option.value);
-    }
-    if (filters?.organization) {
-      result.organization_uuid = filters.organization.uuid;
-    }
-    if (filters?.call) {
-      result.call = filters.call.url;
-    }
-    if (filters?.offering) {
-      result.offering = filters.offering.url;
-    }
-    return result;
-  },
-);
-
 export const OfferingRequestsList: FC<OfferingRequestsListProps> = () => {
-  const filter = useSelector(filtersSelctor);
+  const customer = useCustomer();
+  const values = useFilterValues('ProposalRequestedOfferingsList');
+
+  const formFilters = useMemo(
+    () => selectProposalRequestedOfferingsFilter(values),
+    [values],
+  );
+
+  const filter = useMemo(
+    () => ({ provider_uuid: customer?.uuid, o: ['-created'], ...formFilters }),
+    [customer?.uuid, formFilters],
+  );
 
   const tableProps = useTable({
     table: 'ProposalRequestedOfferingsList',
+    syncFiltersToURL: true,
     fetchData: createFetcher(proposalRequestedOfferingsList),
     queryField: 'call_name',
     filter,
@@ -76,7 +63,7 @@ export const OfferingRequestsList: FC<OfferingRequestsListProps> = () => {
         {
           title: translate('Call manager'),
           render: ({ row }) => <>{row.call_managing_organisation}</>,
-          filter: 'organization',
+          filter: 'organization_uuid',
         },
         {
           title: translate('Offering'),
@@ -98,7 +85,7 @@ export const OfferingRequestsList: FC<OfferingRequestsListProps> = () => {
           render: CallOfferingStateField,
           filter: 'state',
           inlineFilter: (row) =>
-            getCallOfferingStateOptions().filter((s) => s.value === row.state),
+            RequestedOfferingStatesOptions.filter((s) => s.value === row.state),
         },
         {
           title: translate('Created at'),
@@ -111,7 +98,8 @@ export const OfferingRequestsList: FC<OfferingRequestsListProps> = () => {
       hasQuery={true}
       expandableRow={OfferingRequestsListExpandableRow}
       rowActions={OfferingRequestItemActions}
-      filters={<OfferingRequestsTableFilter />}
+      filters={<ProposalRequestedOfferingsFilter />}
+      formId={ProposalRequestedOfferingsFilterFormId}
     />
   );
 };

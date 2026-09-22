@@ -1,4 +1,4 @@
-import { useAsync } from 'react-use';
+import { useQuery } from '@tanstack/react-query';
 import {
   keysRetrieve,
   OpenStackFlavor,
@@ -18,17 +18,17 @@ import {
   SshKey,
 } from 'waldur-js-client';
 
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { getUUID } from '@waldur/core/utils';
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
-import { OrderDetailsProps } from '@waldur/marketplace/types';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { getUUID } from '@/core/utils';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import { OrderDetailsProps } from '@/marketplace/types';
 import {
   formatSubnet,
   formatVolumeTypeLabel,
   getDefaultFloatingIps,
-} from '@waldur/openstack/openstack-instance/utils';
-import { formatFlavor } from '@waldur/resource/utils';
+} from '@/openstack/openstack-instance/utils';
+import { formatFlavor } from '@/resource/utils';
 
 export const OpenstackInstanceDetails = (props: OrderDetailsProps) => {
   const {
@@ -137,10 +137,13 @@ export const OpenstackInstanceDetails = (props: OrderDetailsProps) => {
     };
   };
   const {
-    loading,
+    isLoading: loading,
     error,
-    value: attributesData,
-  } = useAsync(() => loadData(attributes));
+    data: attributesData,
+  } = useQuery({
+    queryKey: ['OpenstackInstanceDetails'],
+    queryFn: () => loadData(attributes),
+  });
 
   if (loading) return <LoadingSpinner />;
 
@@ -209,6 +212,13 @@ export const OpenstackInstanceDetails = (props: OrderDetailsProps) => {
       {typeof attributes['user_data'] == 'string' && (
         <FormTable.Item label={translate('User data')}>
           <pre>{attributes['user_data']}</pre>
+        </FormTable.Item>
+      )}
+      {typeof attributes['config_drive'] === 'boolean' && (
+        <FormTable.Item label={translate('Config drive')}>
+          {attributes['config_drive']
+            ? translate('Enabled')
+            : translate('Disabled')}
         </FormTable.Item>
       )}
     </>

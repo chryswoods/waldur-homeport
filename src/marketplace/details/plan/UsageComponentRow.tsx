@@ -1,14 +1,13 @@
 import { PlusMinusIcon } from '@phosphor-icons/react';
 import { FC, useCallback } from 'react';
-import { Button } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
 
-import { ENV } from '@waldur/core/config';
-import { defaultCurrency, formatCurrency } from '@waldur/core/formatCurrency';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
+import { ENV } from '@/core/config';
+import { defaultCurrency, formatCurrency } from '@/core/formatCurrency';
+import { lazyComponent } from '@/core/lazyComponent';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { ActionButton } from '@/table/ActionButton';
 
 import { Component, PlanPeriod } from './types';
 
@@ -25,20 +24,18 @@ interface UsageComponentRowProps {
 }
 
 export const UsageComponentRow: FC<UsageComponentRowProps> = (props) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const onClick = useCallback(
     () =>
-      dispatch(
-        openModalDialog(EstimateUsageComponentDialog, {
-          size: 'lg',
-          resolve: {
-            component: props.offeringComponent,
-            period: props.period,
-            hidePrices: props.hidePrices,
-          },
-        }),
-      ),
-    [dispatch, props],
+      openDialog(EstimateUsageComponentDialog, {
+        size: 'lg',
+        resolve: {
+          component: props.offeringComponent,
+          period: props.period,
+          hidePrices: props.hidePrices,
+        },
+      }),
+    [props],
   );
 
   const perPeriod = !props.period
@@ -107,10 +104,13 @@ export const UsageComponentRow: FC<UsageComponentRowProps> = (props) => {
               })}
             </div>
             <div className="estimate">
-              <Button variant="link" onClick={onClick} className="p-0">
-                <PlusMinusIcon size={16} weight="bold" className="me-2" />
-                {translate('Calculate price')}
-              </Button>
+              <ActionButton
+                variant="link"
+                action={onClick}
+                className="p-0"
+                iconNode={<PlusMinusIcon size={16} weight="bold" />}
+                title={translate('Calculate price')}
+              />
             </div>
           </>
         )

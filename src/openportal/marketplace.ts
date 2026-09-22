@@ -1,11 +1,11 @@
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { OfferingConfiguration } from '@waldur/marketplace/common/types';
-import { OPENPORTAL_PLUGIN } from '@waldur/openportal/constants';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { OfferingConfiguration } from '@/marketplace/common/types';
+import { OPENPORTAL_PLUGIN } from '@/openportal/constants';
 
-const OpenPortalCredentialsForm = lazyComponent(() =>
-  import('./OpenPortalCredentialsForm').then((module) => ({
-    default: module.OpenPortalCredentialsForm,
+const OpenPortalCredentialsSection = lazyComponent(() =>
+  import('./OpenPortalCredentialsSection').then((module) => ({
+    default: module.OpenPortalCredentialsSection,
   })),
 );
 
@@ -21,5 +21,5 @@ export const OpenPortalOffering: OfferingConfiguration = {
     return translate('OpenPortal allocation');
   },
   orderFormComponent: OpenPortalOrderForm,
-  credentialsForm: OpenPortalCredentialsForm,
+  credentialsSection: OpenPortalCredentialsSection,
 };

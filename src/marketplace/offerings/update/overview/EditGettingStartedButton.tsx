@@ -1,11 +1,8 @@
 import { FC } from 'react';
-import { useDispatch } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { EditButton } from '@waldur/form/EditButton';
-import { openModalDialog } from '@waldur/modal/actions';
-
-import { GETTING_STARTED_FORM_ID } from './constants';
+import { lazyComponent } from '@/core/lazyComponent';
+import { CompactEditButton } from '@/form/CompactEditButton';
+import { useModal } from '@/modal/actions';
 
 const EditGettingStartedDialog = lazyComponent(() =>
   import('./EditGettingStartedDialog').then((module) => ({
@@ -14,15 +11,12 @@ const EditGettingStartedDialog = lazyComponent(() =>
 );
 
 export const EditGettingStartedButton: FC<{ offering; refetch }> = (props) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const callback = () => {
-    dispatch(
-      openModalDialog(EditGettingStartedDialog, {
-        resolve: props,
-        formId: GETTING_STARTED_FORM_ID,
-        size: 'lg',
-      }),
-    );
+    openDialog(EditGettingStartedDialog, {
+      resolve: props,
+      size: 'lg',
+    });
   };
-  return <EditButton onClick={callback} size="sm" />;
+  return <CompactEditButton onClick={callback} variant="secondary" />;
 };

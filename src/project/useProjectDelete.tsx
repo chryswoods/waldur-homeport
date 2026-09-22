@@ -1,19 +1,19 @@
 import { useRouter } from '@uirouter/react';
-import { useDispatch, useSelector } from 'react-redux';
 import { projectsDestroy } from 'waldur-js-client';
 import { Project } from 'waldur-js-client';
 
-import { getCustomer as getCustomerApi } from '@waldur/customer/utils';
-import { formatJsxTemplate, translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { getCustomer as getCustomerApi } from '@/customer/utils';
+import { formatJsxTemplate, translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { useNotify } from '@/store/notify';
 import {
-  setCurrentCustomer,
-  setCurrentProject,
-} from '@waldur/workspace/actions';
-import { getProject, getUser } from '@waldur/workspace/selectors';
+  useUser,
+  useProject,
+  useSetProject,
+  useSetCustomer,
+} from '@/workspace/hooks';
 
 export const useProjectDelete = ({
   project,
@@ -22,11 +22,16 @@ export const useProjectDelete = ({
   project: Project;
   refetch?: () => void;
 }) => {
-  const router = useRouter();
-  const dispatch = useDispatch();
+  const { confirm } = useModal();
 
-  const user = useSelector(getUser);
-  const currentProject = useSelector(getProject);
+  const router = useRouter();
+  const setCurrentProject = useSetProject();
+  const setCurrentCustomer = useSetCustomer();
+
+  const { showErrorResponse, showSuccess } = useNotify();
+
+  const user = useUser();
+  const currentProject = useProject();
 
   const isCurrentProject = project.uuid === currentProject?.uuid;
   const canDelete =
@@ -42,8 +47,7 @@ export const useProjectDelete = ({
 
   const callback = async () => {
     try {
-      await waitForConfirmation(
-        dispatch,
+      await confirm(
         translate('Project removal'),
         translate(
           'Are you sure you would like to delete project {projectName}?',
@@ -63,31 +67,24 @@ export const useProjectDelete = ({
         await refetch();
       }
       const newCustomer = await getCustomerApi(project.customer_uuid);
-      dispatch(setCurrentCustomer(newCustomer));
+      setCurrentCustomer(newCustomer);
       if (isCurrentProject) {
         router.stateService.go('organization.projects', {
           uuid: project.customer_uuid,
         });
-        dispatch(setCurrentProject(undefined));
+        setCurrentProject(undefined);
       }
-      dispatch(
-        showSuccess(
-          translate(
-            'Project {project} from {organization} was successfully removed',
-            {
-              project: project.name,
-              organization: project.customer_name,
-            },
-          ),
+      showSuccess(
+        translate(
+          'Project {project} from {organization} was successfully removed',
+          {
+            project: project.name,
+            organization: project.customer_name,
+          },
         ),
       );
     } catch (e) {
-      dispatch(
-        showErrorResponse(
-          e,
-          translate('An error occurred on project removal.'),
-        ),
-      );
+      showErrorResponse(e, translate('An error occurred on project removal.'));
     }
   };
   return { canDelete, callback };

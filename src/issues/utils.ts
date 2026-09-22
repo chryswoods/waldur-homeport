@@ -2,10 +2,11 @@ import { DateTime } from 'luxon';
 import { useMemo } from 'react';
 import { Issue } from 'waldur-js-client';
 
-import { getUUID } from '@waldur/core/utils';
-import { PeriodOption } from '@waldur/form/types';
-import { usePresetBreadcrumbItems } from '@waldur/navigation/header/breadcrumb/utils';
-import { IBreadcrumbItem } from '@waldur/navigation/types';
+import { getUUID } from '@/core/utils';
+import { PeriodOption } from '@/form/types';
+import { makeLastTwelveMonthsFilterPeriods } from '@/form/utils';
+import { usePresetBreadcrumbItems } from '@/navigation/header/breadcrumb/utils';
+import { IBreadcrumbItem } from '@/navigation/types';
 
 export const getStartAndEndDatesOfMonth = (period: PeriodOption) => {
   const { year, month } = period;
@@ -14,6 +15,20 @@ export const getStartAndEndDatesOfMonth = (period: PeriodOption) => {
     start: dt.startOf('month').toISODate(),
     end: dt.endOf('month').toISODate(),
   };
+};
+
+export const makeLastTwelveMonthsFilterPeriodsAsCreatedRange = () => {
+  const choices = makeLastTwelveMonthsFilterPeriods();
+  return choices.map((choice) => {
+    const { start, end } = getStartAndEndDatesOfMonth(choice.value);
+    return {
+      label: choice.label,
+      value: {
+        created_after: start,
+        created_before: end,
+      },
+    };
+  });
 };
 
 export const useIssueBreadcrumbItems = (issue: Issue): IBreadcrumbItem[] => {
@@ -40,6 +55,7 @@ export const useIssueBreadcrumbItems = (issue: Issue): IBreadcrumbItem[] => {
         issue?.project_uuid &&
           getProjectBreadcrumbItem(
             {
+              url: issue.project,
               uuid: issue.project_uuid,
               name: issue.project_name,
               customer_uuid: issue.customer_uuid,
@@ -58,7 +74,7 @@ export const useIssueBreadcrumbItems = (issue: Issue): IBreadcrumbItem[] => {
         isUser && {
           key: 'user',
           text: issue?.caller_full_name || '...',
-          to: 'admin-user-user-manage',
+          to: 'support-user-manage',
           params: { user_uuid: issue?.caller_uuid },
           maxLength: 30,
           ellipsis: 'md',

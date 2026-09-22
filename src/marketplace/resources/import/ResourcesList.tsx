@@ -2,20 +2,20 @@ import { FunctionComponent, useMemo } from 'react';
 import {
   ImportableResource,
   marketplaceProviderOfferingsImportableResourcesList,
+  ProviderOfferingDetails as Offering,
 } from 'waldur-js-client';
 
-import { requiredArray } from '@waldur/core/validators';
-import { Select } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { Offering } from '@waldur/marketplace/types';
-import { ResourceIcon } from '@waldur/resource/ResourceIcon';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { requiredArray } from '@/core/validators';
+import { Select } from '@/form/select';
+import { translate } from '@/i18n';
+import { ResourceIconName } from '@/resource/ResourceIconName';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
 
 const NameField = ({ row }: { row: ImportableResource }) =>
   row.type ? (
-    <ResourceIcon
+    <ResourceIconName
       resource={{
         name: row.name,
         uuid: row.backend_id,
@@ -37,12 +37,17 @@ export const ResourcesList: FunctionComponent<{
     [categoryUuid],
   );
 
+  const fetchData = useMemo(
+    () =>
+      createFetcher(marketplaceProviderOfferingsImportableResourcesList, {
+        path: { uuid: offering.uuid },
+      }),
+    [offering.uuid],
+  );
+
   const tableProps = useTable({
     table: 'offeringImportableResources',
-    fetchData: createFetcher(
-      marketplaceProviderOfferingsImportableResourcesList,
-      { path: { uuid: offering.uuid } },
-    ),
+    fetchData,
     filter,
     queryField: 'name',
   });
@@ -88,7 +93,7 @@ export const ResourcesList: FunctionComponent<{
       hasQuery
       fieldType="checkbox"
       fieldName="resources"
-      validate={[requiredArray]}
+      validate={requiredArray}
     />
   );
 };

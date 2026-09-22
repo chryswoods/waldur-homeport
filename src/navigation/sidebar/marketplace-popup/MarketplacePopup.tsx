@@ -1,23 +1,21 @@
 import { debounce } from 'lodash-es';
-import { useCallback, useEffect, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { Col, Row } from 'react-bootstrap';
+import { Form, useForm, useFormState } from 'react-final-form';
 import { useDispatch, useSelector } from 'react-redux';
-import { getFormValues, reduxForm } from 'redux-form';
 import { Project } from 'waldur-js-client';
 
-import { FilterBox } from '@waldur/form/FilterBox';
-import { translate } from '@waldur/i18n';
-import { setMarketplaceFilter } from '@waldur/marketplace/landing/filter/store/actions';
-import { OrganizationAutocomplete } from '@waldur/marketplace/orders/OrganizationAutocomplete';
-import { ProjectFilter } from '@waldur/marketplace/resources/list/ProjectFilter';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { Customer } from '@waldur/workspace/types';
+import { FilterBox } from '@/form/FilterBox';
+import { translate } from '@/i18n';
+import { setMarketplaceFilter } from '@/marketplace/landing/filter/store/actions';
+import { OrganizationAutocomplete } from '@/marketplace/orders/OrganizationAutocomplete';
+import { ProjectAutocomplete } from '@/marketplace/resources/list/ProjectAutocomplete';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { Customer } from '@/workspace/types';
 
 import { sidebarResourcesFilterSelector } from '../resources-filter/utils';
 
 import { DataLoader } from './DataLoader';
-
-const ADD_RESOURCE_DIALOG_FORM = 'AddResourceDialogForm';
 
 interface MarketplacePopupProps {
   resolve?: {
@@ -28,63 +26,49 @@ interface MarketplacePopupProps {
 }
 
 interface FormData {
-  organization?: Customer;
-  project?: Project;
+  organization?: Pick<Customer, 'name' | 'uuid' | 'abbreviation'>;
+  project?: Pick<
+    Project,
+    'name' | 'uuid' | 'url' | 'customer_uuid' | 'is_industry'
+  >;
 }
 
-export const MarketplacePopup = reduxForm<FormData, MarketplacePopupProps>({
-  form: ADD_RESOURCE_DIALOG_FORM,
-  destroyOnUnmount: false,
-})((props) => {
+const MarketplacePopupForm: FC<{ categoryUuid?: string }> = ({
+  categoryUuid,
+}) => {
   const [filter, setFilter] = useState('');
+  const dispatch = useDispatch();
+  const form = useForm();
+  const { values } = useFormState<FormData>();
 
-  const dispatch = useDispatch<any>();
-  const formValues = useSelector(getFormValues(props.form)) as FormData;
+  const organization = values?.organization;
+  const project = values?.project;
+  const organizationUuid = organization?.uuid;
+  const projectCustomerUuid = project?.customer_uuid;
 
-  // Apply active sidebar resources filters
-  const sidebarResourcesFilters = useSelector(sidebarResourcesFilterSelector);
-
-  // Init filters (if exists)
-  // props.resolve filter is preferred over sidebar resources filter
-  const [ready, setReady] = useState(false); // To avoid unnecessary fetching of categories data
+  // Clear project filter if organization is cleared or changed
   useEffect(() => {
-    const preferredFilter =
-      props.resolve?.organization || props.resolve?.project
-        ? props.resolve
-        : sidebarResourcesFilters;
-    dispatch(props.change('organization', preferredFilter?.organization));
-    dispatch(props.change('project', preferredFilter?.project));
-    setReady(true);
-  }, []);
-
-  // Clear project filter if organization is cleared
-  useEffect(() => {
-    if (!formValues?.project || !formValues?.organization) return;
-    if (formValues.organization?.uuid !== formValues.project.customer_uuid) {
-      dispatch(props.change('project', undefined));
+    if (!project || !organization) return;
+    if (organizationUuid !== projectCustomerUuid) {
+      form.change('project', undefined);
     }
-  }, [formValues, props.change]);
+  }, [organizationUuid, projectCustomerUuid, project, organization, form]);
 
   useEffect(() => {
-    if (!formValues) {
-      return;
-    }
     dispatch(
       setMarketplaceFilter({
         name: 'organization',
-        value: formValues.organization,
+        value: organization,
       }),
     );
-    dispatch(
-      setMarketplaceFilter({ name: 'project', value: formValues.project }),
-    );
-  }, [formValues, props.change]);
+    dispatch(setMarketplaceFilter({ name: 'project', value: project }));
+  }, [organization, project, dispatch]);
 
   const applyQuery = useCallback(
     debounce((value) => {
       setFilter(String(value).trim());
     }, 500),
-    [setFilter],
+    [],
   );
 
   return (
@@ -93,9 +77,8 @@ export const MarketplacePopup = reduxForm<FormData, MarketplacePopupProps>({
       subtitle={translate(
         'Select an organization and project, then choose a category, an offering, and follow the prompts',
       )}
-      closeButton
+      headerClassName="pb-4"
       bodyClassName="p-0 pb-4"
-      headerClassName="border-0 pb-4"
     >
       <div id="marketplaces-selector">
         <div className="px-7">
@@ -106,9 +89,9 @@ export const MarketplacePopup = reduxForm<FormData, MarketplacePopupProps>({
               />
             </Col>
             <Col lg={6}>
-              <ProjectFilter
-                customer_uuid={formValues?.organization?.uuid}
-                isDisabled={!formValues?.organization?.uuid}
+              <ProjectAutocomplete
+                customer_uuid={values?.organization?.uuid}
+                isDisabled={!values?.organization?.uuid}
                 placeholder={translate('Select a project')}
               />
             </Col>
@@ -119,7 +102,6 @@ export const MarketplacePopup = reduxForm<FormData, MarketplacePopupProps>({
                 id="marketplaces-selector-search-box"
                 type="search"
                 placeholder={translate('Search an offering')}
-                inputClassName="placeholder-gray-700"
                 onChange={(e) => applyQuery(e.target.value)}
                 autoFocus
               />
@@ -127,15 +109,39 @@ export const MarketplacePopup = reduxForm<FormData, MarketplacePopupProps>({
           </Row>
         </div>
         <div className="border-bottom mx-7" />
-        {ready && (
-          <DataLoader
-            filter={filter}
-            customer={formValues?.organization}
-            project={formValues?.project}
-            categoryUuid={props.resolve?.categoryUuid}
-          />
-        )}
+        <DataLoader
+          filter={filter}
+          customer={values?.organization}
+          project={values?.project}
+          categoryUuid={categoryUuid}
+        />
       </div>
     </ModalDialog>
   );
-});
+};
+
+export const MarketplacePopup: FC<MarketplacePopupProps> = (props) => {
+  const sidebarResourcesFilters = useSelector(sidebarResourcesFilterSelector);
+
+  const initialValues = useMemo(() => {
+    const preferredFilter =
+      props.resolve?.organization || props.resolve?.project
+        ? props.resolve
+        : sidebarResourcesFilters;
+
+    return {
+      organization: preferredFilter?.organization,
+      project: preferredFilter?.project,
+    };
+  }, [props.resolve, sidebarResourcesFilters]);
+
+  return (
+    <Form<FormData>
+      onSubmit={() => {}}
+      initialValues={initialValues}
+      render={() => (
+        <MarketplacePopupForm categoryUuid={props.resolve?.categoryUuid} />
+      )}
+    />
+  );
+};

@@ -1,22 +1,20 @@
-import { FC, useCallback, useMemo } from 'react';
-import { useSelector } from 'react-redux';
-import { formValueSelector } from 'redux-form';
+import { FC, useCallback, useMemo, useState } from 'react';
 import {
   CallResourceTemplateRequest,
   proposalProtectedCallsResourceTemplatesSet,
   proposalProtectedCallsResourceTemplatesUpdate,
   ProviderRequestedOffering,
+  ProviderOfferingDetails as Offering,
+  ProviderPlanDetails as Plan,
 } from 'waldur-js-client';
 
-import { ProgressStep } from '@waldur/core/ProgressSteps';
-import { WizardFormContainer } from '@waldur/form/WizardFormContainer';
-import { translate } from '@waldur/i18n';
-import { Offering, Plan } from '@waldur/marketplace/types';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ResourceRequestWizardFormSecondPage as Step2Plan } from '@waldur/proposals/proposal/create/resource-requests-step/ResourceRequestWizardFormSecondPage';
-import { ResourceRequestWizardFormThirdPage as Step3AdditionalConfig } from '@waldur/proposals/proposal/create/resource-requests-step/ResourceRequestWizardFormThirdPage';
-import { Call } from '@waldur/proposals/types';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ResourceRequestWizardFormSecondPage as Step2Plan } from '@/proposals/proposal/create/resource-requests-step/ResourceRequestWizardFormSecondPage';
+import { ResourceRequestWizardFormThirdPage as Step3AdditionalConfig } from '@/proposals/proposal/create/resource-requests-step/ResourceRequestWizardFormThirdPage';
+import { Call } from '@/proposals/types';
+import { ProgressStep, WizardFormContainer } from '@/wizard';
 
 import { Step1General } from './Step1General';
 import { Step4FinalConfig } from './Step4FinalConfig';
@@ -69,51 +67,62 @@ export const ResourceTemplateFormDialog: FC<ResourceTemplateFormDialogProps> = (
   props,
 ) => {
   const isEdit = Boolean(props.resolve.uuid);
+  const { closeDialog } = useModal();
 
-  const submitForm = useCallback(
-    async (formData: ResourceTemplateFormData, dispatch, formProps) => {
-      try {
-        const body: CallResourceTemplateRequest = {
-          name: formData.name,
-          requested_offering: formData.offering.url,
-          description: formData.description,
-          limits: formData.limits || {},
-          attributes: formData.attributes || {},
-        };
-        if (isEdit) {
-          await proposalProtectedCallsResourceTemplatesUpdate({
-            path: {
-              uuid: props.resolve.call.uuid,
-              obj_uuid: props.resolve.uuid,
-            },
-            body,
-          });
-          dispatch(showSuccess(translate('Resource template updated')));
-        } else {
-          await proposalProtectedCallsResourceTemplatesSet({
-            path: { uuid: props.resolve.call.uuid },
-            body,
-          });
-          dispatch(
-            showSuccess(
-              translate('Resource template added to the call successfully'),
-            ),
-          );
-        }
-
-        formProps.destroy();
-        if (props.resolve.refetch) await props.resolve.refetch();
-        dispatch(closeModalDialog());
-      } catch (error) {
-        dispatch(showErrorResponse(error));
+  const submitFormMutation = useManagedMutation<
+    any,
+    any,
+    {
+      formData: ResourceTemplateFormData;
+    }
+  >({
+    mutationFn: (args) => {
+      const { formData } = args;
+      const body: CallResourceTemplateRequest = {
+        name: formData.name,
+        requested_offering: formData.offering.url,
+        description: formData.description,
+        limits: formData.limits || {},
+        attributes: formData.attributes || {},
+      };
+      if (isEdit) {
+        return proposalProtectedCallsResourceTemplatesUpdate({
+          path: {
+            uuid: props.resolve.call.uuid,
+            obj_uuid: props.resolve.uuid,
+          },
+          body,
+        });
+      } else {
+        return proposalProtectedCallsResourceTemplatesSet({
+          path: { uuid: props.resolve.call.uuid },
+          body,
+        });
       }
     },
-    [props.resolve.refetch],
+    successMessage: isEdit
+      ? translate('Resource template updated')
+      : translate('Resource template added to the call successfully'),
+    refetch: props.resolve.refetch,
+    onSuccess: () => {
+      closeDialog();
+    },
+  });
+
+  const submitForm = useCallback(
+    (formData) => submitFormMutation.mutateAsync({ formData }),
+    [submitFormMutation],
   );
 
-  /** Auto filling `mainOffering` in step 2 */
-  const mainOffering: Offering = useSelector((state) =>
-    formValueSelector('CallResourceTemplateForm')(state, 'mainOffering'),
+  const [mainOffering, setMainOffering] = useState<Offering>(null);
+
+  const handleFormChange = useCallback(
+    (values) => {
+      if (values?.mainOffering !== mainOffering) {
+        setMainOffering(values?.mainOffering);
+      }
+    },
+    [mainOffering],
   );
 
   const WizardStepsData = useMemo(() => {
@@ -140,6 +149,7 @@ export const ResourceTemplateFormDialog: FC<ResourceTemplateFormDialogProps> = (
       initialValues={props.initialValues}
       data={{ call: props.resolve.call }}
       modalProps={{ bodyClassName: 'h-500px' }}
+      onChange={handleFormChange}
     />
   );
 };

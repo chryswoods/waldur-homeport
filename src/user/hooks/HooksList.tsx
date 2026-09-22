@@ -1,15 +1,14 @@
-import { FunctionComponent } from 'react';
-import { useSelector } from 'react-redux';
-import { createSelector } from 'reselect';
+import { FunctionComponent, useMemo } from 'react';
 import { hooksList } from 'waldur-js-client';
 
-import { HooksRowActions } from '@waldur/administration/hooks/HooksRowActions';
-import { titleCase } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { getUser } from '@waldur/workspace/selectors';
+import { HooksRowActions } from '@/administration/hooks/HooksRowActions';
+import { titleCase } from '@/core/utils';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
+import { useUser } from '@/workspace/hooks';
 
 import { HOOK_LIST_ID } from './constants';
 import { HookCreateButton } from './HookCreateButton';
@@ -26,16 +25,19 @@ const StateField = ({ row }) => {
   );
 };
 
-const getDestinationField = (row) => row.destination_url || row.email || 'N/A';
+const getDestinationField = (row) =>
+  renderFieldOrDash(row.destination_url || row.email);
 const getEventsField = (row) =>
   row.event_groups.map(formatEventTitle).join(', ');
 
-const mapStateToProps = createSelector(getUser, (user) => ({
-  author_uuid: user.uuid,
-}));
-
 export const HooksList: FunctionComponent = () => {
-  const filter = useSelector(mapStateToProps);
+  const user = useUser();
+  const filter = useMemo(
+    () => ({
+      author_uuid: user?.uuid,
+    }),
+    [user],
+  );
   const props = useTable({
     table: HOOK_LIST_ID,
     fetchData: createFetcher(hooksList),
@@ -47,9 +49,10 @@ export const HooksList: FunctionComponent = () => {
       columns={[
         {
           title: translate('State'),
-          className: 'text-center all',
+          className: 'text-center',
           render: StateField,
           export: false,
+          width: '4%',
         },
         {
           title: translate('Method'),

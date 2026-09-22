@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 
-import { quotas } from '@waldur/openstack/openstack-instance/storyFixtures';
+import { quotas } from '@/openstack/openstack-instance/storyFixtures';
 import {
   exceeds,
   getSummary,
@@ -10,7 +10,7 @@ import {
   getAvailable,
   ProgressTooltipMessage,
   QuotaUsageBarChartDescription,
-} from '@waldur/quotas/QuotaUsageBarChart';
+} from '@/quotas/QuotaUsageBarChart';
 
 describe('exceeds', () => {
   it("should return false if quota's usage and required sum is less than limit", () => {
@@ -25,9 +25,19 @@ describe('exceeds', () => {
 });
 
 describe('getSummary', () => {
-  it('should return right message', () => {
-    const expected = '2 of 80 used';
-    expect(getSummary(quotas[0])).toEqual(expected);
+  it('includes existing and planned usage in the summary', () => {
+    expect(getSummary(quotas[0])).toEqual('4 of 80 used');
+  });
+
+  it('reflects planned usage when nothing is used yet', () => {
+    expect(
+      getSummary({
+        name: 'vcpu',
+        usage: 0,
+        limit: 8,
+        required: 4,
+      }),
+    ).toEqual('4 of 8 used');
   });
 });
 
@@ -44,8 +54,8 @@ describe('getPlanned', () => {
 });
 
 describe('getAvailable', () => {
-  it('should return right message', () => {
-    expect(getAvailable(quotas[0])).toEqual('Available quota usage: 78');
+  it('subtracts existing and planned usage from the limit', () => {
+    expect(getAvailable(quotas[0])).toEqual('Available quota usage: 76');
   });
 });
 
@@ -74,11 +84,11 @@ describe('QuotaUsageBarChartDescription', () => {
 
   it("should render danger message if quota's usage exceeds limit", () => {
     renderWrapper({ quota: quotas[1] });
-    expect(screen.getByTestId('warning')).toBeInTheDocument();
+    expect(screen.getByTestId('WarningIcon')).toBeInTheDocument();
   });
 
   it("should not render danger message if quota's usage does not exceed limit", () => {
     renderWrapper({ quota: quotas[0] });
-    expect(screen.queryByTestId('warning')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('WarningIcon')).not.toBeInTheDocument();
   });
 });

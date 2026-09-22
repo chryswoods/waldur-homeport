@@ -4,15 +4,16 @@ import {
   RemoteProjectUpdateRequest,
 } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { formatDateTime } from '@/core/dateUtils';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import { RemoteProjectUpdateRequestStateOptions } from '@/table/generated/MarketplaceProjectUpdateRequestsFilter';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 import { ProjectUpdateRequestActions } from './ProjectUpdateRequestActions';
 import { ProjectUpdateRequestExpandable } from './ProjectUpdateRequestExpandable';
-import { getStates } from './RequestStateFilter';
 
 export const BaseProjectUpdateRequestsList: FunctionComponent<{
   filter;
@@ -31,7 +32,7 @@ export const BaseProjectUpdateRequestsList: FunctionComponent<{
         {
           title: translate('Organization'),
           render: ({ row }) => row.customer_name,
-          filter: 'organization',
+          filter: 'customer_uuid',
           inlineFilter: (row) => ({
             name: row.customer_name,
             uuid: row.customer_uuid,
@@ -43,7 +44,9 @@ export const BaseProjectUpdateRequestsList: FunctionComponent<{
           render: ({ row }) => row.state,
           filter: 'state',
           inlineFilter: (row) =>
-            getStates().filter((s) => s.value === row.state),
+            RemoteProjectUpdateRequestStateOptions.filter(
+              (s) => s.value === row.state,
+            ),
         },
         {
           title: translate('Created'),
@@ -57,7 +60,7 @@ export const BaseProjectUpdateRequestsList: FunctionComponent<{
         },
         {
           title: translate('Reviewed by'),
-          render: ({ row }) => row.reviewed_by_full_name || 'N/A',
+          render: ({ row }) => renderFieldOrDash(row.reviewed_by_full_name),
         },
       ]}
       title={title || translate('Project updates')}

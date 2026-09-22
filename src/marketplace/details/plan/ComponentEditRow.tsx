@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Form } from 'react-bootstrap';
-import { Field, WrappedFieldProps } from 'redux-form';
+import { Field } from 'react-final-form';
+import { PublicOfferingDetails, Offering } from 'waldur-js-client';
 
-import { AwesomeCheckbox } from '@waldur/core/AwesomeCheckbox';
+import { AwesomeCheckbox } from '@/core/AwesomeCheckbox';
+import { composeValidators } from '@/core/validators';
 import {
   formatIntField,
-  parseIntField,
-} from '@waldur/marketplace/common/utils';
-import { getOfferingComponentValidator } from '@waldur/marketplace/offerings/store/limits';
+  getLimitParser,
+  getLimitStep,
+} from '@/marketplace/common/utils';
+import { getOfferingComponentValidator } from '@/marketplace/offerings/store/limits';
 
 import { ComponentRow, ComponentRow2 } from './ComponentRow';
 import { MeasuredUnitInput } from './MeasuredUnitInput';
@@ -18,10 +21,11 @@ interface ComponentEditRowProps {
   hidePrices?: boolean;
   period?: PlanPeriod;
   activePriceIndex?: number;
+  offering?: PublicOfferingDetails | Offering;
 }
 
 const RowWrapper = (
-  props: WrappedFieldProps & {
+  props: any & {
     offeringComponent: Component;
     concealBillingInfo?: boolean;
   },
@@ -39,6 +43,7 @@ const RowWrapper = (
     ) : (
       <Form.Control
         type="number"
+        step={getLimitStep(props.offeringComponent)}
         min={props.offeringComponent.min_value || 0}
         max={props.offeringComponent.max_value}
         {...props.input}
@@ -47,23 +52,33 @@ const RowWrapper = (
   </ComponentRow>
 );
 
-export const ComponentEditRow: React.FC<ComponentEditRowProps> = (props) => (
-  <Field
-    name={`limits.${props.component.type}`}
-    parse={parseIntField}
-    format={formatIntField}
-    validate={getOfferingComponentValidator(props.component)}
-    component={RowWrapper}
-    offeringComponent={props.component}
-  />
-);
+export const ComponentEditRow: React.FC<ComponentEditRowProps> = (props) => {
+  const validate = useMemo(
+    () => getOfferingComponentValidator(props.component),
+    [props.component.min_value, props.component.max_value],
+  );
+  const validateValue = composeValidators(...validate);
+
+  return (
+    <Field
+      name={`limits.${props.component.type}`}
+      parse={getLimitParser(props.component)}
+      format={formatIntField}
+      validate={validateValue}
+      component={RowWrapper}
+      offeringComponent={props.component}
+      offering={props.offering}
+    />
+  );
+};
 
 const RowWrapper2 = (
-  props: WrappedFieldProps & {
+  props: any & {
     offeringComponent: Component;
     hidePrices?: boolean;
     period?: PlanPeriod;
     activePriceIndex?: number;
+    offering: PublicOfferingDetails | Offering;
   },
 ) => (
   <ComponentRow2
@@ -89,16 +104,25 @@ const RowWrapper2 = (
   </ComponentRow2>
 );
 
-export const ComponentEditRow2: React.FC<ComponentEditRowProps> = (props) => (
-  <Field
-    name={`limits.${props.component.type}`}
-    parse={parseIntField}
-    format={formatIntField}
-    validate={getOfferingComponentValidator(props.component)}
-    component={RowWrapper2}
-    offeringComponent={props.component}
-    hidePrices={props.hidePrices}
-    period={props.period}
-    activePriceIndex={props.activePriceIndex}
-  />
-);
+export const ComponentEditRow2: React.FC<ComponentEditRowProps> = (props) => {
+  const validate = useMemo(
+    () => getOfferingComponentValidator(props.component),
+    [props.component.min_value, props.component.max_value],
+  );
+  const validateValue = composeValidators(...validate);
+
+  return (
+    <Field
+      name={`limits.${props.component.type}`}
+      parse={getLimitParser(props.component)}
+      format={formatIntField}
+      validate={validateValue}
+      component={RowWrapper2}
+      offeringComponent={props.component}
+      hidePrices={props.hidePrices}
+      period={props.period}
+      activePriceIndex={props.activePriceIndex}
+      offering={props.offering}
+    />
+  );
+};

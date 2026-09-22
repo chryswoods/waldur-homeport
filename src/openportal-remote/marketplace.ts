@@ -1,11 +1,11 @@
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { OfferingConfiguration } from '@waldur/marketplace/common/types';
-import { OPENPORTAL_REMOTE_PLUGIN } from '@waldur/openportal-remote/constants';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { OfferingConfiguration } from '@/marketplace/common/types';
+import { OPENPORTAL_REMOTE_PLUGIN } from '@/openportal-remote/constants';
 
-const OpenPortalRemoteCredentialsForm = lazyComponent(() =>
-  import('./OpenPortalRemoteCredentialsForm').then((module) => ({
-    default: module.OpenPortalRemoteCredentialsForm,
+const OpenPortalRemoteCredentialsSection = lazyComponent(() =>
+  import('./OpenPortalRemoteCredentialsSection').then((module) => ({
+    default: module.OpenPortalRemoteCredentialsSection,
   })),
 );
 
@@ -21,5 +21,5 @@ export const OpenPortalRemoteOffering: OfferingConfiguration = {
     return translate('OpenPortal remote allocation');
   },
   orderFormComponent: OpenPortalRemoteOrderForm,
-  credentialsForm: OpenPortalRemoteCredentialsForm,
+  credentialsSection: OpenPortalRemoteCredentialsSection,
 };

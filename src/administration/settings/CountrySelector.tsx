@@ -1,26 +1,41 @@
 import { FunctionComponent, useMemo, useState } from 'react';
-import { Button, Col, Row } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
+import { Col, Row } from 'react-bootstrap';
+import { Form } from 'react-final-form';
 import { overrideSettings } from 'waldur-js-client';
 
-import { formDataOptions } from '@waldur/core/api';
-import { AwesomeCheckboxField } from '@waldur/form/AwesomeCheckboxField';
-import { translate } from '@waldur/i18n';
-import { CountryFlag } from '@waldur/marketplace/common/CountryFlag';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { SettingsDescription } from '@waldur/SettingsDescription';
-import { useNotify } from '@waldur/store/hooks';
-import { TableQuery } from '@waldur/table/TableQuery';
+import { formDataOptions } from '@/core/api';
+import { SubmitButton, BooleanGroup } from '@/form';
+import { translate } from '@/i18n';
+import { CountryFlag } from '@/marketplace/common/CountryFlag';
+import { useModal } from '@/modal/actions';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { SettingsDescription } from '@/SettingsDescription';
+import { useNotify } from '@/store/notify';
+import { TableQuery } from '@/table/TableQuery';
 
-// Get the list of all available country codes from settings configuration default value
-const AVAILABLE_COUNTRIES =
-  (SettingsDescription.find(
-    (group) => group.description === translate('Marketplace Branding'),
-  )?.items.find(
-    (item) => item.key === 'COUNTRIES' && item.type === 'country_list_field',
-  )?.default as string[]) || [];
+interface CountryOption {
+  value: string;
+  label: string;
+}
+
+const COUNTRIES_SETTING = SettingsDescription.find(
+  (group) => group.description === translate('Marketplace Branding'),
+)?.items.find(
+  (item) => item.key === 'COUNTRIES' && item.type === 'country_list_field',
+) as unknown as { default?: string[]; options?: CountryOption[] } | undefined;
+
+// Every valid country is offered, not just the ones enabled by default.
+// Older backends do not expose the options, so fall back to the default set.
+const AVAILABLE_COUNTRIES: CountryOption[] = (
+  COUNTRIES_SETTING?.options ??
+  (COUNTRIES_SETTING?.default || []).map((code) => ({
+    value: code,
+    label: code,
+  }))
+)
+  .slice()
+  .sort((a, b) => a.label.localeCompare(b.label));
 
 interface CountrySelectorProps {
   resolve: {
@@ -29,26 +44,52 @@ interface CountrySelectorProps {
   };
 }
 
+interface CountrySelectorFormData {
+  countries: Record<string, boolean>;
+}
+
 export const CountrySelectorDialog: FunctionComponent<CountrySelectorProps> = ({
   resolve,
 }) => {
-  const dispatch = useDispatch();
+  const { closeDialog } = useModal();
   const { value = [], settingKey } = resolve;
   const [query, setQuery] = useState('');
   const { showError, showErrorResponse, showSuccess } = useNotify();
 
   // Handle array with single string element containing comma-separated values
-  const initialValue =
-    Array.isArray(value) && value.length === 1 && typeof value[0] === 'string'
-      ? value[0].split(',')
-      : Array.isArray(value)
-        ? value
-        : [];
+  const selectedCountries = useMemo(
+    () =>
+      Array.isArray(value) && value.length === 1 && typeof value[0] === 'string'
+        ? value[0].split(',')
+        : Array.isArray(value)
+          ? value
+          : [],
+    [value],
+  );
 
-  const [selectedCountries, setSelectedCountries] =
-    useState<string[]>(initialValue);
+  const initialValue = useMemo(
+    () =>
+      selectedCountries.reduce((acc, code) => ({ ...acc, [code]: true }), {}),
+    [selectedCountries],
+  );
 
-  const saveCountryOptions = async () => {
+  // A configured code that the backend does not know about must still be shown
+  // as selected, otherwise saving the dialog would silently drop it.
+  const countryOptions = useMemo(() => {
+    const known = new Set(AVAILABLE_COUNTRIES.map((option) => option.value));
+    const unknown = selectedCountries
+      .filter((code) => !known.has(code))
+      .map((code) => ({ value: code, label: code }));
+    return unknown.length
+      ? [...unknown, ...AVAILABLE_COUNTRIES]
+      : AVAILABLE_COUNTRIES;
+  }, [selectedCountries]);
+
+  const saveCountryOptions = async (values: CountrySelectorFormData) => {
+    const selectedCountries = Object.keys(values.countries || {}).filter(
+      (code) => values.countries[code],
+    );
+
     if (selectedCountries.length === 0) {
       showError(translate('Please select at least one country'));
     } else {
@@ -61,7 +102,7 @@ export const CountrySelectorDialog: FunctionComponent<CountrySelectorProps> = ({
           ...formDataOptions,
         });
         showSuccess(translate('Country list has been updated'));
-        dispatch(closeModalDialog());
+        closeDialog();
         window.location.reload();
       } catch (e) {
         showErrorResponse(e, translate('Unable to update country list'));
@@ -69,83 +110,81 @@ export const CountrySelectorDialog: FunctionComponent<CountrySelectorProps> = ({
     }
   };
 
-  const handleCountryChange = (code: string) => {
-    setSelectedCountries((prevSelectedCountries) => {
-      const isCodeSelected = prevSelectedCountries.includes(code);
-      if (isCodeSelected) {
-        return prevSelectedCountries.filter((country) => country !== code);
-      } else {
-        return [...prevSelectedCountries, code];
-      }
-    });
-  };
-
   const filteredCountries = useMemo(() => {
     const q = query.trim().toLowerCase();
     return !q
-      ? AVAILABLE_COUNTRIES
-      : AVAILABLE_COUNTRIES.filter((country) =>
-          country.toLowerCase().includes(q),
+      ? countryOptions
+      : countryOptions.filter(
+          (country) =>
+            country.value.toLowerCase().includes(q) ||
+            country.label.toLowerCase().includes(q),
         );
-  }, [query]);
+  }, [query, countryOptions]);
 
-  const isDirty =
-    JSON.stringify(selectedCountries.sort()) !==
-    JSON.stringify(initialValue.sort());
   return (
-    <ModalDialog
-      title={translate('Available countries')}
-      footer={
-        <>
-          <CloseDialogButton className="flex-grow-1" />
-          <Button
-            className="btn btn-primary flex-grow-1"
-            onClick={saveCountryOptions}
-            disabled={!isDirty}
-          >
-            {translate('Save')}
-          </Button>
-        </>
-      }
-    >
-      <div className="p-5">
-        <div className="mb-4">
-          <TableQuery query={query} setQuery={setQuery} />
-        </div>
-        <Row className="mb-n1">
-          {filteredCountries.map((countryCode) => (
-            <Col key={countryCode} sm={6} md={4}>
-              <div className="border-bottom py-5">
-                <AwesomeCheckboxField
-                  data-testid={`country_${countryCode}`}
-                  name={`country_${countryCode}`}
-                  alignMiddle
-                  className="justify-content-between flex-row-reverse"
-                  size="sm"
-                  input={
-                    {
-                      value: selectedCountries.includes(countryCode),
-                      onChange: () => handleCountryChange(countryCode),
-                    } as any
-                  }
-                  label={
-                    <div className="d-flex align-items-center">
-                      <div className="symbol symbol-20px me-2">
-                        <CountryFlag
-                          countryCode={countryCode}
-                          fontSize={16}
-                          className="lh-1"
-                        />
-                      </div>
-                      {countryCode}
-                    </div>
-                  }
-                />
-              </div>
-            </Col>
-          ))}
-        </Row>
-      </div>
-    </ModalDialog>
+    <Form<CountrySelectorFormData>
+      onSubmit={saveCountryOptions}
+      initialValues={{ countries: initialValue }}
+      render={({ handleSubmit, submitting, pristine }) => (
+        <ModalDialog
+          title={translate('Available countries')}
+          className="country-selector-modal"
+          bodyClassName="p-0"
+          footer={
+            <>
+              <CloseDialogButton className="flex-equal" />
+              <SubmitButton
+                submitting={submitting}
+                className="flex-equal"
+                onClick={handleSubmit}
+                disabled={pristine}
+                type="button"
+                label={translate('Save')}
+              />
+            </>
+          }
+        >
+          <div className="p-7">
+            <div className="mb-4">
+              <TableQuery query={query} setQuery={setQuery} />
+            </div>
+            <Row className="mb-n1">
+              {filteredCountries.map((country) => (
+                <Col key={country.value} sm={6} md={4}>
+                  <div className="border-bottom py-5">
+                    <BooleanGroup
+                      data-testid={`country_${country.value}`}
+                      name={`countries.${country.value}`}
+                      alignMiddle
+                      className="d-flex justify-content-between flex-row-reverse w-100"
+                      size="sm"
+                      label={
+                        <div className="d-flex align-items-center">
+                          <div className="symbol symbol-20px me-2">
+                            <CountryFlag
+                              countryCode={country.value}
+                              fontSize={16}
+                              className="lh-1"
+                            />
+                          </div>
+                          <span className="text-muted me-2">
+                            {country.value}
+                          </span>
+                          {country.label !== country.value && (
+                            <span className="text-truncate">
+                              {country.label}
+                            </span>
+                          )}
+                        </div>
+                      }
+                    />
+                  </div>
+                </Col>
+              ))}
+            </Row>
+          </div>
+        </ModalDialog>
+      )}
+    />
   );
 };

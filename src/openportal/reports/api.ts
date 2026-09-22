@@ -10,43 +10,51 @@
  * losing the entire mapping dictionary.
  */
 
-import { get, getAll, getAllWithProgress } from '@waldur/core/api';
+import {
+  openportalProjectUsageReportsList,
+  openportalProjectStorageReportsList,
+  OpenportalProjectUsageReportsListData,
+  OpenportalProjectStorageReportsListData,
+  Project,
+  openportalOfferingMappingRetrieve,
+  openportalProjectMappingRetrieve,
+  openportalUserMappingRetrieve,
+} from 'waldur-js-client';
+
+import { getAllPages } from '@/core/api';
+import type { ProgressCallback } from '@/core/api';
 
 import { getCached, setCached, TTL } from './localStorageCache';
 import { ProjectStorageReport } from './ProjectStorageReport';
 import { ProjectUsageReport } from './ProjectUsageReport';
-import {
-  StorageReportApiItem,
-  StorageReportFilters,
-  UsageReportApiItem,
-  UsageReportFilters,
-} from './types';
 
-function buildQuery(filters: object): string {
-  const params = new URLSearchParams(
-    Object.entries(filters)
-      .filter(([, v]) => v !== undefined && v !== null)
-      .map(([k, v]) => [k, String(v)]),
-  );
-  const s = params.toString();
-  return s ? `?${s}` : '';
+/** Extends the SDK Project type with OpenPortal-specific optional fields */
+export interface OpenPortalProject extends Omit<Project, 'is_in_grace_period'> {
+  is_expired?: boolean;
+  is_in_grace_period?: boolean;
 }
+
+type UsageReportFilters = OpenportalProjectUsageReportsListData['query'];
+
+type StorageReportFilters = OpenportalProjectStorageReportsListData['query'];
 
 /**
  * Fetch cached usage reports matching the given filters.
  * Returns one ProjectUsageReport per API envelope item.
  * Use ProjectUsageReport.combine() to merge them if needed.
  */
-type ProgressCallback = (page: number, totalPages: number | undefined) => void;
 
 export const fetchUsageReports = async (
   filters: UsageReportFilters = {},
   onProgress?: ProgressCallback,
-): Promise<ProjectUsageReport[]> => {
-  const endpoint = `/openportal-project-usage-reports/${buildQuery(filters)}`;
-  const items = onProgress
-    ? await getAllWithProgress<UsageReportApiItem>(endpoint, onProgress)
-    : await getAll<UsageReportApiItem>(endpoint);
+) => {
+  const items = await getAllPages(
+    (page: number) =>
+      openportalProjectUsageReportsList({
+        query: { ...filters, page, page_size: 100 },
+      }),
+    onProgress,
+  );
   return items.map(ProjectUsageReport.fromApiResponse);
 };
 
@@ -58,11 +66,14 @@ export const fetchUsageReports = async (
 export const fetchStorageReports = async (
   filters: StorageReportFilters = {},
   onProgress?: ProgressCallback,
-): Promise<ProjectStorageReport[]> => {
-  const endpoint = `/openportal-project-storage-reports/${buildQuery(filters)}`;
-  const items = onProgress
-    ? await getAllWithProgress<StorageReportApiItem>(endpoint, onProgress)
-    : await getAll<StorageReportApiItem>(endpoint);
+) => {
+  const items = await getAllPages(
+    (page: number) =>
+      openportalProjectStorageReportsList({
+        query: { ...filters, page, page_size: 100 },
+      }),
+    onProgress,
+  );
   return items.map(ProjectStorageReport.fromApiResponse);
 };
 
@@ -74,7 +85,7 @@ const MAPPING_BATCH_SIZE = 25;
 export const mappingBatchCount = (ids: string[]): number =>
   Math.ceil(ids.length / MAPPING_BATCH_SIZE);
 
-export type MappingProgressCallback = (batchesDone: number) => void;
+type MappingProgressCallback = (batchesDone: number) => void;
 
 /**
  * Fetch an identifier→info mapping, using per-identifier localStorage caching.
@@ -89,8 +100,9 @@ export type MappingProgressCallback = (batchesDone: number) => void;
  * the denominator computed by `mappingBatchCount(ids)` stays accurate.
  */
 async function fetchMappingBatched<T>(
-  endpoint: string,
+  cachePrefix: string,
   identifiers: string[],
+  fetcher: (identifiers: string[]) => Promise<Record<string, T>>,
   onProgress?: MappingProgressCallback,
 ): Promise<Record<string, T>> {
   if (identifiers.length === 0) return {};
@@ -100,7 +112,7 @@ async function fetchMappingBatched<T>(
 
   // Check per-identifier cache first
   for (const id of identifiers) {
-    const cached = getCached<T>(`map-${endpoint}-${id}`, TTL.MAPPINGS);
+    const cached = getCached<T>(`map-${cachePrefix}-${id}`, TTL.MAPPINGS);
     if (cached !== null) {
       result[id] = cached;
     } else {
@@ -118,14 +130,13 @@ async function fetchMappingBatched<T>(
   // Fetch uncached identifiers in batches
   for (let i = 0; i < uncachedIds.length; i += MAPPING_BATCH_SIZE) {
     const chunk = uncachedIds.slice(i, i + MAPPING_BATCH_SIZE);
-    const params = new URLSearchParams();
-    for (const id of chunk) params.append('identifier', id);
-    const data = await get<Record<string, T>>(`/openportal/${endpoint}/?${params}`);
+    const data = await fetcher(chunk);
     for (const [id, value] of Object.entries(data)) {
-      setCached(`map-${endpoint}-${id}`, value);
+      setCached(`map-${cachePrefix}-${id}`, value);
       result[id] = value as T;
     }
-    if (onProgress) onProgress(cachedBatches + Math.floor(i / MAPPING_BATCH_SIZE) + 1);
+    if (onProgress)
+      onProgress(cachedBatches + Math.floor(i / MAPPING_BATCH_SIZE) + 1);
   }
 
   return result;
@@ -137,6 +148,10 @@ async function fetchMappingBatched<T>(
  * cached (free) plus up to `maxNewLookups` of the rest — so a fresh-lookup
  * cap never re-excludes users whose name is already sitting in the cache.
  * Preserves the input order.
+ *
+ * Without this, a plain `slice(0, cap)` re-picks the same top-`cap` users on
+ * every load, so the users just below the cap are never learned no matter how
+ * many times the page is opened, and the cache stops paying for itself.
  */
 export function selectUserMappingIds(
   candidateIds: string[],
@@ -152,28 +167,44 @@ export function selectUserMappingIds(
   };
 }
 
-export interface OfferingInfo {
-  uuid: string;
-  name: string;
-  description: string;
-  slug: string;
-}
-export interface ProjectInfo {
-  uuid: string;
-  name: string;
-  customer_uuid: string;
-  customer_name: string;
-}
-export interface UserInfo {
-  uuid: string;
-  full_name: string;
-  username: string;
-  email: string;
-}
+export const fetchOfferingMapping = (
+  ids: string[],
+  onProgress?: MappingProgressCallback,
+) =>
+  fetchMappingBatched(
+    'offering_mapping',
+    ids,
+    (identifier) =>
+      openportalOfferingMappingRetrieve({ query: { identifier } }).then(
+        (res) => res.data,
+      ),
+    onProgress,
+  );
 
-export const fetchOfferingMapping = (ids: string[], onProgress?: MappingProgressCallback) =>
-  fetchMappingBatched<OfferingInfo>('offering_mapping', ids, onProgress);
-export const fetchProjectMapping = (ids: string[], onProgress?: MappingProgressCallback) =>
-  fetchMappingBatched<ProjectInfo>('project_mapping', ids, onProgress);
-export const fetchUserMapping = (ids: string[], onProgress?: MappingProgressCallback) =>
-  fetchMappingBatched<UserInfo>('user_mapping', ids, onProgress);
+export const fetchProjectMapping = (
+  ids: string[],
+  onProgress?: MappingProgressCallback,
+) =>
+  fetchMappingBatched(
+    'project_mapping',
+    ids,
+    (identifier) =>
+      openportalProjectMappingRetrieve({ query: { identifier } }).then(
+        (res) => res.data,
+      ),
+    onProgress,
+  );
+
+export const fetchUserMapping = (
+  ids: string[],
+  onProgress?: MappingProgressCallback,
+) =>
+  fetchMappingBatched(
+    'user_mapping',
+    ids,
+    (identifier) =>
+      openportalUserMappingRetrieve({ query: { identifier } }).then(
+        (res) => res.data,
+      ),
+    onProgress,
+  );

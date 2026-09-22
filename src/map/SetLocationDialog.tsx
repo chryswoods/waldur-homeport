@@ -1,12 +1,10 @@
 import { FunctionComponent } from 'react';
-import { connect } from 'react-redux';
-import { Field, reduxForm } from 'redux-form';
+import { Form, Field } from 'react-final-form';
 
-import { SubmitButton } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { LocationContainer } from '@waldur/map/LocationContainer';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
+import { FormFooter } from '@/form';
+import { translate } from '@/i18n';
+import { LocationContainer } from '@/map/LocationContainer';
+import { ModalDialog } from '@/modal/ModalDialog';
 
 import './SetLocationDialog.scss';
 import { GeolocationPoint } from './types';
@@ -19,36 +17,26 @@ interface SetLocationDialogProps {
   };
 }
 
-export const SetLocationDialog: FunctionComponent<SetLocationDialogProps> =
-  connect<{}, {}, SetLocationDialogProps>((_, props) => ({
-    initialValues: {
-      location: props.resolve.location,
-    },
-  }))(
-    reduxForm<{ location: GeolocationPoint }, SetLocationDialogProps>({
-      form: 'LocationEditor',
-    })(({ submitting, handleSubmit, invalid, resolve }) => {
-      const updateLocationHandler = ({ location }) => {
-        resolve.setLocationFn(location);
-      };
-      return (
-        <form onSubmit={handleSubmit(updateLocationHandler)}>
+export const SetLocationDialog: FunctionComponent<SetLocationDialogProps> = ({
+  resolve,
+}) => {
+  const updateLocationHandler = ({ location }) => {
+    resolve.setLocationFn(location);
+  };
+
+  return (
+    <Form
+      initialValues={{ location: resolve.location || {} }}
+      onSubmit={updateLocationHandler}
+      render={({ handleSubmit }) => (
+        <form onSubmit={handleSubmit}>
           <ModalDialog
             title={
               resolve.location
                 ? translate('Update location')
                 : translate('Set location')
             }
-            footer={
-              <>
-                <CloseDialogButton />
-                <SubmitButton
-                  disabled={invalid}
-                  submitting={submitting}
-                  label={translate('Save')}
-                />
-              </>
-            }
+            footer={<FormFooter submitLabel={translate('Save')} />}
           >
             <Field
               name="location"
@@ -57,6 +45,7 @@ export const SetLocationDialog: FunctionComponent<SetLocationDialogProps> =
             />
           </ModalDialog>
         </form>
-      );
-    }),
+      )}
+    />
   );
+};

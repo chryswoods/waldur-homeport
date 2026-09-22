@@ -1,62 +1,54 @@
 import { CheckCircleIcon } from '@phosphor-icons/react';
-import { useMutation } from '@tanstack/react-query';
-import { useDispatch } from 'react-redux';
+import classNames from 'classnames';
+import { openportalManagedProjectsApprove } from 'waldur-js-client';
 
-import { post } from '../api';
-import { LoadingSpinnerIcon } from '@waldur/core/LoadingSpinner';
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { wrapTooltip } from '@waldur/table/ActionButton';
+import { LoadingSpinnerSimple } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { wrapTooltip } from '@/table/ActionButton';
 
-import { embargoedUntil } from './utils';
+export const ApproveManagedProjectButton = ({
+  row,
+  as,
+  className,
+  refetch,
+}) => {
+  const project = row; // Assuming row is the project object
 
-export const ApproveManagedProjectButton = ({ row, as, className, refetch }) => {
-    const project = row; // Assuming row is the project object
-
-    if (!project) {
-        return null;
-    }
-
-    const dispatch = useDispatch();
-    const embargo = embargoedUntil(project);
-    const { mutate, isPending: isLoading } = useMutation({
-        mutationFn: async () => {
-            try {
-                await post(`/openportal-managed-projects/${project.identifier}/${project.destination}/approve/`);
-                if (refetch) {
-                    await refetch();
-                }
-                dispatch(showSuccess(translate('Project has been approved.')));
-            } catch (error) {
-                dispatch(
-                    showErrorResponse(error, translate('Unable to approve project.')),
-                );
-            }
+  const { mutate, isPending: isLoading } = useManagedMutation<any, any, void>({
+    mutationFn: () =>
+      openportalManagedProjectsApprove({
+        path: {
+          identifier: project.identifier,
+          destination: project.destination,
         },
-    });
+      }),
+    refetch,
+    successMessage: translate('Project has been approved.'),
+    errorMessage: translate('Unable to approve project.'),
+  });
 
-    const tooltip = embargo
-        ? translate('Embargoed until {{date}} — cannot approve yet.', { date: formatDateTime(embargo) })
-        : translate('Click to approve this project.');
+  if (!project) {
+    return null;
+  }
 
-    return wrapTooltip(
-        tooltip,
-        <>
-            {isLoading ? (
-                <LoadingSpinnerIcon className="me-1" />
-            ) : (
-                <ActionItem
-                    as={as}
-                    className={className + ' w-100'}
-                    title={translate('Approve')}
-                    action={mutate}
-                    disabled={isLoading || !!embargo}
-                    iconNode={<CheckCircleIcon weight="bold" />}
-                    size="sm"
-                />
-            )}
-        </>,
-    );
+  return wrapTooltip(
+    translate('Click to approve this project.'),
+    <>
+      {isLoading ? (
+        <LoadingSpinnerSimple className="me-1" />
+      ) : (
+        <ActionItem
+          as={as}
+          className={classNames(className, 'w-100')}
+          title={translate('Approve')}
+          action={mutate}
+          disabled={isLoading}
+          iconNode={<CheckCircleIcon weight="bold" />}
+          size="sm"
+        />
+      )}
+    </>,
+  );
 };

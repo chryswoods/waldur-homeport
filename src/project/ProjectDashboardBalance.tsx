@@ -1,10 +1,11 @@
+import classNames from 'classnames';
 import { Project } from 'waldur-js-client';
 
-import { defaultCurrency } from '@waldur/core/formatCurrency';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { WidgetCard } from '@waldur/dashboard/WidgetCard';
-import { translate } from '@waldur/i18n';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { WidgetCard } from '@/dashboard/WidgetCard';
+import { translate } from '@/i18n';
 
 import { useProjectCreditChart } from './utils';
 
@@ -15,8 +16,7 @@ export const ProjectDashboardBalance = ({
   project: Project;
   className?: string;
 }) => {
-  const { credit, chart, options, error, isLoading, refetch } =
-    useProjectCreditChart(project);
+  const { credit, error, isLoading, refetch } = useProjectCreditChart(project);
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -29,9 +29,11 @@ export const ProjectDashboardBalance = ({
     );
   }
 
-  const balance = credit?.value || 0;
-  const estimate = (project.billing_price_estimate &&
-    project.billing_price_estimate.total) || 0;
+  // The API serialises both of these as decimal strings, so they have to be
+  // converted before any arithmetic — the same way ProjectDashboardCredit
+  // does for credit.value.
+  const balance = Number(credit?.value) || 0;
+  const estimate = Number(project.billing_price_estimate?.total) || 0;
   let estimated_balance = balance - estimate;
 
   let warning = null;
@@ -41,7 +43,9 @@ export const ProjectDashboardBalance = ({
 
     warning = (
       <span className="text-danger">
-        {translate('Warning: Your estimated balance is now zero. You will not be able to consume any more resources.')}
+        {translate(
+          'Warning: Your estimated balance is now zero. You will not be able to consume any more resources.',
+        )}
       </span>
     );
   } else if (estimated_balance < 0.1 * balance) {
@@ -54,26 +58,21 @@ export const ProjectDashboardBalance = ({
 
   return (
     <WidgetCard
-      cardTitle={
-        <>
-          {translate('Accounting')}
-        </>
-      }
-      className="h-100"
+      cardTitle={translate('Accounting')}
+      className={classNames('h-100', className)}
     >
-      <p>
-        <ul>
-          <li>
-            {translate('Balance at start of month')}: {defaultCurrency(balance)}
-          </li>
-          <li>
-            {translate('Estimated spend this month')}: {defaultCurrency(estimate)}
-          </li>
-          <li>
-            {translate('Estimated balance at the end of this month')}: {defaultCurrency(estimated_balance)}
-          </li>
-        </ul>
-      </p>
+      <ul>
+        <li>
+          {translate('Balance at start of month')}: {defaultCurrency(balance)}
+        </li>
+        <li>
+          {translate('Estimated spend this month')}: {defaultCurrency(estimate)}
+        </li>
+        <li>
+          {translate('Estimated balance at the end of this month')}:{' '}
+          {defaultCurrency(estimated_balance)}
+        </li>
+      </ul>
       {warning && <div className="mt-2">{warning}</div>}
     </WidgetCard>
   );

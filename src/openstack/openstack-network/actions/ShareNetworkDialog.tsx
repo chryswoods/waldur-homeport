@@ -1,27 +1,57 @@
-import { FC } from 'react';
-import { useDispatch } from 'react-redux';
+import { FC, useMemo } from 'react';
 import {
   openstackNetworkRbacPoliciesCreate,
   openstackTenantsList,
+  PolicyTypeEnum,
 } from 'waldur-js-client';
 
-import { parseSelectData } from '@waldur/core/api';
-import { ENV } from '@waldur/core/config';
-import { returnReactSelectAsyncPaginateObject } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ResourceActionDialog } from '@waldur/resource/actions/ResourceActionDialog';
-import { ActionDialogProps } from '@waldur/resource/actions/types';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
+import { createLoadOptions } from '@/form/select';
+import { translate } from '@/i18n';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ResourceActionDialog } from '@/resource/actions/ResourceActionDialog';
+import { ActionDialogProps } from '@/resource/actions/types';
 
 export const ShareNetworkDialog: FC<ActionDialogProps> = ({
   resolve: { resource, refetch },
 }) => {
-  const dispatch = useDispatch();
+  const mutation = useManagedMutation<
+    any,
+    any,
+    {
+      policy_type: string;
+      target_tenant: { url: string };
+    }
+  >({
+    mutationFn: (formData) =>
+      openstackNetworkRbacPoliciesCreate({
+        body: {
+          network: resource.url,
+          policy_type: formData.policy_type as PolicyTypeEnum,
+          target_tenant: formData.target_tenant.url,
+        },
+      }),
+
+    successMessage: translate('Network has been shared.'),
+    errorMessage: translate('Unable to share the network.'),
+    refetch: refetch,
+  });
+
+  const tenantLoader = useMemo(
+    () =>
+      createLoadOptions(openstackTenantsList, 'name', {
+        service_settings_uuid: resource.service_settings_uuid,
+        field: ['uuid', 'name', 'url'],
+      }),
+    [resource.service_settings_uuid],
+  );
 
   return (
     <ResourceActionDialog
-      dialogTitle={translate('Share {name} network', { name: resource.name })}
+      dialogTitle={translate('Share network')}
+      dialogSubtitle={
+        <ScopeSubtitle label={translate('Network name')} name={resource.name} />
+      }
       dialogFullButtons
       dialogSubmitLabel={translate('Share')}
       formFields={[
@@ -29,22 +59,7 @@ export const ShareNetworkDialog: FC<ActionDialogProps> = ({
           name: 'target_tenant',
           label: translate('Tenant'),
           type: 'async_select',
-          loadOptions: async (query: string, prevOptions, { page }) => {
-            const response = await openstackTenantsList({
-              query: {
-                name: query,
-                service_settings_uuid: resource.service_settings_uuid,
-                field: ['uuid', 'name', 'url'],
-                page: page,
-                page_size: ENV.pageSize,
-              },
-            });
-            return returnReactSelectAsyncPaginateObject(
-              parseSelectData(response),
-              prevOptions,
-              page,
-            );
-          },
+          loadOptions: tenantLoader,
           getOptionLabel: (option) => option.name,
           getOptionValue: (option) => option.url,
         },
@@ -62,26 +77,7 @@ export const ShareNetworkDialog: FC<ActionDialogProps> = ({
           spaceless: true,
         },
       ]}
-      submitForm={async (formData) => {
-        try {
-          await openstackNetworkRbacPoliciesCreate({
-            body: {
-              network: resource.url,
-              policy_type: formData.policy_type,
-              target_tenant: formData.target_tenant.url,
-            },
-          });
-          dispatch(showSuccess(translate('Network has been shared.')));
-          dispatch(closeModalDialog());
-          if (refetch) {
-            await refetch();
-          }
-        } catch (e) {
-          dispatch(
-            showErrorResponse(e, translate('Unable to share the network.')),
-          );
-        }
-      }}
+      submitForm={mutation.mutateAsync}
     />
   );
 };

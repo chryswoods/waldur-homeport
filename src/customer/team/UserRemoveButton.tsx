@@ -1,19 +1,17 @@
 import { TrashIcon } from '@phosphor-icons/react';
 import React from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import {
   customersDeleteUser,
   CustomerUser,
   projectsDeleteUser,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { getCustomer, getUser } from '@waldur/workspace/selectors';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { useUser, useCustomer } from '@/workspace/hooks';
 
 interface UserRemoveButtonProps {
   customer: CustomerUser;
@@ -24,31 +22,11 @@ export const UserRemoveButton: React.FC<UserRemoveButtonProps> = ({
   customer,
   refetch,
 }) => {
-  const currentUser = useSelector(getUser);
-  const currentCustomer = useSelector(getCustomer);
-  const dispatch = useDispatch();
-  if (
-    !hasPermission(currentUser, {
-      permission: PermissionEnum.DELETE_CUSTOMER_PERMISSION,
-      customerId: currentCustomer.uuid,
-    })
-  ) {
-    return null;
-  }
+  const currentUser = useUser();
+  const currentCustomer = useCustomer();
 
-  const callback = async () => {
-    try {
-      await waitForConfirmation(
-        dispatch,
-        translate('Confirmation'),
-        translate('Are you sure you want to remove {userName}?', {
-          userName: customer.full_name || customer.username,
-        }),
-      );
-    } catch {
-      return;
-    }
-    try {
+  const { mutate, isPending } = useManagedMutation<any, any, void>({
+    mutationFn: async () => {
       await Promise.all(
         (customer.projects || []).map((project) =>
           projectsDeleteUser({
@@ -69,20 +47,33 @@ export const UserRemoveButton: React.FC<UserRemoveButtonProps> = ({
           },
         });
       }
-      await refetch();
-      dispatch(showSuccess(translate('Team member has been removed.')));
-    } catch (e) {
-      dispatch(
-        showErrorResponse(e, translate('Unable to delete team member.')),
-      );
-    }
-  };
+    },
+    confirmation: {
+      title: translate('Confirmation'),
+      body: translate('Are you sure you want to remove {userName}?', {
+        userName: customer.full_name || customer.username,
+      }),
+    },
+    successMessage: translate('Team member has been removed.'),
+    errorMessage: translate('Unable to delete team member.'),
+    refetch,
+  });
+
+  if (
+    !hasPermission(currentUser, {
+      permission: PermissionEnum.DELETE_CUSTOMER_PERMISSION,
+      customerId: currentCustomer.uuid,
+    })
+  ) {
+    return null;
+  }
   return (
     <ActionItem
       className="text-danger border-top"
       iconColor="danger"
       title={translate('Remove')}
-      action={callback}
+      action={mutate}
+      disabled={isPending}
       iconNode={<TrashIcon weight="bold" />}
     />
   );

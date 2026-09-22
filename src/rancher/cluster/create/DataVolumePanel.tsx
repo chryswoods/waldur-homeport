@@ -1,11 +1,10 @@
 import { FunctionComponent } from 'react';
 import { Card } from 'react-bootstrap';
-import { FormSection } from 'redux-form';
 
-import { isFeatureVisible } from '@waldur/features/connect';
-import { RancherFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { RemoveButton } from '@waldur/marketplace/offerings/RemoveButton';
+import { isFeatureVisible } from '@/features/connect';
+import { RancherFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { RemoveButton } from '@/marketplace/offerings/RemoveButton';
 
 import { VolumeMountPointGroup } from './VolumeMountPointGroup';
 import { VolumeSizeGroup } from './VolumeSizeGroup';
@@ -28,13 +27,17 @@ export const DataVolumePanel: FunctionComponent<OwnProps> = (props) => (
       </h4>
     </Card.Header>
     <Card.Body>
-      <FormSection name={props.volumePath}>
-        {isFeatureVisible(RancherFeatures.volume_mount_point) && (
-          <VolumeMountPointGroup nodeIndex={props.nodeIndex} />
-        )}
-        <VolumeSizeGroup />
-        <VolumeTypeGroup volumeTypes={props.volumeTypes} />
-      </FormSection>
+      {isFeatureVisible(RancherFeatures.volume_mount_point) && (
+        <VolumeMountPointGroup
+          nodeIndex={props.nodeIndex}
+          name={`${props.volumePath}.mount_point`}
+        />
+      )}
+      <VolumeSizeGroup name={`${props.volumePath}.size`} />
+      <VolumeTypeGroup
+        name={`${props.volumePath}.volume_type`}
+        volumeTypes={props.volumeTypes}
+      />
     </Card.Body>
   </Card>
 );

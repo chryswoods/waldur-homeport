@@ -1,13 +1,15 @@
 import { useQueries } from '@tanstack/react-query';
 import { FC } from 'react';
 import { Nav, Tab } from 'react-bootstrap';
-import { Project } from 'waldur-js-client';
+import { Project, projectsListUsersCount } from 'waldur-js-client';
 
-import { getResourcesCount } from '@waldur/administration/api';
-import { count } from '@waldur/core/api';
-import { translate } from '@waldur/i18n';
-import { getStates } from '@waldur/marketplace/resources/list/ResourceStateFilter';
-import { ExpandableContainer } from '@waldur/table/ExpandableContainer';
+import { getResourcesCount } from '@/administration/api';
+import { fetchResultCount } from '@/core/api';
+import { translate } from '@/i18n';
+import { getStates } from '@/marketplace/resources/list/ResourceStateFilter';
+import { canViewTeam } from '@/permissions/teamVisibility';
+import { ExpandableContainer } from '@/table/ExpandableContainer';
+import { useUser } from '@/workspace/hooks';
 
 import { TableTabsContainer } from '../../customer/list/TableTabsContainer';
 
@@ -20,6 +22,11 @@ interface OwnProps {
 }
 
 export const ProjectExpandableRow: FC<OwnProps> = (props) => {
+  const user = useUser();
+  const showTeam = canViewTeam(user, {
+    customerId: props.row.customer_uuid,
+    projectId: props.row.uuid,
+  });
   const [resourcesCount, teamCount] = useQueries({
     queries: [
       {
@@ -32,7 +39,11 @@ export const ProjectExpandableRow: FC<OwnProps> = (props) => {
       },
       {
         queryKey: ['teamCount', props.row.uuid],
-        queryFn: () => count(`/api/projects/${props.row.uuid}/list_users/`),
+        queryFn: () =>
+          projectsListUsersCount({
+            path: { uuid: props.row.uuid },
+          }).then(fetchResultCount),
+        enabled: showTeam,
       },
     ],
   });
@@ -52,21 +63,25 @@ export const ProjectExpandableRow: FC<OwnProps> = (props) => {
               countLoading={resourcesCount.isLoading}
             />
 
-            <NavItem
-              title={translate('Team')}
-              eventKey="team"
-              count={teamCount.data}
-              countLoading={teamCount.isLoading}
-            />
+            {showTeam && (
+              <NavItem
+                title={translate('Team')}
+                eventKey="team"
+                count={teamCount.data}
+                countLoading={teamCount.isLoading}
+              />
+            )}
           </Nav>
         </div>
         <Tab.Content className="overflow-auto">
           <Tab.Pane eventKey="resources" unmountOnExit={true}>
             <SummaryResourcesTable scope={props.row} context="project" />
           </Tab.Pane>
-          <Tab.Pane eventKey="team" unmountOnExit={true}>
-            <SummaryTeamTable scope={props.row} context="project" />
-          </Tab.Pane>
+          {showTeam && (
+            <Tab.Pane eventKey="team" unmountOnExit={true}>
+              <SummaryTeamTable scope={props.row} context="project" />
+            </Tab.Pane>
+          )}
         </Tab.Content>
       </TableTabsContainer>
     </ExpandableContainer>

@@ -1,81 +1,81 @@
+import { useQuery } from '@tanstack/react-query';
 import { FC } from 'react';
-import { Field, Form } from 'react-final-form';
-import { useAsync } from 'react-use';
-import { openstackVolumesRetype } from 'waldur-js-client';
+import { Form } from 'react-final-form';
+import {
+  openstackVolumesRetype,
+  openstackVolumeTypesList,
+} from 'waldur-js-client';
 
-import { required } from '@waldur/core/validators';
-import { Select } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-import { useModal } from '@waldur/modal/hooks';
-import { loadVolumeTypes } from '@waldur/openstack/api';
-import { AsyncActionDialog } from '@waldur/resource/actions/AsyncActionDialog';
-import { ActionDialogProps } from '@waldur/resource/actions/types';
-import { useNotify } from '@waldur/store/hooks';
+import { getAllPages } from '@/core/api';
+import { UI_STALE_TIME } from '@/core/constants';
+import { required } from '@/core/validators';
+import { SelectGroup } from '@/form';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { AsyncActionDialog } from '@/resource/actions/AsyncActionDialog';
+import { ActionDialogProps } from '@/resource/actions/types';
 
 export const RetypeDialog: FC<ActionDialogProps> = ({
   resolve: { resource, refetch },
 }) => {
-  const { showErrorResponse, showSuccess } = useNotify();
-  const { closeDialog } = useModal();
-
-  const asyncState = useAsync(async () => {
-    const types = await loadVolumeTypes({
-      tenant_uuid: resource.tenant_uuid,
-    });
-    return {
-      types: types
-        .map((volumeType) => ({
-          value: volumeType.url,
-          label: volumeType.description
-            ? `${volumeType.name} (${volumeType.description})`
-            : volumeType.name,
-        }))
-        .filter((choice) => choice.value !== resource.type),
-    };
+  const asyncState = useQuery({
+    queryKey: ['volumeTypes', resource.tenant_uuid, resource.type],
+    queryFn: async () => {
+      const types = await getAllPages((page) =>
+        openstackVolumeTypesList({
+          query: { page, tenant_uuid: resource.tenant_uuid },
+        }),
+      );
+      return {
+        types: types
+          .map((volumeType) => ({
+            value: volumeType.url,
+            label: volumeType.description
+              ? `${volumeType.name} (${volumeType.description})`
+              : volumeType.name,
+          }))
+          .filter((choice) => choice.value !== resource.type),
+      };
+    },
+    staleTime: UI_STALE_TIME,
   });
 
-  const submitRequest = async (formData) => {
-    try {
-      await openstackVolumesRetype({
+  const retypeMutation = useManagedMutation<any, any, any>({
+    mutationFn: (formData) =>
+      openstackVolumesRetype({
         path: { uuid: resource.uuid },
         body: { type: formData.type.value },
-      });
-      showSuccess(translate('Volume has been retyped.'));
-      closeDialog();
-      if (refetch) {
-        await refetch();
-      }
-    } catch (e) {
-      showErrorResponse(e, translate('Unable to retype volume.'));
-    }
-  };
+      }),
+    successMessage: translate('Volume has been retyped.'),
+    errorMessage: translate('Unable to retype volume.'),
+    refetch,
+  });
 
   return (
     <Form
-      onSubmit={submitRequest}
-      render={({ handleSubmit, submitting, invalid }) => (
+      onSubmit={(values) =>
+        retypeMutation.mutateAsync(values).catch(() => {
+          /* error handled by useManagedMutation */
+        })
+      }
+      render={({ handleSubmit }) => (
         <form onSubmit={handleSubmit}>
           <AsyncActionDialog
             title={translate('Retype OpenStack Volume')}
-            loading={asyncState.loading}
+            loading={asyncState.isLoading}
             error={asyncState.error}
-            submitting={submitting}
-            invalid={invalid}
           >
             <p>
               <strong>{translate('Current type')}:</strong> {resource.type_name}
             </p>
-            {asyncState.value?.types.length > 0 ? (
-              <FormGroup label={translate('Volume type')} required>
-                <Field
-                  name="type"
-                  validate={required}
-                  render={({ input }) => (
-                    <Select {...input} options={asyncState.value.types} />
-                  )}
-                />
-              </FormGroup>
+            {asyncState.data?.types.length > 0 ? (
+              <SelectGroup
+                name="type"
+                label={translate('Volume type')}
+                options={asyncState.data.types}
+                validate={required}
+                required
+              />
             ) : (
               <p>{translate('There are no other volume types available.')}</p>
             )}

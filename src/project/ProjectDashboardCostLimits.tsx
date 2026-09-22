@@ -1,17 +1,24 @@
-import { EyeIcon, GearSixIcon } from '@phosphor-icons/react';
+import {
+  CheckCircleIcon,
+  EyeIcon,
+  GearSixIcon,
+  ListBulletsIcon,
+} from '@phosphor-icons/react';
 import { useRouter } from '@uirouter/react';
 import { useCallback } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
 import { Project } from 'waldur-js-client';
 
-import { EChart } from '@waldur/core/EChart';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { WidgetCard } from '@waldur/dashboard/WidgetCard';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { isOwnerOrStaff as isOwnerOrStaffSelector } from '@waldur/workspace/selectors';
+import { EChart } from '@/core/EChart';
+import { lazyComponent } from '@/core/lazyComponent';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { WidgetCard } from '@/dashboard/WidgetCard';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { useUser, useCustomer } from '@/workspace/hooks';
+import { checkIsOwnerOrStaff } from '@/workspace/selectors';
 
 import { useProjectCostChart } from './utils';
 
@@ -21,27 +28,50 @@ const CostPoliciesDetailsDialog = lazyComponent(() =>
   })),
 );
 
+const CostBreakdownDialog = lazyComponent(() =>
+  import('./CostBreakdownDialog').then((module) => ({
+    default: module.CostBreakdownDialog,
+  })),
+);
+
 export const ProjectDashboardCostLimits = ({
   project,
 }: {
   project: Project;
 }) => {
   const router = useRouter();
-  const isOwnerOrStaff = useSelector(isOwnerOrStaffSelector);
+  const user = useUser();
+  const customer = useCustomer();
+  const isOwnerOrStaff = checkIsOwnerOrStaff(customer, user);
+  const canManageAutoApproval =
+    !project.is_removed &&
+    (user.is_staff ||
+      hasPermission(user, {
+        permission: PermissionEnum.APPROVE_ORDER,
+        projectId: project.uuid,
+        customerId: project.customer_uuid,
+      }));
 
-  const { chart, options, error, isLoading, refetch } =
+  const { chart, options, error, isLoading, refetch, currentMonthItems } =
     useProjectCostChart(project);
 
-  const dispatch = useDispatch();
-  const viewDetails = useCallback(
+  const { openDialog } = useModal();
+  const viewPolicies = useCallback(
     () =>
-      dispatch(
-        openModalDialog(CostPoliciesDetailsDialog, {
-          resolve: { project },
-          size: 'lg',
-        }),
-      ),
-    [dispatch, project],
+      openDialog(CostPoliciesDetailsDialog, {
+        resolve: { project },
+        size: 'lg',
+      }),
+    [project],
+  );
+
+  const viewBreakdown = useCallback(
+    () =>
+      openDialog(CostBreakdownDialog, {
+        resolve: { items: currentMonthItems, project },
+        size: 'lg',
+      }),
+    [currentMonthItems, project],
   );
 
   if (isLoading) {
@@ -60,7 +90,7 @@ export const ProjectDashboardCostLimits = ({
         <>
           {translate('Project cost')}
           <small className="text-muted fs-7 ms-4 fw-normal">
-            ({translate('Current month’s cost')}: {chart.current})
+            ({translate('Current month\u2019s cost')}: {chart.current})
           </small>
         </>
       }
@@ -76,11 +106,29 @@ export const ProjectDashboardCostLimits = ({
                 }),
             }
           : null,
+        canManageAutoApproval
+          ? {
+              label: translate('Manage order auto-approval'),
+              icon: <CheckCircleIcon weight="bold" />,
+              callback: () =>
+                router.stateService.go('project-manage', {
+                  uuid: project.uuid,
+                  tab: 'order-approval',
+                }),
+            }
+          : null,
         {
-          label: translate('View details'),
+          label: translate('View cost policies'),
           icon: <EyeIcon weight="bold" />,
-          callback: viewDetails,
+          callback: viewPolicies,
         },
+        currentMonthItems?.length > 0
+          ? {
+              label: translate('Cost breakdown'),
+              icon: <ListBulletsIcon weight="bold" />,
+              callback: viewBreakdown,
+            }
+          : null,
       ].filter(Boolean)}
     >
       <EChart options={options} />

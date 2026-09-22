@@ -1,7 +1,7 @@
 // WARNING: This file is auto-generated from src/waldur_core/core/management/commands/print_features_description.py
 // Do not edit it manually. All manual changes would be overridden.
-import { FeatureSection } from '@waldur/features/types';
-import { translate } from '@waldur/i18n';
+import { FeatureSection } from '@/features/types';
+import { translate } from '@/i18n';
 
 export const FeaturesDescription: FeatureSection[] = [
   {
@@ -21,12 +21,50 @@ export const FeaturesDescription: FeatureSection[] = [
         description: translate('Allows to hide domain field in organization detail.'),
       },
       {
+        key: 'show_onboarding',
+        description: translate('Enable onboarding functionality.'),
+      },
+      {
         key: 'show_openportal_remote_projects',
         description: translate('Allows to show OpenPortal Remote Projects (remotes) in an organization.'),
       },
       {
+        key: 'show_openportal_accounting_only',
+        description: translate('Show only OpenPortal award accounting for this organization, hiding the marketplace usage, limit and credit widgets that describe a different accounting model.'),
+      },
+      {
         key: 'show_permission_reviews',
         description: translate('Allows to show permission reviews tab and popups for organisations.'),
+      },
+      {
+        key: 'show_project_digest',
+        description: translate('Enable display of project digest configuration in organization settings.'),
+      },
+    ],
+  },
+  {
+    key: 'dashboard',
+    description: translate('Project and organization dashboards'),
+    items: [
+      {
+        key: 'spend_forecast',
+        description: translate('Show credit burn-down with a projected exhaustion date on the project dashboard.'),
+      },
+      {
+        key: 'usage_limit_horizon',
+        description: translate('Show a saturation bar per offering component against a timeline, with the current date and the next limit reset marked.'),
+      },
+      {
+        key: 'usage_per_offering_bars',
+        description: translate('Show usage against the remaining cap as one stacked bar per offering.'),
+      },
+      {
+        key: 'usage_period_over_period',
+        description: translate('Show usage for the current period overlaid on the previous one, per offering component.'),
+      },
+      {
+        key: 'usage_treemap',
+        description: translate('Show usage as a treemap of offering, billing type and component.'),
       },
     ],
   },
@@ -41,6 +79,10 @@ export const FeaturesDescription: FeatureSection[] = [
       {
         key: 'enable_cookie_notice',
         description: translate('Enable cookie notice in marketplace.'),
+      },
+      {
+        key: 'enable_disclaimer_area',
+        description: translate('Enable disclaimer area below the footer.'),
       },
       {
         key: 'make_slugs_immutable',
@@ -91,8 +133,28 @@ export const FeaturesDescription: FeatureSection[] = [
         description: translate('Allow marketplace to function as a catalogue only.'),
       },
       {
+        key: 'conceal_audit_log_from_end_users',
+        description: translate('Hide audit log tab from non-staff and non-support users.'),
+      },
+      {
+        key: 'conceal_offering_pricing_tab_in_public_view',
+        description: translate('Conceal offering pricing tab in the offering\'s public view.'),
+      },
+      {
+        key: 'conceal_pending_consumer_orders',
+        description: translate('Hide pending consumer orders section from the pending confirmations drawer.'),
+      },
+      {
+        key: 'conceal_pending_provider_orders',
+        description: translate('Hide pending provider orders section from the pending confirmations drawer.'),
+      },
+      {
         key: 'conceal_prices',
         description: translate('Do not render prices in order details.'),
+      },
+      {
+        key: 'conceal_resource_metadata',
+        description: translate('Conceal resource metadata from non-staff users in resource detail view.'),
       },
       {
         key: 'display_offering_partitions',
@@ -107,12 +169,24 @@ export const FeaturesDescription: FeatureSection[] = [
         description: translate('Enable display of user terms of service in UI.'),
       },
       {
+        key: 'hide_marketplace_from_end_users',
+        description: translate('Hide marketplace functionality from end users but allow staff access.'),
+      },
+      {
+        key: 'hide_organization_information_from_project_members',
+        description: translate('Hide organization information from project-level users. Organization owners, managers, and staff retain full access.'),
+      },
+      {
         key: 'import_resources',
         description: translate('Allow to import resources from service provider to project.'),
       },
       {
         key: 'lexis_links',
         description: translate('Enabled LEXIS link integrations for offerings.'),
+      },
+      {
+        key: 'realtime_updates',
+        description: translate('Enable push-driven UI updates over the event-consumer WebSocket (experimental). When disabled, the UI relies on polling and manual refresh as before. Requires RabbitMQ web-STOMP to be reachable at /rmqws-stomp on the API host.'),
       },
       {
         key: 'show_call_management_functionality',
@@ -125,6 +199,18 @@ export const FeaturesDescription: FeatureSection[] = [
       {
         key: 'show_managed_projects',
         description: translate('Allows to show managed (openportal) remote projects in organization.'),
+      },
+      {
+        key: 'show_openstack_duplicate_offerings',
+        description: translate('Show the staff diagnostics page listing tenants with duplicate per-tenant OpenStack offerings.'),
+      },
+      {
+        key: 'show_posix_id_pools',
+        description: translate('Render POSIX ID pool management UI for service providers.'),
+      },
+      {
+        key: 'show_provider_accounts',
+        description: translate('Render service provider account management UI: provider accounts, username conflicts, the shared GLAuth directory and provider account settings.'),
       },
       {
         key: 'show_resource_end_date',
@@ -159,16 +245,16 @@ export const FeaturesDescription: FeatureSection[] = [
         description: translate('Render estimated cost column in projects list.'),
       },
       {
-        key: 'mandatory_end_date',
-        description: translate('Make the project end date mandatory.'),
-      },
-      {
         key: 'mandatory_start_date',
         description: translate('Make the project start date mandatory.'),
       },
       {
         key: 'oecd_fos_2007_code',
         description: translate('Enable OECD code.'),
+      },
+      {
+        key: 'science_domain',
+        description: translate('Enable science domain/sub-domain selection for projects.'),
       },
       {
         key: 'show_credit_in_create_dialog',
@@ -193,6 +279,10 @@ export const FeaturesDescription: FeatureSection[] = [
       {
         key: 'show_kind_in_create_dialog',
         description: translate('Show kind field in project create dialog.'),
+      },
+      {
+        key: 'show_matrix_chat',
+        description: translate('Render the project Matrix chat UI. Backend access is gated separately on the MATRIX_ENABLED Constance setting.'),
       },
       {
         key: 'show_openportal_accounting_pages',
@@ -227,12 +317,26 @@ export const FeaturesDescription: FeatureSection[] = [
     ],
   },
   {
-    key: 'slurm',
-    description: translate('SLURM resources provisioning'),
+    key: 'reseller',
+    description: translate('Reseller integrations'),
     items: [
       {
-        key: 'jobs',
-        description: translate('Render list of SLURM jobs as a separate tab in allocation details page.'),
+        key: 'affiliates',
+        description: translate('Show affiliate program menus and pages. Backend enforcement is controlled separately by the AFFILIATES_ENABLED Constance setting.'),
+      },
+      {
+        key: 'arrow',
+        description: translate('Enable Arrow integration menu in administration.'),
+      },
+    ],
+  },
+  {
+    key: 'sram',
+    description: translate('SRAM integration'),
+    items: [
+      {
+        key: 'integration',
+        description: translate('Render the SRAM integration administration page and SRAM markers in team lists. Backend access is gated separately on the SRAM_INTEGRATION_ENABLED Constance setting.'),
       },
     ],
   },
@@ -243,6 +347,10 @@ export const FeaturesDescription: FeatureSection[] = [
       {
         key: 'conceal_change_request',
         description: translate('Conceal "Change request" from a selection of issue types for non-staff/non-support users.'),
+      },
+      {
+        key: 'enable_llm_assistant',
+        description: translate('Enable AI Assistant'),
       },
       {
         key: 'pricelist',
@@ -261,6 +369,18 @@ export const FeaturesDescription: FeatureSection[] = [
       {
         key: 'allow_user_creation',
         description: translate('Allow users to create new user accounts when adding team members to projects and proposals.'),
+      },
+      {
+        key: 'conceal_api_token',
+        description: translate('Hide API token management tab from non-staff and non-support users.'),
+      },
+      {
+        key: 'conceal_permission_requests',
+        description: translate('Hide permission requests tab from non-staff and non-support users.'),
+      },
+      {
+        key: 'conceal_remote_accounts',
+        description: translate('Hide remote accounts tab from non-staff and non-support users.'),
       },
       {
         key: 'credentials',
@@ -283,12 +403,28 @@ export const FeaturesDescription: FeatureSection[] = [
         description: translate('Enable email and webhook notifications management in user workspace.'),
       },
       {
+        key: 'pending_user_actions',
+        description: translate('Show pending user actions.'),
+      },
+      {
         key: 'permission_requests',
         description: translate('Enable permission requests management in user workspace.'),
       },
       {
         key: 'preferred_language',
         description: translate('Render preferred language column in users list.'),
+      },
+      {
+        key: 'show_data_access',
+        description: translate('Enable Data Access tab showing who can access user profile data.'),
+      },
+      {
+        key: 'show_identity_bridge',
+        description: translate('Show identity bridge information in user profiles and admin views.'),
+      },
+      {
+        key: 'show_openportal_identifier',
+        description: translate('Identify users by their OpenPortal username: show it in place of the username in user lists, show it on the user profile, and let a user choose it once if it has not been set.'),
       },
       {
         key: 'show_slug',
@@ -309,3 +445,4 @@ export const FeaturesDescription: FeatureSection[] = [
     ],
   },
 ];
+

@@ -1,9 +1,10 @@
 import { useIsActive } from '@uirouter/react';
-import classNames from 'classnames';
 import { FC, ReactNode } from 'react';
-import { Badge } from 'react-bootstrap';
 
-import { Link } from '@waldur/core/Link';
+import { SidebarMenuLinkItem } from 'waldur-ui';
+
+import { Link } from '@/core/Link';
+import { isStateVisible } from '@/core/stateVisibility';
 
 interface MenuItemProps {
   title: ReactNode;
@@ -13,38 +14,50 @@ interface MenuItemProps {
   child?: boolean;
   params?;
   icon?: ReactNode;
+  disabled?: boolean;
+  disabledTooltip?: string;
 }
 
-export const MenuItem: FC<MenuItemProps> = (props) => {
-  const { child = true } = props;
-  const isActive = props.activeState
-    ? useIsActive(props.activeState)
-    : useIsActive(props.state, props.params);
+// Thin, uirouter-specific shell around waldur-ui's SidebarMenuLinkItem —
+// that component owns the row's look (icon/spacer, active/hover state,
+// disabled handling, badge, collapsed-rail tooltip); this file only
+// supplies what's specific to this app's router: active-state resolution
+// and the actual Link element.
+export const MenuItem: FC<MenuItemProps> = ({
+  title,
+  badge,
+  state,
+  activeState,
+  child,
+  params,
+  icon,
+  disabled = false,
+  disabledTooltip,
+}) => {
+  const isActive = activeState
+    ? useIsActive(activeState)
+    : useIsActive(state, params);
+
+  // A menu entry pointing at a feature this deployment has disabled is dropped
+  // entirely rather than left to fail on click.
+  if (state && !isStateVisible(state)) {
+    return null;
+  }
+
   return (
-    <div
-      data-kt-menu-trigger="click"
-      className={classNames('menu-item', { here: isActive })}
-    >
-      <Link state={props.state} params={props.params} className="menu-link">
-        {props.icon && (
-          <span className="menu-icon">
-            <span className="svg-icon svg-icon-2">{props.icon}</span>
-          </span>
-        )}
-        {child && (
-          <span className="menu-bullet">
-            <span className="bullet bullet-dot" />
-          </span>
-        )}
-        <span className="menu-title">{props.title}</span>
-        {Boolean(props.badge) && (
-          <span className="menu-badge">
-            <Badge bg="" pill>
-              {props.badge}
-            </Badge>
-          </span>
-        )}
-      </Link>
-    </div>
+    <SidebarMenuLinkItem
+      title={title}
+      icon={icon}
+      badge={badge}
+      child={child}
+      active={isActive}
+      disabled={disabled}
+      disabledTooltip={disabledTooltip}
+      renderLink={(content) => (
+        <Link state={state} params={params} data-testid={state}>
+          {content}
+        </Link>
+      )}
+    />
   );
 };

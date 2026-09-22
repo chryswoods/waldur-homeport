@@ -5,11 +5,16 @@
 
 import * as echarts from 'echarts';
 
+import {
+  CHART_SPLIT_LINE_COLOR_DARK,
+  CHART_SPLIT_LINE_COLOR_LIGHT,
+} from '@/dashboard/constants';
+
 function registerDarkTheme() {
   if (!echarts) {
     return;
   }
-  const contrastColor = '#eee';
+  const contrastColor = '#94969c'; // text-quaternary (dark)
   const axisCommon = function () {
     return {
       axisLine: {
@@ -23,16 +28,12 @@ function registerDarkTheme() {
         },
       },
       axisLabel: {
-        textStyle: {
-          color: contrastColor,
-        },
+        color: contrastColor,
       },
       splitLine: {
         lineStyle: {
-          type: 'dashed',
-          color: '#aaa',
+          color: CHART_SPLIT_LINE_COLOR_DARK,
         },
-        show: undefined,
       },
       splitArea: {
         areaStyle: {
@@ -86,9 +87,7 @@ function registerDarkTheme() {
     },
     toolbox: {
       iconStyle: {
-        normal: {
-          borderColor: contrastColor,
-        },
+        borderColor: contrastColor,
       },
     },
     axisPointer: {
@@ -104,22 +103,14 @@ function registerDarkTheme() {
         color: contrastColor,
       },
       itemStyle: {
-        normal: {
-          color: colorPalette[1],
-        },
+        color: colorPalette[1],
       },
       label: {
-        normal: {
-          textStyle: {
-            color: contrastColor,
-          },
-        },
+        color: contrastColor,
       },
       controlStyle: {
-        normal: {
-          color: contrastColor,
-          borderColor: contrastColor,
-        },
+        color: contrastColor,
+        borderColor: contrastColor,
       },
     },
     timeAxis: axisCommon(),
@@ -135,23 +126,18 @@ function registerDarkTheme() {
     },
     gauge: {
       title: {
-        textStyle: {
-          color: contrastColor,
-        },
+        color: contrastColor,
       },
     },
     candlestick: {
       itemStyle: {
-        normal: {
-          color: '#FD1050',
-          color0: '#0CF49B',
-          borderColor: '#FD1050',
-          borderColor0: '#0CF49B',
-        },
+        color: '#FD1050',
+        color0: '#0CF49B',
+        borderColor: '#FD1050',
+        borderColor0: '#0CF49B',
       },
     },
   };
-  theme.categoryAxis.splitLine.show = false;
   echarts.registerTheme('dark-metronic', theme);
 }
 
@@ -162,6 +148,34 @@ function registerLightTheme() {
   if (!echarts) {
     return;
   }
+  const contrastColor = '#667085'; // text-quaternary (light)
+  const axisCommon = function () {
+    return {
+      axisLine: {
+        lineStyle: {
+          color: contrastColor,
+        },
+      },
+      axisTick: {
+        lineStyle: {
+          color: contrastColor,
+        },
+      },
+      axisLabel: {
+        color: contrastColor,
+      },
+      splitLine: {
+        lineStyle: {
+          color: CHART_SPLIT_LINE_COLOR_LIGHT,
+        },
+      },
+      splitArea: {
+        areaStyle: {
+          color: contrastColor,
+        },
+      },
+    };
+  };
 
   const colorPalette = [
     '#c12e34',
@@ -189,13 +203,19 @@ function registerLightTheme() {
 
     toolbox: {
       iconStyle: {
-        normal: {
-          borderColor: '#06467c',
-        },
+        borderColor: '#06467c',
       },
     },
 
     tooltip: {
+      axisPointer: {
+        lineStyle: {
+          color: contrastColor,
+        },
+        crossStyle: {
+          color: contrastColor,
+        },
+      },
       backgroundColor: 'rgba(0, 0, 0, 0.9)',
       textStyle: {
         color: '#fff',
@@ -205,32 +225,34 @@ function registerLightTheme() {
     dataZoom: {
       dataBackgroundColor: '#dedede',
       fillerColor: 'rgba(154,217,247,0.2)',
-      handleColor: '#005eaa',
+      handleColor: contrastColor,
+      textStyle: {
+        color: contrastColor,
+      },
     },
 
     timeline: {
       lineStyle: {
-        color: '#005eaa',
+        color: contrastColor,
       },
       controlStyle: {
-        normal: {
-          color: '#005eaa',
-          borderColor: '#005eaa',
-        },
+        color: contrastColor,
+        borderColor: contrastColor,
       },
     },
 
+    timeAxis: axisCommon(),
+    logAxis: axisCommon(),
+    valueAxis: axisCommon(),
+    categoryAxis: axisCommon(),
+
     candlestick: {
       itemStyle: {
-        normal: {
-          color: '#c12e34',
-          color0: '#2b821d',
-          lineStyle: {
-            width: 1,
-            color: '#c12e34',
-            color0: '#2b821d',
-          },
-        },
+        color: '#c12e34',
+        color0: '#2b821d',
+        borderColor: '#c12e34',
+        borderColor0: '#2b821d',
+        borderWidth: 1,
       },
     },
 
@@ -240,25 +262,19 @@ function registerLightTheme() {
 
     map: {
       label: {
-        normal: {
-          textStyle: {
-            color: '#c12e34',
-          },
+        color: '#c12e34',
+      },
+      emphasis: {
+        label: {
+          color: '#c12e34',
         },
-        emphasis: {
-          textStyle: {
-            color: '#c12e34',
-          },
+        itemStyle: {
+          areaColor: '#e6b600',
         },
       },
       itemStyle: {
-        normal: {
-          borderColor: '#eee',
-          areaColor: '#ddd',
-        },
-        emphasis: {
-          areaColor: '#e6b600',
-        },
+        borderColor: '#eee',
+        areaColor: '#ddd',
       },
     },
 
@@ -282,9 +298,7 @@ function registerLightTheme() {
         },
       },
       axisLabel: {
-        textStyle: {
-          color: 'auto',
-        },
+        color: 'auto',
       },
       splitLine: {
         length: 12,
@@ -298,14 +312,10 @@ function registerLightTheme() {
         color: 'auto',
       },
       title: {
-        textStyle: {
-          color: '#333',
-        },
+        color: '#333',
       },
       detail: {
-        textStyle: {
-          color: 'auto',
-        },
+        color: 'auto',
       },
     },
   };

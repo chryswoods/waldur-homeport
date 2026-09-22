@@ -7,19 +7,19 @@ import {
   UserListIcon,
   WarningIcon,
 } from '@phosphor-icons/react';
+import { useQuery } from '@tanstack/react-query';
 import { FC, ReactNode } from 'react';
 import { Card, Col, Row } from 'react-bootstrap';
-import { useAsync } from 'react-use';
 import {
   marketplaceServiceProvidersStatRetrieve,
   ServiceProviderStatistics,
 } from 'waldur-js-client';
 
-import { Link } from '@waldur/core/Link';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { getStates as getResourceStates } from '@waldur/marketplace/resources/list/ResourceStateFilter';
-import { isExperimentalUiComponentsVisible } from '@waldur/marketplace/utils';
+import { Link } from '@/core/Link';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { getStates as getResourceStates } from '@/marketplace/resources/list/ResourceStateFilter';
+import { isExperimentalUiComponentsVisible } from '@/marketplace/utils';
 
 import { ChangesAmountBadge } from './ChangesAmountBadge';
 import IconPendingApproval from './icons/pending-approval.svg';
@@ -36,21 +36,21 @@ interface ProviderWidget {
 
 const generateWidgetsData = (statistics: ServiceProviderStatistics) => [
   {
-    iconNode: <SealPercentIcon size={40} />,
+    iconNode: <SealPercentIcon size={40} weight="bold" />,
     value: statistics.active_campaigns,
     title: translate('Active campaigns'),
     changes: 0,
     to: { state: 'marketplace-provider-campaigns' },
   },
   {
-    iconNode: <UserListIcon size={40} />,
+    iconNode: <UserListIcon size={40} weight="bold" />,
     value: statistics.current_customers,
     title: translate('Active clients'),
     changes: statistics.customers_number_change,
     to: { state: 'marketplace-provider-organizations' },
   },
   {
-    iconNode: <StackIcon size={40} />,
+    iconNode: <StackIcon size={40} weight="bold" />,
     value: statistics.active_resources,
     title: translate('Active resources'),
     changes: statistics.resources_number_change,
@@ -66,7 +66,7 @@ const generateWidgetsData = (statistics: ServiceProviderStatistics) => [
     },
   },
   {
-    iconNode: <TagIcon size={40} />,
+    iconNode: <TagIcon size={40} weight="bold" />,
     value: statistics.active_and_paused_offerings,
     title: translate('Total published offerings'),
     changes: 0,
@@ -76,7 +76,7 @@ const generateWidgetsData = (statistics: ServiceProviderStatistics) => [
     },
   },
   {
-    iconNode: <HeadsetIcon size={40} />,
+    iconNode: <HeadsetIcon size={40} weight="bold" />,
     value: statistics.unresolved_tickets,
     title: translate('Open support tickets'),
     changes: 0,
@@ -95,14 +95,14 @@ const generateWidgetsData = (statistics: ServiceProviderStatistics) => [
     },
   },
   {
-    iconNode: <BellIcon size={40} />,
+    iconNode: <BellIcon size={40} weight="bold" />,
     value: 0,
     title: translate('Active notifications'),
     changes: 0,
     to: { state: '#' },
   },
   {
-    iconNode: <WarningIcon size={40} />,
+    iconNode: <WarningIcon size={40} weight="bold" />,
     value: statistics.erred_resources,
     title: translate('Erred resources'),
     changes: 0,
@@ -156,8 +156,14 @@ const WidgetItem: FC<{ item: ProviderWidget }> = ({ item }) => (
 export const ProviderWidgets = ({ provider }) => {
   const showExperimentalUiComponents = isExperimentalUiComponentsVisible();
 
-  const { loading, error, value } = useAsync(
-    () =>
+  const {
+    isLoading: loading,
+    error,
+    data: value,
+  } = useQuery({
+    queryKey: ['ProviderWidgets', provider, showExperimentalUiComponents],
+
+    queryFn: () =>
       marketplaceServiceProvidersStatRetrieve({
         path: { uuid: provider.uuid },
       }).then((res) => {
@@ -172,8 +178,7 @@ export const ProviderWidgets = ({ provider }) => {
         }
         return widgets;
       }),
-    [provider, showExperimentalUiComponents],
-  );
+  });
 
   return (
     <Row>

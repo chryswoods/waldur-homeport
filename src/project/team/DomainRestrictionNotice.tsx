@@ -1,7 +1,7 @@
 import { FC } from 'react';
+import type { AwardDetails } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import type { AwardDetails } from '@waldur/openportal/bindings/AwardDetails';
+import { translate } from '@/i18n';
 
 interface Props {
   allowedDomains: AwardDetails['allowed_domains'];
@@ -18,8 +18,8 @@ export const DomainRestrictionNotice: FC<Props> = ({
 
   const mailtoHref = contactEmail
     ? `mailto:${contactEmail}?subject=${encodeURIComponent(
-      `Request to add email domains to project: ${projectName ?? ''}`,
-    )}`
+        `Request to add email domains to project: ${projectName ?? ''}`,
+      )}`
     : undefined;
 
   return (

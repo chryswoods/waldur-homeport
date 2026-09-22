@@ -1,63 +1,73 @@
-import { FC } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
+import { FC, useMemo } from 'react';
 import {
   ComponentUsage,
   marketplaceComponentUsagesList,
   MarketplaceComponentUsagesListData,
 } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { getStartAndEndDatesOfMonth } from '@waldur/issues/utils';
-import { ResourceLink } from '@waldur/resource/ResourceLink';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
+import { formatDateTime } from '@/core/dateUtils';
+import { formatUsageValue } from '@/core/formatNumber';
+import { makeLastTwelveMonthsFilterPeriods } from '@/form/utils';
+import { translate } from '@/i18n';
+import { getStartAndEndDatesOfMonth } from '@/issues/utils';
+import { getMissingUsagePolicyLabel } from '@/marketplace/resources/usage/missingUsagePolicy';
+import { ResourceLink } from '@/resource/ResourceLink';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { Column } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
 
+import { ReportingTitle } from '../ReportingTitle';
 import { usageTableTabs } from '../utils';
 
 import { FORM_ID, ResourceUsageFilter } from './ResourceUsageFilter';
 import { UsageExpandableRow } from './UserUsageExpandableRow';
 
-export const mapStateToFilter = createSelector(
-  getFormValues(FORM_ID),
-  (usageFilter: any) => {
-    const filter: MarketplaceComponentUsagesListData['query'] = {};
-    if (usageFilter) {
-      if (usageFilter.accounting_period) {
-        const { start } = getStartAndEndDatesOfMonth(
-          usageFilter.accounting_period.value,
-        );
-        const startDate = new Date(start);
-        filter.billing_period_year = startDate.getFullYear();
-        filter.billing_period_month = startDate.getMonth() + 1;
-      }
-      if (usageFilter.organization) {
-        filter.customer_uuid = usageFilter.organization.uuid;
-      }
-      if (usageFilter.project) {
-        filter.project_uuid = usageFilter.project.uuid;
-      }
-      if (usageFilter.offering) {
-        filter.offering_uuid = usageFilter.offering.uuid;
-      }
-      if (usageFilter.resource) {
-        filter.resource_uuid = usageFilter.resource.uuid;
-      }
+export const selectResourceUsageFilter = (usageFilter: any) => {
+  const filter: MarketplaceComponentUsagesListData['query'] = {};
+  if (usageFilter) {
+    if (usageFilter.accounting_period) {
+      const { start } = getStartAndEndDatesOfMonth(
+        usageFilter.accounting_period.value,
+      );
+      const startDate = new Date(start);
+      filter.billing_period_year = startDate.getFullYear();
+      filter.billing_period_month = startDate.getMonth() + 1;
     }
-    return filter;
-  },
-);
+    if (usageFilter.customer_uuid) {
+      filter.customer_uuid = usageFilter.customer_uuid.uuid;
+    }
+    if (usageFilter.project_uuid) {
+      filter.project_uuid = usageFilter.project_uuid.uuid;
+    }
+    if (usageFilter.offering) {
+      filter.offering_uuid = usageFilter.offering.uuid;
+    }
+    if (usageFilter.resource) {
+      filter.resource_uuid = usageFilter.resource.uuid;
+    }
+    if (usageFilter.missing_usage_policy?.length) {
+      filter.missing_usage_policy = usageFilter.missing_usage_policy.map(
+        (option) => option.value,
+      );
+    }
+  }
+  return filter;
+};
 
 export const ResourceUsageList: FC = () => {
-  const filter = useSelector(mapStateToFilter);
-  const props = useTable({
+  const values = useFilterValues('ResourceUsageReports');
+  const filter = useMemo(() => selectResourceUsageFilter(values), [values]);
+
+  const tableProps = useTable({
     table: 'ResourceUsageReports',
+    syncFiltersToURL: true,
     fetchData: createFetcher(marketplaceComponentUsagesList),
     filter,
+    initialFilters: {
+      accounting_period: makeLastTwelveMonthsFilterPeriods()[0],
+    },
   });
   const columns: Array<Column<ComponentUsage>> = [
     {
@@ -76,7 +86,7 @@ export const ResourceUsageList: FC = () => {
     {
       title: translate('Client organization'),
       render: ({ row }) => <>{row.customer_name}</>,
-      filter: 'organization',
+      filter: 'customer_uuid',
       inlineFilter: (row) => ({
         name: row.customer_name,
         uuid: row.customer_uuid,
@@ -86,7 +96,7 @@ export const ResourceUsageList: FC = () => {
     {
       title: translate('Client project'),
       render: ({ row }) => <>{row.project_name}</>,
-      filter: 'project',
+      filter: 'project_uuid',
       inlineFilter: (row) => ({
         name: row.project_name,
         uuid: row.project_uuid,
@@ -109,6 +119,13 @@ export const ResourceUsageList: FC = () => {
       export: 'name',
     },
     {
+      title: translate('Missing usage policy'),
+      render: ({ row }) => (
+        <>{getMissingUsagePolicyLabel(row.missing_usage_policy)}</>
+      ),
+      export: 'missing_usage_policy',
+    },
+    {
       title: translate('Date of reporting'),
       render: ({ row }) => <>{formatDateTime(row.date)}</>,
       export: (row) => formatDateTime(row.date),
@@ -116,7 +133,9 @@ export const ResourceUsageList: FC = () => {
     },
     {
       title: translate('Value'),
-      render: ({ row }) => <>{row.usage + ' ' + row.measured_unit}</>,
+      render: ({ row }) => (
+        <>{formatUsageValue(row.usage) + ' ' + row.measured_unit}</>
+      ),
       export: (row) => row.usage + ' ' + row.measured_unit,
       exportKeys: ['usage', 'measured_unit'],
     },
@@ -129,17 +148,21 @@ export const ResourceUsageList: FC = () => {
   ];
 
   return (
-    <Table
-      {...props}
-      columns={columns}
-      tabs={usageTableTabs}
-      verboseName={translate('Usages')}
-      showPageSizeSelector={true}
-      enableExport={true}
-      expandableRow={({ row }) => (
-        <UsageExpandableRow row={row} type="resource-usage" />
-      )}
-      filters={<ResourceUsageFilter />}
-    />
+    <>
+      <ReportingTitle reportKey="resource-usage" />
+      <Table
+        {...tableProps}
+        columns={columns}
+        tabs={usageTableTabs}
+        verboseName={translate('Usages')}
+        showPageSizeSelector={true}
+        enableExport={true}
+        expandableRow={({ row }) => (
+          <UsageExpandableRow row={row} type="resource-usage" />
+        )}
+        filters={<ResourceUsageFilter />}
+        formId={FORM_ID}
+      />
+    </>
   );
 };

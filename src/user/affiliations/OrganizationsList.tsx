@@ -1,56 +1,35 @@
-import { FunctionComponent } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
+import { FunctionComponent, useCallback, useMemo } from 'react';
 import { Customer, customersList, CustomersListData } from 'waldur-js-client';
 
-import { OrganizationsFilter } from '@waldur/administration/organizations/OrganizationsFilter';
-import { formatDate, formatDateTime } from '@waldur/core/dateUtils';
-import { OrganizationImportButton } from '@waldur/customer/import/OrganizationImportButton';
-import { OrganizationCard } from '@waldur/customer/list/OrganizationCard';
-import { OrganizationCreateButton } from '@waldur/customer/list/OrganizationCreateButton';
-import { OrganizationLink } from '@waldur/customer/list/OrganizationLink';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { CountryFlag } from '@waldur/marketplace/common/CountryFlag';
-import { useOrganizationAndProjectFiltersForResources } from '@waldur/navigation/sidebar/resources-filter/utils';
-import { useTitle } from '@waldur/navigation/title';
-import { createFetcher } from '@waldur/table/api';
-import { DASH_ESCAPE_CODE } from '@waldur/table/constants';
-import { SLUG_COLUMN } from '@waldur/table/slug';
-import Table from '@waldur/table/Table';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { renderFieldOrDash } from '@waldur/table/utils';
-import { getUser } from '@waldur/workspace/selectors';
-
-import { CUSTOMERS_FILTER_FORM_ID } from '../constants';
+import { formatDate, formatDateTime } from '@/core/dateUtils';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { formatPhoneNumber } from '@/core/utils';
+import { OrganizationImportButton } from '@/customer/import/OrganizationImportButton';
+import { OrganizationCard } from '@/customer/list/OrganizationCard';
+import { OrganizationCreateButton } from '@/customer/list/OrganizationCreateButton';
+import { OrganizationLink } from '@/customer/list/OrganizationLink';
+import { isFeatureVisible } from '@/features/connect';
+import { CustomerFeatures, MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { CountryFlag } from '@/marketplace/common/CountryFlag';
+import { useOrganizationAndProjectAutocompletesForResources } from '@/navigation/sidebar/resources-filter/utils';
+import { useTitle } from '@/navigation/title';
+import { createFetcher } from '@/table/api';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
+import {
+  CustomersFilter,
+  CustomersFilterFormId,
+  selectCustomersFilter,
+} from '@/table/generated/CustomersFilter';
+import { SLUG_COLUMN } from '@/table/slug';
+import Table from '@/table/Table';
+import { Column, DisplayMode } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
+import { useUser } from '@/workspace/hooks';
 
 import { OrganizationExpandableRow } from './OrganizationExpandableRow';
-
-const mapStateToFilter = createSelector(
-  getFormValues(CUSTOMERS_FILTER_FORM_ID),
-  getUser,
-  (filterValues: any, user) => {
-    const filter: Record<string, string | string[]> = {};
-    if (filterValues?.accounting_is_running) {
-      filter.accounting_is_running = filterValues.accounting_is_running.value;
-    }
-    if (filterValues?.is_service_provider) {
-      filter.is_service_provider = filterValues.is_service_provider.value;
-    }
-    if (filterValues?.organization_group) {
-      filter.organization_group_uuid = filterValues.organization_group.uuid;
-    }
-    if (filterValues?.is_call_managing_organization) {
-      filter.is_call_managing_organization =
-        filterValues.is_call_managing_organization;
-    }
-    filter.user_uuid = user.uuid;
-    return filter;
-  },
-);
 
 const mandatoryFields: CustomersListData['query']['field'] = [
   // Grid view
@@ -61,6 +40,7 @@ const mandatoryFields: CustomersListData['query']['field'] = [
   'created',
   'customer_credit',
   'billing_price_estimate',
+  'display_billing_info_in_projects',
   'organization_groups',
   'url', // Expand view - to create project
 ];
@@ -68,10 +48,18 @@ const mandatoryFields: CustomersListData['query']['field'] = [
 export const OrganizationsList: FunctionComponent = () => {
   useTitle(translate('Organizations'), '', 'browser');
 
-  const filter = useSelector(mapStateToFilter);
+  const user = useUser();
+  const values = useFilterValues('customerList');
+  const filterValues = useMemo(() => selectCustomersFilter(values), [values]);
+
+  const filter = useMemo(
+    () => ({ ...filterValues, user_uuid: user?.uuid }),
+    [filterValues, user],
+  );
 
   const props = useTable({
     table: 'customerList',
+    syncFiltersToURL: true,
     fetchData: createFetcher(customersList),
     queryField: 'query',
     filter,
@@ -79,7 +67,7 @@ export const OrganizationsList: FunctionComponent = () => {
   });
 
   const { syncResourceFilters } =
-    useOrganizationAndProjectFiltersForResources();
+    useOrganizationAndProjectAutocompletesForResources();
 
   const onClickDetails = (row) =>
     syncResourceFilters({ organization: row, project: null });
@@ -137,6 +125,7 @@ export const OrganizationsList: FunctionComponent = () => {
       title: translate('Email'),
       render: ({ row }) => <>{row.email || DASH_ESCAPE_CODE}</>,
       keys: ['email'],
+      optional: true,
       id: 'email',
     },
     {
@@ -153,12 +142,31 @@ export const OrganizationsList: FunctionComponent = () => {
       id: 'projects',
     },
     {
+      title: translate('People'),
+      render: ({ row }) => <>{row.users_count || 0}</>,
+      keys: ['users_count'],
+      export: (row) => String(row.users_count || 0),
+      exportKeys: ['users_count'],
+      id: 'users',
+    },
+    {
+      title: translate('Spent this month'),
+      render: ({ row }) => (
+        <>{defaultCurrency(row.billing_price_estimate?.total || 0)}</>
+      ),
+      keys: ['billing_price_estimate'],
+      export: (row) => row.billing_price_estimate?.total ?? '',
+      exportKeys: ['billing_price_estimate'],
+      id: 'spent_this_month',
+    },
+    {
       title: translate('Created'),
       orderField: 'created',
       render: ({ row }) => <>{formatDate(row.created)}</>,
       keys: ['created'],
+      optional: true,
       id: 'created',
-      export: (row) => formatDateTime(row.created),
+      export: (row) => formatDate(row.created),
     },
     {
       title: translate('Contact details'),
@@ -196,7 +204,9 @@ export const OrganizationsList: FunctionComponent = () => {
     },
     {
       title: translate('Phone number'),
-      render: ({ row }) => <>{row.phone_number || DASH_ESCAPE_CODE}</>,
+      render: ({ row }) => (
+        <>{formatPhoneNumber(row.phone_number) || DASH_ESCAPE_CODE}</>
+      ),
       keys: ['phone_number'],
       optional: true,
       id: 'phone_number',
@@ -222,20 +232,24 @@ export const OrganizationsList: FunctionComponent = () => {
       optional: true,
       id: 'accounting_start_date',
     },
-    {
-      title: translate('Bank account'),
-      render: ({ row }) => <>{row.bank_account || DASH_ESCAPE_CODE}</>,
-      keys: ['bank_account'],
-      optional: true,
-      id: 'bank_account',
-    },
-    {
-      title: translate('Bank name'),
-      render: ({ row }) => <>{row.bank_name || DASH_ESCAPE_CODE}</>,
-      keys: ['bank_name'],
-      optional: true,
-      id: 'bank_name',
-    },
+    ...(isFeatureVisible(CustomerFeatures.show_banking_data)
+      ? ([
+          {
+            title: translate('Bank account'),
+            render: ({ row }) => <>{row.bank_account || DASH_ESCAPE_CODE}</>,
+            keys: ['bank_account'],
+            optional: true,
+            id: 'bank_account',
+          },
+          {
+            title: translate('Bank name'),
+            render: ({ row }) => <>{row.bank_name || DASH_ESCAPE_CODE}</>,
+            keys: ['bank_name'],
+            optional: true,
+            id: 'bank_name',
+          },
+        ] as Array<Column<Customer>>)
+      : []),
     {
       title: translate('Default tax percent'),
       render: ({ row }) => <>{row.default_tax_percent || DASH_ESCAPE_CODE}</>,
@@ -298,13 +312,21 @@ export const OrganizationsList: FunctionComponent = () => {
     });
   }
 
+  const initialModeResolver = useCallback(
+    (resultCount: number): DisplayMode =>
+      resultCount <= 10 ? 'grid' : 'table',
+    [],
+  );
+
   return (
     <Table
       {...props}
+      formId={CustomersFilterFormId}
       columns={columns}
       verboseName={translate('organizations')}
       title={translate('Organizations')}
       gridSize={{ md: 6, xl: 4 }}
+      initialModeResolver={initialModeResolver}
       gridItem={({ row }) => (
         <OrganizationCard
           organization={row as any}
@@ -322,7 +344,7 @@ export const OrganizationsList: FunctionComponent = () => {
           <OrganizationCreateButton />
         </>
       }
-      filters={<OrganizationsFilter />}
+      filters={<CustomersFilter />}
       hasOptionalColumns
       expandableRowClassName="py-2 pe-2"
       expandableRow={OrganizationExpandableRow}

@@ -1,14 +1,15 @@
 import { FunctionComponent } from 'react';
-import { useSelector } from 'react-redux';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { ReviewCloseButton } from '@waldur/customer/team/ReviewCloseButton';
-import { useTeamTableTabs } from '@waldur/customer/team/tabs';
-import { translate } from '@waldur/i18n';
-import { useTeamTableTabs as useProjectTeamTableTabs } from '@waldur/project/team/tabs';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { getProject } from '@waldur/workspace/selectors';
+import { formatDateTime } from '@/core/dateUtils';
+import { ReviewCloseAction } from '@/customer/team/ReviewCloseButton';
+import { useTeamTableTabs } from '@/customer/team/tabs';
+import { translate } from '@/i18n';
+import { useTeamTableTabs as useProjectTeamTableTabs } from '@/project/team/tabs';
+import { ActionsDropdown } from '@/table/ActionsDropdown';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
+import { useProject } from '@/workspace/hooks';
 
 interface PermissionsReviewsListProps {
   tableProps: ReturnType<typeof useTable>;
@@ -18,7 +19,7 @@ interface PermissionsReviewsListProps {
 export const PermissionsReviewsList: FunctionComponent<
   PermissionsReviewsListProps
 > = ({ tableProps, scope }) => {
-  const project = useSelector(getProject);
+  const project = useProject();
   const tableTabs =
     scope === 'project' ? useProjectTeamTableTabs(project) : useTeamTableTabs();
   return (
@@ -41,8 +42,8 @@ export const PermissionsReviewsList: FunctionComponent<
         },
         {
           title: translate('Performed by'),
-          render: ({ row }) => <>{row.reviewer_full_name || 'N/A'}</>,
-          export: (row) => row.reviewer_full_name || 'N/A',
+          render: ({ row }) => <>{renderFieldOrDash(row.reviewer_full_name)}</>,
+          export: (row) => renderFieldOrDash(row.reviewer_full_name),
         },
         {
           title: translate('State'),
@@ -56,15 +57,13 @@ export const PermissionsReviewsList: FunctionComponent<
         },
       ]}
       verboseName={translate('permission reviews')}
-      rowActions={({ row }) => (
-        <>
-          {row.is_pending ? (
-            <ReviewCloseButton reviewId={row.uuid} scope={scope} />
-          ) : (
-            'N/A'
-          )}
-        </>
-      )}
+      rowActions={({ row }) =>
+        row.is_pending ? (
+          <ActionsDropdown row={row}>
+            <ReviewCloseAction row={row} scope={scope} />
+          </ActionsDropdown>
+        ) : null
+      }
       enableExport
     />
   );

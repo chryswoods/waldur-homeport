@@ -1,97 +1,61 @@
-import { FunctionComponent } from 'react';
-import { connect } from 'react-redux';
-import { compose } from 'redux';
-import { reduxForm } from 'redux-form';
+import { FunctionComponent, useContext } from 'react';
 
-import { AccountingPeriodField } from '@waldur/customer/list/AccountingPeriodField';
-import { REACT_SELECT_TABLE_FILTER } from '@waldur/form/themed-select';
-import { PeriodOption } from '@waldur/form/types';
-import { makeLastTwelveMonthsFilterPeriods } from '@waldur/form/utils';
-import { translate } from '@waldur/i18n';
-import { OfferingAutocomplete } from '@waldur/marketplace/offerings/details/OfferingAutocomplete';
-import { OrganizationAutocomplete } from '@waldur/marketplace/orders/OrganizationAutocomplete';
-import { ProjectFilter } from '@waldur/marketplace/resources/list/ProjectFilter';
-import { ResourceAutocomplete } from '@waldur/resource/ResourceAutocomplete';
-import { TableFilterItem } from '@waldur/table/TableFilterItem';
-import { Customer } from '@waldur/workspace/types';
-
-interface ResourceUsageFilterProps {
-  options: PeriodOption[];
-  customer: Customer;
-}
-
-const PureResourceUsageFilter: FunctionComponent<ResourceUsageFilterProps> = (
-  props,
-) => (
-  <>
-    <TableFilterItem
-      title={translate('Accounting period')}
-      name="accounting_period"
-      badgeValue={(value) => value?.label}
-      ellipsis={false}
-    >
-      <AccountingPeriodField
-        options={props.options}
-        reactSelectProps={REACT_SELECT_TABLE_FILTER}
-      />
-    </TableFilterItem>
-    <TableFilterItem
-      title={translate('Organization')}
-      name="organization"
-      badgeValue={(value) => value?.name}
-    >
-      <OrganizationAutocomplete reactSelectProps={REACT_SELECT_TABLE_FILTER} />
-    </TableFilterItem>
-    <TableFilterItem
-      title={translate('Project')}
-      name="project"
-      badgeValue={(value) => value?.name}
-    >
-      <ProjectFilter
-        customer_uuid={props.customer ? props.customer.uuid : null}
-        reactSelectProps={REACT_SELECT_TABLE_FILTER}
-      />
-    </TableFilterItem>
-    <TableFilterItem
-      title={translate('Offering')}
-      name="offering"
-      badgeValue={(value) =>
-        value.category_title
-          ? `${value.category_title} / ${value.name}`
-          : value.name
-      }
-    >
-      <OfferingAutocomplete
-        offeringFilter={{ shared: true }}
-        reactSelectProps={REACT_SELECT_TABLE_FILTER}
-      />
-    </TableFilterItem>
-
-    <TableFilterItem
-      title={translate('Resource')}
-      name="resource"
-      badgeValue={(value) => value?.name}
-    >
-      <ResourceAutocomplete reactSelectProps={REACT_SELECT_TABLE_FILTER} />
-    </TableFilterItem>
-  </>
-);
+import { AccountingPeriodFilter } from '@/customer/list/AccountingPeriodFilter';
+import { makeLastTwelveMonthsFilterPeriods } from '@/form/utils';
+import { translate } from '@/i18n';
+import { OfferingFilter } from '@/marketplace/offerings/details/OfferingFilter';
+import { OrganizationFilter } from '@/marketplace/orders/OrganizationFilter';
+import { ProjectFilter } from '@/marketplace/resources/list/ProjectFilter';
+import { getMissingUsagePolicyChoices } from '@/marketplace/resources/usage/missingUsagePolicy';
+import { ResourceFilter } from '@/resource/ResourceFilter';
+import { SelectFilter } from '@/table';
+import { TableFilterContext } from '@/table/FilterContextProvider';
+import { useFilterValues } from '@/table/useFilterValues';
 
 export const FORM_ID = 'ResourceUsageFilter';
 
-const mapStateToProps = () => ({
-  options: makeLastTwelveMonthsFilterPeriods(),
-});
+interface MissingUsagePolicyOption {
+  label: string;
+  value: string;
+}
 
-const enhance = compose(
-  reduxForm({
-    form: FORM_ID,
-    initialValues: {
-      accounting_period: makeLastTwelveMonthsFilterPeriods()[0],
-    },
-    destroyOnUnmount: false,
-  }),
-  connect(mapStateToProps),
-);
+const options = makeLastTwelveMonthsFilterPeriods();
 
-export const ResourceUsageFilter = enhance(PureResourceUsageFilter);
+export const ResourceUsageFilter: FunctionComponent = () => {
+  const { table } = useContext(TableFilterContext);
+  const values = useFilterValues(table);
+  // Global staff report: use backend keys so it doesn't pick up the workspace
+  // organization/project context (?organization=/?project=).
+  const customer = values?.customer_uuid;
+
+  return (
+    <>
+      <AccountingPeriodFilter options={options} />
+      <OrganizationFilter name="customer_uuid" />
+      <ProjectFilter
+        name="project_uuid"
+        customer_uuid={customer ? customer.uuid : null}
+      />
+      <OfferingFilter
+        badgeValue={(value) =>
+          value?.category_title
+            ? `${value.category_title} / ${value.name}`
+            : value?.name
+        }
+        offeringFilter={{ shared: true }}
+      />
+      <ResourceFilter />
+      <SelectFilter
+        title={translate('Missing usage policy')}
+        name="missing_usage_policy"
+        getValueLabel={(value: MissingUsagePolicyOption) => value?.label}
+        placeholder={translate('Missing usage policy')}
+        options={getMissingUsagePolicyChoices()}
+        getOptionValue={(option: MissingUsagePolicyOption) => option.value}
+        getOptionLabel={(option: MissingUsagePolicyOption) => option.label}
+        isClearable={true}
+        isMulti={true}
+      />
+    </>
+  );
+};

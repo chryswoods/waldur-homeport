@@ -1,7 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Provider } from 'react-redux';
-import configureStore from 'redux-mock-store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   hooksEmailCreate,
@@ -9,31 +7,15 @@ import {
   hooksWebPartialUpdate,
 } from 'waldur-js-client';
 
-import { useNotify } from '@waldur/store/hooks';
+import { useNotify } from '@/store/notify';
+import { renderWithProviders } from '@/test/harness';
 
 import { HookDetailsDialog } from './HookDetailsDialog';
 import { HookResponse } from './types';
 import { loadEventGroupsOptions } from './utils';
 
 // Mock the required modules
-vi.mock('waldur-js-client');
 vi.mock('./utils');
-vi.mock('@waldur/modal/actions', () => ({
-  closeModalDialog: vi.fn(),
-}));
-vi.mock('@waldur/store/hooks', () => ({
-  useNotify: vi.fn().mockReturnValue({
-    showSuccess: vi.fn(),
-    showErrorResponse: vi.fn(),
-  }),
-}));
-
-const mockStore = configureStore([]);
-const store = mockStore({});
-
-const renderWithRedux = (ui) => {
-  return render(<Provider store={store}>{ui}</Provider>);
-};
 
 const mockEventGroups = [
   {
@@ -50,18 +32,9 @@ const mockEventGroups = [
 
 describe('HookDetailsDialog', () => {
   const mockRefetch = vi.fn();
-  const mockShowSuccess = vi.fn();
-  const mockShowError = vi.fn();
-  const mockShowErrorResponse = vi.fn();
 
   beforeEach(() => {
     vi.mocked(loadEventGroupsOptions).mockResolvedValue(mockEventGroups);
-    vi.mocked(useNotify).mockReturnValue({
-      showSuccess: mockShowSuccess,
-      showError: mockShowError,
-      showErrorResponse: mockShowErrorResponse,
-    });
-    store.clearActions();
   });
 
   afterEach(() => {
@@ -69,19 +42,23 @@ describe('HookDetailsDialog', () => {
   });
 
   describe('Create mode', () => {
-    beforeEach(async () => {
-      renderWithRedux(<HookDetailsDialog resolve={{ refetch: mockRefetch }} />);
+    const renderCreate = async () => {
+      renderWithProviders(
+        <HookDetailsDialog resolve={{ refetch: mockRefetch }} />,
+      );
       await waitFor(() => {
-        expect(screen.getByText('Create notification')).toBeInTheDocument();
+        expect(screen.queryByTestId('SpinnerIcon')).not.toBeInTheDocument();
       });
-    });
+    };
 
-    it('should render create form with webhook type selected by default', () => {
+    it('should render create form with webhook type selected by default', async () => {
+      await renderCreate();
       expect(screen.getByText('Webhook')).toBeInTheDocument();
       expect(screen.getByText('Email')).toBeInTheDocument();
     });
 
     it('should handle webhook creation', async () => {
+      await renderCreate();
       vi.mocked(hooksWebCreate).mockResolvedValue(null);
 
       await userEvent.type(
@@ -89,8 +66,8 @@ describe('HookDetailsDialog', () => {
         'https://example.com/webhook',
       );
 
-      userEvent.click(screen.getByText('Users'));
-      userEvent.click(screen.getByText('Create'));
+      await userEvent.click(screen.getByText('Users'));
+      await userEvent.click(screen.getByText('Create'));
 
       await waitFor(() => {
         expect(hooksWebCreate).toHaveBeenCalledWith({
@@ -99,13 +76,14 @@ describe('HookDetailsDialog', () => {
             event_groups: ['users'],
           },
         });
-        expect(mockShowSuccess).toHaveBeenCalledWith(
+        expect(useNotify().showSuccess).toHaveBeenCalledWith(
           'Notification has been created.',
         );
       });
     });
 
     it('should handle email hook creation', async () => {
+      await renderCreate();
       vi.mocked(hooksEmailCreate).mockResolvedValue(null);
 
       await userEvent.click(screen.getByText('Email'));
@@ -114,8 +92,8 @@ describe('HookDetailsDialog', () => {
         'test@example.com',
       );
 
-      userEvent.click(screen.getByText('Users'));
-      userEvent.click(screen.getByText('Create'));
+      await userEvent.click(screen.getByText('Users'));
+      await userEvent.click(screen.getByText('Create'));
 
       await waitFor(() => {
         expect(hooksEmailCreate).toHaveBeenCalledWith({
@@ -124,7 +102,7 @@ describe('HookDetailsDialog', () => {
             event_groups: ['users'],
           },
         });
-        expect(mockShowSuccess).toHaveBeenCalledWith(
+        expect(useNotify().showSuccess).toHaveBeenCalledWith(
           'Notification has been created.',
         );
       });
@@ -139,20 +117,21 @@ describe('HookDetailsDialog', () => {
       is_active: true,
       event_groups: ['users'],
     };
-    beforeEach(async () => {
-      renderWithRedux(
+    const renderUpdate = async () => {
+      renderWithProviders(
         <HookDetailsDialog
           resolve={{ hook: mockHook, refetch: mockRefetch }}
         />,
       );
       await waitFor(() => {
-        expect(screen.getByText('Update notification')).toBeInTheDocument();
+        expect(screen.queryByTestId('SpinnerIcon')).not.toBeInTheDocument();
       });
-    });
+    };
 
     it('should render update form with existing hook data', async () => {
+      await renderUpdate();
       await waitFor(() => {
-        expect(screen.getByText('Update notification')).toBeInTheDocument();
+        expect(screen.queryByTestId('SpinnerIcon')).not.toBeInTheDocument();
         expect(screen.getByText('Webhook')).toBeInTheDocument();
         expect(
           screen.getByDisplayValue('https://example.com/webhook'),
@@ -161,12 +140,13 @@ describe('HookDetailsDialog', () => {
     });
 
     it('should handle hook update', async () => {
+      await renderUpdate();
       vi.mocked(hooksWebPartialUpdate).mockResolvedValue(null);
       // Update URL
       const urlInput = screen.getByTestId('destination-url');
       await userEvent.clear(urlInput);
-      await waitFor(async () => {
-        await userEvent.clear(urlInput);
+      await userEvent.clear(urlInput);
+      await waitFor(() => {
         expect(urlInput).toHaveValue('');
       });
       await userEvent.type(urlInput, 'https://new-example.com/webhook');
@@ -192,16 +172,19 @@ describe('HookDetailsDialog', () => {
     });
 
     it('should handle update error', async () => {
+      await renderUpdate();
       const error = new Error('Update failed');
       vi.mocked(hooksWebPartialUpdate).mockRejectedValue(error);
 
       // Submit form without changes
       const submitButton = screen.getByText('Update');
       await userEvent.click(submitButton);
-      expect(mockShowErrorResponse).toHaveBeenCalledWith(
-        error,
-        'Unable to update notification.',
-      );
+      await waitFor(() => {
+        expect(useNotify().showErrorResponse).toHaveBeenCalledWith(
+          error,
+          'Unable to update notification.',
+        );
+      });
     });
   });
 });

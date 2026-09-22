@@ -1,18 +1,19 @@
-import {
-  customersRetrieve,
-  CustomersRetrieveData,
-  Options,
-} from 'waldur-js-client';
+import { customersRetrieve, CustomersRetrieveData } from 'waldur-js-client';
 
-import { hasPermission } from '@waldur/permissions/hasPermission';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { hasPermission } from '@/permissions/hasPermission';
 import {
   getCustomer as getCustomerSelector,
   getUser,
-} from '@waldur/workspace/selectors';
+  hasNonProjectPermissions,
+} from '@/workspace/selectors';
 
 export const userHasCustomerPermission = (permission) => (state) => {
   const user = getUser(state);
-  const customerId = getCustomerSelector(state).uuid;
+  const customer = getCustomerSelector(state);
+  if (!customer) return false;
+  const customerId = customer.uuid;
   return (
     hasPermission(user, {
       customerId,
@@ -37,9 +38,19 @@ export const userHasCustomerPermission = (permission) => (state) => {
   );
 };
 
+export const canAccessOrganization = (state) => {
+  const hideFromProjectMembers = isFeatureVisible(
+    MarketplaceFeatures.hide_organization_information_from_project_members,
+  );
+  if (!hideFromProjectMembers) {
+    return true;
+  }
+  return hasNonProjectPermissions(state);
+};
+
 export const getCustomer = (
   customerId: string,
-  field: Options<CustomersRetrieveData, false>['query']['field'] = null,
+  field: CustomersRetrieveData['query']['field'] = null,
 ) =>
   customersRetrieve({
     path: { uuid: customerId },

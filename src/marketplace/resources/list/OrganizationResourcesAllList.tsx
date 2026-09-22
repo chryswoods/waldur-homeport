@@ -1,68 +1,34 @@
-import { FC } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
-import {
-  marketplaceResourcesList,
-  MarketplaceResourcesListData,
-} from 'waldur-js-client';
+import { FC, useMemo } from 'react';
+import { marketplaceResourcesList } from 'waldur-js-client';
 
-import { PROJECT_RESOURCES_ALL_FILTER_FORM_ID } from '@waldur/marketplace/resources/list/constants';
-import { createFetcher } from '@waldur/table/api';
-import { TableProps } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { PROJECT_RESOURCES_ALL_FILTER_FORM_ID } from '@/marketplace/resources/list/constants';
+import { createFetcher } from '@/table/api';
+import { TableProps } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { useCustomer } from '@/workspace/hooks';
 
-import { NON_TERMINATED_STATES } from './constants';
 import { ResourcesAllListTable } from './ResourcesAllListTable';
-import { resourcesListRequiredFields } from './utils';
+import { buildResourcesAllFilter, resourcesListRequiredFields } from './utils';
 
-const mapStateToFilter = createSelector(
-  getCustomer,
-  getFormValues(PROJECT_RESOURCES_ALL_FILTER_FORM_ID),
-  (customer, filters: any) => {
-    const result: MarketplaceResourcesListData['query'] = {};
-    if (customer) {
-      result.customer_uuid = customer.uuid;
-    }
-    if (filters?.offering) {
-      result.offering_uuid = filters.offering.uuid;
-    }
-    if (filters?.parent_offering) {
-      result.parent_offering_uuid = filters.parent_offering.uuid;
-    }
-    if (filters?.state) {
-      result.state = filters.state.value;
-    }
-    if (filters?.category) {
-      result.category_uuid = filters.category.uuid;
-    }
-    if (filters?.project) {
-      result.project_uuid = filters.project.uuid;
-    }
-    if (filters?.runtime_state) {
-      result.runtime_state = filters.runtime_state.value;
-    }
-    if (filters?.state) {
-      result.state = filters.state.map((option) => option.value);
-      if (filters?.include_terminated) {
-        result.state = [...result.state, 'Terminated'];
-      }
-    } else {
-      if (!filters?.include_terminated) {
-        result.state = NON_TERMINATED_STATES;
-      }
-    }
-    return result;
-  },
-);
+export const OrganizationResourcesAllList: FC<Partial<TableProps>> = ({
+  ...props
+}) => {
+  const customer = useCustomer();
+  const values = useFilterValues(`OrganizationResourcesAllList`);
+  const filterValues: any = values;
 
-export const OrganizationResourcesAllList: FC<Partial<TableProps>> = (
-  props,
-) => {
-  const filter = useSelector(mapStateToFilter);
+  const filter = useMemo(
+    () =>
+      buildResourcesAllFilter(filterValues, {
+        customer_uuid: customer?.uuid,
+      }),
+    [filterValues, customer],
+  );
+
   const tableProps = useTable({
     table: `OrganizationResourcesAllList`,
+    syncFiltersToURL: true,
     fetchData: createFetcher(marketplaceResourcesList),
     queryField: 'query',
     filter,
@@ -73,6 +39,7 @@ export const OrganizationResourcesAllList: FC<Partial<TableProps>> = (
     <ResourcesAllListTable
       {...tableProps}
       {...props}
+      formId={PROJECT_RESOURCES_ALL_FILTER_FORM_ID}
       hasProjectColumn
       context="organization"
     />

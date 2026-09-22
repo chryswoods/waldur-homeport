@@ -1,59 +1,16 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { marketplacePlansCreate } from 'waldur-js-client';
+import {
+  marketplacePlansCreate,
+  marketplacePlansUpdatePrices,
+} from 'waldur-js-client';
+
+import { renderWithProviders } from '@/test/harness';
+import { openAndSelectOption } from '@/test/select';
 
 import { AddPlanDialog } from './AddPlanDialog';
 import { mockOffering, mockPlan } from './test-utils';
-
-// Mock API specific to AddPlanDialog
-vi.mock('waldur-js-client', () => ({
-  marketplacePlansCreate: vi.fn(),
-}));
-
-// Mock store hooks
-vi.mock('@waldur/store/hooks', () => ({
-  useNotify: () => ({
-    showSuccess: vi.fn(),
-    showErrorResponse: vi.fn(),
-  }),
-}));
-
-// Mock modal hooks
-vi.mock('@waldur/modal/hooks', () => ({
-  useModal: () => ({
-    closeDialog: vi.fn(),
-  }),
-}));
-
-// Mock translation
-vi.mock('@waldur/core/translate', () => ({
-  translate: (str: string) => str,
-}));
-
-// Mock local constants
-vi.mock('./constants', () => ({
-  getBillingPeriods: () => [
-    { value: 'month', label: 'Per month' },
-    { value: 'half_month', label: 'Per half month' },
-    { value: 'day', label: 'Per day' },
-    { value: 'hour', label: 'Per hour' },
-  ],
-}));
-
-// Mock utils
-vi.mock('@waldur/marketplace/details/utils', () => ({
-  formatPlan: (data: any) => ({
-    name: data.name,
-    unit: data.unit?.value || data.unit,
-    description: data.description,
-    article_code: data.article_code,
-  }),
-}));
-
-vi.mock('@waldur/marketplace/offerings/update/plans/utils', () => ({
-  articleCodeValidator: () => {},
-}));
 
 const mockResolve = {
   offering: mockOffering,
@@ -66,7 +23,7 @@ const mockResolveWithPlan = {
 };
 
 const renderComponent = (resolve = mockResolve) => {
-  return render(<AddPlanDialog resolve={resolve} />);
+  return renderWithProviders(<AddPlanDialog resolve={resolve} />);
 };
 
 describe('AddPlanDialog', () => {
@@ -89,28 +46,21 @@ describe('AddPlanDialog', () => {
     renderComponent(mockResolveWithPlan);
 
     // Check that the name field contains "Clone of" prefix
-    const nameInput = document.querySelector(
-      'input[name="name"]',
-    ) as HTMLInputElement;
-    expect(nameInput).toHaveValue('Clone of Test Plan');
+    expect(screen.getByLabelText(/Name/)).toHaveValue('Clone of Test Plan');
   });
 
-  it('initializes form with cloned plan data', () => {
+  it('initializes form with cloned plan data', async () => {
     renderComponent(mockResolveWithPlan);
 
     // Check initial values from cloned plan
-    const nameInput = document.querySelector(
-      'input[name="name"]',
-    ) as HTMLInputElement;
-    const articleCodeInput = document.querySelector(
-      'input[name="article_code"]',
-    ) as HTMLInputElement;
-
-    expect(nameInput).toHaveValue('Clone of Test Plan');
-    expect(articleCodeInput).toHaveValue('TEST001');
+    expect(screen.getByLabelText(/Name/)).toHaveValue('Clone of Test Plan');
+    expect(screen.getByLabelText(/Article code/)).toHaveValue('TEST001');
 
     // For MarkdownEditor, just check that description text appears somewhere
-    expect(screen.getByText('Test plan description')).toBeInTheDocument();
+    // The markdown editor is a lazy chunk, so its content lands after the first render.
+    expect(
+      await screen.findByText('Test plan description'),
+    ).toBeInTheDocument();
   });
 
   it('successfully creates plan when form is submitted', async () => {
@@ -123,18 +73,10 @@ describe('AddPlanDialog', () => {
     const user = userEvent.setup();
 
     // Fill out the form
-    const nameInput = document.querySelector(
-      'input[name="name"]',
-    ) as HTMLInputElement;
-    await user.type(nameInput, 'New Plan');
+    await user.type(screen.getByLabelText(/Name/), 'New Plan');
 
     // Select billing period (required field)
-    const selectContainer = document.querySelector('.metronic-select__control');
-    if (selectContainer) {
-      await user.click(selectContainer);
-      const monthlyOption = await screen.findByText('Per month');
-      await user.click(monthlyOption);
-    }
+    await openAndSelectOption(user, /Billing period/, 'Per month');
 
     // Submit the form
     const createButton = screen.getByText('Create');
@@ -166,18 +108,10 @@ describe('AddPlanDialog', () => {
     const user = userEvent.setup();
 
     // Fill and submit form
-    const nameInput = document.querySelector(
-      'input[name="name"]',
-    ) as HTMLInputElement;
-    await user.type(nameInput, 'New Plan');
+    await user.type(screen.getByLabelText(/Name/), 'New Plan');
 
     // Select billing period (required field)
-    const selectContainer = document.querySelector('.metronic-select__control');
-    if (selectContainer) {
-      await user.click(selectContainer);
-      const monthlyOption = await screen.findByText('Per month');
-      await user.click(monthlyOption);
-    }
+    await openAndSelectOption(user, /Billing period/, 'Per month');
 
     const createButton = screen.getByText('Create');
     await user.click(createButton);
@@ -200,18 +134,10 @@ describe('AddPlanDialog', () => {
     const user = userEvent.setup();
 
     // Fill required fields
-    const nameInput = document.querySelector(
-      'input[name="name"]',
-    ) as HTMLInputElement;
-    await user.type(nameInput, 'Test Plan');
+    await user.type(screen.getByLabelText(/Name/), 'Test Plan');
 
     // Select billing period
-    const selectContainer = document.querySelector('.metronic-select__control');
-    if (selectContainer) {
-      await user.click(selectContainer);
-      const monthlyOption = await screen.findByText('Per month');
-      await user.click(monthlyOption);
-    }
+    await openAndSelectOption(user, /Billing period/, 'Per month');
 
     const createButton = screen.getByText('Create');
     expect(createButton).not.toBeDisabled();
@@ -220,33 +146,117 @@ describe('AddPlanDialog', () => {
   it('shows loading state during submission', async () => {
     const mockPlansCreate = vi.mocked(marketplacePlansCreate);
     // Mock a delayed response
-    mockPlansCreate.mockImplementation(
-      () => new Promise((resolve) => setTimeout(resolve, 100)),
-    );
+    let resolvePromise: () => void;
+    const delayedPromise = new Promise<void>((resolve) => {
+      resolvePromise = resolve;
+    });
+    mockPlansCreate.mockImplementation(() => delayedPromise as any);
 
     renderComponent();
     const user = userEvent.setup();
 
     // Fill and submit form
-    const nameInput = document.querySelector(
-      'input[name="name"]',
-    ) as HTMLInputElement;
-    await user.type(nameInput, 'Test Plan');
+    await user.type(screen.getByLabelText(/Name/), 'Test Plan');
 
     // Select billing period (required field)
-    const selectContainer = document.querySelector('.metronic-select__control');
-    if (selectContainer) {
-      await user.click(selectContainer);
-      const monthlyOption = await screen.findByText('Per month');
-      await user.click(monthlyOption);
-    }
+    await openAndSelectOption(user, /Billing period/, 'Per month');
 
     const createButton = screen.getByText('Create');
-    await user.click(createButton);
+    const clickPromise = user.click(createButton);
 
     // Button should be disabled during submission
+    await waitFor(
+      () => {
+        expect(createButton).toBeDisabled();
+      },
+      { timeout: 2000 },
+    );
+
+    // Resolve the promise to clean up
+    resolvePromise!();
+    await clickPromise;
+  });
+});
+
+const mockOfferingWithComponents = {
+  ...mockOffering,
+  components: [
+    {
+      type: 'cores',
+      name: 'Cores',
+      measured_unit: 'cores',
+      billing_type: 'limit',
+    },
+    { type: 'ram', name: 'RAM', measured_unit: 'GB', billing_type: 'limit' },
+  ],
+  plans: [],
+};
+
+describe('AddPlanDialog component prices', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(marketplacePlansCreate).mockResolvedValue({
+      data: { uuid: 'new-plan-uuid' },
+    } as any);
+  });
+
+  const fillRequiredFields = async (user) => {
+    await user.type(screen.getByLabelText(/Name/), 'New Plan');
+    await openAndSelectOption(user, /Billing period/, 'Per month');
+  };
+
+  it('prices the components of the offering while the plan is created', async () => {
+    vi.mocked(marketplacePlansUpdatePrices).mockResolvedValue({} as any);
+    renderComponent({
+      ...mockResolve,
+      offering: mockOfferingWithComponents,
+    } as any);
+    const user = userEvent.setup();
+
+    await fillRequiredFields(user);
+    await user.type(screen.getAllByRole('spinbutton')[0], '0.02');
+    await user.click(screen.getByText('Create'));
+
     await waitFor(() => {
-      expect(createButton).toBeDisabled();
+      expect(marketplacePlansUpdatePrices).toHaveBeenCalledWith({
+        path: { uuid: 'new-plan-uuid' },
+        body: { prices: { cores: '0.02' } },
+      });
     });
+  });
+
+  it('refuses to create a plan that is neither priced nor marked free', async () => {
+    renderComponent({
+      ...mockResolve,
+      offering: mockOfferingWithComponents,
+    } as any);
+    const user = userEvent.setup();
+
+    await fillRequiredFields(user);
+
+    expect(screen.getByText('Create')).toBeDisabled();
+
+    await user.type(screen.getAllByRole('spinbutton')[0], '0.02');
+
+    await waitFor(() => {
+      expect(screen.getByText('Create')).not.toBeDisabled();
+    });
+  });
+
+  it('creates a plan the provider marked free, without prices', async () => {
+    renderComponent({
+      ...mockResolve,
+      offering: mockOfferingWithComponents,
+    } as any);
+    const user = userEvent.setup();
+
+    await fillRequiredFields(user);
+    await user.click(screen.getByLabelText(/This plan is free/));
+    await user.click(screen.getByText('Create'));
+
+    await waitFor(() => {
+      expect(marketplacePlansCreate).toHaveBeenCalled();
+    });
+    expect(marketplacePlansUpdatePrices).not.toHaveBeenCalled();
   });
 });

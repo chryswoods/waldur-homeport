@@ -7,11 +7,12 @@
  */
 
 import {
-  DailyProjectUsageReportJson,
-  ProjectUsageReportJson,
+  DailyProjectUsageReport as DailyProjectUsageReportJson,
+  ProjectUsageReport as ProjectUsageReportJson,
   Usage,
-  UsageReportApiItem,
-} from './types';
+  CachedProjectUsageReport as UsageReportApiItem,
+} from 'waldur-js-client';
+
 import { secondsToHours } from './storage';
 
 // ─── DailyProjectUsageReport ─────────────────────────────────────────────────
@@ -257,7 +258,10 @@ export class ProjectUsageReport {
     component: string,
   ): Array<{ user: string; usage: Usage }> {
     return this.localUsers()
-      .map((user) => ({ user, usage: this.componentUsageForUser(component, user) }))
+      .map((user) => ({
+        user,
+        usage: this.componentUsageForUser(component, user),
+      }))
       .sort((a, b) => b.usage.seconds - a.usage.seconds);
   }
 
@@ -322,18 +326,20 @@ export class ProjectUsageReport {
           m.components![comp] ??= {};
           for (const [user, u] of Object.entries(byUser)) {
             m.components![comp][user] = {
-              seconds:
-                (m.components![comp][user]?.seconds ?? 0) + u.seconds,
+              seconds: (m.components![comp][user]?.seconds ?? 0) + u.seconds,
             };
           }
         }
 
-        for (const [user, count] of Object.entries(daily.user_job_counts ?? {})) {
+        for (const [user, count] of Object.entries(
+          daily.user_job_counts ?? {},
+        )) {
           m.user_job_counts![user] = (m.user_job_counts![user] ?? 0) + count;
         }
-        for (const [user, wait] of Object.entries(daily.user_wait_seconds ?? {})) {
-          m.user_wait_seconds![user] =
-            (m.user_wait_seconds![user] ?? 0) + wait;
+        for (const [user, wait] of Object.entries(
+          daily.user_wait_seconds ?? {},
+        )) {
+          m.user_wait_seconds![user] = (m.user_wait_seconds![user] ?? 0) + wait;
         }
         m.num_jobs = (m.num_jobs ?? 0) + (daily.num_jobs ?? 0);
         m.total_wait_seconds =

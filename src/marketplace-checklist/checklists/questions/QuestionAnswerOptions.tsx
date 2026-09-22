@@ -16,13 +16,15 @@ import {
   PlusIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
-import { Button, Card, Form } from 'react-bootstrap';
+import { Card, Form } from 'react-bootstrap';
 import { Field } from 'react-final-form';
 import { FieldArray, FieldArrayRenderProps } from 'react-final-form-arrays';
 
-import { required, requiredArray } from '@waldur/core/validators';
-import { StringField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
+import { required, requiredArray } from '@/core/validators';
+import { StringField } from '@/form';
+import { translate } from '@/i18n';
+import { ActionButton } from '@/table/ActionButton';
+import { CompactActionButton } from '@/table/CompactActionButton';
 
 const SortableField = ({ name, index, onRemove, disabled }) => {
   const {
@@ -53,19 +55,18 @@ const SortableField = ({ name, index, onRemove, disabled }) => {
         </span>
       </td>
       <td>
-        <Field component={StringField as any} name={name} validate={required} />
+        <Field name={name} validate={required}>
+          {({ input, meta }) => <StringField input={input} meta={meta} />}
+        </Field>
       </td>
       <td width={60}>
-        <Button
+        <ActionButton
+          action={onRemove}
+          iconNode={<TrashIcon weight="bold" />}
           variant="text-danger"
-          className="btn-icon"
-          onClick={onRemove}
           disabled={disabled}
-        >
-          <span className="svg-icon svg-icon-1">
-            <TrashIcon weight="bold" />
-          </span>
-        </Button>
+          disabledReason={translate('At least two options are required')}
+        />
       </td>
     </tr>
   );
@@ -76,6 +77,10 @@ const DraggableFieldsListGroup = ({
 }: FieldArrayRenderProps<string, HTMLElement>) => {
   const sensors = useSensors(useSensor(PointerSensor));
   const addDisabled = fields.value?.some((v) => !v);
+
+  if (fields.length === 0) {
+    fields.push('');
+  }
 
   const addRow = () => {
     if (!addDisabled) {
@@ -124,16 +129,16 @@ const DraggableFieldsListGroup = ({
               <tr>
                 <td />
                 <td colSpan={2}>
-                  <Button
+                  <CompactActionButton
+                    action={addRow}
+                    title={translate('Add answer')}
+                    iconNode={<PlusIcon weight="bold" />}
                     variant="text-primary"
-                    onClick={addRow}
                     disabled={addDisabled}
-                  >
-                    <span className="svg-icon svg-icon-2">
-                      <PlusIcon weight="bold" />
-                    </span>
-                    {translate('Add answer')}
-                  </Button>
+                    disabledReason={translate(
+                      'Fill in all options before adding more',
+                    )}
+                  />
                 </td>
               </tr>
             </tbody>

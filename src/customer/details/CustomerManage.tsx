@@ -1,25 +1,16 @@
 import { FunctionComponent, useCallback } from 'react';
-import { useSelector } from 'react-redux';
 import { customersPartialUpdate } from 'waldur-js-client';
 
-import { formDataOptions, fileSerializer } from '@waldur/core/api';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { PageBarProvider } from '@waldur/marketplace/context';
-import { openModalDialog } from '@waldur/modal/actions';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { setCurrentCustomer } from '@waldur/workspace/actions';
-import { getCustomer, getUser } from '@waldur/workspace/selectors';
+import { fileSerializer, formDataOptions } from '@/core/api';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { useNotify } from '@/store/notify';
+import { useCustomer, useSetCustomer, useUser } from '@/workspace/hooks';
 
-import { CustomerCallManagerPanel } from './CustomerCallManagerPanel';
-import { CustomerEditPanels } from './CustomerEditPanels';
-import { CustomerManagePageBar } from './CustomerManagePageBar';
-import { CustomerMarketplacePanel } from './CustomerMarketplacePanel';
-import { CustomerRemovePanel } from './CustomerRemovePanel';
+import { serializeNotificationEmails } from './utils';
 
 const CustomerErrorDialog = lazyComponent(() =>
   import('./CustomerErrorDialog').then((module) => ({
@@ -32,78 +23,64 @@ interface OwnProps {
 }
 
 export const CustomerManage: FunctionComponent<OwnProps> = ({ tabSpec }) => {
-  const customer = useSelector(getCustomer);
-  const user = useSelector(getUser);
+  const setCurrentCustomer = useSetCustomer();
+  const { showErrorResponse, showSuccess } = useNotify();
+  const { openDialog } = useModal();
+
+  const customer = useCustomer();
+  const user = useUser();
   const canEditCustomer = hasPermission(user, {
     permission: PermissionEnum.UPDATE_CUSTOMER,
     customerId: customer.uuid,
   });
 
   const update = useCallback(
-    async (formData, dispatch) => {
+    async (formData) => {
       if (canEditCustomer) {
         try {
           const response = await customersPartialUpdate({
             path: { uuid: customer.uuid },
             body: {
               ...formData,
+              ...('notification_emails' in formData && {
+                notification_emails: serializeNotificationEmails(
+                  formData.notification_emails,
+                ),
+              }),
               image: fileSerializer(formData.image),
-              country:
-                'country' in formData && formData.country
-                  ? formData.country.value
-                  : undefined,
             },
             ...formDataOptions,
           });
-          dispatch(showSuccess(translate('Organization updated successfully')));
+          showSuccess(translate('Organization updated successfully'));
           if (response.data?.uuid === customer.uuid) {
-            dispatch(setCurrentCustomer(response.data));
+            setCurrentCustomer(response.data);
           }
           return response;
         } catch (error) {
-          dispatch(showErrorResponse(error));
+          showErrorResponse(error);
           // Throw exception to the edit dialog
           if (!('image' in formData)) {
             throw error;
           }
         }
       } else {
-        dispatch(
-          openModalDialog(CustomerErrorDialog, {
-            resolve: { customer, formData },
-          }),
-        );
+        openDialog(CustomerErrorDialog, {
+          resolve: { customer, formData },
+        });
       }
     },
-    [canEditCustomer, customer],
+    [canEditCustomer, customer, openDialog, showSuccess, showErrorResponse],
   );
 
-  if (tabSpec) {
-    return (
-      <tabSpec.component
-        customer={customer}
-        callback={update}
-        canUpdate={canEditCustomer}
-      />
-    );
+  if (!tabSpec) {
+    return null;
   }
 
   return (
-    <PageBarProvider>
-      <CustomerManagePageBar />
-      <div className="container-fluid py-10">
-        <CustomerEditPanels
-          customer={customer}
-          callback={update}
-          canUpdate={canEditCustomer}
-        />
-
-        <CustomerMarketplacePanel />
-        {isFeatureVisible(
-          MarketplaceFeatures.show_call_management_functionality,
-        ) && <CustomerCallManagerPanel />}
-        <CustomerRemovePanel />
-      </div>
-    </PageBarProvider>
+    <tabSpec.component
+      customer={customer}
+      callback={update}
+      canUpdate={canEditCustomer}
+    />
   );
 };

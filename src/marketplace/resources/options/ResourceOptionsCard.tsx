@@ -1,10 +1,13 @@
-import { FC } from 'react';
-import { Resource } from 'waldur-js-client';
+import { ArrowRightIcon, InfoIcon } from '@phosphor-icons/react';
+import { FC, useMemo } from 'react';
+import { Resource, Offering } from 'waldur-js-client';
 
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
-import { Offering } from '@waldur/marketplace/types';
+import { Tooltip } from 'waldur-ui';
 
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+
+import { getHiddenOptionKeys } from '../../common/optionVisibility';
 import { MultiEditOptionsAction } from '../mass-actions/MultiEditOptionsAction';
 
 import { OptionValue } from './OptionValue';
@@ -17,8 +20,74 @@ interface ResourceOptionsCardProps {
   isLoading?;
 }
 
+interface PendingOptionsChange {
+  oldOptions: Record<string, any>;
+  newOptions: Record<string, any>;
+  changedKeys: string[];
+}
+
+const getPendingOptionsChange = (
+  resource: Resource,
+): PendingOptionsChange | null => {
+  const order = resource.order_in_progress;
+  if (!order) return null;
+
+  const attributes = order.attributes as Record<string, any>;
+  if (order.type === 'Update' && attributes?.new_options) {
+    return {
+      oldOptions: attributes.old_options || {},
+      newOptions: attributes.new_options || {},
+      changedKeys: Object.keys(attributes.new_options || {}),
+    };
+  }
+  return null;
+};
+
+const PendingChangeValue: FC<{
+  option: any;
+  currentValue: any;
+  oldValue: any;
+  newValue: any;
+}> = ({ option, oldValue, newValue }) => {
+  return (
+    <span className="d-inline-flex align-items-center gap-2 flex-wrap">
+      <span className="text-muted">
+        <OptionValue option={option} value={oldValue} />
+      </span>
+      <ArrowRightIcon size={16} className="text-muted" weight="bold" />
+      <span>
+        <OptionValue option={option} value={newValue} />
+      </span>
+      <Tooltip label={translate('This value was changed in a pending order')}>
+        <InfoIcon
+          size={16}
+          weight="fill"
+          className="text-info cursor-pointer"
+        />
+      </Tooltip>
+    </span>
+  );
+};
+
 export const ResourceOptionsCard: FC<ResourceOptionsCardProps> = (props) => {
   const resourceOptions = props.offering.resource_options;
+
+  const pendingChange = useMemo(
+    () => getPendingOptionsChange(props.resource),
+    [props.resource],
+  );
+
+  const pendingChangesCount = pendingChange?.changedKeys.length || 0;
+
+  const hiddenKeys = useMemo(
+    () =>
+      getHiddenOptionKeys(
+        resourceOptions?.options,
+        props.resource.options as Record<string, unknown>,
+      ),
+    [resourceOptions?.options, props.resource.options],
+  );
+
   if (!resourceOptions?.order?.length) {
     return (
       <div className="justify-content-center row">
@@ -31,35 +100,64 @@ export const ResourceOptionsCard: FC<ResourceOptionsCardProps> = (props) => {
     );
   }
 
+  const title = (
+    <div>
+      {translate('Options')}
+      {pendingChangesCount > 0 && (
+        <div className="fs-7 fw-normal text-success mt-1">
+          {translate('{count} pending changes', { count: pendingChangesCount })}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <FormTable.Card
-      title={translate('Options')}
+      title={title}
       refetch={props.refetch}
       loading={props.isLoading}
       className="card-bordered"
       actions={
-        <MultiEditOptionsAction
-          rows={[props.resource]}
-          refetch={props.refetch}
-          asButton
-        />
+        props.resource.state === 'OK' && (
+          <MultiEditOptionsAction
+            rows={[props.resource]}
+            refetch={props.refetch}
+            asButton
+          />
+        )
       }
     >
       <FormTable>
         {resourceOptions.order?.map((key) => {
+          // Options hidden by the resource's current values have no value
+          // and cannot be edited on their own; the full options dialog shows
+          // them once the controlling option is changed.
+          if (hiddenKeys.has(key)) {
+            return null;
+          }
           const option = {
             ...resourceOptions.options[key],
             name: key,
           };
+          const isPendingChange = pendingChange?.changedKeys.includes(key);
+          const currentValue =
+            props.resource.options && props.resource.options[key];
+
           return (
             <FormTable.Item
               key={key}
               label={option.label}
               value={
-                <OptionValue
-                  option={option}
-                  value={props.resource.options && props.resource.options[key]}
-                />
+                isPendingChange ? (
+                  <PendingChangeValue
+                    option={option}
+                    currentValue={currentValue}
+                    oldValue={pendingChange.oldOptions[key]}
+                    newValue={pendingChange.newOptions[key]}
+                  />
+                ) : (
+                  <OptionValue option={option} value={currentValue} />
+                )
               }
               description={option.help_text}
               actions={

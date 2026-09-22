@@ -5,7 +5,7 @@ import {
   ServiceProvider,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
 
 export const MAINTENANCE_TYPE = {
   1: translate('Scheduled'),
@@ -24,13 +24,13 @@ export const MAINTENANCE_IMPACT_LEVEL = {
 
 export interface MaintenanceForm {
   template?: MaintenanceAnnouncementTemplate; // Temporary field to hold selected template
-  scheduled_start_date: string; // 'yyyy-mm-dd';
-  scheduled_start_time: string; // 'hh:mm:ss';
-  scheduled_end_time: string;
-  scheduled_end_date: string;
+  service_provider?: ServiceProvider; // Optional provider chosen by staff when no provider context is available
+  /** Combined start/end as a tuple stored by the range-mode picker. */
+  scheduled_window: [Date, Date];
   name: string;
   maintenance_type: keyof typeof MAINTENANCE_TYPE;
   message: string;
+  internal_notes: string;
   external_reference_url?: string;
   /** for offerings table */
   offerings: Array<{ uuid; url; name }>; // Temporary field to hold selected offerings

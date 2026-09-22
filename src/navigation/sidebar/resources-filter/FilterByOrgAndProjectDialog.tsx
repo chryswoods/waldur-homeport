@@ -1,82 +1,103 @@
-import { useCallback, useEffect } from 'react';
-import { Button } from 'react-bootstrap';
-import { useSelector, useDispatch } from 'react-redux';
-import { getFormValues, reduxForm } from 'redux-form';
+import { FC, useCallback, useEffect } from 'react';
+import { Form, useForm, useFormState } from 'react-final-form';
 import { Project } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { SIDEBAR_RESOURCES_FILTER_FORM } from '@waldur/marketplace/constants';
-import { OrganizationAutocomplete } from '@waldur/marketplace/orders/OrganizationAutocomplete';
-import { ProjectFilter } from '@waldur/marketplace/resources/list/ProjectFilter';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { Customer } from '@waldur/workspace/types';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { OrganizationAutocomplete } from '@/marketplace/orders/OrganizationAutocomplete';
+import { ProjectAutocomplete } from '@/marketplace/resources/list/ProjectAutocomplete';
+import { useModal } from '@/modal/actions';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { Customer } from '@/workspace/types';
 
-import { useOrganizationAndProjectFiltersForResources } from './utils';
+import { useOrganizationAndProjectAutocompletesForResources } from './utils';
 
 interface FormData {
   organization?: Customer;
   project?: Project;
 }
 
-export const FilterByOrgAndProjectDialog = reduxForm<FormData>({
-  form: SIDEBAR_RESOURCES_FILTER_FORM,
-  destroyOnUnmount: true,
-})((props) => {
-  const dispatch = useDispatch<any>();
-  const { syncResourceFilters } =
-    useOrganizationAndProjectFiltersForResources();
+interface FilterByOrgAndProjectDialogProps {
+  resolve?: {
+    initialValues?: FormData;
+  };
+  initialValues?: FormData;
+}
 
-  const formValues = useSelector(
-    getFormValues(SIDEBAR_RESOURCES_FILTER_FORM),
-  ) as FormData;
+const DialogFields: FC = () => {
+  const form = useForm();
+  const { values } = useFormState<FormData>();
 
-  const apply = useCallback(
-    (formData) => {
-      if (formData) {
-        syncResourceFilters(formData);
-        dispatch(closeModalDialog());
-      }
-    },
-    [dispatch],
-  );
+  const organization = values?.organization;
+  const project = values?.project;
+  const organizationUuid = organization?.uuid;
+  const projectCustomerUuid = project?.customer_uuid;
 
-  // Clear project filter if organization is cleared
+  // Clear project filter if organization is cleared or changed
   useEffect(() => {
-    if (!formValues?.project) return;
-    if (
-      !formValues?.organization ||
-      formValues.organization.uuid !== formValues.project.customer_uuid
-    ) {
-      dispatch(props.change('project', undefined));
+    if (!project) return;
+    if (!organization || organizationUuid !== projectCustomerUuid) {
+      form.change('project', undefined);
     }
-  }, [formValues, props.change]);
+  }, [project, organization, organizationUuid, projectCustomerUuid, form]);
 
   return (
-    <form onSubmit={props.handleSubmit(apply)}>
-      <ModalDialog
-        title={translate('Filter by organization/project')}
-        subtitle={translate(
-          'Filter results by chosen organization and project',
-        )}
-        footer={
-          <>
-            <CloseDialogButton className="flex-equal" />
-            <Button type="submit" className="flex-equal">
-              {translate('Apply')}
-            </Button>
-          </>
-        }
-      >
-        <div className="d-flex flex-column gap-7">
-          <OrganizationAutocomplete />
-          <ProjectFilter
-            customer_uuid={formValues?.organization?.uuid}
-            isDisabled={!formValues?.organization?.uuid}
-          />
-        </div>
-      </ModalDialog>
-    </form>
+    <div className="d-flex flex-column gap-7">
+      <OrganizationAutocomplete />
+      <ProjectAutocomplete
+        customer_uuid={organizationUuid}
+        isDisabled={!organizationUuid}
+      />
+    </div>
   );
-});
+};
+
+export const FilterByOrgAndProjectDialog: FC<
+  FilterByOrgAndProjectDialogProps
+> = (props) => {
+  const { closeDialog } = useModal();
+  const { syncResourceFilters } =
+    useOrganizationAndProjectAutocompletesForResources();
+
+  const initialValues = props.resolve?.initialValues || props.initialValues;
+
+  const apply = useCallback(
+    (formData: FormData) => {
+      if (formData) {
+        syncResourceFilters(formData);
+        closeDialog();
+      }
+    },
+    [syncResourceFilters, closeDialog],
+  );
+
+  return (
+    <Form<FormData>
+      onSubmit={apply}
+      initialValues={initialValues}
+      render={({ handleSubmit, submitting }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate('Filter by organization/project')}
+            subtitle={translate(
+              'Filter results by chosen organization and project',
+            )}
+            footer={
+              <>
+                <CloseDialogButton className="flex-equal" />
+                <SubmitButton
+                  submitting={submitting}
+                  className="flex-equal"
+                  label={translate('Apply')}
+                />
+              </>
+            }
+          >
+            <DialogFields />
+          </ModalDialog>
+        </form>
+      )}
+    />
+  );
+};

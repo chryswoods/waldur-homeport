@@ -1,45 +1,41 @@
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
+import { useMemo } from 'react';
 import { userPermissionRequestsList } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { PermissionRequestStateField } from '@waldur/invitations/PermissionRequestStateField';
-import { useTitle } from '@waldur/navigation/title';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { formatDateTime } from '@/core/dateUtils';
+import { translate } from '@/i18n';
+import { PermissionRequestStateField } from '@/invitations/PermissionRequestStateField';
+import { createFetcher } from '@/table/api';
 import {
-  USER_PERMISSION_REQUESTS_FILTER_FORM_ID,
-  USER_PERMISSION_REQUESTS_TABLE_ID,
-} from '@waldur/user/constants';
-import { getUser } from '@waldur/workspace/selectors';
+  UserPermissionRequestsFilter,
+  selectUserPermissionRequestsFilter,
+  UserPermissionRequestsRemoteProjectUpdateRequestStateOptions as RemoteProjectUpdateRequestStateOptions,
+  UserPermissionRequestsFilterFormId,
+} from '@/table/generated/UserPermissionRequestsFilter';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { USER_PERMISSION_REQUESTS_TABLE_ID } from '@/user/constants';
+import { useUser } from '@/workspace/hooks';
 
 import { UserPermissionRequestActions } from './UserPermissionRequestActions';
 import { UserPermissionRequestExpandableRow } from './UserPermissionRequestExpandableRow';
-import { UserPermissionRequestsListFilter } from './UserPermissionRequestsListFilter';
-import { getStates } from './UserPermissionRequestsStateFilter';
-
-const mapStateToProps = createSelector(
-  getUser,
-  getFormValues(USER_PERMISSION_REQUESTS_FILTER_FORM_ID),
-  (user, filterValues: any) => {
-    const filter: Record<string, string> = {
-      created_by: user?.uuid,
-    };
-    if (filterValues && filterValues.state) {
-      filter.state = filterValues.state.map((option) => option.value);
-    }
-    return filter;
-  },
-);
 
 export const UserPermissionRequestsList = () => {
-  useTitle(translate('Permission requests'));
-  const filter = useSelector(mapStateToProps);
+  const user = useUser();
+  const values = useFilterValues(USER_PERMISSION_REQUESTS_TABLE_ID);
+
+  const formFilter = useMemo(
+    () => selectUserPermissionRequestsFilter(values),
+    [values],
+  );
+
+  const filter = useMemo(
+    () => ({ created_by: user?.uuid, ...formFilter }),
+    [user?.uuid, formFilter],
+  );
   const props = useTable({
     table: USER_PERMISSION_REQUESTS_TABLE_ID,
+    syncFiltersToURL: true,
     fetchData: createFetcher(userPermissionRequestsList),
     filter,
   });
@@ -65,7 +61,10 @@ export const UserPermissionRequestsList = () => {
       title: translate('Status'),
       render: PermissionRequestStateField,
       filter: 'state',
-      inlineFilter: (row) => getStates().filter((s) => s.value === row.state),
+      inlineFilter: (row) =>
+        RemoteProjectUpdateRequestStateOptions.filter(
+          (s) => s.value === row.state,
+        ),
     },
   ];
 
@@ -75,9 +74,10 @@ export const UserPermissionRequestsList = () => {
       columns={columns}
       verboseName={translate('user permission requests')}
       showPageSizeSelector={true}
-      filters={<UserPermissionRequestsListFilter />}
+      filters={<UserPermissionRequestsFilter />}
       rowActions={UserPermissionRequestActions}
       expandableRow={UserPermissionRequestExpandableRow}
+      formId={UserPermissionRequestsFilterFormId}
     />
   );
 };

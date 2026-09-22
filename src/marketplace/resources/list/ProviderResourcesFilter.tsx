@@ -1,122 +1,68 @@
-import { FunctionComponent } from 'react';
-import { connect } from 'react-redux';
-import { Field, InjectedFormProps, reduxForm } from 'redux-form';
-import { createSelector } from 'reselect';
+import { FunctionComponent, useMemo } from 'react';
 
+import { translate } from '@/i18n';
+import { OfferingFilter } from '@/marketplace/offerings/details/OfferingFilter';
+import { parentOfferingFilter } from '@/marketplace/offerings/utils';
+import { OrganizationFilter } from '@/marketplace/orders/OrganizationFilter';
+import { BooleanFilter } from '@/table';
+import { useCustomer, useUser } from '@/workspace/hooks';
 import {
-  syncFiltersToURL,
-  useReinitializeFilterFromUrl,
-} from '@waldur/core/filters';
-import { AwesomeCheckboxField } from '@waldur/form/AwesomeCheckboxField';
-import { REACT_SELECT_TABLE_FILTER } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { OfferingAutocomplete } from '@waldur/marketplace/offerings/details/OfferingAutocomplete';
-import { parentOfferingFilter } from '@waldur/marketplace/offerings/utils';
-import { OrganizationAutocomplete } from '@waldur/marketplace/orders/OrganizationAutocomplete';
-import { PROVIDER_RESOURCES_LIST_FILTER_FORM_ID } from '@waldur/marketplace/resources/list/constants';
-import { type RootState } from '@waldur/store/reducers';
-import { TableFilterItem } from '@waldur/table/TableFilterItem';
-import {
-  getCustomer,
-  getUser,
-  isOwnerOrStaff as isOwnerOrStaffSelector,
-  isServiceManagerSelector,
-} from '@waldur/workspace/selectors';
+  checkIsOwnerOrStaff,
+  checkIsServiceManager,
+} from '@/workspace/selectors';
 
 import { CategoryFilter } from './CategoryFilter';
-import { getStates, ResourceStateFilter } from './ResourceStateFilter';
+import { ResourceStateFilter } from './ResourceStateFilter';
 
-type StateProps = ReturnType<typeof mapStateToProps> & InjectedFormProps;
+export const ProviderResourcesFilter: FunctionComponent = () => {
+  const customer = useCustomer();
+  const user = useUser();
 
-const PureProviderResourcesFilter: FunctionComponent<StateProps> = (props) => {
-  useReinitializeFilterFromUrl(props.form, {
-    state: getStates().filter((state) => state.value !== 'Terminated'),
-  });
+  const offeringFilter = useMemo(() => {
+    const isServiceManager = checkIsServiceManager(customer, user);
+    const isOwnerOrStaff = checkIsOwnerOrStaff(customer, user);
+    return isServiceManager && !isOwnerOrStaff
+      ? { customer_uuid: customer?.uuid, service_manager_uuid: user?.uuid }
+      : {
+          customer_uuid: customer?.uuid,
+        };
+  }, [customer, user]);
+
   return (
     <>
-      <TableFilterItem
-        title={translate('Offering')}
-        name="offering"
-        badgeValue={(value) => `${value?.category_title} / ${value?.name}`}
-      >
-        <OfferingAutocomplete
-          offeringFilter={props.offeringFilter}
-          reactSelectProps={REACT_SELECT_TABLE_FILTER}
-        />
-      </TableFilterItem>
-      <TableFilterItem
+      <OfferingFilter offeringFilter={offeringFilter} />
+      <OfferingFilter
         title={translate('Parent offering')}
         name="parent_offering"
-        badgeValue={(value) => `${value?.category_title} / ${value?.name}`}
-      >
-        <OfferingAutocomplete
-          offeringFilter={parentOfferingFilter}
-          reactSelectProps={REACT_SELECT_TABLE_FILTER}
-          name="parent_offering"
-        />
-      </TableFilterItem>
-      <TableFilterItem
-        title={translate('Client organization')}
-        name="organization"
-        badgeValue={(value) => value?.name}
-      >
-        <OrganizationAutocomplete
-          reactSelectProps={REACT_SELECT_TABLE_FILTER}
-        />
-      </TableFilterItem>
-      <TableFilterItem
-        title={translate('Category')}
-        name="category"
-        badgeValue={(value) => value?.title}
-      >
-        <CategoryFilter />
-      </TableFilterItem>
-      <TableFilterItem
-        title={translate('State')}
-        name="state"
-        instantApply={false}
-      >
-        <ResourceStateFilter />
-      </TableFilterItem>
-      <TableFilterItem
+        offeringFilter={parentOfferingFilter}
+      />
+      <OrganizationFilter title={translate('Client organization')} />
+      <CategoryFilter />
+      <ResourceStateFilter instantApply={false} />
+      <BooleanFilter
         title={translate('Include terminated')}
         name="include_terminated"
         badgeValue={(value) => (value ? translate('Yes') : translate('No'))}
-      >
-        <Field
-          name="include_terminated"
-          component={AwesomeCheckboxField}
-          label={translate('Include terminated')}
-        />
-      </TableFilterItem>
+        label={translate('Include terminated')}
+      />
+      <BooleanFilter
+        title={translate('Paused')}
+        name="paused"
+        badgeValue={(value) => (value ? translate('Yes') : translate('No'))}
+        label={translate('Paused')}
+      />
+      <BooleanFilter
+        title={translate('Downscaled')}
+        name="downscaled"
+        badgeValue={(value) => (value ? translate('Yes') : translate('No'))}
+        label={translate('Downscaled')}
+      />
+      <BooleanFilter
+        title={translate('Restrict member access')}
+        name="restrict_member_access"
+        badgeValue={(value) => (value ? translate('Yes') : translate('No'))}
+        label={translate('Restrict member access')}
+      />
     </>
   );
 };
-
-const filterSelector = createSelector(
-  getCustomer,
-  getUser,
-  isServiceManagerSelector,
-  isOwnerOrStaffSelector,
-  (customer, user, isServiceManager, isOwnerOrStaff) =>
-    isServiceManager && !isOwnerOrStaff
-      ? { customer_uuid: customer.uuid, service_manager_uuid: user.uuid }
-      : {
-          customer_uuid: customer.uuid,
-        },
-);
-
-const mapStateToProps = (state: RootState) => ({
-  offeringFilter: filterSelector(state),
-});
-
-const ConnectedComponent = connect(mapStateToProps)(
-  PureProviderResourcesFilter,
-);
-
-export const ProviderResourcesFilter = reduxForm({
-  form: PROVIDER_RESOURCES_LIST_FILTER_FORM_ID,
-  onChange: syncFiltersToURL,
-  destroyOnUnmount: false,
-  enableReinitialize: true,
-})(ConnectedComponent);

@@ -1,14 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
-import { Field } from 'redux-form';
+import { Field } from 'react-final-form';
 import {
   marketplacePublicOfferingsRetrieve,
   PublicOfferingDetails,
 } from 'waldur-js-client';
 
-import { SelectField } from '@waldur/form/SelectField';
-import { VStepperFormStepCard } from '@waldur/form/VStepperFormStep';
-import { translate } from '@waldur/i18n';
-import { FormStepProps } from '@waldur/marketplace/deploy/types';
+import { SelectField } from '@/form/select/SelectField';
+import { translate } from '@/i18n';
+import { FormStepProps } from '@/marketplace/deploy/types';
+import { VStepperFormStepCard } from '@/wizard';
 
 export const ManagedFormOpenStackOfferingStep = (props: FormStepProps) => {
   const { data: offerings, isLoading } = useQuery<
@@ -36,13 +36,17 @@ export const ManagedFormOpenStackOfferingStep = (props: FormStepProps) => {
       disabled={props.disabled}
       disabledTooltip={props.disabledTooltip}
     >
-      <Field
-        name="attributes.openstack_offering"
-        component={SelectField}
-        options={offerings}
-        getOptionValue={(option) => option.uuid}
-        getOptionLabel={(option) => option.name}
-      />
+      <Field name="attributes.openstack_offering">
+        {({ input, meta }) => (
+          <SelectField
+            input={input}
+            meta={meta}
+            options={offerings}
+            getOptionValue={(option) => option.uuid}
+            getOptionLabel={(option) => option.name}
+          />
+        )}
+      </Field>
     </VStepperFormStepCard>
   );
 };

@@ -1,9 +1,10 @@
-import { FC, PropsWithChildren, useMemo } from 'react';
+import { useRouter } from '@uirouter/react';
+import classNames from 'classnames';
+import { FC, PropsWithChildren, useCallback, useMemo } from 'react';
 import { Variant } from 'react-bootstrap/esm/types';
-import { useSelector } from 'react-redux';
 
-import { Link } from '@waldur/core/Link';
-import { getUser } from '@waldur/workspace/selectors';
+import { Link } from '@/core/Link';
+import { useUser } from '@/workspace/hooks';
 
 interface OwnProps {
   uuid: string;
@@ -18,21 +19,23 @@ const PERMISSION_MAP = {
   project: 'marketplace-projects',
   call_organizer: 'call-management.dashboard',
   call: 'call-management.dashboard',
+  // A service provider manager may only read the organization's identity
+  // (waldur/waldur-mastermind#396); their pages are the provider workspace.
+  service_provider: 'marketplace-provider-dashboard',
 };
 
-const PERMISSION_PRIORITY = ['customer', 'project', 'call_organizer', 'call'];
+const PERMISSION_PRIORITY = [
+  'customer',
+  'project',
+  'call_organizer',
+  'call',
+  'service_provider',
+];
 
-export const OrganizationLink: FC<PropsWithChildren<OwnProps>> = ({
-  uuid,
-  onClick,
-  className,
-  asButton,
-  buttonVariant,
-  children,
-}) => {
-  const user = useSelector(getUser);
+const useOrganizationLinkState = (uuid: string) => {
+  const user = useUser();
 
-  const linkState = useMemo(() => {
+  return useMemo(() => {
     // Staff and support have the highest priority access
     if (user.is_staff || user.is_support) {
       return PERMISSION_MAP.customer;
@@ -53,6 +56,30 @@ export const OrganizationLink: FC<PropsWithChildren<OwnProps>> = ({
     // If no permissions match, there is no link
     return null;
   }, [user, uuid]);
+};
+
+export const useOrganizationLink = (uuid: string) => {
+  const router = useRouter();
+  const linkState = useOrganizationLinkState(uuid);
+
+  const navigate = useCallback(() => {
+    if (linkState) {
+      router.stateService.go(linkState, { uuid });
+    }
+  }, [router, linkState, uuid]);
+
+  return { linkState, navigate };
+};
+
+export const OrganizationLink: FC<PropsWithChildren<OwnProps>> = ({
+  uuid,
+  onClick,
+  className,
+  asButton,
+  buttonVariant,
+  children,
+}) => {
+  const linkState = useOrganizationLinkState(uuid);
 
   if (linkState) {
     return (
@@ -73,9 +100,10 @@ export const OrganizationLink: FC<PropsWithChildren<OwnProps>> = ({
     return (
       <button
         type="button"
-        className={
-          className + (buttonVariant ? 'btn btn-' + buttonVariant : '')
-        }
+        className={classNames(
+          className,
+          buttonVariant && `btn btn-${buttonVariant}`,
+        )}
         disabled
       >
         {children}

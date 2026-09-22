@@ -1,51 +1,42 @@
-import { FC } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
-import { marketplaceServiceProvidersOfferingsList } from 'waldur-js-client';
-
-import { useDestroyFilterOnLeave } from '@waldur/core/filters';
-import { defaultCurrency } from '@waldur/core/formatCurrency';
-import { translate } from '@waldur/i18n';
+import { useQuery } from '@tanstack/react-query';
+import { FC, useMemo } from 'react';
 import {
-  getLabel,
-  getOfferingTypes,
-} from '@waldur/marketplace/common/registry';
-import { createFetcher } from '@waldur/table/api';
-import { SLUG_COLUMN } from '@waldur/table/slug';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+  marketplaceServiceProvidersOfferingsList,
+  marketplaceServiceProvidersOfferingsTypesList,
+  ServiceProvider,
+} from 'waldur-js-client';
 
-import { useOfferingDropdownActions } from '../offerings/hooks';
+import { UI_STALE_TIME } from '@/core/constants';
+import { getInitialValues } from '@/core/filters';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { translate } from '@/i18n';
+import { getLabel, getOfferingTypes } from '@/marketplace/common/registry';
+import { createFetcher } from '@/table/api';
+import { SLUG_COLUMN } from '@/table/slug';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
+
 import { CreateOfferingButton } from '../offerings/list/CreateOfferingButton';
 import { OfferingActions } from '../offerings/list/OfferingActions';
+import { OfferingDropdownActions } from '../offerings/list/OfferingDropdownActions';
+import { OfferingGLAuthConfigActionItem } from '../offerings/list/OfferingGLAuthConfigActionItem';
 import { getStates } from '../offerings/list/OfferingStateFilter';
 import { OfferingStateField } from '../offerings/OfferingStateField';
 import { CustomerResourcesListPlaceholder } from '../resources/list/CustomerResourcesListPlaceholder';
-import { ServiceProvider } from '../types';
 
 import { PROVIDER_OFFERINGS_FORM_ID } from './constants';
 import { OfferingNameColumn } from './OfferingNameColumn';
-import { ProviderOfferingsFilter } from './ProviderOfferingsFilter';
+import {
+  getFiltersFromParams,
+  ProviderOfferingsFilter,
+} from './ProviderOfferingsFilter';
 import { ResourcesCountColumn } from './ResourcesCountColumn';
 
-interface ProviderOfferingsComponentProps {
+interface ProviderOfferingsListProps {
   provider: ServiceProvider;
 }
-
-const mapStateToFilter = createSelector(
-  getFormValues(PROVIDER_OFFERINGS_FORM_ID),
-  (filters: any) => {
-    const result: Record<string, any> = {};
-    if (filters?.state) {
-      result.state = filters.state.map((option) => option.value);
-    }
-    if (filters?.offering_type) {
-      result.type = filters.offering_type.value;
-    }
-    return result;
-  },
-);
 
 const mandatoryFields = [
   'uuid',
@@ -54,33 +45,83 @@ const mandatoryFields = [
   'components', // PreviewOfferingButton
   'type', // PreviewOfferingButton
   'resources_count', // DeleteOfferingButton
+  'offering_group_uuid', // SetOfferingGroupAction (pre-populates current group)
+  'offering_group_title', // SetOfferingGroupAction
+  'service_provider_can_create_offering_user', // OfferingGLAuthConfigActionItem
 ];
 
-const ProviderOfferingsComponent: FC<ProviderOfferingsComponentProps> = ({
+export const ProviderOfferingsList: FC<ProviderOfferingsListProps> = ({
   provider,
 }) => {
-  const filter = useSelector(mapStateToFilter);
+  const initialFilters = useMemo(
+    () => getFiltersFromParams(getInitialValues()),
+    [],
+  );
+
+  const filterValues = useFilterValues('ProviderOfferingsList');
+
+  const filter = useMemo(() => {
+    const result: Record<string, any> = {};
+    if (filterValues?.state) {
+      result.state = filterValues.state.map((option) => option.value);
+    }
+    if (filterValues?.offering_type) {
+      result.type = filterValues.offering_type.value;
+    }
+    if (filterValues?.tag) {
+      result.tag = filterValues.tag.uuid;
+    }
+    return result;
+  }, [filterValues]);
 
   const tableProps = useTable({
     table: 'ProviderOfferingsList',
     fetchData: createFetcher(marketplaceServiceProvidersOfferingsList, {
-      path: { service_provider_uuid: provider.uuid },
+      path: { service_provider_uuid: provider?.uuid },
     }),
     filter,
     queryField: 'name',
     mandatoryFields,
+    initialFilters,
+    syncFiltersToURL: true,
   });
-  const dropdownActions = useOfferingDropdownActions(tableProps.fetch);
+
+  const { data: offeringTypeStrings } = useQuery({
+    queryKey: ['providerOfferingTypes', provider?.uuid],
+    queryFn: () =>
+      marketplaceServiceProvidersOfferingsTypesList({
+        path: { service_provider_uuid: provider.uuid },
+      }).then((r) => r.data),
+    enabled: Boolean(provider?.uuid),
+    staleTime: UI_STALE_TIME,
+  });
+
+  const offeringTypes = useMemo(() => {
+    if (!offeringTypeStrings) return [];
+    const presentTypes = new Set(offeringTypeStrings);
+    return getOfferingTypes().filter((t) => presentTypes.has(t.value));
+  }, [offeringTypeStrings]);
+
+  if (!provider) {
+    return <CustomerResourcesListPlaceholder />;
+  }
 
   return (
     <Table
       {...tableProps}
+      formId={PROVIDER_OFFERINGS_FORM_ID}
       columns={[
         {
           title: translate('Offering / Category'),
           render: OfferingNameColumn,
           id: 'name',
           keys: ['name', 'backend_id', 'uuid', 'category_title'],
+        },
+        {
+          title: translate('Offering group'),
+          render: ({ row }) => renderFieldOrDash(row.offering_group_title),
+          id: 'offering_group',
+          keys: ['offering_group_uuid', 'offering_group_title'],
         },
         {
           title: translate('Type'),
@@ -116,23 +157,18 @@ const ProviderOfferingsComponent: FC<ProviderOfferingsComponentProps> = ({
         SLUG_COLUMN,
       ]}
       verboseName={translate('Offerings')}
-      dropdownActions={dropdownActions}
+      dropdownActions={<OfferingDropdownActions refetch={tableProps.fetch} />}
       tableActions={<CreateOfferingButton fetch={tableProps.fetch} />}
       rowActions={(row) => (
-        <OfferingActions row={row.row} refetch={tableProps.fetch} />
+        <OfferingActions
+          row={row.row}
+          refetch={tableProps.fetch}
+          extraActions={[OfferingGLAuthConfigActionItem]}
+        />
       )}
-      filters={<ProviderOfferingsFilter />}
+      filters={<ProviderOfferingsFilter offeringTypes={offeringTypes} />}
       hasQuery={true}
       hasOptionalColumns
     />
   );
-};
-
-export const ProviderOfferingsList = ({ provider }) => {
-  useDestroyFilterOnLeave(PROVIDER_OFFERINGS_FORM_ID);
-
-  if (!provider) {
-    return <CustomerResourcesListPlaceholder />;
-  }
-  return <ProviderOfferingsComponent provider={provider} />;
 };

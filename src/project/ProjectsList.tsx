@@ -1,22 +1,30 @@
 import { FC, useMemo } from 'react';
-import { useSelector } from 'react-redux';
 import { projectsList } from 'waldur-js-client';
 
-import { formatDate, formatDateTime } from '@waldur/core/dateUtils';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { ProjectFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { PROJECTS_LIST } from '@waldur/project/constants';
-import { ProjectsListActions } from '@waldur/project/ProjectsListActions';
-import { createFetcher } from '@waldur/table/api';
-import { DASH_ESCAPE_CODE } from '@waldur/table/constants';
-import Table from '@waldur/table/Table';
-import { Column, TableProps } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { formatLongText } from '@waldur/table/utils';
-import { getCustomer } from '@waldur/workspace/selectors';
-import { Customer } from '@waldur/workspace/types';
+import { formatDate } from '@/core/dateUtils';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { isFeatureVisible } from '@/features/connect';
+import { ProjectFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { CUSTOMER_PROJECTS_LIST } from '@/project/constants';
+import { ProjectEndDateField } from '@/project/ProjectEndDateField';
+import { ProjectsListActions } from '@/project/ProjectsListActions';
+import { createFetcher } from '@/table/api';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
+import {
+  ProjectsFilter,
+  ProjectsFilterFormId,
+  selectProjectsFilter,
+} from '@/table/generated/ProjectsFilter';
+import Table from '@/table/Table';
+import { Column, TableProps } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { formatLongText } from '@/table/utils';
+import { useCustomer } from '@/workspace/hooks';
+import { Customer } from '@/workspace/types';
 
+import { BatchProjectActions } from './BatchProjectActions';
 import { ProjectCostField } from './ProjectCostField';
 import { ProjectKindField } from './ProjectKindField';
 import { ProjectLink } from './ProjectLink';
@@ -27,6 +35,8 @@ const mandatoryFields = [
   'name', // Actions
   'customer_name', // DeleteAction
   'customer_uuid', // DeleteAction
+  'url', // ChangeEndDateAction
+  'end_date', // ChangeEndDateRequestDialog
 ];
 
 interface ProjectsListProps extends Partial<TableProps> {
@@ -63,13 +73,15 @@ export const ProjectsListTable: FC<TableProps & ProjectsListProps> = ({
       export: 'description',
       id: 'description',
       keys: ['description'],
-      optional: optionalColumns.includes('description'),
+      // Always optional: a description truncated to a table cell communicates
+      // nothing, and it was costing a column everywhere the list appears.
+      optional: true,
     },
     {
       title: translate('Created'),
-      render: ({ row }) => <>{formatDateTime(row.created)}</>,
+      render: ({ row }) => <>{formatDate(row.created)}</>,
       orderField: 'created',
-      export: (row) => formatDateTime(row.created),
+      export: (row) => formatDate(row.created),
       exportKeys: ['created'],
       id: 'created',
       keys: ['created'],
@@ -89,24 +101,58 @@ export const ProjectsListTable: FC<TableProps & ProjectsListProps> = ({
     },
     {
       title: translate('End date'),
-      render: ({ row }) => (
-        <>{row.end_date ? formatDate(row.end_date) : DASH_ESCAPE_CODE}</>
-      ),
-
+      render: ProjectEndDateField,
       orderField: 'end_date',
       export: false,
       id: 'end_date',
-      keys: ['end_date'],
+      keys: [
+        'end_date',
+        'grace_period_days',
+        'is_in_grace_period',
+        'effective_end_date',
+      ],
     },
   ];
 
-  if (isFeatureVisible(ProjectFeatures.estimated_cost)) {
+  // Both money columns need only the organisation to show billing figures in
+  // projects. Neither is subject to conceal_prices: that setting hides
+  // marketplace *prices* -- what things cost to buy -- and these are a
+  // project's own spend and its remaining allocation, which a deployment that
+  // conceals prices still wants its projects to see.
+  const showsBillingInfo = customer?.display_billing_info_in_projects !== false;
+
+  if (showsBillingInfo && isFeatureVisible(ProjectFeatures.estimated_cost)) {
     columns.push({
-      title: translate('Estimated cost'),
+      title: translate('Spent this month'),
       render: ProjectCostField,
-      export: false,
+      export: (row) => row.billing_price_estimate?.total ?? '',
+      exportKeys: ['billing_price_estimate'],
       id: 'estimated_cost',
       keys: ['billing_price_estimate'],
+    });
+  }
+  if (showsBillingInfo) {
+    // Not behind project.estimated_cost: that flag governs a cost estimate,
+    // and this is a credit balance -- a deployment that runs on credit wants
+    // the balance whether or not it shows estimates.
+    //
+    // The balance the month opened with, which for an award-backed project is
+    // the award's allocation less everything spent before this month
+    // (set_project_credits in waldur_openportal). Reading it beside the column
+    // above is how you spot the projects that have not started spending and
+    // the ones about to run out, which is what this list gets scanned for.
+    columns.push({
+      title: translate('Credit balance'),
+      render: ({ row }) =>
+        row.project_credit === null || row.project_credit === undefined ? (
+          DASH_ESCAPE_CODE
+        ) : (
+          <>{defaultCurrency(row.project_credit)}</>
+        ),
+      export: (row) => row.project_credit ?? '',
+      exportKeys: ['project_credit'],
+      id: 'project_credit',
+      keys: ['project_credit'],
     });
   }
   if (isFeatureVisible(ProjectFeatures.show_kind_in_create_dialog)) {
@@ -128,11 +174,18 @@ export const ProjectsListTable: FC<TableProps & ProjectsListProps> = ({
       hasQuery={true}
       showPageSizeSelector={true}
       tableActions={
-        <ProjectsTableActions customer={customer} refetch={props.fetch} />
+        <ProjectsTableActions
+          customer={customer}
+          refetch={props.fetch}
+          filter={props.filter}
+          query={props.query}
+        />
       }
       rowActions={({ row }) => (
         <ProjectsListActions project={row} refetch={props.fetch} />
       )}
+      enableMultiSelect
+      multiSelectActions={BatchProjectActions}
       enableExport={true}
       hasOptionalColumns
       {...props}
@@ -145,16 +198,19 @@ export const ProjectsList: FC<ProjectsListProps> = ({
   optionalColumns = [],
   ...props
 }) => {
-  const currentCustomer = useSelector(getCustomer);
+  const currentCustomer = useCustomer();
+  const table = props.table || CUSTOMER_PROJECTS_LIST;
+  const filterValues = useFilterValues(table);
   const filter = useMemo(
     () => ({
       customer: customer ? customer.uuid : currentCustomer?.uuid,
       o: 'name',
+      ...selectProjectsFilter(filterValues),
     }),
-    [currentCustomer, customer],
+    [currentCustomer, customer, filterValues],
   );
   const tableProps = useTable({
-    table: props.table || PROJECTS_LIST,
+    table,
     fetchData: createFetcher(projectsList),
     queryField: 'query',
     filter,
@@ -164,6 +220,8 @@ export const ProjectsList: FC<ProjectsListProps> = ({
   return (
     <ProjectsListTable
       {...tableProps}
+      filters={<ProjectsFilter />}
+      formId={ProjectsFilterFormId}
       {...props}
       customer={customer || currentCustomer}
       optionalColumns={optionalColumns}

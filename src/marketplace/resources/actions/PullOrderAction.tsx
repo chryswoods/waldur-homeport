@@ -1,36 +1,26 @@
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react';
-import { useDispatch } from 'react-redux';
 import { remoteWaldurApiPullOrder } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { REMOTE_OFFERING_TYPE } from '@waldur/marketplace-remote/constants';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { translate } from '@/i18n';
+import { REMOTE_OFFERING_TYPE } from '@/marketplace-remote/constants';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ActionItem } from '@/resource/actions/ActionItem';
 
 export const PullOrderAction = ({ resource, ...rest }) => {
-  const dispatch = useDispatch();
-  const callback = async () => {
-    try {
-      await remoteWaldurApiPullOrder({
-        path: { uuid: resource.creation_order.uuid },
-      });
-      dispatch(
-        showSuccess(translate('Pulling resource order has been scheduled.')),
-      );
-    } catch (e) {
-      dispatch(
-        showErrorResponse(
-          e,
-          translate('Unable to schedule pull resource order action.'),
-        ),
-      );
-    }
-  };
+  const { mutate, isPending } = useManagedMutation<any, any, void>({
+    mutationFn: () =>
+      remoteWaldurApiPullOrder({
+        path: { uuid: resource.order_in_progress.uuid },
+      }),
+    successMessage: translate('Pulling resource order has been scheduled.'),
+    errorMessage: translate('Unable to schedule pull resource order action.'),
+  });
 
   return resource.offering_type === REMOTE_OFFERING_TYPE ? (
     <ActionItem
       title={translate('Pull resource order')}
-      action={callback}
+      action={mutate}
+      disabled={isPending}
       {...rest}
       iconNode={<ArrowsClockwiseIcon weight="bold" />}
       staff

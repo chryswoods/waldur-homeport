@@ -1,5 +1,5 @@
-import { ENV } from '@waldur/core/config';
-import { FeaturesEnum } from '@waldur/FeaturesEnums';
+import { ENV } from '@/core/config';
+import { FeaturesEnum } from '@/FeaturesEnums';
 
 export const isFeatureVisible = (feature: FeaturesEnum) => {
   if (feature === undefined || feature === null) {
@@ -9,5 +9,8 @@ export const isFeatureVisible = (feature: FeaturesEnum) => {
     return false;
   }
   const [section, key] = feature.split('.');
-  return (ENV.FEATURES[section] || {})[key];
+  // Coerce to a real boolean: a missing key yields `undefined`, and React
+  // Query's `enabled` only treats an explicit `false` as disabled — an
+  // `undefined` would let feature-gated queries fire against absent endpoints.
+  return Boolean((ENV.FEATURES[section] || {})[key]);
 };

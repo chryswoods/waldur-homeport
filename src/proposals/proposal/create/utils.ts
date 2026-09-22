@@ -1,198 +1,49 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
+import { useMemo } from 'react';
 import {
   CallResourceTemplate,
   Proposal,
-  proposalProposalsReject,
   proposalProposalsResourcesDestroy,
   proposalProposalsResourcesSet,
   RequestedResource,
 } from 'waldur-js-client';
 
-import { post } from '@waldur/core/api';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog, waitForConfirmation } from '@waldur/modal/actions';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { PROPOSAL_UPDATE_SUBMISSION_FORM_ID } from '@waldur/proposals/constants';
-import { Call } from '@waldur/proposals/types';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
-import { fetchListStart } from '@waldur/table/actions';
-import { useUser } from '@waldur/workspace/hooks';
-
-const ApprovalConfirmationDialog = lazyComponent(() =>
-  import('../ApprovalConfirmationDialog').then((module) => ({
-    default: module.ApprovalConfirmationDialog,
-  })),
-);
-
-const ModifyAllocationDialog = lazyComponent(() =>
-  import('../ModifyAllocationDialog').then((module) => ({
-    default: module.ModifyAllocationDialog,
-  })),
-);
-
-// Custom API function for return_to_applicant until waldur-js-client is regenerated
-const proposalProposalsReturnToApplicant = async ({
-  path,
-  body,
-}: {
-  path: { uuid: string };
-  body?: { allocation_comment?: string };
-}) => {
-  await post(`/proposal-proposals/${path.uuid}/return_to_applicant/`, body);
-};
-
-export const useProposalDecisionActions = (
-  proposal: Proposal,
-  refetch: () => void,
-) => {
-  const dispatch = useDispatch();
-  const user = useUser();
-
-  const stateIsValid = ['submitted', 'in_review'].includes(proposal.state);
-
-  const hasPermissionForDecision = hasPermission(user, {
-    permission: PermissionEnum.APPROVE_AND_REJECT_PROPOSALS,
-    scopeId: proposal.call_uuid,
-    callOrganizerId: proposal.call_managing_organisation_uuid,
-  });
-
-  const canPerformDecisionActions = stateIsValid && hasPermissionForDecision;
-
-  const handleApproveProposal = useCallback(() => {
-    dispatch(
-      openModalDialog(ApprovalConfirmationDialog, {
-        resolve: { proposal, refetch },
-        size: 'lg',
-      }),
-    );
-  }, [dispatch, proposal, refetch]);
-
-  const handleRejectProposal = useCallback(async () => {
-    try {
-      const reason = await waitForConfirmation(
-        dispatch,
-        translate('Confirmation'),
-        translate('Are you sure you want to reject the proposal: {name}?', {
-          name: proposal.name,
-        }),
-        {
-          showInput: true,
-          inputLabel: translate('Rejection reason'),
-          inputPlaceholder: translate('Enter reason for rejection'),
-          inputRequired: true,
-          inputMaxLength: 150,
-        },
-      );
-
-      await proposalProposalsReject({
-        path: { uuid: proposal.uuid },
-        body: { allocation_comment: reason },
-      });
-
-      dispatch(showSuccess(translate('Proposal has been rejected.')));
-      refetch();
-    } catch (error) {
-      if (!error) return;
-      dispatch(
-        showErrorResponse(error, translate('Unable to reject the proposal.')),
-      );
-    }
-  }, [dispatch, proposal.uuid, proposal.name, refetch]);
-
-  const handleReturnToApplicant = useCallback(async () => {
-    try {
-      const reason = await waitForConfirmation(
-        dispatch,
-        translate('Confirmation'),
-        translate(
-          'Are you sure you want to return the proposal to the applicant: {name}?',
-          {
-            name: proposal.name,
-          },
-        ),
-        {
-          showInput: true,
-          inputLabel: translate('Reason for return'),
-          inputPlaceholder: translate('Enter reason for returning to applicant'),
-          inputRequired: true,
-          inputMaxLength: 150,
-        },
-      );
-
-      await proposalProposalsReturnToApplicant({
-        path: { uuid: proposal.uuid },
-        body: { allocation_comment: reason || '' },
-      });
-
-      dispatch(
-        showSuccess(translate('Proposal has been returned to applicant.')),
-      );
-      refetch();
-    } catch (error) {
-      if (!error) return;
-      dispatch(
-        showErrorResponse(
-          error,
-          translate('Unable to return the proposal to applicant.'),
-        ),
-      );
-    }
-  }, [dispatch, proposal.uuid, proposal.name, refetch]);
-
-  const handleModifyAllocation = useCallback(() => {
-    dispatch(
-      openModalDialog(ModifyAllocationDialog, {
-        resolve: { proposal, refetch },
-        size: 'lg',
-      }),
-    );
-  }, [dispatch, proposal, refetch]);
-
-  return {
-    canPerformDecisionActions,
-    handleApproveProposal,
-    handleRejectProposal,
-    handleReturnToApplicant,
-    handleModifyAllocation,
-  };
-};
-
-export const proposalFormDataSelector = (state) =>
-  (getFormValues(PROPOSAL_UPDATE_SUBMISSION_FORM_ID)(state) || {}) as any;
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { Call } from '@/proposals/types';
+import { isReviewBearingStep } from '@/proposals/workflow/constants';
+import { useNotify } from '@/store/notify';
+import { useUser } from '@/workspace/hooks';
 
 export const useSubmitProposalResourcesFromTemplates = (
   proposal: Proposal,
+  selectedTemplates: CallResourceTemplate[],
+  initialResources: RequestedResource[],
   showMessages = true,
 ) => {
   const queryClient = useQueryClient();
-  const dispatch = useDispatch();
-  const formData: {
-    resources: CallResourceTemplate[];
-    resources_init: RequestedResource[];
-  } = useSelector(proposalFormDataSelector);
+
+  const { showErrorResponse, showSuccess } = useNotify();
 
   const newSelections = useMemo(() => {
-    if (!formData?.resources?.length) return [];
-    return formData.resources.filter((resource) => {
-      if (!resource?.url) return false;
-      return !formData.resources_init.some(
-        (req) => req.call_resource_template === resource.url,
+    if (!selectedTemplates?.length) return [];
+    return selectedTemplates.filter((template) => {
+      return !initialResources.some(
+        (req) => req.call_resource_template === template.url,
       );
     });
-  }, [formData]);
+  }, [selectedTemplates, initialResources]);
+
   const removedSelections = useMemo(() => {
-    if (!formData?.resources_init?.length) return [];
-    return formData.resources_init.filter((req) => {
-      return !formData.resources.some(
-        (resource) => resource?.url === req.call_resource_template,
+    if (!initialResources?.length) return [];
+    return initialResources.filter((req) => {
+      return !selectedTemplates.some(
+        (template) => template.url === req.call_resource_template,
       );
     });
-  }, [formData]);
+  }, [selectedTemplates, initialResources]);
 
   const { mutate: saveSelections, isPending } = useMutation({
     mutationFn: async () => {
@@ -232,21 +83,24 @@ export const useSubmitProposalResourcesFromTemplates = (
         await sendRequests(addPromises);
         if (showMessages) {
           if (success) {
-            dispatch(
-              showSuccess(translate('Resource requests has been updated.')),
-            );
+            showSuccess(translate('Resource requests has been updated.'));
           }
           if (error) {
-            dispatch(
-              showErrorResponse(error, translate('Something went wrong')),
-            );
+            showErrorResponse(error, translate('Something went wrong'));
           }
         }
         // Refresh table
-        dispatch(fetchListStart('ProposalResourcesList'));
+        queryClient.invalidateQueries({
+          queryKey: ['table', 'ProposalResourcesList'],
+        });
+        // Refresh the proposal's resource list so the Resource requests step's
+        // completion (resources_init) updates without a page reload.
+        queryClient.invalidateQueries({
+          queryKey: ['proposalResources', proposal.uuid],
+        });
       } catch (error) {
         if (showMessages)
-          dispatch(showErrorResponse(error, translate('Something went wrong')));
+          showErrorResponse(error, translate('Something went wrong'));
       }
     },
   });
@@ -257,4 +111,33 @@ export const useSubmitProposalResourcesFromTemplates = (
     removedCount: removedSelections?.length ?? 0,
     isPending,
   };
+};
+
+export const CreateManualAssignmentDialog = lazyComponent(() =>
+  import('@/proposals/assignments/CreateManualAssignmentDialog').then(
+    (module) => ({ default: module.CreateManualAssignmentDialog }),
+  ),
+);
+
+// Shared so the row-action and detail-view "Create review" affordances stay
+// in lockstep on eligibility (state window + reviewer-management permission).
+export const useCanCreateReview = (proposal: Proposal): boolean => {
+  const user = useUser();
+  // A proposal on a workflow offers this only while it sits on a step the
+  // reviewers own. It used to be offered at every step, so a manager could be
+  // invited to assign expert reviewers during the eligibility check — before
+  // there was anything to review. A proposal with no active step (a call
+  // running no workflow at all) keeps the unconditional affordance, or reviews
+  // would be unreachable for it.
+  const stepAllows =
+    !proposal.workflow_step || isReviewBearingStep(proposal.workflow_step);
+  return (
+    stepAllows &&
+    ['submitted', 'in_review'].includes(proposal.state) &&
+    hasPermission(user, {
+      permission: PermissionEnum.MANAGE_PROPOSAL_REVIEW,
+      scopeId: proposal.call_uuid,
+      callOrganizerId: proposal.call_managing_organisation_uuid,
+    })
+  );
 };

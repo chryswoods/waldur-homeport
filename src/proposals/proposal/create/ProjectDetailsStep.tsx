@@ -1,272 +1,156 @@
-import { DownloadSimpleIcon } from '@phosphor-icons/react';
-import { useQuery } from '@tanstack/react-query';
-import { Field, formValueSelector } from 'redux-form';
-import { proposalPublicCallsRetrieve } from 'waldur-js-client';
-import { useSelector } from 'react-redux';
 import { useMemo } from 'react';
+import { Field } from 'react-final-form';
 
-import { ENV } from '@waldur/core/config';
-import { number, required, composeValidators, createProposalNameValidator, max } from '@waldur/core/validators';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { ProjectFeatures } from '@waldur/FeaturesEnums';
-import { FormGroup, SelectField, StringField, TextField } from '@waldur/form';
-import { AwesomeCheckboxField } from '@waldur/form/AwesomeCheckboxField';
-import {
-  VStepperFormStepCard,
-  VStepperFormStepProps,
-} from '@waldur/form/VStepperFormStep';
-import { translate } from '@waldur/i18n';
-import { isExperimentalUiComponentsVisible } from '@waldur/marketplace/utils';
-import { OECD_FOS_2007_CODES } from '@waldur/project/OECD_FOS_2007_CODES';
-import { Call, ProposalReview } from '@waldur/proposals/types';
-import { ActionButton } from '@waldur/table/ActionButton';
+import { AccordionCard } from '@/core/AccordionCard';
+import { isEmpty } from '@/core/utils';
+import { StringGroup, TextGroup } from '@/form';
+import { FormGroup } from '@/form';
+import { translate } from '@/i18n';
+import { ScienceDomainGroup } from '@/project/create/ScienceDomainGroup';
+import { ProposalReview } from '@/proposals/types';
+import { VStepperFormStepProps } from '@/wizard';
 
 import { FieldReviewComments } from '../create-review/FieldReviewComments';
 
+import {
+  getFieldStates,
+  getTrackedFields,
+  isFieldRequired,
+  isFieldVisible,
+} from './proposalFields';
+import { StepHeaderContent } from './StepHeaderContent';
 import { UploadDocumentationFiles } from './UploadDocumentationFiles';
-
-const isCodeRequired = ENV.plugins.WALDUR_CORE.OECD_FOS_2007_CODE_MANDATORY;
-
-const selector = formValueSelector('ProposalSubmissionStep');
 
 export const ProjectDetailsStep = (props: VStepperFormStepProps) => {
   const reviews: ProposalReview[] = props.params?.reviews;
-  const proposalName = useSelector((state) => selector(state, 'name')) || '';
-  const projectSummary = useSelector((state) => selector(state, 'project_summary')) || '';
-  const description = useSelector((state) => selector(state, 'description')) || '';
+  const proposal = props.params?.proposal;
+  const values = props.params?.values;
+  const isCompleted = props.params?.isCompleted;
+  const isRequired = props.params?.isRequired;
+  const isOpen = props.params?.isOpen;
+  const onToggle = props.params?.onToggle;
 
-  const { data: call } = useQuery({
-    queryKey: ['Call', props.params.proposal.call_uuid],
-
-    queryFn: () =>
-      proposalPublicCallsRetrieve({
-        path: { uuid: props.params.proposal.call_uuid },
-        query: { field: ['fixed_duration_in_days', 'backend_id', 'slug'] },
-      }).then(
-        (response) => response.data as Pick<Call, 'fixed_duration_in_days' | 'backend_id' | 'slug'>,
-      ),
-
-    refetchOnWindowFocus: false,
-  });
-
-  // Get call prefix (backend_id or slug)
-  const callPrefix = call?.backend_id || call?.slug || '';
-
-  // Calculate maximum allowed length for proposal name
-  const maxProposalNameLength = useMemo(() => {
-    if (!callPrefix) return 150 - 10 - 6; // Fallback if call data not loaded yet
-    // Formula: 150 - callPrefix.length - 10 - 6
-    return 150 - callPrefix.length - 10 - 6;
-  }, [callPrefix]);
-
-  // Create validator with the calculated max length
-  const nameValidator = useMemo(
-    () => composeValidators(required, createProposalNameValidator(callPrefix)),
-    [callPrefix]
+  // Only the fields this call actually asks for are counted, so the step can
+  // reach its own total. A field the call hides is neither rendered nor tracked.
+  const fieldStates = useMemo(
+    () => getFieldStates(props.params?.call?.proposal_field_config),
+    [props.params?.call],
+  );
+  const trackedFields = useMemo(
+    () => getTrackedFields(fieldStates),
+    [fieldStates],
   );
 
-  // Validators for project_summary and description (4096 character limit)
-  const projectSummaryValidator = useMemo(
-    () => composeValidators(required, max(4096)),
-    []
-  );
-
-  const descriptionValidator = useMemo(
-    () => max(4096),
-    []
-  );
+  // Count filled fields for metadata display
+  const filledFieldsCount = useMemo(() => {
+    if (!values) return 0;
+    return trackedFields.filter((fieldName) => {
+      const value = values[fieldName];
+      return typeof value === 'object' ? !isEmpty(value) : Boolean(value);
+    }).length;
+  }, [values, trackedFields]);
 
   return (
-    <VStepperFormStepCard
-      title={props.title}
+    <AccordionCard
+      title={translate('Project details')}
+      subtitle={translate('Basic information about your research project.')}
       id={props.id}
+      isOpen={isOpen}
+      onToggle={onToggle}
       actions={
-        isExperimentalUiComponentsVisible() ? (
-          <div className="d-flex justify-content-end flex-grow-1">
-            <ActionButton
-              title={translate('Import project')}
-              action={null}
-              iconNode={<DownloadSimpleIcon weight="bold" />}
-              disabled
-            />
-          </div>
-        ) : null
+        <StepHeaderContent
+          isCompleted={isCompleted}
+          isRequired={isRequired}
+          metadata={translate('{filled}/{total} fields filled', {
+            filled: filledFieldsCount,
+            total: trackedFields.length,
+          })}
+        />
       }
     >
-      <Field
+      <StringGroup
         name="name"
-        component={FormGroup}
-        label={translate('Project title')}
-        placeholder={translate('Enter a project title...')}
-        tooltip={translate(
-          'Short title for the project, which explains the project goal as much as possible.',
-        )}
-        tooltipEnd
-        description={translate(
-          'Maximum {maxLength} characters. Current: {current}/{maxLength}',
-          {
-            maxLength: maxProposalNameLength,
-            current: proposalName.length,
-          }
-        )}
-        validate={nameValidator}
+        placeholder={translate('Enter a name...')}
+        label={translate('Name')}
         required
-      >
-        <StringField />
-      </Field>
+      />
       <FieldReviewComments
         reviews={reviews}
         fieldName="comment_project_title"
       />
-
-      <Field
-        name="project_summary"
-        component={FormGroup}
-        maxLength={4096}
-        label={translate('Summary (public)')}
-        placeholder={translate('Enter a summary that will be shown to anyone interested in your project...')}
-        tooltip={translate('Brief summary of the project.')}
-        tooltipEnd
-        description={translate(
-          '{current}/{maxLength} characters',
-          {
-            maxLength: 4096,
-            current: projectSummary.length,
-          }
-        )}
-        validate={projectSummaryValidator}
-        required
-      >
-        <TextField />
-      </Field>
-      <FieldReviewComments
-        reviews={reviews}
-        fieldName="comment_project_summary"
-      />
-
-      <Field
-        name="description"
-        component={FormGroup}
-        maxLength={4096}
-        label={translate('Description (private)')}
-        placeholder={translate('Enter a description that will help the reviewers understand the project better...')}
-        tooltip={translate(
-          'Explanation of what the resources will be used to research.',
-        )}
-        tooltipEnd
-        description={translate(
-          '{current}/{maxLength} characters',
-          {
-            maxLength: 4096,
-            current: description.length,
-          }
-        )}
-        validate={descriptionValidator}
-      >
-        <TextField />
-      </Field>
-      <FieldReviewComments
-        reviews={reviews}
-        fieldName="comment_project_description"
-      />
-
-      <Field
-        name="project_has_civilian_purpose"
-        component={FormGroup}
-        hideLabel
-      >
-        <AwesomeCheckboxField
-          label={translate('Project for civilian purpose?')}
-          size="sm"
-          tooltip={translate('Mark if the project has a civilian purpose.')}
-          tooltipEnd
-        />
-      </Field>
-      <FieldReviewComments
-        reviews={reviews}
-        fieldName="comment_project_has_civilian_purpose"
-      />
-
-      {isFeatureVisible(ProjectFeatures.oecd_fos_2007_code) ? (
-        <Field
-          name="oecd_fos_2007_code"
-          component={FormGroup}
-          label={translate('Research field (OECD code)')}
-          tooltip={translate('Select the main research field for the project.')}
-          tooltipEnd
-          validate={isCodeRequired ? required : undefined}
-          required={isCodeRequired}
-        >
-          <SelectField
-            options={OECD_FOS_2007_CODES}
-            getOptionValue={(option) => option.value}
-            getOptionLabel={(option) => `${option.value}. ${option.label}`}
-            isClearable={true}
-            simpleValue
+      {isFieldVisible(fieldStates, 'project_summary') && (
+        <>
+          <TextGroup
+            name="project_summary"
+            placeholder={translate('Enter a summary...')}
+            maxLength={1000}
+            label={translate('Summary')}
+            required={isFieldRequired(fieldStates, 'project_summary')}
           />
-        </Field>
-      ) : null}
-      <Field name="project_is_confidential" component={FormGroup} hideLabel>
-        <AwesomeCheckboxField
-          label={translate('Is the project confidential?')}
-          size="sm"
-          tooltip={translate(
-            'Select if the project proposal contains confidential information.',
-          )}
-          tooltipEnd
+          <FieldReviewComments
+            reviews={reviews}
+            fieldName="comment_project_summary"
+          />
+        </>
+      )}
+      {isFieldVisible(fieldStates, 'description') && (
+        <>
+          <TextGroup
+            name="description"
+            placeholder={translate('Enter a description...')}
+            maxLength={1000}
+            label={translate('Description')}
+            required={isFieldRequired(fieldStates, 'description')}
+          />
+          <FieldReviewComments
+            reviews={reviews}
+            fieldName="comment_project_description"
+          />
+        </>
+      )}
+      {isFieldVisible(fieldStates, 'science_sub_domain') && (
+        <ScienceDomainGroup
+          required={isFieldRequired(fieldStates, 'science_sub_domain')}
+          initialDomain={
+            proposal.science_domain_uuid
+              ? {
+                  uuid: proposal.science_domain_uuid,
+                  name: proposal.science_domain_name,
+                }
+              : null
+          }
         />
-      </Field>
-      <FieldReviewComments
-        reviews={reviews}
-        fieldName="comment_project_is_confidential"
-      />
-
-      <Field
-        name="duration_in_days"
-        component={FormGroup}
-        label={translate('Project duration in days')}
-        placeholder={translate('Enter number of days...')}
-        tooltip={translate(
-          'Expected project duration in days once resources have been granted. {extra_msg}',
-          {
-            extra_msg: call?.fixed_duration_in_days
-              ? translate(
-                "This field set automatically based on the call's fixed duration.",
-              )
-              : '',
-          },
-        )}
-        tooltipEnd
-        validate={[required, number]}
-        required
-      >
-        <StringField disabled={!!call?.fixed_duration_in_days} />
-      </Field>
+      )}
+      {/* The project duration is stated on the overview card, not asked here;
+          comments left on the old duration field must survive that. */}
       <FieldReviewComments
         reviews={reviews}
         fieldName="comment_project_duration"
       />
-
-      <Field
-        name="supporting_documentation"
-        className="mb-7"
-        label={translate('Upload supporting documentation')}
-        component={FormGroup}
-        tooltip={translate(
-          'Upload additional documents, which support the proposal and help to review it.',
-        )}
-        tooltipEnd
-        required
-      >
-        <UploadDocumentationFiles
-          proposal={props.params.proposal}
-          refetch={props.params.refetch}
-        />
-      </Field>
-      <FieldReviewComments
-        reviews={reviews}
-        fieldName="comment_project_supporting_documentation"
-      />
-    </VStepperFormStepCard >
+      {isFieldVisible(fieldStates, 'supporting_documentation') && (
+        <>
+          <FormGroup
+            label={translate('Upload supporting documentation')}
+            required={isFieldRequired(fieldStates, 'supporting_documentation')}
+          >
+            <Field
+              name="supporting_documentation"
+              render={({ input, meta }) => (
+                <UploadDocumentationFiles
+                  input={input}
+                  meta={meta}
+                  proposal={props.params.proposal}
+                  refetch={props.params.refetch}
+                />
+              )}
+            />
+          </FormGroup>
+          <FieldReviewComments
+            reviews={reviews}
+            fieldName="comment_project_supporting_documentation"
+          />
+        </>
+      )}
+    </AccordionCard>
   );
 };

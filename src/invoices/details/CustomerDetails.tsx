@@ -1,9 +1,10 @@
 import React from 'react';
 import { CustomerDetails as CustomerDetailsType } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-
-import { formatPhone } from './utils';
+import { formatPhoneNumber } from '@/core/utils';
+import { isFeatureVisible } from '@/features/connect';
+import { CustomerFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
 
 interface CustomerDetailsProps {
   customer: CustomerDetailsType;
@@ -28,15 +29,17 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     {customer.phone_number && (
       <div>
         <abbr title={translate('Phone')}>P:</abbr>{' '}
-        {formatPhone(customer.phone_number)}
+        {formatPhoneNumber(customer.phone_number)}
       </div>
     )}
 
-    {customer.bank_name && customer.bank_account && (
-      <div>
-        {customer.bank_name}, {customer.bank_account}
-      </div>
-    )}
+    {isFeatureVisible(CustomerFeatures.show_banking_data) &&
+      customer.bank_name &&
+      customer.bank_account && (
+        <div>
+          {customer.bank_name}, {customer.bank_account}
+        </div>
+      )}
 
     {customer.vat_code && (
       <div>

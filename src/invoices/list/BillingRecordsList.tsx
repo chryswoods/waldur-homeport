@@ -1,21 +1,28 @@
 import { FunctionComponent, useMemo } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
 import { invoicesList } from 'waldur-js-client';
 
-import { defaultCurrency } from '@waldur/core/formatCurrency';
-import { Link } from '@waldur/core/Link';
-import { translate } from '@waldur/i18n';
-import { PriceTooltip } from '@waldur/price/PriceTooltip';
-import { ActionsDropdown } from '@waldur/table/ActionsDropdown';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { Link } from '@/core/Link';
+import { translate } from '@/i18n';
+import { PriceTooltip } from '@/price/PriceTooltip';
+import { ActionsDropdown } from '@/table/ActionsDropdown';
+import { createFetcher } from '@/table/api';
+import {
+  InvoicesFilter,
+  InvoicesFilterFormId,
+  selectInvoicesFilter,
+} from '@/table/generated/InvoicesFilter';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { useCustomer } from '@/workspace/hooks';
 
 import { formatPeriod } from '../utils';
 
-import { getInvoiceStatusOptions, InvoicesFilter } from './InvoicesFilter';
+import {
+  getInvoiceStateLabel,
+  getInvoiceStatusOptions,
+} from './InvoicesFilterUtils';
 import { SendNotificationButton } from './SendNotificationButton';
 
 const RecordPeriodField = ({ row }) => formatPeriod(row);
@@ -29,13 +36,16 @@ const RowActions = ({ row, fetch }) => (
 );
 
 export const BillingRecordsList: FunctionComponent = () => {
-  const customer = useSelector(getCustomer);
-  const stateFilter: any = useSelector(getFormValues('InvoicesFilter'));
+  const customer = useCustomer();
+  const table = useMemo(() => `invoices-${customer.uuid}`, [customer]);
+  const values = useFilterValues(table);
+
+  const stateFilter = useMemo(() => selectInvoicesFilter(values), [values]);
+
   const filter = useMemo(
     () => ({
       ...stateFilter,
       customer: customer.url,
-      state: stateFilter?.state?.map((option) => option.value),
       field: [
         'uuid',
         'state',
@@ -49,10 +59,9 @@ export const BillingRecordsList: FunctionComponent = () => {
     [stateFilter, customer],
   );
 
-  const table = useMemo(() => `invoices-${customer.uuid}`, [customer]);
-
   const props = useTable({
     table: table,
+    syncFiltersToURL: true,
     fetchData: createFetcher(invoicesList),
     filter,
     queryField: 'number',
@@ -78,13 +87,14 @@ export const BillingRecordsList: FunctionComponent = () => {
         },
         {
           title: translate('State'),
-          render: ({ row }) => row.state,
+          render: ({ row }) => getInvoiceStateLabel(row.state),
           filter: 'state',
           inlineFilter: (row) => [
             getInvoiceStatusOptions().find((s) => s.value === row.state),
           ],
 
-          export: 'state',
+          export: (row) => getInvoiceStateLabel(row.state),
+          exportKeys: ['state'],
         },
         {
           title: translate('Record period'),
@@ -109,6 +119,8 @@ export const BillingRecordsList: FunctionComponent = () => {
       verboseName={translate('records')}
       title={translate('Invoices')}
       enableExport={true}
+      showPageSizeSelector
+      formId={InvoicesFilterFormId}
     />
   );
 };

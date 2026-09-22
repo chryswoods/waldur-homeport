@@ -1,20 +1,25 @@
+import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { FC, useCallback } from 'react';
-import { useDispatch } from 'react-redux';
+import { FC, useCallback, useMemo } from 'react';
 import {
+  BulkRoundCreateRequestRequest,
+  proposalProtectedCallsRoundsBulkSet,
   proposalProtectedCallsRoundsSet,
   ProtectedRoundRequest,
 } from 'waldur-js-client';
 
-import { parseDate } from '@waldur/core/dateUtils';
-import { ProgressStep } from '@waldur/core/ProgressSteps';
-import { WizardFormContainer } from '@waldur/form/WizardFormContainer';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { Call } from '@waldur/proposals/types';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { parseDate } from '@/core/dateUtils';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { AllocationTime, Call } from '@/proposals/types';
+import {
+  callWorkflowStepsKey,
+  fetchCallWorkflowSteps,
+} from '@/proposals/workflow/queries';
+import { ProgressStep, WizardFormContainer } from '@/wizard';
 
-import { textToDomains, WizardFormFirstPage } from './WizardFormFirstPage';
+import { WizardFormFirstPage } from './WizardFormFirstPage';
 import { WizardFormSecondPage } from './WizardFormSecondPage';
 import { WizardFormThirdPage } from './WizardFormThirdPage';
 
@@ -24,12 +29,6 @@ interface CallRoundCreateDialogProps {
     refetch(): void;
   };
 }
-
-const WizardForms = [
-  WizardFormFirstPage,
-  WizardFormSecondPage,
-  WizardFormThirdPage,
-];
 
 const steps: ProgressStep[] = [
   {
@@ -60,28 +59,88 @@ const validate = (values: ProtectedRoundRequest) => {
 export const CallRoundCreateDialog: FC<CallRoundCreateDialogProps> = (
   props,
 ) => {
-  const dispatch = useDispatch();
+  const { closeDialog } = useModal();
+
+  // Allocation timing is a call-level policy on the allocation_decision step;
+  // the round only needs an allocation date when the call uses fixed-date mode.
+  const { data: workflowSteps } = useQuery({
+    queryKey: callWorkflowStepsKey(props.resolve.call.uuid),
+    queryFn: () => fetchCallWorkflowSteps(props.resolve.call.uuid),
+  });
+  const allocationMode = (workflowSteps?.find(
+    (s) => s.step === 'allocation_decision',
+  )?.allocation_time || 'on_decision') as AllocationTime;
+
+  const wizardForms = useMemo(
+    () => [
+      WizardFormFirstPage,
+      WizardFormSecondPage,
+      (stepProps) => (
+        <WizardFormThirdPage {...stepProps} allocationMode={allocationMode} />
+      ),
+    ],
+    [allocationMode],
+  );
+
+  const createRoundMutation = useManagedMutation<
+    any,
+    any,
+    ProtectedRoundRequest
+  >({
+    mutationFn: (formData) =>
+      proposalProtectedCallsRoundsSet({
+        path: { uuid: props.resolve.call.uuid },
+        body: formData,
+      }),
+    successMessage: translate('Round has been created.'),
+    errorMessage: translate('Unable to create round.'),
+    refetch: props.resolve.refetch,
+  });
+
+  const bulkCreateRoundsMutation = useManagedMutation<
+    any,
+    any,
+    BulkRoundCreateRequestRequest
+  >({
+    mutationFn: (formData) =>
+      proposalProtectedCallsRoundsBulkSet({
+        path: { uuid: props.resolve.call.uuid },
+        body: formData,
+      }),
+    successMessage: translate('Rounds have been created.'),
+    errorMessage: translate('Unable to create rounds.'),
+    refetch: props.resolve.refetch,
+  });
+
   const createRound = useCallback(
-    async (formData: ProtectedRoundRequest, _dispatch, formProps) => {
+    async (
+      formData: ProtectedRoundRequest & {
+        repeats?: boolean;
+        cadence?: string;
+        custom_interval_months?: number | null;
+        submission_window_days?: number;
+        number_of_rounds?: number;
+      },
+    ) => {
       try {
-        await proposalProtectedCallsRoundsSet({
-          path: { uuid: props.resolve.call.uuid },
-          body: {
-            ...formData,
-            default_allowed_domains: textToDomains(formData.default_allowed_domains as any ?? ''),
-            default_reapply_url: formData.default_reapply_url || null,
-            default_reapply_text: formData.default_reapply_text || null,
-          },
-        });
-        formProps.destroy();
-        dispatch(closeModalDialog());
-        props.resolve.refetch();
-        dispatch(showSuccess(translate('Round has been created.')));
-      } catch (e) {
-        dispatch(showErrorResponse(e));
+        if (formData.repeats) {
+          await bulkCreateRoundsMutation.mutateAsync({
+            start_time: formData.start_time,
+            cadence: formData.cadence as any,
+            custom_interval_months: formData.custom_interval_months ?? null,
+            submission_window_days: formData.submission_window_days!,
+            number_of_rounds: formData.number_of_rounds!,
+            review_duration_in_days: formData.review_duration_in_days,
+          });
+        } else {
+          await createRoundMutation.mutateAsync(formData);
+        }
+        closeDialog();
+      } catch {
+        // Error handled by useManagedMutation
       }
     },
-    [dispatch, props.resolve],
+    [createRoundMutation, bulkCreateRoundsMutation, closeDialog],
   );
   return (
     <WizardFormContainer
@@ -89,17 +148,11 @@ export const CallRoundCreateDialog: FC<CallRoundCreateDialogProps> = (
       onSubmit={createRound}
       steps={steps}
       title={translate('New round')}
-      wizardForms={WizardForms}
-      initialValues={{
-        timezone: DateTime.local().zoneName,
-        minimum_required_uploads: 0,
-        default_membership_control: 'open',
-        default_allowed_domains: '',
-        default_reapply_url: '',
-        default_reapply_text: '',
-      }}
+      wizardForms={wizardForms}
+      initialValues={{ timezone: DateTime.local().zoneName }}
       submitLabel={translate('Create')}
       validate={validate}
+      modalProps={{ bodyClassName: 'min-h-600px' }}
     />
   );
 };

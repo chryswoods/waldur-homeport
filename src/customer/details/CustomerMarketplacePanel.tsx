@@ -1,31 +1,29 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FunctionComponent, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import {
-  marketplaceServiceProvidersCreate,
-  marketplaceServiceProvidersDestroy,
-} from 'waldur-js-client';
+import { ServiceProvider } from 'waldur-js-client';
 
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
-import * as api from '@waldur/marketplace/common/api';
-import { canRegisterServiceProviderForCustomer } from '@waldur/marketplace/service-providers/selectors';
-import { ServiceProviderManagement } from '@waldur/marketplace/service-providers/ServiceProviderManagement';
-import { ServiceProvider } from '@waldur/marketplace/types';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { ActionButton } from '@waldur/table/ActionButton';
-import { setCurrentCustomer } from '@waldur/workspace/actions';
-import { getCustomer, getUser } from '@waldur/workspace/selectors';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import * as api from '@/marketplace/common/api';
+import { canRegisterServiceProviderForCustomer } from '@/marketplace/service-providers/selectors';
+import { ServiceProviderManagement } from '@/marketplace/service-providers/ServiceProviderManagement';
+import { useNotify } from '@/store/notify';
+import { useUser, useCustomer } from '@/workspace/hooks';
+
+import { DisableServiceProviderButton } from './DisableServiceProviderButton';
+import { RegisterServiceProviderButton } from './RegisterServiceProviderButton';
 
 export const CustomerMarketplacePanel: FunctionComponent<{}> = () => {
-  const customer = useSelector(getCustomer);
-  const user = useSelector(getUser);
-  const dispatch = useDispatch();
-  const canRegisterServiceProvider = useSelector(
-    canRegisterServiceProviderForCustomer,
+  const customer = useCustomer();
+  const user = useUser();
+
+  const { showErrorResponse } = useNotify();
+
+  const canRegisterServiceProvider = canRegisterServiceProviderForCustomer(
+    user,
+    customer,
   );
 
   const queryClient = useQueryClient();
@@ -49,84 +47,12 @@ export const CustomerMarketplacePanel: FunctionComponent<{}> = () => {
 
   useEffect(() => {
     if (error)
-      dispatch(
-        showErrorResponse(
-          error as any,
-          translate('Unable to load service provider.'),
-        ),
-      );
-  }, [error, dispatch]);
+      showErrorResponse(error, translate('Unable to load service provider.'));
+  }, [error]);
 
   const setServiceProvider = (data: ServiceProvider) => {
     queryClient.setQueryData(['ServiceProvider', customer?.uuid], data);
   };
-
-  const { mutate: registerServiceProvider, isPending: isRegistering } =
-    useMutation({
-      mutationFn: async () => {
-        const successMessage = translate(
-          'Service provider has been registered.',
-        );
-        const errorMessage = translate('Unable to register service provider.');
-        try {
-          const serviceProvider = await marketplaceServiceProvidersCreate({
-            body: {
-              customer: customer.url,
-            },
-          });
-          setServiceProvider(serviceProvider.data);
-          dispatch(showSuccess(successMessage));
-          dispatch(
-            setCurrentCustomer({
-              ...customer,
-              is_service_provider: true,
-            }),
-          );
-        } catch (error) {
-          dispatch(showErrorResponse(error, errorMessage));
-        }
-      },
-    });
-
-  const { mutate: deleteServiceProvider, isPending: isDeleting } = useMutation({
-    mutationFn: async () => {
-      try {
-        await waitForConfirmation(
-          dispatch,
-          translate('Disable service provider profile'),
-          translate(
-            'Are you sure you want to remove service provider profile?',
-          ),
-          { forDeletion: true },
-        );
-      } catch {
-        return;
-      }
-
-      try {
-        await marketplaceServiceProvidersDestroy({
-          path: { uuid: serviceProvider.uuid },
-        });
-        setServiceProvider(null);
-        dispatch(
-          showSuccess(translate('Service provider profile has been disabled.')),
-        );
-        dispatch(
-          setCurrentCustomer({
-            ...customer,
-            is_service_provider: false,
-          }),
-        );
-      } catch (error) {
-        dispatch(
-          showErrorResponse(
-            error,
-            translate('Unable to disable service provider profile.'),
-          ),
-        );
-      }
-    },
-  });
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -147,18 +73,13 @@ export const CustomerMarketplacePanel: FunctionComponent<{}> = () => {
         className="card-bordered"
         actions={
           serviceProvider && user.is_staff ? (
-            <ActionButton
-              title={translate('Disable service provider profile')}
-              action={deleteServiceProvider}
-              variant="danger"
-              pending={isDeleting}
+            <DisableServiceProviderButton
+              serviceProvider={serviceProvider}
+              setServiceProvider={setServiceProvider}
             />
           ) : !serviceProvider && canRegisterServiceProvider ? (
-            <ActionButton
-              title={translate('Register as service provider')}
-              action={registerServiceProvider}
-              variant="secondary"
-              pending={isRegistering}
+            <RegisterServiceProviderButton
+              setServiceProvider={setServiceProvider}
             />
           ) : null
         }

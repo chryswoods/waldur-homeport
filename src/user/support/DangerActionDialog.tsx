@@ -1,16 +1,17 @@
 import { TrashIcon } from '@phosphor-icons/react';
 import { useRouter } from '@uirouter/react';
 import { FunctionComponent, useState } from 'react';
-import { Button, Form } from 'react-bootstrap';
+import { Form } from 'react-bootstrap';
 import { IssueTypeEnum, supportIssuesCreate } from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
-import { CancelButton } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { ISSUE_IDS } from '@waldur/issues/types/constants';
-import { useModal } from '@waldur/modal/hooks';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { useNotify } from '@waldur/store/hooks';
+import { ENV } from '@/core/config';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { ISSUE_IDS } from '@/issues/types/constants';
+import { useModal } from '@/modal/actions';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useNotify } from '@/store/notify';
 
 import { DangerActionPanelProps } from './DangerActionPanelProps';
 
@@ -33,7 +34,7 @@ export const DangerActionDialog: FunctionComponent<DangerActionPanelProps> = (
         },
       }).then((response) => response.data);
       showSuccess(props.sucessMessage);
-      router.stateService.go('support.detail', { uuid: issue.uuid });
+      router.stateService.go('support.detail', { issue_uuid: issue.uuid });
       closeDialog();
     } catch (e) {
       showErrorResponse(e, translate('Unable to create request.'));
@@ -52,26 +53,21 @@ export const DangerActionDialog: FunctionComponent<DangerActionPanelProps> = (
         subtitle={props.dialogSubtitle}
         iconNode={<TrashIcon weight="bold" />}
         iconColor="danger"
-        bodyClassName="text-gray-500 pt-2"
         footer={
           <>
-            <Button
-              variant="tertiary"
+            <CloseDialogButton className="flex-equal" />
+            <SubmitButton
+              submitting={false}
+              variant="danger"
               className="flex-equal"
-              onClick={() => closeDialog()}
-            >
-              {translate('Cancel')}
-            </Button>
-            <Button variant="danger" className="flex-equal" type="submit">
-              {translate('Delete')}
-            </Button>
+              label={translate('Delete')}
+            />
           </>
         }
       >
-        <Form.Group className="my-5">
+        <Form.Group>
           <Form.Control
             as="textarea"
-            className="form-control-solid"
             rows={3}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
@@ -84,8 +80,8 @@ export const DangerActionDialog: FunctionComponent<DangerActionPanelProps> = (
       title={props.dialogTitle}
       iconNode={<TrashIcon weight="bold" />}
       iconColor="danger"
-      bodyClassName="text-gray-500 pt-2"
-      footer={<CancelButton label={translate('OK')} />}
+      bodyClassName="text-quaternary fs-6"
+      footer={<CloseDialogButton label={translate('OK')} />}
     >
       {props.fallbackMessage}
     </ModalDialog>

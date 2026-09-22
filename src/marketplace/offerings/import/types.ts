@@ -1,5 +1,7 @@
-import { Category, Offering } from '@waldur/marketplace/types';
-import { Customer } from '@waldur/workspace/types';
+import { ProviderOfferingDetails as Offering } from 'waldur-js-client';
+
+import { Category } from '@/marketplace/types';
+import { Customer } from '@/workspace/types';
 
 export interface OfferingImportFormData {
   api_url: string;

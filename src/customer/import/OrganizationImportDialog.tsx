@@ -1,22 +1,17 @@
 import { FC, useCallback, useState } from 'react';
 import { Customer, CustomerRequest, customersCreate } from 'waldur-js-client';
 
-import { ProgressStep } from '@waldur/core/ProgressSteps';
-import { WizardFormContainer } from '@waldur/form/WizardFormContainer';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { cleanObjectEmptyFields } from '@waldur/project/import/utils';
-import {
-  showError,
-  showErrorResponse,
-  showSuccess,
-} from '@waldur/store/notify';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { cleanObjectEmptyFields } from '@/project/import/utils';
+import { useNotify } from '@/store/notify';
+import { ProgressStep, WizardFormContainer } from '@/wizard';
 
 import { Step1DownloadTemplate } from './Step1DownloadTemplate';
 import { Step2UploadFile } from './Step2UploadFile';
 import { Step3PreviewAndImport } from './Step3PreviewAndImport';
 import {
-  customerOptionalFields,
+  getCustomerOptionalFields,
   deleteDuplicateRecords,
   parseOrganizationsFile,
   validateOrganizationCreation,
@@ -55,11 +50,16 @@ const steps: ProgressStep[] = [
 export const OrganizationImportDialog: FC<OrganizationImportDialogProps> = (
   props,
 ) => {
+  const { showError, showErrorResponse, showSuccess } = useNotify();
+  const { closeDialog } = useModal();
+
   // Save created organization (to avoid recreation) when we make modifications on the file after a failed submission
-  const [createdOrgs, setCreatedOrgs] = useState<Customer[]>([]);
+  const [createdOrgs, setCreatedOrgs] = useState<
+    Pick<Customer, 'name' | 'email'>[]
+  >([]);
 
   const submitForm = useCallback(
-    async (formData, dispatch, formProps) => {
+    async (formData) => {
       const organizations = await parseOrganizationsFile(formData.file[0]);
       const validRecords = organizations.filter((row) => {
         const validate = validateOrganizationCreation(row);
@@ -81,7 +81,7 @@ export const OrganizationImportDialog: FC<OrganizationImportDialogProps> = (
           const payload = {
             name: org.name,
             email: org.email,
-            ...customerOptionalFields.reduce((acc, field) => {
+            ...getCustomerOptionalFields().reduce((acc, field) => {
               acc[field.key] = org[field.key];
               return acc;
             }, {}),
@@ -99,7 +99,7 @@ export const OrganizationImportDialog: FC<OrganizationImportDialogProps> = (
           );
         });
         if (promises.length === 0 && createdOrgs.length === 0) {
-          dispatch(showError(translate('No valid organizations to import')));
+          showError(translate('No valid organizations to import'));
           return;
         }
 
@@ -109,27 +109,32 @@ export const OrganizationImportDialog: FC<OrganizationImportDialogProps> = (
 
           if (success.length) {
             props.resolve.refetch();
-            dispatch(
-              showSuccess(
-                translate('Successfully imported {n} organizations', {
-                  n: success.length,
-                }),
-              ),
+            showSuccess(
+              translate('Successfully imported {n} organizations', {
+                n: success.length,
+              }),
             );
           }
           if (error.length) {
-            dispatch(showErrorResponse(error[0].reason));
+            showErrorResponse(error[0].reason);
           } else {
-            formProps.destroy();
-            dispatch(closeModalDialog());
+            closeDialog();
           }
           return results;
         });
       } catch (err) {
-        dispatch(showErrorResponse(err));
+        showErrorResponse(err);
       }
     },
-    [createdOrgs, setCreatedOrgs, props.resolve.refetch],
+    [
+      createdOrgs,
+      setCreatedOrgs,
+      props.resolve,
+      showError,
+      showErrorResponse,
+      showSuccess,
+      closeDialog,
+    ],
   );
   return (
     <WizardFormContainer

@@ -3,25 +3,26 @@ import {
   ComponentUsage,
   ComponentUserUsage,
   OfferingComponent,
+  Resource,
 } from 'waldur-js-client';
 
-import { generateColors } from '@waldur/core/generateColors';
-import { ResourceMetaInfo } from '@waldur/marketplace/resources/usage/ResourceMetaInfo';
-import { ResourceUsageTabs } from '@waldur/marketplace/resources/usage/ResourceUsageTabs';
+import { generateColors } from 'waldur-design-tokens';
+
+import { ResourceMetaInfo } from '@/marketplace/resources/usage/ResourceMetaInfo';
+import { ResourceUsageTabs } from '@/marketplace/resources/usage/ResourceUsageTabs';
 
 interface ResourceUsageTabsContainerProps {
-  resource: {
-    name?: string;
-    resource_uuid?: string;
-    offering_uuid?: string;
-    customer_name?: string;
-    project_name?: string;
-    backend_id?: string;
-  };
+  resource: Pick<
+    Resource,
+    'name' | 'uuid' | 'customer_name' | 'project_name' | 'backend_id'
+  >;
   data: {
     components: OfferingComponent[];
-    usages: ComponentUsage[];
-    userUsages: ComponentUserUsage[];
+    usages: Pick<ComponentUsage, 'billing_period' | 'type' | 'usage'>[];
+    userUsages: Pick<
+      ComponentUserUsage,
+      'username' | 'component_type' | 'billing_period'
+    >[];
   };
   months?: number;
   hideHeader?: boolean;

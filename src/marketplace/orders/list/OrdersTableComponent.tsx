@@ -5,19 +5,24 @@ import {
   OrderDetails,
 } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { Link } from '@waldur/core/Link';
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import { DASH_ESCAPE_CODE } from '@waldur/table/constants';
-import Table from '@waldur/table/Table';
-import { Column, TableProps } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
+import { Badge } from 'waldur-ui';
+
+import { formatDateTime } from '@/core/dateUtils';
+import { Link } from '@/core/Link';
+import { translate } from '@/i18n';
+import { TableDropdownToggle } from '@/table/ActionsDropdown';
+import { createFetcher } from '@/table/api';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
+import Table, { TableColumns } from '@/table/Table';
+import { TableProps } from '@/table/types';
+import { useTable } from '@/table/useTable';
 
 import { OrderProviderActions } from '../actions/OrderProviderActions';
+import { shouldHideProviderActions } from '../actions/selectors';
 import { OrderStateField } from '../details/OrderStateField';
 import { createOrderStateOptions } from '../OrderStates';
 
+import { OrderCommunicationCell } from './OrderCommunicationCell';
 import { OrdersListExpandableRow } from './OrdersListExpandableRow';
 import { OrderTablePlaceholderActions } from './OrderTablePlaceholderActions';
 import { OrderTypeCell } from './OrderTypeCell';
@@ -27,12 +32,15 @@ interface OrdersTableComponentProps extends Partial<TableProps<OrderDetails>> {
   table: string;
   hideColumns?: 'organization'[];
   filter: MarketplaceOrdersListData['query'];
+  initialFilters?;
 }
 
 const mandatoryFields: MarketplaceOrdersListData['query']['field'] = [
   'uuid',
   // Row actions
   'state',
+  'provider_uuid',
+  'marketplace_resource_uuid',
   // Expandable row
   'project_description',
   'customer_uuid',
@@ -42,17 +50,37 @@ const mandatoryFields: MarketplaceOrdersListData['query']['field'] = [
   'resource_name',
   'type',
   'plan_name',
+  'attachment',
+  'request_comment',
+  // Approval badge
+  'auto_approved',
+  // Communication column
+  'provider_message',
+  'consumer_message',
+  'provider_message_updated_at',
+  'consumer_message_updated_at',
+  'consumer_message_attachment',
+  // Provider action visibility + the site-agent rejection warning
+  'offering_type',
+  'offering_plugin_options',
+  // Order summary shown in the approve/reject dialogs, which must identify the
+  // order even when the matching columns are hidden.
+  'project_name',
+  'customer_name',
 ];
 
-const formatName = (row: OrderDetails) =>
-  typeof row.attributes['name'] === 'string' && row.attributes['name']
-    ? row.attributes['name']
-    : row.uuid;
+const formatName = (row: OrderDetails) => {
+  if (typeof row.attributes['name'] === 'string' && row.attributes['name']) {
+    return row.attributes['name'];
+  }
+  return row.resource_name || row.uuid;
+};
 
 export const OrdersTableComponent: FC<OrdersTableComponentProps> = ({
   table,
   filter,
   hideColumns = [],
+  initialFilters,
   ...rest
 }) => {
   const props = useTable({
@@ -61,9 +89,10 @@ export const OrdersTableComponent: FC<OrdersTableComponentProps> = ({
     filter,
     queryField: 'query',
     mandatoryFields,
+    initialFilters,
   });
 
-  const columns: Array<Column<OrderDetails>> = [
+  const columns: TableColumns<OrderDetails> = [
     {
       title: translate('Name'),
       render: ({ row }) => (
@@ -85,6 +114,7 @@ export const OrdersTableComponent: FC<OrdersTableComponentProps> = ({
       orderField: 'created',
       keys: ['created'],
       id: 'created',
+      optional: true,
       export: (row) => formatDateTime(row.created),
     },
     {
@@ -95,12 +125,13 @@ export const OrdersTableComponent: FC<OrdersTableComponentProps> = ({
       >,
 
       id: 'created_by',
+      optional: true,
       export: (row) => row.created_by_full_name || row.created_by_username,
     },
     {
       title: translate('State'),
       render: ({ row }) => (
-        <OrderStateField order={row} pill outline hasBullet />
+        <OrderStateField order={row} shape="pill" tone="outline" hasBullet />
       ),
       orderField: 'state',
       keys: ['state'],
@@ -108,6 +139,14 @@ export const OrdersTableComponent: FC<OrdersTableComponentProps> = ({
       inlineFilter: (row) =>
         createOrderStateOptions().find((op) => op.value === row.state),
       id: 'state',
+    },
+    {
+      title: translate('Communication'),
+      render: OrderCommunicationCell,
+      keys: ['provider_message', 'consumer_message'] as Array<
+        keyof OrderDetails
+      >,
+      id: 'communication',
     },
     {
       title: translate('Type'),
@@ -128,6 +167,7 @@ export const OrdersTableComponent: FC<OrdersTableComponentProps> = ({
         uuid: row.project_uuid,
       }),
       id: 'project',
+      optional: true,
     },
     !hideColumns.includes('organization') && {
       title: translate('Client organization'),
@@ -139,6 +179,7 @@ export const OrdersTableComponent: FC<OrdersTableComponentProps> = ({
         uuid: row.customer_uuid,
       }),
       id: 'client_organization',
+      optional: true,
     },
     {
       title: translate('Approved at'),
@@ -156,12 +197,29 @@ export const OrdersTableComponent: FC<OrdersTableComponentProps> = ({
     },
     {
       title: translate('Approved by'),
-      render: ({ row }) =>
-        row.consumer_reviewed_by_full_name ||
-        row.consumer_reviewed_by_username ||
-        DASH_ESCAPE_CODE,
-      keys: ['consumer_reviewed_by_full_name', 'consumer_reviewed_by_username'],
+      render: ({ row }) => {
+        const name =
+          row.consumer_reviewed_by_full_name ||
+          row.consumer_reviewed_by_username ||
+          DASH_ESCAPE_CODE;
+        return (
+          <span className="d-inline-flex align-items-center gap-2">
+            {name}
+            {row.auto_approved ? (
+              <Badge variant="purple" shape="pill" tone="outline">
+                {translate('Auto-approved')}
+              </Badge>
+            ) : null}
+          </span>
+        );
+      },
+      keys: [
+        'consumer_reviewed_by_full_name',
+        'consumer_reviewed_by_username',
+        'auto_approved',
+      ],
       id: 'approved_by',
+      optional: true,
       export: (row) =>
         row.consumer_reviewed_by_full_name ||
         row.consumer_reviewed_by_username ||
@@ -172,7 +230,7 @@ export const OrdersTableComponent: FC<OrdersTableComponentProps> = ({
   return (
     <Table<OrderDetails>
       {...props}
-      columns={columns.filter(Boolean)}
+      columns={columns}
       placeholderActions={<OrderTablePlaceholderActions />}
       verboseName={translate('Orders')}
       hasQuery={true}
@@ -180,9 +238,13 @@ export const OrdersTableComponent: FC<OrdersTableComponentProps> = ({
       initialSorting={{ field: 'created', mode: 'desc' }}
       enableExport={true}
       expandableRow={OrdersListExpandableRow}
-      rowActions={({ row }) => (
-        <OrderProviderActions order={row} refetch={props.fetch} />
-      )}
+      rowActions={({ row }) =>
+        row.state === 'pending-provider' && !shouldHideProviderActions(row) ? (
+          <OrderProviderActions order={row} refetch={props.fetch} size="sm" />
+        ) : (
+          <TableDropdownToggle size="sm" disabled tooltip />
+        )
+      }
       hasOptionalColumns
       {...rest}
     />

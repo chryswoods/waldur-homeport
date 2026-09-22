@@ -1,11 +1,11 @@
-import { PlusIcon } from '@phosphor-icons/react';
-import { Button } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
+import { PlusIcon, UserPlusIcon } from '@phosphor-icons/react';
 
-import { ENV } from '@waldur/core/config';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
+import { ENV } from '@/core/config';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { ActionButton } from '@/table/ActionButton';
+import { useUser } from '@/workspace/hooks';
 
 const AddRemoteUserDialog = lazyComponent(() =>
   import('./AddRemoteUserDialog').then((module) => ({
@@ -13,20 +13,52 @@ const AddRemoteUserDialog = lazyComponent(() =>
   })),
 );
 
+const UserFormDialog = lazyComponent(() =>
+  import('./UserFormDialog').then((module) => ({
+    default: module.UserFormDialog,
+  })),
+);
+
 export const UserTableActions = ({ refetch }) => {
-  const dispatch = useDispatch();
-  if (!ENV.plugins.WALDUR_AUTH_SOCIAL.REMOTE_EDUTEAMS_ENABLED) {
+  const { openDialog } = useModal();
+  const user = useUser();
+  const isStaffUser = user?.is_staff;
+
+  const showEduTeams = ENV.plugins.WALDUR_AUTH_SOCIAL.REMOTE_EDUTEAMS_ENABLED;
+
+  if (!isStaffUser && !showEduTeams) {
     return null;
   }
-  const openDialog = () => {
-    dispatch(openModalDialog(AddRemoteUserDialog, { resolve: { refetch } }));
+
+  const openCreateDialog = () => {
+    openDialog(UserFormDialog, {
+      size: 'lg',
+      resolve: { refetch },
+    });
   };
+
+  const openAddRemoteDialog = () => {
+    openDialog(AddRemoteUserDialog, { resolve: { refetch } });
+  };
+
   return (
-    <Button onClick={openDialog} className="me-3">
-      <span className="svg-icon svg-icon-2">
-        <PlusIcon weight="bold" />
-      </span>{' '}
-      {translate('Add user')}
-    </Button>
+    <>
+      {isStaffUser && (
+        <ActionButton
+          action={openCreateDialog}
+          className="me-3"
+          iconNode={<UserPlusIcon weight="bold" />}
+          title={translate('Create user')}
+        />
+      )}
+      {showEduTeams && (
+        <ActionButton
+          action={openAddRemoteDialog}
+          className="me-3"
+          iconNode={<PlusIcon weight="bold" />}
+          title={translate('Add user')}
+        />
+      )}
+    </>
   );
 };

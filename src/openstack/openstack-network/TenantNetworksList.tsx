@@ -5,14 +5,15 @@ import {
   OpenstackNetworksListData,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { ActionButtonResource } from '@waldur/resource/actions/ActionButtonResource';
-import { ResourceState } from '@waldur/resource/state/ResourceState';
-import { ResourceSummary } from '@waldur/resource/summary/ResourceSummary';
-import { createFetcher } from '@waldur/table/api';
-import { BooleanField } from '@waldur/table/BooleanField';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { translate } from '@/i18n';
+import { ActionButtonResource } from '@/resource/actions/ActionButtonResource';
+import { ResourceState } from '@/resource/state/ResourceState';
+import { ResourceSummary } from '@/resource/summary/ResourceSummary';
+import { createFetcher } from '@/table/api';
+import { BooleanField } from '@/table/BooleanField';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 import { CreateNetworkAction } from '../openstack-tenant/actions/CreateNetworkAction';
 
@@ -46,6 +47,7 @@ export const TenantNetworksList: FunctionComponent<{ resourceScope }> = ({
         'description',
         'created',
         'is_external',
+        'backend_id',
         'type',
         'segmentation_id',
         'mtu',
@@ -79,9 +81,11 @@ export const TenantNetworksList: FunctionComponent<{ resourceScope }> = ({
         {
           title: translate('Subnets'),
           render: ({ row }) =>
-            row.subnets
-              .map((subnet) => `${subnet.name}: ${subnet.cidr}`)
-              .join(', ') || 'N/A',
+            renderFieldOrDash(
+              row.subnets
+                .map((subnet) => `${subnet.name}: ${subnet.cidr}`)
+                .join(', '),
+            ),
         },
         {
           title: translate('State'),
@@ -99,7 +103,11 @@ export const TenantNetworksList: FunctionComponent<{ resourceScope }> = ({
         <CreateNetworkAction resource={resourceScope} refetch={props.fetch} />
       }
       rowActions={({ row }) => (
-        <ActionButtonResource url={row.url} refetch={props.fetch} />
+        <ActionButtonResource
+          url={row.url}
+          refetch={props.fetch}
+          nestedResource
+        />
       )}
       expandableRow={ExpandableRowMemo}
     />

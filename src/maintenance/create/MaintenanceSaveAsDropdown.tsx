@@ -1,17 +1,12 @@
 import { FilePlusIcon, FloppyDiskBackIcon } from '@phosphor-icons/react';
-import { useQueryClient } from '@tanstack/react-query';
-import { FC, useCallback } from 'react';
-import { useDispatch } from 'react-redux';
-import {
-  MaintenanceAnnouncementTemplate,
-  ServiceProvider,
-} from 'waldur-js-client';
+import { FC } from 'react';
+import { ServiceProvider } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { ActionsDropdownComponent } from '@waldur/table/ActionsDropdown';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { ActionsDropdownComponent } from '@/table/ActionsDropdown';
 
 import { MaintenanceForm, MaintenanceFormDialogProps } from '../types';
 
@@ -36,32 +31,7 @@ export const MaintenanceSaveAsDropdown: FC<OwnProps> = ({
   maintenanceUuid,
   refetch,
 }) => {
-  const queryClient = useQueryClient();
-  const dispatch = useDispatch();
-
-  const onSave = useCallback(
-    (template: MaintenanceAnnouncementTemplate) => {
-      queryClient.setQueryData(
-        ['MaintenanceTemplates', provider?.uuid],
-        (cachedData: MaintenanceAnnouncementTemplate[] | undefined) => {
-          const foundIndex = (cachedData || []).findIndex(
-            (temp) => temp.uuid === template.uuid,
-          );
-          const newData = [...(cachedData || [])];
-
-          if (foundIndex >= 0) {
-            // Replace
-            newData.splice(foundIndex, 1, template);
-          } else {
-            // Add new
-            newData.unshift(template);
-          }
-          return newData;
-        },
-      );
-    },
-    [provider],
-  );
+  const { openDialog } = useModal();
 
   return (
     <ActionsDropdownComponent
@@ -76,25 +46,21 @@ export const MaintenanceSaveAsDropdown: FC<OwnProps> = ({
       }
       className="min-w-125px"
       menuClassName="min-w-150px"
-      size="md"
       drop="down"
     >
       <ActionItem
         title={translate('Template')}
         action={() =>
-          dispatch(
-            openModalDialog(MaintenanceSaveAsTemplateDialog, {
-              resolve: {
-                formComponent,
-                onSave,
-                refetch,
-                data: formValues,
-                maintenanceUuid,
-                provider,
-              },
-              backdrop: 'static',
-            }),
-          )
+          openDialog(MaintenanceSaveAsTemplateDialog, {
+            resolve: {
+              formComponent,
+              refetch,
+              data: formValues,
+              maintenanceUuid,
+              provider,
+            },
+            backdrop: 'static',
+          })
         }
         iconNode={<FilePlusIcon weight="bold" />}
       />

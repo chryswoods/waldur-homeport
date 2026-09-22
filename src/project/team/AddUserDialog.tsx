@@ -1,52 +1,56 @@
 import { PlusIcon, UserPlusIcon } from '@phosphor-icons/react';
-import { FC, useCallback, useMemo, useState } from 'react';
-import { Field, Form } from 'react-final-form';
+import { FC, useCallback } from 'react';
+import { Form } from 'react-final-form';
 import { components } from 'react-select';
-import { useDispatch, useSelector } from 'react-redux';
 import {
   callManagingOrganisationsAddUser,
   customersAddUser,
   customersUsersList,
-  CustomersUsersListData,
   marketplaceServiceProvidersAddUser,
   projectsAddUser,
   projectsOtherUsersList,
-  ProjectsOtherUsersListData,
+  type ProjectEmailPolicyResponse,
 } from 'waldur-js-client';
 
-import { parseSelectData } from '@waldur/core/api';
-import { ENV } from '@waldur/core/config';
-import { returnReactSelectAsyncPaginateObject } from '@waldur/core/utils';
-import { required } from '@waldur/core/validators';
-import { isEmailAllowed } from '@waldur/openportal/bindings/helpers';
-import { useProjectEmailPolicy } from '@waldur/project/useProjectEmailPolicy';
-import { OrganizationProjectSelectField } from '@waldur/customer/team/OrganizationProjectSelectField';
-import { usersAutocomplete } from '@waldur/customer/team/utils';
-import { UserFeatures } from '@waldur/FeaturesEnums';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { SubmitButton } from '@waldur/form';
-import { AsyncSelectFieldFinal } from '@waldur/form/AsyncSelectField';
-import { AwesomeCheckboxField } from '@waldur/form/AwesomeCheckboxField';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { useModal } from '@waldur/modal/hooks';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { openModalDialog } from '@waldur/modal/actions';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { Role, RoleType } from '@waldur/permissions/types';
-import { CreateUserDialog } from '@waldur/proposals/team/CreateUserDialog';
-import { useNotify } from '@waldur/store/hooks';
-import { getCurrentUser } from '@waldur/user/UsersService';
-import { setCurrentUser } from '@waldur/workspace/actions';
-import { useUser } from '@waldur/workspace/hooks';
-import { getCustomer, getProject } from '@waldur/workspace/selectors';
-import { Project, User } from '@waldur/workspace/types';
+import { required } from '@/core/validators';
+import { OrganizationProjectSelectField } from '@/customer/team/OrganizationProjectSelectField';
+import { usersAutocomplete } from '@/customer/team/utils';
+import { isFeatureVisible } from '@/features/connect';
+import { UserFeatures } from '@/FeaturesEnums';
+import { AsyncSelectGroup, BooleanGroup, SubmitButton } from '@/form';
+import { createLoadOptions } from '@/form/select';
+import { translate } from '@/i18n';
+import { RestrictionsInfoCard } from '@/invitations/actions/RestrictionsInfoCard';
+import { useModal } from '@/modal/actions';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { isEmailAllowed } from '@/openportal/awardPolicy';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { Role, RoleType } from '@/permissions/types';
+import { useNotify } from '@/store/notify';
+import { UserFormDialog } from '@/user/support/UserFormDialog';
+import { getCurrentUser } from '@/user/UsersService';
+import {
+  useCustomer,
+  useProject,
+  useSetUser,
+  useUser,
+} from '@/workspace/hooks';
+import { Project, User } from '@/workspace/types';
+
+import { useProjectEmailPolicy } from '../useProjectEmailPolicy';
 
 import { DomainRestrictionNotice } from './DomainRestrictionNotice';
 import { ExpirationTimeGroup } from './ExpirationTimeGroup';
+import {
+  getOnlyOneProjectManagerTooltip,
+  isOnlyOneProjectManagerEnabled,
+  isProjectManagerRole,
+  isProjectManagerSelectionBlocked,
+} from './onlyOneProjectManager';
 import { RoleGroup } from './RoleGroup';
+import { useProjectHasActiveManager } from './useProjectHasActiveManager';
 import { UserListOptionInline } from './UserListOptionInline';
 import { hasCurrentCustomerPermission } from './utils';
 
@@ -62,133 +66,131 @@ interface AddUserDialogProps {
   refetch;
   level?: RoleType;
   title?: string;
+  project?: Project;
+  customerUuid?: string;
+  customer?;
 }
 
-const customerUsersAutocomplete = async (
-  customerUuid: string,
-  query: CustomersUsersListData['query'],
-  prevOptions,
-  currentPage: number,
-) => {
-  const response = await customersUsersList({
-    path: { customer_uuid: customerUuid },
-    query: {
-      o: 'concatenated_name',
-      ...query,
-      page: currentPage,
-      page_size: ENV.pageSize,
-    },
-  });
-  return returnReactSelectAsyncPaginateObject(
-    parseSelectData(response),
-    prevOptions,
-    currentPage,
+const customerUsersAutocomplete = (customerUuid: string) =>
+  createLoadOptions(
+    customersUsersList,
+    'user_keyword',
+    { o: 'concatenated_name' },
+    { customer_uuid: customerUuid },
   );
-};
 
-const projectUsersAutocomplete = async (
-  projectUuid: string,
-  query: ProjectsOtherUsersListData['query'],
-  prevOptions,
-  currentPage: number,
-) => {
-  const response = await projectsOtherUsersList({
-    path: { project_uuid: projectUuid },
-    query: {
-      ...query,
-      page: currentPage,
-      page_size: ENV.pageSize,
-    },
-  });
-  return returnReactSelectAsyncPaginateObject(
-    parseSelectData(response),
-    prevOptions,
-    currentPage,
+const projectUsersAutocomplete = (projectUuid: string) =>
+  createLoadOptions(
+    projectsOtherUsersList,
+    'user_keyword',
+    {},
+    { project_uuid: projectUuid },
   );
-};
 
-// Custom Menu component with "Create user" button
-const MenuWithCreateButton = ({ openCreateDialog, ...props }) => {
-  return (
-    <>
-      <components.Menu {...props}>
-        <div>
-          {props.children}
-          <div
-            style={{
-              borderTop: '1px solid #e0e0e0',
-              padding: '8px 12px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              color: '#009ef7',
-              fontWeight: 500,
-            }}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              openCreateDialog();
-            }}
-          >
-            <PlusIcon size={16} weight="bold" />
-            <span>{translate('Create user')}</span>
-          </div>
-        </div>
-      </components.Menu>
-    </>
-  );
-};
+/** react-select menu with a "Create user" action appended below the options. */
+const MenuWithCreateButton = ({ openCreateDialog, ...props }: any) => (
+  <components.Menu {...props}>
+    <div>
+      {props.children}
+      <div
+        role="button"
+        tabIndex={0}
+        className="border-top d-flex align-items-center gap-2 px-3 py-2 text-primary fw-semibold cursor-pointer"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openCreateDialog();
+        }}
+      >
+        <PlusIcon size={16} weight="bold" />
+        <span>{translate('Create user')}</span>
+      </div>
+    </div>
+  </components.Menu>
+);
 
 export const AddUserDialog: FC<AddUserDialogProps> = ({
   refetch,
   level,
   title,
+  project,
+  customerUuid,
+  customer,
 }) => {
-  const dispatch = useDispatch();
-  const { closeDialog } = useModal();
+  const setCurrentUser = useSetUser();
+  const { closeDialog, openDialog } = useModal();
   const { showSuccess, showErrorResponse } = useNotify();
-  const [selectKey, setSelectKey] = useState(0);
 
   const currentUser = useUser() as User;
-  const currentProject = useSelector(getProject);
-  const currentCustomer = useSelector(getCustomer);
-  const hasCustomerPermission = useSelector(hasCurrentCustomerPermission);
-
-  const { data: emailPolicy } = useProjectEmailPolicy(
-    level === 'project' ? currentProject?.uuid : undefined,
+  const currentProject = useProject();
+  const currentCustomer = useCustomer();
+  const hasCustomerPermission = hasCurrentCustomerPermission(
+    currentUser,
+    currentCustomer,
   );
 
-  const userEmailValidator = useMemo(() => {
-    if (!emailPolicy) return undefined;
-    const { allowed_domains: domains } = emailPolicy;
-    return (user: any) => {
-      if (!user?.email) return undefined;
-      return isEmailAllowed(domains, user.email)
+  const resolvedProject = project || currentProject;
+  const resolvedCustomer = customer || currentCustomer;
+  const resolvedCustomerUuid = customerUuid || resolvedCustomer?.uuid;
+
+  // Deployments that enforce allowed domains restrict which addresses may be
+  // added to a project. The policy is advisory here — waldur_openportal
+  // enforces it server-side on the role grant — but showing it up front is a
+  // great deal friendlier than a rejected submit.
+  const { data: emailPolicy } = useProjectEmailPolicy(
+    level === 'project' ? resolvedProject?.uuid : undefined,
+  );
+
+  const validateUser = useCallback(
+    (user: any) => {
+      const missing = required(user);
+      if (missing) return missing;
+      if (!emailPolicy || !user?.email) return undefined;
+      return isEmailAllowed(emailPolicy.allowed_domains, user.email)
         ? undefined
-        : translate('This user\'s email address is not permitted for this project.');
-    };
-  }, [emailPolicy]);
+        : translate(
+            "This user's email address is not permitted for this project.",
+          );
+    },
+    [emailPolicy],
+  );
+
+  // Upstream's modal service holds one application dialog at a time, so the
+  // fork's dialog-on-top-of-dialog is not available. Creating a user instead
+  // replaces this dialog and reopens it afterwards, leaving the operator back
+  // where they were with the new user available to pick.
+  const openCreateUserDialog = () =>
+    openDialog(UserFormDialog, {
+      resolve: {
+        refetch: () =>
+          openDialog(AddUserDialog, {
+            refetch,
+            level,
+            title,
+            project,
+            customerUuid,
+            customer,
+          }),
+      },
+    });
 
   const loadUsers = useCallback(
     async (query, prevOptions, page, showAllUsers: boolean) => {
       try {
         if (showAllUsers) {
-          return await usersAutocomplete({ query }, prevOptions, page);
+          return await usersAutocomplete(query, prevOptions, page);
         }
 
-        if (hasCustomerPermission || !currentProject) {
-          return await customerUsersAutocomplete(
-            currentCustomer.uuid,
-            { user_keyword: query },
+        if (hasCustomerPermission || !resolvedProject) {
+          return await customerUsersAutocomplete(resolvedCustomerUuid)(
+            query,
             prevOptions,
             page,
           );
         }
 
-        return await projectUsersAutocomplete(
-          currentProject.uuid,
-          { user_keyword: query },
+        return await projectUsersAutocomplete(resolvedProject.uuid)(
+          query,
           prevOptions,
           page,
         );
@@ -201,12 +203,7 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
         };
       }
     },
-    [
-      hasCustomerPermission,
-      currentProject,
-      currentCustomer.uuid,
-      showErrorResponse,
-    ],
+    [hasCustomerPermission, resolvedProject, resolvedCustomerUuid],
   );
 
   const getOptionLabel = (option) =>
@@ -214,36 +211,15 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
       ? (option.full_name || option.username) + ` (${option.email})`
       : option.full_name || option.username;
 
-  const handleUserCreated = (user: any, form) => {
-    // Set the newly created user in the form
-    form.change('user', user);
-    // Force re-render of the select component
-    setSelectKey((prev) => prev + 1);
-  };
-
-  const openCreateUserDialog = (form) => {
-    // Use SHOW_CONFIRM type to overlay on top of current modal
-    // This prevents closing the AddUserDialog when CreateUserDialog opens
-    dispatch(
-      openModalDialog(
-        CreateUserDialog,
-        {
-          onUserCreated: (user) => handleUserCreated(user, form),
-        },
-        'SHOW_CONFIRM',
-      ),
-    );
-  };
-
   const saveUser = useCallback(
     async (formData: AddUserDialogFormData) => {
       if (formData.role.content_type === 'project') {
         try {
+          const targetProjectUuid =
+            formData.project?.uuid || resolvedProject?.uuid;
           await projectsAddUser({
             path: {
-              uuid: formData.project
-                ? formData.project.uuid
-                : currentProject.uuid,
+              uuid: targetProjectUuid,
             },
             body: {
               user: formData.user.uuid,
@@ -252,7 +228,7 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
             },
           });
           await refetch();
-          showSuccess('User has been added to project.');
+          showSuccess(translate('User has been added to project.'));
           closeDialog();
         } catch (error) {
           showErrorResponse(error, translate('Unable to add user.'));
@@ -260,7 +236,7 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
       } else if (formData.role.content_type === 'customer') {
         try {
           await customersAddUser({
-            path: { uuid: currentCustomer.uuid },
+            path: { uuid: resolvedCustomerUuid },
             body: {
               user: formData.user.uuid,
               role: formData.role.name,
@@ -269,10 +245,10 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
           });
           if (currentUser.uuid === formData.user.uuid) {
             const newUser = await getCurrentUser();
-            dispatch(setCurrentUser(newUser));
+            setCurrentUser(newUser);
           }
           await refetch();
-          showSuccess('User has been added to organization.');
+          showSuccess(translate('User has been added to organization.'));
           closeDialog();
         } catch (error) {
           showErrorResponse(error, translate('Unable to add user.'));
@@ -280,7 +256,7 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
       } else if (formData.role.content_type === 'call_organizer') {
         try {
           await callManagingOrganisationsAddUser({
-            path: { uuid: currentCustomer.call_managing_organization_uuid },
+            path: { uuid: resolvedCustomer.call_managing_organization_uuid },
             body: {
               user: formData.user.uuid,
               role: formData.role.name,
@@ -289,10 +265,10 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
           });
           if (currentUser.uuid === formData.user.uuid) {
             const newUser = await getCurrentUser();
-            dispatch(setCurrentUser(newUser));
+            setCurrentUser(newUser);
           }
           await refetch();
-          showSuccess('User has been added to organization.');
+          showSuccess(translate('User has been added to organization.'));
           closeDialog();
         } catch (error) {
           showErrorResponse(error, translate('Unable to add user.'));
@@ -300,7 +276,7 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
       } else if (formData.role.content_type === 'service_provider') {
         try {
           await marketplaceServiceProvidersAddUser({
-            path: { uuid: currentCustomer.service_provider_uuid },
+            path: { uuid: resolvedCustomer.service_provider_uuid },
             body: {
               user: formData.user.uuid,
               role: formData.role.name,
@@ -309,10 +285,10 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
           });
           if (currentUser.uuid === formData.user.uuid) {
             const newUser = await getCurrentUser();
-            dispatch(setCurrentUser(newUser));
+            setCurrentUser(newUser);
           }
           await refetch();
-          showSuccess('User has been added to organization.');
+          showSuccess(translate('User has been added to organization.'));
           closeDialog();
         } catch (error) {
           showErrorResponse(error, translate('Unable to add user.'));
@@ -324,101 +300,183 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
       showSuccess,
       closeDialog,
       showErrorResponse,
-      currentProject,
-      currentCustomer,
+      resolvedProject,
+      resolvedCustomer,
       currentUser,
-      dispatch,
     ],
   );
 
   return (
     <Form onSubmit={saveUser}>
-      {({ handleSubmit, submitting, invalid, values, form }) => (
-        <form onSubmit={handleSubmit}>
-          <ModalDialog
-            title={title || translate('Add user')}
-            footer={
-              <>
-                <CloseDialogButton />
-                <SubmitButton submitting={submitting} disabled={invalid}>
-                  {translate('Add role')}
-                </SubmitButton>
-              </>
-            }
-            iconNode={<UserPlusIcon weight="bold" />}
-            iconColor="success"
-          >
-            <DomainRestrictionNotice
-              allowedDomains={emailPolicy?.allowed_domains}
-              contactEmail={currentCustomer.email}
-              projectName={currentProject?.name}
-            />
-            <FormGroup label={translate('User')} required>
-              <AsyncSelectFieldFinal
-                name="user"
-                key={
-                  values.showAllUsers
-                    ? `showAllUsers-${selectKey}`
-                    : `notShowAllUsers-${selectKey}`
-                }
-                placeholder={translate('Select user...')}
-                loadOptions={(query, prevOptions, page) =>
-                  loadUsers(
-                    query,
-                    prevOptions,
-                    page,
-                    values.showAllUsers || false,
-                  )
-                }
-                getOptionValue={(option) => option.uuid}
-                getOptionLabel={getOptionLabel}
-                components={{
-                  Option: UserListOptionInline,
-                  ...(isFeatureVisible(UserFeatures.allow_user_creation) && {
-                    Menu: (props) => (
-                      <MenuWithCreateButton
-                        {...props}
-                        openCreateDialog={() => openCreateUserDialog(form)}
-                      />
-                    ),
-                  }),
-                }}
-                required={true}
-                validate={(value) =>
-                  required(value) || userEmailValidator?.(value)
-                }
-              />
-            </FormGroup>
-
-            {currentUser.is_staff && (
-              <FormGroup>
-                <Field
-                  name="showAllUsers"
-                  component={AwesomeCheckboxField as any}
-                  label={translate('Show users outside organization')}
-                />
-              </FormGroup>
-            )}
-            <RoleGroup
-              types={
-                level === 'customer' &&
-                hasPermission(currentUser, {
-                  permission: PermissionEnum.CREATE_CUSTOMER_PERMISSION,
-                  customerId: currentCustomer.uuid,
-                })
-                  ? ['customer', 'project']
-                  : [level]
-              }
-            />
-
-            {level === 'customer' &&
-              values.role?.content_type === 'project' && (
-                <OrganizationProjectSelectField />
-              )}
-            <ExpirationTimeGroup />
-          </ModalDialog>
-        </form>
+      {({ handleSubmit, submitting, invalid, values }) => (
+        <AddUserDialogForm
+          handleSubmit={handleSubmit}
+          submitting={submitting}
+          invalid={invalid}
+          values={values}
+          level={level}
+          title={title}
+          resolvedProject={resolvedProject}
+          resolvedCustomer={resolvedCustomer}
+          resolvedCustomerUuid={resolvedCustomerUuid}
+          currentUser={currentUser}
+          loadUsers={loadUsers}
+          getOptionLabel={getOptionLabel}
+          emailPolicy={emailPolicy}
+          validateUser={validateUser}
+          openCreateUserDialog={openCreateUserDialog}
+        />
       )}
     </Form>
+  );
+};
+
+interface AddUserDialogFormProps {
+  handleSubmit: () => void;
+  submitting: boolean;
+  invalid: boolean;
+  values: AddUserDialogFormData;
+  level?: RoleType;
+  title?: string;
+  resolvedProject?: Project;
+  resolvedCustomer;
+  resolvedCustomerUuid: string;
+  currentUser: User;
+  loadUsers: (
+    query: string,
+    prevOptions: unknown,
+    page: number,
+    showAllUsers: boolean,
+  ) => Promise<any>;
+  getOptionLabel: (option: any) => string;
+  emailPolicy?: ProjectEmailPolicyResponse;
+  validateUser: (user: any) => string | undefined;
+  openCreateUserDialog: () => void;
+}
+
+const AddUserDialogForm: FC<AddUserDialogFormProps> = ({
+  handleSubmit,
+  submitting,
+  invalid,
+  values,
+  level,
+  title,
+  resolvedProject,
+  resolvedCustomer,
+  resolvedCustomerUuid,
+  currentUser,
+  loadUsers,
+  getOptionLabel,
+  emailPolicy,
+  validateUser,
+  openCreateUserDialog,
+}) => {
+  const targetProjectUuid = values.project?.uuid || resolvedProject?.uuid;
+  const { data: targetProjectHasManager, isPending: isCheckingManager } =
+    useProjectHasActiveManager(targetProjectUuid);
+
+  const needsManagerCheck =
+    isOnlyOneProjectManagerEnabled() &&
+    isProjectManagerRole(values.role) &&
+    Boolean(targetProjectUuid);
+
+  const isProjectManagerBlocked =
+    isProjectManagerSelectionBlocked(targetProjectHasManager, values.role) ||
+    (needsManagerCheck && isCheckingManager);
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <ModalDialog
+        title={title || translate('Add user')}
+        footer={
+          <>
+            <CloseDialogButton />
+            <SubmitButton
+              submitting={submitting}
+              disabled={invalid || isProjectManagerBlocked}
+              disabledReason={
+                isProjectManagerBlocked
+                  ? getOnlyOneProjectManagerTooltip()
+                  : undefined
+              }
+            >
+              {translate('Add role')}
+            </SubmitButton>
+          </>
+        }
+        iconNode={<UserPlusIcon weight="bold" />}
+        iconColor="success"
+      >
+        <RestrictionsInfoCard
+          customer={resolvedCustomer}
+          project={
+            level === 'project' ? resolvedProject : values.project || null
+          }
+        />
+        <DomainRestrictionNotice
+          allowedDomains={emailPolicy?.allowed_domains}
+          contactEmail={resolvedCustomer?.email}
+          projectName={resolvedProject?.name}
+        />
+        <AsyncSelectGroup
+          name="user"
+          required
+          label={translate('User')}
+          key={values.showAllUsers ? 'showAllUsers' : 'notShowAllUsers'}
+          placeholder={translate('Select user...')}
+          loadOptions={(query, prevOptions, page) =>
+            loadUsers(query, prevOptions, page, values.showAllUsers || false)
+          }
+          getOptionValue={(option) => option.uuid}
+          getOptionLabel={getOptionLabel}
+          components={{
+            Option: UserListOptionInline,
+            ...(isFeatureVisible(UserFeatures.allow_user_creation) && {
+              Menu: (menuProps) => (
+                <MenuWithCreateButton
+                  {...menuProps}
+                  openCreateDialog={openCreateUserDialog}
+                />
+              ),
+            }),
+          }}
+          noOptionsMessage={() =>
+            translate(
+              'No users found. You can only see users from projects you belong to. Use "Invite by mail" to add new users.',
+            )
+          }
+          validate={validateUser}
+        />
+
+        {currentUser.is_staff && (
+          <BooleanGroup
+            name="showAllUsers"
+            label={translate('Show users outside organization')}
+          />
+        )}
+        <RoleGroup
+          types={
+            level === 'customer' &&
+            hasPermission(currentUser, {
+              permission: PermissionEnum.CREATE_CUSTOMER_PERMISSION,
+              customerId: resolvedCustomerUuid,
+            })
+              ? ['customer', 'project']
+              : [level]
+          }
+          user={currentUser}
+          scope={{
+            customerId: resolvedCustomerUuid,
+            projectId: resolvedProject?.uuid,
+            callOrganizerId: resolvedCustomer?.call_managing_organization_uuid,
+          }}
+        />
+
+        {level === 'customer' && values.role?.content_type === 'project' && (
+          <OrganizationProjectSelectField />
+        )}
+        <ExpirationTimeGroup />
+      </ModalDialog>
+    </form>
   );
 };

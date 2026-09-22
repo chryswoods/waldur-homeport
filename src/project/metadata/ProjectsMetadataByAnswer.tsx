@@ -1,20 +1,19 @@
 import { FC } from 'react';
-import { useSelector } from 'react-redux';
 import { customersProjectMetadataQuestionAnswersList } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { TableWithPortal } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { TableWithPortal } from '@/table/types';
+import { useTable } from '@/table/useTable';
+import { useCustomer } from '@/workspace/hooks';
 
 import { ProjectsTableActions } from '../ProjectsTableActions';
 
 import { MetadataByAnswerExpandableRow } from './MetadataByAnswerExpandableRow';
 
 export const ProjectsMetadataByAnswer: FC<TableWithPortal> = ({ portal }) => {
-  const currentCustomer = useSelector(getCustomer);
+  const currentCustomer = useCustomer();
   const checklistUuid = currentCustomer.project_metadata_checklist;
 
   const tableProps = useTable({

@@ -1,5 +1,5 @@
-import { ActionsDropdown } from '@waldur/table/ActionsDropdown';
-import { useUser } from '@waldur/workspace/hooks';
+import { ActionsDropdown } from '@/table/ActionsDropdown';
+import { useUser } from '@/workspace/hooks';
 
 import { InvitationCancelButton } from './actions/InvitationCancelButton';
 import { InvitationSendButton } from './actions/InvitationSendButton';
@@ -16,7 +16,6 @@ export const InvitationActions = ({ invitation, refetch }) => {
         InvitationCancelButton,
         user.is_staff ? InvitationDeleteButton : null,
       ].filter(Boolean)}
-      data-cy="invitations-list-actions-dropdown-btn"
     />
   );
 };

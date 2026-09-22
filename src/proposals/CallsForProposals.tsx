@@ -1,16 +1,14 @@
 import { FunctionComponent } from 'react';
 
-import { getIconUrl } from '@waldur/core/api';
-import { ENV } from '@waldur/core/config';
-import { Link } from '@waldur/core/Link';
-import { LandingHeroSection } from '@waldur/dashboard/hero/LandingHeroSection';
-import { NewbiesGuideNotification } from '@waldur/dashboard/hero/NewbiesGuideNotification';
-import { translate } from '@waldur/i18n';
-import { isExperimentalUiComponentsVisible } from '@waldur/marketplace/utils';
-import { useFullPage } from '@waldur/navigation/context';
-import { CallsAvailableOfferingsList } from '@waldur/proposals/CallsAvailableOfferingsList';
-import { CallsForProposalsList } from '@waldur/proposals/CallsForProposalsList';
-import { useTheme } from '@waldur/theme/useTheme';
+import { getIconUrl } from '@/core/api';
+import { ENV } from '@/core/config';
+import { Link } from '@/core/Link';
+import { LandingHeroSection } from '@/dashboard/hero/LandingHeroSection';
+import { translate } from '@/i18n';
+import { useFullPage } from '@/navigation/context';
+import { CallsAvailableOfferingsList } from '@/proposals/CallsAvailableOfferingsList';
+import { CallsForProposalsList } from '@/proposals/CallsForProposalsList';
+import { useTheme } from '@/theme/useTheme';
 
 import DefaultDarkImage from './proposal-calls-dark.png';
 import DefaultLightImage from './proposal-calls.png';
@@ -21,18 +19,9 @@ export const CallsForProposals: FunctionComponent = () => {
   const backendImage = getIconUrl('call_management_hero_image');
 
   useFullPage();
-  const showExperimentalUiComponents = isExperimentalUiComponentsVisible();
 
   return (
     <>
-      {showExperimentalUiComponents && (
-        <NewbiesGuideNotification
-          guideState="calls-for-proposals-dashboard"
-          message={translate('New to {org} calls page?', {
-            org: ENV.plugins.WALDUR_CORE.SHORT_PAGE_TITLE,
-          })}
-        />
-      )}
       <LandingHeroSection
         header={ENV.plugins.WALDUR_CORE.SHORT_PAGE_TITLE}
         title={translate('Calls for proposals')}
@@ -50,7 +39,7 @@ export const CallsForProposals: FunctionComponent = () => {
             state="calls-for-proposals-all-calls"
             className="btn w-200px btn-primary"
           >
-            {translate('See all calls')}
+            {translate('All calls')}
           </Link>
         </div>
       </LandingHeroSection>

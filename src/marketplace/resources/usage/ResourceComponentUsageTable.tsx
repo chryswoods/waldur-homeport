@@ -1,22 +1,36 @@
-import { useMemo } from 'react';
+import { FC, useMemo } from 'react';
 import {
   marketplaceComponentUsagesList,
   MarketplaceComponentUsagesListData,
+  OfferingComponent,
+  Resource,
 } from 'waldur-js-client';
 
-import { formatMonth } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { formatMonth } from '@/core/dateUtils';
+import { formatUsageValue } from '@/core/formatNumber';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { TableWithPortal } from '@/table/types';
+import { useTable } from '@/table/useTable';
 
-export const ResourceComponentUsageTable = (props) => {
+import { getMissingUsagePolicyLabel } from './missingUsagePolicy';
+
+export const ResourceComponentUsageTable: FC<
+  TableWithPortal<{
+    resource: Pick<Resource, 'uuid'>;
+    offeringComponent?: Pick<OfferingComponent, 'type'>;
+  }>
+> = ({ portal, ...props }) => {
   const filter = useMemo(() => {
     const result: MarketplaceComponentUsagesListData['query'] = {
-      resource_uuid: props.resource.resource_uuid,
+      resource_uuid: props.resource.uuid,
     };
+    if (props.offeringComponent?.type) {
+      result.type = props.offeringComponent.type;
+    }
     return result;
-  }, [props.resource]);
+  }, [props.resource.uuid, props.offeringComponent?.type]);
 
   const tableProps = useTable({
     table: 'ResourceUsageTable',
@@ -31,10 +45,25 @@ export const ResourceComponentUsageTable = (props) => {
     },
     {
       title: translate('Usage'),
-      render: ({ row }) => <>{row.usage}</>,
+      render: ({ row }) => <>{formatUsageValue(row.usage)}</>,
       orderField: 'usage',
     },
-  ].filter(Boolean);
+    {
+      title: translate('Missing usage policy'),
+      render: ({ row }) => (
+        <>{getMissingUsagePolicyLabel(row.missing_usage_policy)}</>
+      ),
+    },
+  ];
 
-  return <Table {...tableProps} columns={columns} />;
+  return (
+    <Table
+      {...tableProps}
+      columns={columns}
+      portal={portal}
+      hasActionBar={false}
+      cardBordered={false}
+      fullWidth
+    />
+  );
 };

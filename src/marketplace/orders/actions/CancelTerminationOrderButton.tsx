@@ -1,37 +1,28 @@
 import { ProhibitIcon } from '@phosphor-icons/react';
-import { useMutation } from '@tanstack/react-query';
-import { useDispatch, useSelector } from 'react-redux';
 import { remoteWaldurApiCancelTermination } from 'waldur-js-client';
-import { OrderDetails as OrderResponse } from 'waldur-js-client';
+import { OrderDetails } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { REMOTE_OFFERING_TYPE } from '@waldur/marketplace-remote/constants';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { getUser } from '@waldur/workspace/selectors';
+import { translate } from '@/i18n';
+import { REMOTE_OFFERING_TYPE } from '@/marketplace-remote/constants';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { useUser } from '@/workspace/hooks';
 
 export const CancelTerminationOrderButton = ({
   row,
   fetch,
 }: {
-  row: OrderResponse;
+  row: OrderDetails;
   fetch;
 }) => {
-  const user = useSelector(getUser);
+  const user = useUser();
 
-  const dispatch = useDispatch();
-  const { mutate, isPending: isLoading } = useMutation({
-    mutationFn: async () => {
-      try {
-        await remoteWaldurApiCancelTermination({ path: { uuid: row.uuid } });
-        await fetch();
-        dispatch(showSuccess(translate('Order has been canceled.')));
-      } catch (response) {
-        dispatch(
-          showErrorResponse(response, translate('Unable to cancel order.')),
-        );
-      }
-    },
+  const { mutate, isPending } = useManagedMutation({
+    mutationFn: () =>
+      remoteWaldurApiCancelTermination({ path: { uuid: row.uuid } }),
+    successMessage: translate('Order has been canceled.'),
+    errorMessage: translate('Unable to cancel order.'),
+    refetch: fetch,
   });
 
   if (
@@ -44,7 +35,7 @@ export const CancelTerminationOrderButton = ({
       <ActionItem
         title={translate('Cancel')}
         action={mutate}
-        disabled={isLoading}
+        disabled={isPending}
         iconNode={<ProhibitIcon weight="bold" />}
         size="sm"
       />

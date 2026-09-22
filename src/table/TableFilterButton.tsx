@@ -1,26 +1,27 @@
 import { FunnelSimpleIcon } from '@phosphor-icons/react';
-import { Button } from 'react-bootstrap';
 
-import { Tip } from '@waldur/core/Tooltip';
-import { translate } from '@waldur/i18n';
-import { HeaderButtonBullet } from '@waldur/navigation/header/HeaderButtonBullet';
+import { translate } from '@/i18n';
 
-export const TableFilterButton = ({ onClick, hasFilter = false }) => {
+import { ToolbarButton } from './ToolbarButton';
+
+interface TableFilterButtonProps {
+  onClick: (event: React.MouseEvent) => void;
+  hasFilter?: boolean;
+  filterCount?: number;
+}
+
+export const TableFilterButton = ({
+  onClick,
+  hasFilter = false,
+  filterCount = 0,
+}: TableFilterButtonProps) => {
   return (
-    <Tip id="table-filter-toggle-tip" label={translate('Set filters')}>
-      <Button
-        variant="tertiary"
-        className="btn-icon btn-toggle-filters position-relative"
-        size="lg"
-        onClick={onClick}
-      >
-        <span className="svg-icon svg-icon-2">
-          <FunnelSimpleIcon weight="bold" />
-        </span>
-        {hasFilter && (
-          <HeaderButtonBullet size={8} blink={false} className="me-n2" />
-        )}
-      </Button>
-    </Tip>
+    <ToolbarButton
+      tooltip={translate('Set filters')}
+      iconNode={<FunnelSimpleIcon weight="bold" />}
+      onClick={onClick}
+      className="btn-toggle-filters"
+      badge={hasFilter && filterCount > 0 ? filterCount : undefined}
+    />
   );
 };

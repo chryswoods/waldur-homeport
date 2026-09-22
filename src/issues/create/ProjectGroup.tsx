@@ -1,79 +1,67 @@
-import { useEffect } from 'react';
-import { Form } from 'react-bootstrap';
-import { useDispatch, useSelector } from 'react-redux';
-import { change, Field, formValueSelector } from 'redux-form';
+import { useEffect, useMemo } from 'react';
+import { useForm, useFormState } from 'react-final-form';
 
-import { Select as AsyncSelectField } from '@waldur/form/AsyncSelectField';
-import { Select } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { projectAutocomplete } from '@waldur/marketplace/common/autocompletes';
-import { type RootState } from '@waldur/store/reducers';
-
-import { ISSUE_CREATION_FORM_ID } from './constants';
-
-const customerSelector = (state: RootState) =>
-  formValueSelector(ISSUE_CREATION_FORM_ID)(state, 'customer');
-
-const projectSelector = (state: RootState) =>
-  formValueSelector(ISSUE_CREATION_FORM_ID)(state, 'project');
+import { AsyncSelectGroup, SelectGroup } from '@/form';
+import { translate } from '@/i18n';
+import { projectAutocomplete } from '@/marketplace/common/autocompletes';
 
 export const ProjectGroup = ({ disabled }) => {
-  const dispatch = useDispatch();
-  const customer = useSelector(customerSelector);
-  const project = useSelector(projectSelector);
+  const form = useForm();
+  const { values } = useFormState();
+  const customer = values.customer;
+  const project = values.project;
 
   useEffect(() => {
     if (project && customer && project.customer_uuid !== customer.uuid) {
-      dispatch(change(ISSUE_CREATION_FORM_ID, 'project', undefined));
+      form.change('project', undefined);
     }
-  }, [dispatch, customer, project]);
+  }, [form, customer, project]);
+
+  const loadProjects = useMemo(
+    () =>
+      projectAutocomplete(customer?.uuid, {
+        field: ['name', 'url', 'uuid', 'customer_uuid'],
+      }),
+    [customer?.uuid],
+  );
+
+  if (!disabled && customer) {
+    return (
+      <AsyncSelectGroup
+        key={customer.uuid}
+        name="project"
+        label={translate('Project')}
+        containerClassName="flex-equal"
+        isClearable={true}
+        defaultOptions
+        loadOptions={loadProjects}
+        getOptionValue={(option) => option.uuid}
+        getOptionLabel={(option) => option.name}
+        filterOption={null}
+        isDisabled={disabled}
+      />
+    );
+  }
 
   return (
-    <Form.Group className="mb-5 flex-equal">
-      <Form.Label>{translate('Project')}</Form.Label>
-      {!disabled && customer ? (
-        <Field
-          name="project"
-          component={AsyncSelectField}
-          isClearable={true}
-          defaultOptions
-          loadOptions={(query, prevOptions, { page }) =>
-            projectAutocomplete(customer.uuid, query, prevOptions, page, {
-              field: ['name', 'url', 'uuid', 'customer_uuid'],
-            })
-          }
-          getOptionValue={(option) => option.uuid}
-          getOptionLabel={(option) => option.name}
-          filterOption={(options) => options}
-          isDisabled={disabled}
-          key={customer.uuid}
-        />
-      ) : (
-        <Field
-          name="project"
-          component={({ input: { value } }) => (
-            <Select
-              getOptionValue={(option) => option.uuid}
-              getOptionLabel={(option) => option.name}
-              options={
-                project
-                  ? [
-                      {
-                        name: project.name,
-                        uuid: project.uuid,
-                        url: project.url,
-                      },
-                    ]
-                  : []
-              }
-              value={value}
-              isDisabled
-              className="metronic-select-container"
-              classNamePrefix="metronic-select"
-            />
-          )}
-        />
-      )}
-    </Form.Group>
+    <SelectGroup
+      name="project"
+      label={translate('Project')}
+      containerClassName="flex-equal"
+      getOptionValue={(option) => option.uuid}
+      getOptionLabel={(option) => option.name}
+      options={
+        project
+          ? [
+              {
+                name: project.name,
+                uuid: project.uuid,
+                url: project.url,
+              },
+            ]
+          : []
+      }
+      isDisabled
+    />
   );
 };

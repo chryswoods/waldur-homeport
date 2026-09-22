@@ -1,107 +1,83 @@
 import { PlusCircleIcon } from '@phosphor-icons/react';
-import { useCallback } from 'react';
-import { Button } from 'react-bootstrap';
-import { connect, useDispatch } from 'react-redux';
-import { FieldArray, reduxForm } from 'redux-form';
+import arrayMutators from 'final-form-arrays';
+import { FC } from 'react';
+import { Form } from 'react-final-form';
+import { FieldArray } from 'react-final-form-arrays';
 import {
   marketplaceProviderOfferingsUpdateIntegration,
+  OfferingIntegrationUpdateRequest,
   ProviderOfferingDetails,
 } from 'waldur-js-client';
 
-import { SubmitButton } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { IconButton } from '@/core/buttons/IconButton';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
-import { ENVIRON_FORM_ID } from './constants';
 import { EnvironmentVariablesList } from './EnvironmentVariablesList';
 
-export interface EditVarsDialogOwnProps {
+export interface EditVarsDialogProps {
   resolve: { offering: ProviderOfferingDetails; type?; refetch?(): void };
 }
 
-export const EditVarsDialog = connect<{}, {}, EditVarsDialogOwnProps>(
-  (_, ownProps) => ({
-    initialValues: {
-      environ: ownProps.resolve.offering.secret_options.environ,
-    },
-  }),
-)(
-  reduxForm<{}, EditVarsDialogOwnProps>({
-    form: ENVIRON_FORM_ID,
-  })((props) => {
-    const dispatch = useDispatch();
-    const update = useCallback(
-      async (formData) => {
-        try {
-          await marketplaceProviderOfferingsUpdateIntegration({
-            path: { uuid: props.resolve.offering.uuid },
-            body: {
-              // @ts-ignore
-              secret_options: {
-                ...props.resolve.offering.secret_options,
-                environ: formData.environ,
-              },
-            },
-          });
-          dispatch(
-            showSuccess(
-              translate(
-                'Environment variables have been updated successfully.',
-              ),
-            ),
-          );
-          if (props.resolve.refetch) {
-            await props.resolve.refetch();
-          }
-          dispatch(closeModalDialog());
-        } catch (error) {
-          dispatch(
-            showErrorResponse(
-              error,
-              translate('Unable to update environment variables.'),
-            ),
-          );
-        }
-      },
-      [dispatch],
-    );
-    return (
-      <FieldArray
-        name="environ"
-        component={(nestedProps) => (
-          <form onSubmit={props.handleSubmit(update)}>
-            <ModalDialog
-              title={translate('Edit environment variables')}
-              actions={
-                <Button
-                  variant="tertiary"
-                  className="btn-icon"
-                  onClick={() => nestedProps.fields.push({})}
-                >
-                  <span className="svg-icon svg-icon-2">
-                    <PlusCircleIcon weight="bold" />
-                  </span>
-                </Button>
-              }
-              footer={
-                <>
-                  <CloseDialogButton />
-                  <SubmitButton
-                    disabled={props.invalid}
-                    submitting={props.submitting}
-                    label={translate('Save')}
+export const EditVarsDialog: FC<EditVarsDialogProps> = ({ resolve }) => {
+  const updateMutation = useManagedMutation<any, any, any>({
+    mutationFn: (formData) =>
+      marketplaceProviderOfferingsUpdateIntegration({
+        path: { uuid: resolve.offering.uuid },
+        body: {
+          secret_options: {
+            ...resolve.offering.secret_options,
+            environ: formData.environ,
+          },
+        } as OfferingIntegrationUpdateRequest,
+      }),
+    successMessage: translate(
+      'Environment variables have been updated successfully.',
+    ),
+    errorMessage: translate('Unable to update environment variables.'),
+    refetch: resolve.refetch,
+  });
+
+  return (
+    <Form
+      onSubmit={(values) => updateMutation.mutateAsync(values)}
+      initialValues={{
+        environ: resolve.offering.secret_options?.environ,
+      }}
+      mutators={{ ...arrayMutators }}
+      render={({ handleSubmit, invalid, submitting }) => (
+        <form onSubmit={handleSubmit}>
+          <FieldArray name="environ">
+            {(nestedProps) => (
+              <ModalDialog
+                title={translate('Edit environment variables')}
+                actions={
+                  <IconButton
+                    iconNode={<PlusCircleIcon weight="bold" />}
+                    tooltip={translate('Add variable')}
+                    onClick={() => nestedProps.fields.push({})}
                   />
-                </>
-              }
-            >
-              <EnvironmentVariablesList fields={nestedProps.fields} />
-            </ModalDialog>
-          </form>
-        )}
-      />
-    );
-  }),
-);
+                }
+                footer={
+                  <>
+                    <CloseDialogButton />
+                    <SubmitButton
+                      disabled={invalid}
+                      submitting={submitting}
+                      label={translate('Save')}
+                    />
+                  </>
+                }
+              >
+                <EnvironmentVariablesList fields={nestedProps.fields} />
+              </ModalDialog>
+            )}
+          </FieldArray>
+        </form>
+      )}
+    />
+  );
+};

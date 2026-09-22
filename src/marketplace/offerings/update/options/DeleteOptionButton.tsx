@@ -1,16 +1,16 @@
 import { FC } from 'react';
-import { Button } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
 import {
   marketplaceProviderOfferingsUpdateOptions,
   marketplaceProviderOfferingsUpdateResourceOptions,
 } from 'waldur-js-client';
 
-import { formatJsxTemplate, translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { formatJsxTemplate, translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { CompactActionButton } from '@/table/CompactActionButton';
 
 import { OfferingSectionProps } from '../types';
+
+import { formatDependentOptionsError, getDependentOptions } from './validation';
 
 export const DeleteOptionButton: FC<
   OfferingSectionProps & {
@@ -19,31 +19,15 @@ export const DeleteOptionButton: FC<
     type: string;
   }
 > = ({ optionKey, optionLabel, offering, type, refetch }) => {
-  const dispatch = useDispatch();
-  const handler = async () => {
-    try {
-      await waitForConfirmation(
-        dispatch,
-        translate('Confirmation'),
-        translate(
-          'Are you sure you want to delete option {name}?',
-          {
-            name: <b>{optionLabel}</b>,
-          },
-          formatJsxTemplate,
-        ),
-        { forDeletion: true },
-      );
-    } catch {
-      return;
-    }
-    const oldOptions = offering[type];
-    const { [optionKey]: _, ...remaining } = oldOptions.options;
-    const newOptions = {
-      order: oldOptions.order.filter((item) => item !== optionKey),
-      options: remaining,
-    };
-    try {
+  const dependents = getDependentOptions(offering[type], optionKey);
+  const { mutate, isPending } = useManagedMutation<any, any, void>({
+    mutationFn: async () => {
+      const oldOptions = offering[type];
+      const { [optionKey]: _, ...remaining } = oldOptions.options;
+      const newOptions = {
+        order: oldOptions.order.filter((item) => item !== optionKey),
+        options: remaining,
+      };
       if (type === 'options') {
         await marketplaceProviderOfferingsUpdateOptions({
           path: { uuid: offering.uuid },
@@ -58,16 +42,36 @@ export const DeleteOptionButton: FC<
             resource_options: newOptions,
           },
         });
-        if (refetch) await refetch();
       }
-      dispatch(showSuccess(translate('Option has been removed.')));
-    } catch (error) {
-      dispatch(showErrorResponse(error, translate('Unable to remove option.')));
-    }
-  };
+    },
+    confirmation: {
+      title: translate('Confirmation'),
+      body: translate(
+        'Are you sure you want to delete option {name}?',
+        {
+          name: <b>{optionLabel}</b>,
+        },
+        formatJsxTemplate,
+      ),
+      options: { forDeletion: true },
+    },
+    successMessage: translate('Option has been removed.'),
+    errorMessage: translate('Unable to remove option.'),
+    refetch,
+  });
   return (
-    <Button className="btn-sm btn-danger" onClick={handler}>
-      {translate('Delete')}
-    </Button>
+    <CompactActionButton
+      variant="danger"
+      action={mutate}
+      disabled={isPending || dependents.length > 0}
+      title={translate('Delete')}
+      tooltip={
+        isPending
+          ? translate('Processing')
+          : dependents.length > 0
+            ? formatDependentOptionsError(dependents)
+            : undefined
+      }
+    />
   );
 };

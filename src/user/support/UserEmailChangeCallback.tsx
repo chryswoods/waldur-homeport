@@ -1,19 +1,21 @@
 import { useRouter } from '@uirouter/react';
 import { useEffect, FunctionComponent } from 'react';
-import { useDispatch } from 'react-redux';
 import { usersConfirmEmail } from 'waldur-js-client';
 
-import * as AuthService from '@waldur/auth/AuthService';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { wait } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { setCurrentUser } from '@waldur/workspace/actions';
+import * as AuthService from '@/auth/AuthService';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { wait } from '@/core/utils';
+import { translate } from '@/i18n';
+import { useNotify } from '@/store/notify';
+import { useSetUser } from '@/workspace/hooks';
 
 import { getCurrentUser } from '../UsersService';
 
 export const UserEmailChangeCallback: FunctionComponent = () => {
-  const dispatch = useDispatch();
+  const setCurrentUser = useSetUser();
+
+  const { showErrorResponse, showSuccess } = useNotify();
+
   const router = useRouter();
 
   useEffect(() => {
@@ -24,11 +26,9 @@ export const UserEmailChangeCallback: FunctionComponent = () => {
             code: router.globals.params.token,
           },
         });
-        dispatch(showSuccess(translate('Email has been updated.')));
+        showSuccess(translate('Email has been updated.'));
       } catch (error) {
-        dispatch(
-          showErrorResponse(error, translate('Unable to confirm email.')),
-        );
+        showErrorResponse(error, translate('Unable to confirm email.'));
       }
 
       if (!AuthService.isAuthenticated()) {
@@ -40,19 +40,17 @@ export const UserEmailChangeCallback: FunctionComponent = () => {
       try {
         currentUser = await getCurrentUser();
       } catch (error) {
-        dispatch(
-          showErrorResponse(error, translate('Unable to fetch current user.')),
-        );
+        showErrorResponse(error, translate('Unable to fetch current user.'));
       }
 
       if (currentUser) {
-        dispatch(setCurrentUser(currentUser));
+        setCurrentUser(currentUser);
         await wait(1000);
       }
       router.stateService.go('profile-manage');
     }
     load();
-  }, [dispatch]);
+  }, []);
 
   return (
     <div className="middle-box text-center">

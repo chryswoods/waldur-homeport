@@ -1,15 +1,15 @@
 import { useMemo } from 'react';
 import { User, usersList, UsersListData } from 'waldur-js-client';
 
-import { FREEIPA_IDP } from '@waldur/auth/providers/constants';
-import { CancelButton } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { createFetcher } from '@waldur/table/api';
-import { BooleanField } from '@waldur/table/BooleanField';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { renderFieldOrDash } from '@waldur/table/utils';
+import { FREEIPA_IDP } from '@/auth/providers/constants';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { createFetcher } from '@/table/api';
+import { BooleanField } from '@/table/BooleanField';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 import { FreeIPAUsersList } from '../users/FreeIPAUsersList';
 
@@ -61,8 +61,7 @@ export const ProviderUsersDialog = (props) => (
     title={translate('Users from {provider}', {
       provider: props.resolve.type,
     })}
-    footer={<CancelButton label={translate('OK')} />}
-    closeButton
+    footer={<CloseDialogButton label={translate('OK')} />}
   >
     {props.resolve.type === FREEIPA_IDP ? (
       <FreeIPAUsersList />

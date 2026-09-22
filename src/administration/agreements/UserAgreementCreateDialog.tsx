@@ -1,66 +1,87 @@
-import { Form, Field } from 'react-final-form';
-import { userAgreementsCreate } from 'waldur-js-client';
+import { useMemo } from 'react';
+import { Form } from 'react-final-form';
+import { AgreementTypeEnum, userAgreementsCreate } from 'waldur-js-client';
 
-import { SubmitButton } from '@waldur/auth/SubmitButton';
-import { required } from '@waldur/core/validators';
-import { SelectField, TextField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-import { useModal } from '@waldur/modal/hooks';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { useNotify } from '@waldur/store/hooks';
+import { ENV } from '@/core/config';
+import { required } from '@/core/validators';
+import { SubmitButton, SelectGroup, MarkdownGroup } from '@/form';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+
+interface UserAgreementCreateDialogFormValues {
+  agreement_type: { value: AgreementTypeEnum };
+  content: string;
+  language?: { value: string };
+}
 
 export const UserAgreementCreateDialog = ({ resolve }) => {
-  const { showErrorResponse, showSuccess } = useNotify();
-  const { closeDialog } = useModal();
+  const languageOptions = useMemo(
+    () => [
+      { label: translate('Default'), value: '' },
+      ...ENV.languageChoices.map((lang) => ({
+        label: lang.label,
+        value: lang.code,
+      })),
+    ],
+    [],
+  );
 
-  const onSubmit = async (formValues) => {
-    try {
-      await userAgreementsCreate({
+  const { mutateAsync } = useManagedMutation<
+    any,
+    any,
+    UserAgreementCreateDialogFormValues
+  >({
+    mutationFn: (formValues) =>
+      userAgreementsCreate({
         body: {
           agreement_type: formValues.agreement_type.value,
           content: formValues.content,
+          language: formValues.language?.value ?? '',
         },
-      });
-      showSuccess(translate('User agreement has been created'));
-      closeDialog();
-      await resolve.refetch();
-    } catch (error) {
-      showErrorResponse(error, translate('Unable to create a user agreement.'));
-    }
-  };
+      }),
+    successMessage: translate('User agreement has been created'),
+    errorMessage: translate('Unable to create a user agreement.'),
+    refetch: resolve?.refetch,
+  });
 
   return (
-    <Form
-      onSubmit={onSubmit}
+    <Form<UserAgreementCreateDialogFormValues>
+      onSubmit={(values) =>
+        mutateAsync(values).catch(() => {
+          // Error is handled by useManagedMutation
+        })
+      }
       render={({ handleSubmit, submitting, invalid }) => (
         <form onSubmit={handleSubmit}>
           <ModalDialog
             title={translate('Create a user agreements')}
             footer={
-              <div className="mb-5 text-end">
-                <SubmitButton
-                  submitting={submitting}
-                  invalid={invalid}
-                  label={translate('Save')}
-                />
-              </div>
+              <SubmitButton
+                submitting={submitting}
+                invalid={invalid}
+                label={translate('Save')}
+              />
             }
           >
-            <FormGroup label={translate('Agreement type')} required>
-              <Field
-                name="agreement_type"
-                component={SelectField}
-                options={[
-                  { label: translate('Privacy policy'), value: 'PP' },
-                  { label: translate('Terms of service'), value: 'TOS' },
-                ]}
-                validate={required}
-              />
-            </FormGroup>
-            <FormGroup controlId="content" label={translate('Content')}>
-              <Field name="content" component={TextField as any} />
-            </FormGroup>
+            <SelectGroup
+              name="agreement_type"
+              options={[
+                { label: translate('Privacy policy'), value: 'PP' },
+                { label: translate('Terms of service'), value: 'TOS' },
+              ]}
+              validate={required}
+              label={translate('Agreement type')}
+              required
+            />
+            <SelectGroup
+              name="language"
+              options={languageOptions}
+              validate={required}
+              label={translate('Language')}
+              required
+            />
+            <MarkdownGroup name="content" label={translate('Content')} />
           </ModalDialog>
         </form>
       )}

@@ -1,49 +1,58 @@
 import { PlusIcon, TrashIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
-import { Button, Table } from 'react-bootstrap';
-import { Field } from 'redux-form';
+import { Table } from 'react-bootstrap';
+import { Field } from 'react-final-form';
 
-import { SelectField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
+import { SelectField } from '@/form';
+import { translate } from '@/i18n';
+import { CompactActionButton } from '@/table/CompactActionButton';
 
 const VolumeTypeRow = ({ volumeType, onRemove, options }) => (
   <tr>
     <td>
-      <Field
-        name={`${volumeType}.source`}
-        component={SelectField}
-        options={options.sourceVolumeTypes}
-        getOptionLabel={({ name }) => name}
-        getOptionValue={({ uuid }) => uuid}
-      />
+      <Field name={`${volumeType}.source`}>
+        {({ input, meta }) => (
+          <SelectField
+            input={input}
+            meta={meta}
+            options={options.sourceVolumeTypes}
+            getOptionLabel={({ name }) => name}
+            getOptionValue={({ uuid }) => uuid}
+          />
+        )}
+      </Field>
     </td>
     <td>
-      <Field
-        name={`${volumeType}.destination`}
-        component={SelectField}
-        options={options.destinationVolumeTypes}
-        getOptionLabel={({ name }) => name}
-        getOptionValue={({ uuid }) => uuid}
-      />
+      <Field name={`${volumeType}.destination`}>
+        {({ input, meta }) => (
+          <SelectField
+            input={input}
+            meta={meta}
+            options={options.destinationVolumeTypes}
+            getOptionLabel={({ name }) => name}
+            getOptionValue={({ uuid }) => uuid}
+          />
+        )}
+      </Field>
     </td>
     <td>
-      <Button variant="text-secondary" onClick={onRemove} size="sm">
-        <span className="svg-icon svg-icon-2">
-          <TrashIcon />
-        </span>{' '}
-        {translate('Remove')}
-      </Button>
+      <CompactActionButton
+        title={translate('Remove')}
+        action={onRemove}
+        iconNode={<TrashIcon weight="bold" />}
+        variant="text-secondary"
+      />
     </td>
   </tr>
 );
 
 const VolumeTypeAddButton = ({ onClick }) => (
-  <Button variant="text-secondary" onClick={onClick} size="sm">
-    <span className="svg-icon svg-icon-2">
-      <PlusIcon weight="bold" />
-    </span>{' '}
-    {translate('Add')}
-  </Button>
+  <CompactActionButton
+    title={translate('Add')}
+    action={onClick}
+    iconNode={<PlusIcon weight="bold" />}
+    variant="text-secondary"
+  />
 );
 
 export const VolumeTypesTable: FC<{ fields; options }> = ({

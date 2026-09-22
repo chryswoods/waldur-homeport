@@ -1,102 +1,91 @@
-import { Field, reduxForm } from 'redux-form';
+import { FunctionComponent, useMemo } from 'react';
+import { NestedColumn } from 'waldur-js-client';
 
-import {
-  getInitialValues,
-  syncFiltersToURL,
-  useSyncInitialFiltersToURL,
-} from '@waldur/core/filters';
-import { AwesomeCheckboxField } from '@waldur/form/AwesomeCheckboxField';
-import { REACT_SELECT_TABLE_FILTER } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { OfferingAutocomplete } from '@waldur/marketplace/offerings/details/OfferingAutocomplete';
-import { parentOfferingFilter } from '@waldur/marketplace/offerings/utils';
-import { OrganizationAutocomplete } from '@waldur/marketplace/orders/OrganizationAutocomplete';
-import { TableFilterItem } from '@waldur/table/TableFilterItem';
+import { translate } from '@/i18n';
+import { resourceOfferingsAutocomplete } from '@/marketplace/common/autocompletes';
+import { OfferingFilter } from '@/marketplace/offerings/details/OfferingFilter';
+import { parentOfferingFilter } from '@/marketplace/offerings/utils';
+import { OrganizationFilter } from '@/marketplace/orders/OrganizationFilter';
+import { StringFilter, BooleanFilter, AsyncSelectFilter } from '@/table';
 
-import { CATEGORY_RESOURCES_ALL_FILTER_FORM_ID } from './constants';
-import { OfferingFilter } from './OfferingFilter';
 import { ProjectFilter } from './ProjectFilter';
 import { ResourceStateFilter } from './ResourceStateFilter';
 import { RuntimeStateFilter } from './RuntimeStateFilter';
-import { OfferingChoice } from './types';
 
-interface FormData {
-  offering: OfferingChoice;
-  organization;
-  project;
-  state;
-}
-
-const PureProjectResourcesFilter = ({ category_uuid, initialValues }) => {
-  useSyncInitialFiltersToURL(initialValues);
+export const AllResourcesFilter: FunctionComponent<{
+  category_uuid?: string;
+  columns?: NestedColumn[];
+}> = ({ category_uuid, columns }) => {
+  const loadOptions = useMemo(
+    () => resourceOfferingsAutocomplete(category_uuid),
+    [category_uuid],
+  );
   return (
     <>
-      <TableFilterItem
-        title={translate('Organization')}
-        name="organization"
-        badgeValue={(value) => value?.name}
-      >
-        <OrganizationAutocomplete
-          reactSelectProps={REACT_SELECT_TABLE_FILTER}
-        />
-      </TableFilterItem>
-      <TableFilterItem
-        title={translate('Project')}
-        name="project"
-        badgeValue={(value) => value?.name}
-      >
-        <ProjectFilter reactSelectProps={REACT_SELECT_TABLE_FILTER} />
-      </TableFilterItem>
-      <TableFilterItem
+      <OrganizationFilter />
+      <ProjectFilter />
+      <AsyncSelectFilter
         title={translate('Offering')}
         name="offering"
         badgeValue={(value) => value?.name}
-      >
-        <OfferingFilter category_uuid={category_uuid} />
-      </TableFilterItem>
-      <TableFilterItem
+        placeholder={translate('Select offering...')}
+        loadOptions={loadOptions}
+        getOptionLabel={(value) => value?.name}
+        getOptionValue={(value) => value?.uuid}
+        required={true}
+      />
+      <OfferingFilter
         title={translate('Parent offering')}
         name="parent_offering"
         badgeValue={(value) => value?.name}
-      >
-        <OfferingAutocomplete
-          reactSelectProps={REACT_SELECT_TABLE_FILTER}
-          name="parent_offering"
-          offeringFilter={parentOfferingFilter}
+        offeringFilter={parentOfferingFilter}
+      />
+      <RuntimeStateFilter />
+      {columns?.some((column) => column.attribute === 'flavor_name') && (
+        <StringFilter
+          title={translate('Flavor name')}
+          name="flavor_name"
+          placeholder={translate('Flavor name...')}
         />
-      </TableFilterItem>
-      <TableFilterItem
-        title={translate('Runtime state')}
-        name="runtime_state"
-        badgeValue={(value) => value?.label}
-      >
-        <RuntimeStateFilter />
-      </TableFilterItem>
-      <TableFilterItem
-        title={translate('State')}
-        name="state"
-        instantApply={false}
-      >
-        <ResourceStateFilter />
-      </TableFilterItem>
-      <TableFilterItem
+      )}
+      {columns?.some((column) => column.attribute === 'image_name') && (
+        <StringFilter
+          title={translate('Image name')}
+          name="image_name"
+          placeholder={translate('Image name...')}
+        />
+      )}
+      <ResourceStateFilter instantApply={false} />
+      <BooleanFilter
         title={translate('Include terminated')}
         name="include_terminated"
         badgeValue={(value) => (value ? translate('Yes') : translate('No'))}
-      >
-        <Field
-          name="include_terminated"
-          component={AwesomeCheckboxField}
-          label={translate('Include terminated')}
-        />
-      </TableFilterItem>
+        ellipsis={false}
+      />
+      <BooleanFilter
+        title={translate('Exclude attached')}
+        name="exclude_attached"
+        badgeValue={(value) => (value ? translate('Yes') : translate('No'))}
+        ellipsis={false}
+      />
+      <BooleanFilter
+        title={translate('Paused')}
+        name="paused"
+        badgeValue={(value) => (value ? translate('Yes') : translate('No'))}
+        ellipsis={false}
+      />
+      <BooleanFilter
+        title={translate('Downscaled')}
+        name="downscaled"
+        badgeValue={(value) => (value ? translate('Yes') : translate('No'))}
+        ellipsis={false}
+      />
+      <BooleanFilter
+        title={translate('Restrict member access')}
+        name="restrict_member_access"
+        badgeValue={(value) => (value ? translate('Yes') : translate('No'))}
+        ellipsis={false}
+      />
     </>
   );
 };
-
-export const AllResourcesFilter = reduxForm<FormData, { category_uuid }>({
-  form: CATEGORY_RESOURCES_ALL_FILTER_FORM_ID,
-  onChange: syncFiltersToURL,
-  destroyOnUnmount: false,
-  initialValues: getInitialValues(),
-})(PureProjectResourcesFilter);

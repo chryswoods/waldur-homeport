@@ -1,7 +1,7 @@
 import { FunctionComponent } from 'react';
 import { Resource } from 'waldur-js-client';
 
-import { CopyToClipboardButton } from '@waldur/core/CopyToClipboardButton';
+import { CopyToClipboardButton } from '@/core/CopyToClipboardButton';
 
 import { ResourceStateField } from '../list/ResourceStateField';
 
@@ -28,8 +28,8 @@ export const ResourceDetailsHeaderTitle: FunctionComponent<
 
         <ResourceStateField
           resource={resource}
-          pill
-          outline
+          shape="pill"
+          tone="outline"
           hasBullet
           size="sm"
         />

@@ -5,32 +5,31 @@ import {
 } from '@phosphor-icons/react';
 import Papa from 'papaparse';
 import { FC, useCallback, useMemo, useState } from 'react';
-import { Button, Tab, Tabs } from 'react-bootstrap';
-import { Field, Form } from 'react-final-form';
-import { useDispatch, useSelector } from 'react-redux';
+import { Tab, Tabs } from 'react-bootstrap';
+import { Form } from 'react-final-form';
 import { useToggle } from 'react-use';
 import {
+  CourseAccount,
   CourseAccountRequest,
   marketplaceCourseAccountsCreate,
   marketplaceCourseAccountsCreateBulk,
 } from 'waldur-js-client';
 
-import { ProgressStep } from '@waldur/core/ProgressSteps';
-import { required } from '@waldur/core/validators';
-import { SubmitButton, TextField } from '@waldur/form';
-import { EmailField } from '@waldur/form/EmailField';
-import { translate } from '@waldur/i18n';
-import { StepsList } from '@waldur/marketplace/common/StepsList';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse, showInfo, showSuccess } from '@waldur/store/notify';
-import { getProject } from '@waldur/workspace/selectors';
+import { required } from '@/core/validators';
+import { EmailGroup, SubmitButton, TextGroup } from '@/form';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useNotify } from '@/store/notify';
+import { ActionButton } from '@/table/ActionButton';
+import { ProgressStep, WizardStepIndicator } from '@/wizard';
+import { useProject } from '@/workspace/hooks';
 
 import templateFile from './course_accounts_template.json';
 import { Step1UploadFile } from './Step1UploadFile';
 import { Step2PreviewAndCreate } from './Step2PreviewAndCreate';
+import { Step3CreationProgress } from './Step3CreationProgress';
 import {
   hasCourseAccountsErrors,
   RawCourseAccount,
@@ -52,6 +51,11 @@ const stepsBatch: ProgressStep[] = [
   {
     key: 'preview',
     label: translate('Preview & create'),
+    completed: false,
+  },
+  {
+    key: 'progress',
+    label: translate('Creation progress'),
     completed: false,
   },
 ];
@@ -127,9 +131,14 @@ const validator = (values) =>
 export const CourseAccountFormDialog: FC<OwnProps> = ({
   resolve: { refetch },
 }) => {
-  const project = useSelector(getProject);
-  const dispatch = useDispatch();
+  const project = useProject();
+
+  const { showErrorResponse, showSuccess, showInfo } = useNotify();
+
+  const { closeDialog } = useModal();
+
   const [activeTab, setActiveTab] = useState<'single' | 'batch'>('single');
+  const [createdAccounts, setCreatedAccounts] = useState<CourseAccount[]>([]);
 
   const save = useCallback(
     async (
@@ -146,7 +155,7 @@ export const CourseAccountFormDialog: FC<OwnProps> = ({
               description: formData.description,
             },
           });
-          dispatch(showSuccess(translate('Course account has been created.')));
+          showSuccess(translate('Course account has been created.'));
         } else {
           const validRecords: RawCourseAccount[] = formData.data.filter(
             (row) => {
@@ -155,32 +164,31 @@ export const CourseAccountFormDialog: FC<OwnProps> = ({
             },
           );
           if (!validRecords.length) {
-            dispatch(showInfo(translate('No valid course account to create.')));
+            showInfo(translate('No valid course account to create.'));
             return;
           }
-          await marketplaceCourseAccountsCreateBulk({
+          const response = await marketplaceCourseAccountsCreateBulk({
             body: {
               course_accounts: validRecords,
               project: formData.project,
             },
           });
-          dispatch(
-            showSuccess(
-              translate('{n} course accounts has been created.', {
-                n: validRecords.length,
-              }),
-            ),
+          setCreatedAccounts(response.data);
+          setStep(2);
+          showSuccess(
+            translate('{n} course accounts have been created.', {
+              n: validRecords.length,
+            }),
           );
+          return;
         }
-        dispatch(closeModalDialog());
+        closeDialog();
         if (refetch) refetch();
       } catch (e) {
-        dispatch(
-          showErrorResponse(e, translate('Unable to create course account.')),
-        );
+        showErrorResponse(e, translate('Unable to create course account.'));
       }
     },
-    [dispatch, refetch, activeTab],
+    [refetch, activeTab],
   );
 
   // Batch import method
@@ -215,43 +223,55 @@ export const CourseAccountFormDialog: FC<OwnProps> = ({
               title={translate('Create course account')}
               iconNode={<PlusCircleIcon weight="bold" />}
               iconColor="success"
-              closeButton
               footer={
                 <>
-                  {activeTab === 'batch' && step > 0 && (
-                    <Button
+                  {activeTab === 'batch' && step === 1 && (
+                    <ActionButton
+                      title={translate('Back')}
+                      action={prevStep}
+                      iconNode={<CaretLeftIcon weight="bold" />}
                       variant="tertiary"
                       className="w-125px me-auto"
-                      onClick={prevStep}
-                    >
-                      <span className="svg-icon svg-icon-4">
-                        <CaretLeftIcon weight="bold" />
-                      </span>
-                      {translate('Back')}
-                    </Button>
-                  )}
-                  <CloseDialogButton className="w-125px" />
-                  {activeTab === 'batch' && step === 0 ? (
-                    <Button
-                      className="w-125px btn-icon-right"
-                      onClick={nextStep}
-                      disabled={invalid}
-                    >
-                      {translate('Next')}
-                      <span className="svg-icon svg-icon-4">
-                        <CaretRightIcon weight="bold" />
-                      </span>
-                    </Button>
-                  ) : (
-                    <SubmitButton
-                      submitting={submitting}
-                      disabled={
-                        invalid ||
-                        (activeTab === 'batch' && hasErrors && !skipErrors)
-                      }
-                      label={translate('Create')}
-                      className="btn btn-primary w-125px"
                     />
+                  )}
+                  {activeTab === 'batch' && step === 2 ? (
+                    <ActionButton
+                      title={translate('Close')}
+                      action={() => {
+                        if (refetch) refetch();
+                        closeDialog();
+                      }}
+                      variant="primary"
+                      className="w-125px"
+                    />
+                  ) : (
+                    <>
+                      <CloseDialogButton className="w-125px" />
+                      {activeTab === 'batch' && step === 0 ? (
+                        <ActionButton
+                          title={translate('Next')}
+                          action={nextStep}
+                          iconNode={<CaretRightIcon weight="bold" />}
+                          iconRight
+                          disabled={invalid}
+                          disabledReason={translate(
+                            'Please fill in the required fields',
+                          )}
+                          variant="primary"
+                          className="w-125px"
+                        />
+                      ) : (
+                        <SubmitButton
+                          submitting={submitting}
+                          disabled={
+                            invalid ||
+                            (activeTab === 'batch' && hasErrors && !skipErrors)
+                          }
+                          label={translate('Create')}
+                          className="btn btn-primary w-125px"
+                        />
+                      )}
+                    </>
                   )}
                 </>
               }
@@ -265,38 +285,41 @@ export const CourseAccountFormDialog: FC<OwnProps> = ({
                 onSelect={goToTab}
               >
                 <Tab eventKey="single" title={translate('Single account')}>
-                  <FormGroup label={translate('Email')} required>
-                    <Field
-                      component={EmailField as any}
-                      name="email"
-                      placeholder={translate('e.g. Courseaccount@example.com')}
-                      validate={activeTab === 'single' ? required : undefined}
-                    />
-                  </FormGroup>
-                  <FormGroup label={translate('Description')}>
-                    <Field
-                      component={TextField as any}
-                      name="description"
-                      placeholder={translate('e.g. Used for automated backups')}
-                      spaceless
-                    />
-                  </FormGroup>
+                  <EmailGroup
+                    label={translate('Email')}
+                    required
+                    name="email"
+                    placeholder={translate('e.g. Courseaccount@example.com')}
+                    validate={activeTab === 'single' ? required : undefined}
+                  />
+                  <TextGroup
+                    name="description"
+                    placeholder={translate('e.g. Used for automated backups')}
+                    spaceless
+                    label={translate('Description')}
+                  />
                 </Tab>
                 <Tab eventKey="batch" title={translate('Batch import')}>
-                  <StepsList
+                  <WizardStepIndicator
                     steps={stepsBatch}
                     value={stepsBatch[step]}
                     onClick={(_, index) => {
                       if (invalid) return;
+                      if (index === 2 && createdAccounts.length === 0) return;
                       setStep(index);
                     }}
                   />
                   {step === 0 ? (
                     <Step1UploadFile />
-                  ) : (
+                  ) : step === 1 ? (
                     <Step2PreviewAndCreate
                       skipErrors={skipErrors}
                       setSkipErrors={setSkipErrors}
+                    />
+                  ) : (
+                    <Step3CreationProgress
+                      createdAccounts={createdAccounts}
+                      projectUuid={project.uuid}
                     />
                   )}
                 </Tab>

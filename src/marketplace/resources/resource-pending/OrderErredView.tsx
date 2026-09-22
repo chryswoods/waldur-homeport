@@ -6,22 +6,25 @@ import {
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from '@uirouter/react';
 import { FC } from 'react';
-import { Button, Card } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
+import { Card } from 'react-bootstrap';
 import {
   marketplaceOrdersCreate,
   OrderCreateRequest,
   Resource,
 } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { ProgressSteps } from '@waldur/core/ProgressSteps';
-import { omit } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
-import { OrderDetailsLink } from '@waldur/marketplace/orders/details/OrderDetailsLink';
-import { openModalDialog, waitForConfirmation } from '@waldur/modal/actions';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { formatDateTime } from '@/core/dateUtils';
+import { lazyComponent } from '@/core/lazyComponent';
+import { omit } from '@/core/utils';
+import { translate } from '@/i18n';
+import { OrderDetailsLink } from '@/marketplace/orders/details/OrderDetailsLink';
+import { useModal } from '@/modal/actions';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { useNotify } from '@/store/notify';
+import { CompactActionButton } from '@/table/CompactActionButton';
+import { ProgressSteps } from '@/wizard';
+import { useUser } from '@/workspace/hooks';
 
 const ResourceOrderErrorDialog = lazyComponent(() =>
   import('./ResourceOrderErrorDialog').then((module) => ({
@@ -34,22 +37,20 @@ interface OrderErredViewProps {
 }
 
 const ShowErrorButton = ({ resource }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const showErrorDialog = () => {
-    dispatch(
-      openModalDialog(ResourceOrderErrorDialog, {
-        resolve: { resource },
-        size: 'lg',
-      }),
-    );
+    openDialog(ResourceOrderErrorDialog, {
+      resolve: { resource },
+      size: 'lg',
+    });
   };
   return (
-    <Button variant="danger" size="sm" onClick={showErrorDialog}>
-      <span className="svg-icon svg-icon-4">
-        <XCircleIcon weight="bold" />
-      </span>
-      {translate('Show error')}
-    </Button>
+    <CompactActionButton
+      variant="danger"
+      action={showErrorDialog}
+      iconNode={<XCircleIcon weight="bold" />}
+      title={translate('Show error')}
+    />
   );
 };
 
@@ -58,7 +59,8 @@ const getSortedSteps = (resource: Resource) => [
     label: translate('Order submitted'),
     description: [
       [
-        resource.creation_order.created_by_full_name,
+        resource.creation_order.created_by_full_name ||
+          resource.creation_order.created_by_username,
         formatDateTime(resource.creation_order.created),
       ].join(', '),
     ],
@@ -69,7 +71,8 @@ const getSortedSteps = (resource: Resource) => [
     label: translate('Approved'),
     description: [
       [
-        resource.creation_order.consumer_reviewed_by_full_name,
+        resource.creation_order.consumer_reviewed_by_full_name ||
+          resource.creation_order.consumer_reviewed_by_username,
         formatDateTime(resource.creation_order.consumer_reviewed_at),
       ].join(', '),
     ],
@@ -107,12 +110,20 @@ const getSteps = (resource: Resource) => {
 };
 
 export const OrderErredView: FC<OrderErredViewProps> = ({ resource }) => {
-  const dispatch = useDispatch();
+  const { confirm } = useModal();
+
+  const { showErrorResponse, showSuccess } = useNotify();
+
   const router = useRouter();
+  const user = useUser();
+  const canCreateOrder = hasPermission(user, {
+    permission: PermissionEnum.CREATE_ORDER,
+    projectId: resource.project_uuid,
+    customerId: resource.customer_uuid,
+  });
   const { mutate, isPending: isLoading } = useMutation({
     mutationFn: async () => {
-      await waitForConfirmation(
-        dispatch,
+      await confirm(
         translate('Confirmation'),
         translate(
           'Are you sure you want to retry to submit this order? This will create a new resource, it will not remove current one.',
@@ -128,14 +139,12 @@ export const OrderErredView: FC<OrderErredViewProps> = ({ resource }) => {
             limits: resource.limits,
           },
         });
-        dispatch(showSuccess(translate('Order has been submitted.')));
+        showSuccess(translate('Order has been submitted.'));
         router.stateService.go('marketplace-resource-details', {
           resource_uuid: order.data.marketplace_resource_uuid,
         });
       } catch (error) {
-        dispatch(
-          showErrorResponse(error, translate('Unable to submit order.')),
-        );
+        showErrorResponse(error, translate('Unable to submit order.'));
       }
     },
   });
@@ -159,20 +168,15 @@ export const OrderErredView: FC<OrderErredViewProps> = ({ resource }) => {
           />
 
           <div className="d-flex flex-sm-column gap-3 text-nowrap">
-            <Button
-              variant="tertiary"
-              size="sm"
-              onClick={() => mutate()}
-              disabled={isLoading}
-            >
-              <span className="svg-icon svg-icon-4">
-                <ArrowsClockwiseIcon
-                  weight="bold"
-                  className={isLoading ? ' animation-spin' : ''}
-                />
-              </span>
-              {translate('Retry')}
-            </Button>
+            {canCreateOrder && (
+              <CompactActionButton
+                variant="tertiary"
+                action={mutate}
+                pending={isLoading}
+                iconNode={<ArrowsClockwiseIcon weight="bold" />}
+                title={translate('Retry')}
+              />
+            )}
             <OrderDetailsLink
               order_uuid={resource.creation_order.uuid}
               project_uuid={resource.creation_order.project_uuid}

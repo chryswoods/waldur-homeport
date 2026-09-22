@@ -1,20 +1,24 @@
 import { QuestionIcon } from '@phosphor-icons/react';
 import { FunctionComponent } from 'react';
 import { Tab, Tabs } from 'react-bootstrap';
+import { Resource, OfferingComponent } from 'waldur-js-client';
 
-import { Tip } from '@waldur/core/Tooltip';
-import { ResourceUsageChart } from '@waldur/marketplace/resources/usage/ResourceUsageChart';
-import { OfferingComponent } from '@waldur/marketplace/types';
+import { Tooltip } from 'waldur-ui';
+
+import { ResourceUsageChart } from '@/marketplace/resources/usage/ResourceUsageChart';
 
 import { ResourceUsageTable } from './ResourceUsageTable';
-import { ComponentUsage, ComponentUserUsage } from './types';
-import { getBillingTypeLabel } from './utils';
+import { ComponentUserUsage } from './types';
+import { getBillingTypeLabelOrDash } from './utils';
 
 interface ResourceUsageTabsProps {
-  resource?: { name?: string };
+  resource?: Pick<Resource, 'name' | 'uuid'>;
   components: OfferingComponent[];
-  usages: ComponentUsage[];
-  userUsages?: ComponentUserUsage[];
+  usages: any[];
+  userUsages?: Pick<
+    ComponentUserUsage,
+    'username' | 'component_type' | 'billing_period'
+  >[];
   months?: number;
   colors: string[];
   displayMode?: 'chart' | 'table';
@@ -36,12 +40,11 @@ export const ResourceUsageTabs: FunctionComponent<ResourceUsageTabsProps> = (
         <Tab
           title={
             <>
-              <Tip
-                id={`tab-${index}-tooltip`}
-                label={getBillingTypeLabel(component.billing_type)}
+              <Tooltip
+                label={getBillingTypeLabelOrDash(component.billing_type)}
               >
                 <QuestionIcon size={18} weight="bold" className="text-muted" />
-              </Tip>{' '}
+              </Tooltip>{' '}
               {component.name}
             </>
           }

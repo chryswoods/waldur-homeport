@@ -1,35 +1,23 @@
-import { render } from '@testing-library/react';
+import { screen } from '@testing-library/dom';
 import { Provider } from 'react-redux';
 import configureStore from 'redux-mock-store';
 import { describe, expect, it, vi } from 'vitest';
 
+import { DrawerProvider } from '@/drawer/DrawerContext';
+import { renderWithProviders } from '@/test/harness';
+import * as workspaceHooks from '@/workspace/hooks';
+
 import { CustomerUsersList } from './CustomerUsersList';
 
-// Mock dependencies
-vi.mock('@uirouter/react', async (importOriginal) => {
-  const mod: any = await importOriginal();
-  return {
-    ...mod,
-    useRouter: () => ({
-      stateService: {
-        go: vi.fn(),
-      },
-    }),
-    useCurrentStateAndParams: () => ({
-      state: {},
-      params: {},
-    }),
-  };
-});
-
-vi.mock('@waldur/core/config', () => ({
-  ENV: {
-    plugins: {
-      WALDUR_CORE: {},
-    },
-    roles: [],
-    FEATURES: {},
-  },
+// Mock useTableQuery to not make actual API calls
+vi.mock('@/table/useTableQuery', () => ({
+  useTableQuery: () => ({
+    data: undefined,
+    isLoading: false,
+    isFetching: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
 }));
 
 const mockStore = configureStore();
@@ -72,48 +60,46 @@ const state = {
     'expiration_time',
   ],
 };
+vi.mocked(workspaceHooks.useUser).mockReturnValue({
+  is_staff: true,
+  uuid: 'user-uuid-2',
+} as any);
+vi.mocked(workspaceHooks.useCustomer).mockReturnValue({
+  uuid: 'customer-uuid-1',
+  name: 'Test Customer',
+} as any);
 const store = mockStore({
   tables: {
     [tableId]: state,
   },
-  workspace: {
-    customer: { uuid: 'customer-uuid-1', name: 'Test Customer' },
-    user: { is_staff: true, uuid: 'user-uuid-2' },
-  },
-  title: {
-    title: '',
-    subtitle: '',
-  },
-  form: {}, // For redux-form filters
 });
 
-vi.mock('@waldur/table/useTableLoader', () => ({
-  useTableLoader: () => false,
-}));
-
-const renderComponent = () =>
-  render(
+const renderComponent = () => {
+  return renderWithProviders(
     <Provider store={store}>
-      <CustomerUsersList />
+      <DrawerProvider>
+        <CustomerUsersList />
+      </DrawerProvider>
     </Provider>,
   );
+};
 
 describe('CustomerUsersList', () => {
   it('renders table headers and data cells', async () => {
-    const node = renderComponent();
-    expect(await node.findByText('Member')).toBeInTheDocument();
-    expect(await node.findByText('Email')).toBeInTheDocument();
-    expect(await node.findByText('Username')).toBeInTheDocument();
-    expect(await node.findByText('Role in organization')).toBeInTheDocument();
-    expect(await node.findByText('Role expiration')).toBeInTheDocument();
+    renderComponent();
+    expect(await screen.findByText('Member')).toBeInTheDocument();
+    expect(await screen.findByText('Email')).toBeInTheDocument();
+    expect(await screen.findByText('Username')).toBeInTheDocument();
+    expect(await screen.findByText('Role in organization')).toBeInTheDocument();
+    expect(await screen.findByText('Role expiration')).toBeInTheDocument();
 
     // Member
-    expect(await node.findByText('John Doe')).toBeInTheDocument();
+    expect(await screen.findByText('John Doe')).toBeInTheDocument();
     // Email
-    expect(await node.findByText('john.doe@example.com')).toBeInTheDocument();
+    expect(await screen.findByText('john.doe@example.com')).toBeInTheDocument();
     // Username
-    expect(await node.findByText('johndoe')).toBeInTheDocument();
+    expect(await screen.findByText('johndoe')).toBeInTheDocument();
     // Role
-    expect(await node.findByText('owner')).toBeInTheDocument();
+    expect(await screen.findByText('Owner')).toBeInTheDocument();
   });
 });

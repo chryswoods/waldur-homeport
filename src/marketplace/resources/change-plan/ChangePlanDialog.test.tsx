@@ -1,21 +1,16 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { marketplaceResourcesSwitchPlan } from 'waldur-js-client';
 
-import { useModal } from '@waldur/modal/hooks';
-import { usePermission } from '@waldur/permissions/hooks';
-import { useNotify } from '@waldur/store/hooks';
+import { useModal } from '@/modal/actions';
+import { useNotify } from '@/store/notify';
+import { renderWithProviders } from '@/test/harness';
 
 import { ChangePlanDialog } from './ChangePlanDialog';
 import { loadData } from './utils';
 
 vi.mock('./utils');
-vi.mock('waldur-js-client');
-vi.mock('@waldur/store/hooks');
-vi.mock('@waldur/modal/hooks');
-vi.mock('@waldur/permissions/hooks');
-
 const mockData = {
   resource: {
     uuid: 'test-uuid',
@@ -54,8 +49,8 @@ const mockData = {
   },
 };
 
-const renderDialog = () =>
-  render(
+const renderDialog = () => {
+  return renderWithProviders(
     <ChangePlanDialog
       resolve={{
         resource: {
@@ -65,24 +60,17 @@ const renderDialog = () =>
       }}
     />,
   );
+};
 
 describe('ChangePlanDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useNotify).mockReturnValue({
-      showSuccess: vi.fn(),
-      showErrorResponse: vi.fn(),
-    } as any);
-    vi.mocked(useModal).mockReturnValue({
-      closeDialog: vi.fn(),
-    } as any);
-    vi.mocked(usePermission).mockReturnValue(() => true);
   });
 
   it('should show loading spinner initially', () => {
     vi.mocked(loadData).mockImplementation(() => new Promise(() => {}));
     renderDialog();
-    expect(screen.getByTestId('spinner')).toBeInTheDocument();
+    expect(screen.getByTestId('SpinnerIcon')).toBeInTheDocument();
   });
 
   it('should show error message when data loading fails', async () => {
@@ -103,29 +91,29 @@ describe('ChangePlanDialog', () => {
     });
   });
 
-  it.skip('should handle plan switching', async () => {
+  it('should handle plan switching', async () => {
     vi.mocked(loadData).mockResolvedValue(mockData as any);
-    const { showSuccess } = useNotify();
-    const { closeDialog } = useModal();
 
     renderDialog();
 
     await waitFor(() => {
-      expect(screen.getByText('Submit')).toBeInTheDocument();
+      expect(screen.getByText('Request for a change')).toBeInTheDocument();
     });
 
     const plan2Row = await screen.findByText('Plan 2');
     await userEvent.click(plan2Row);
 
-    const submitButton = screen.getByText('Submit');
+    const submitButton = screen.getByText('Request for a change');
     await userEvent.click(submitButton);
 
-    expect(marketplaceResourcesSwitchPlan).toHaveBeenCalledWith({
-      path: { uuid: 'test-uuid' },
-      body: { plan: 'plan2-url' },
+    await waitFor(() => {
+      expect(marketplaceResourcesSwitchPlan).toHaveBeenCalledWith({
+        path: { uuid: 'test-uuid' },
+        body: { plan: 'plan2-url' },
+      });
+      expect(useNotify().showSuccess).toHaveBeenCalled();
+      expect(useModal().closeDialog).toHaveBeenCalled();
     });
-    expect(showSuccess).toHaveBeenCalled();
-    expect(closeDialog).toHaveBeenCalled();
   });
 
   it('should show error when plan switching fails', async () => {
@@ -133,20 +121,21 @@ describe('ChangePlanDialog', () => {
     vi.mocked(marketplaceResourcesSwitchPlan).mockRejectedValue(
       new Error('Switch failed'),
     );
-    const { showErrorResponse } = useNotify();
 
     renderDialog();
 
     await waitFor(() => {
-      expect(screen.getByText('Submit')).toBeInTheDocument();
+      expect(screen.getByText('Request for a change')).toBeInTheDocument();
     });
 
     const plan2Row = await screen.findByText('Plan 2');
     await userEvent.click(plan2Row);
 
-    const submitButton = screen.getByText('Submit');
+    const submitButton = screen.getByText('Request for a change');
     await userEvent.click(submitButton);
 
-    expect(showErrorResponse).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(useNotify().showErrorResponse).toHaveBeenCalled();
+    });
   });
 });

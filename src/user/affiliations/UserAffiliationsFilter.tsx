@@ -1,20 +1,31 @@
-import { Field, reduxForm } from 'redux-form';
+import { FC } from 'react';
 
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { StringField } from '@waldur/form';
-import { REACT_SELECT_TABLE_FILTER } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { InvitationRoleFilter } from '@waldur/invitations/InvitationRoleFilter';
-import { InvitationScopeTypeFilter } from '@waldur/invitations/InvitationScopeTypeFilter';
-import { ROLE_TYPES } from '@waldur/permissions/constants';
-import { TableFilterItem } from '@waldur/table/TableFilterItem';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { InvitationRoleFilter } from '@/invitations/InvitationRoleFilter';
+import { InvitationScopeTypeFilter } from '@/invitations/InvitationScopeTypeFilter';
+import { ROLE_TYPES } from '@/permissions/constants';
+import { SelectFilter, StringFilter } from '@/table';
 
-export const UserAffiliationsFilter = reduxForm<any, {}>({
-  form: 'UserAffiliationsFilter',
-  touchOnChange: true,
-  destroyOnUnmount: false,
-})(() => {
+const getRoleStatusFilterOptions = () => [
+  {
+    label: translate('Active only'),
+    value: '',
+  },
+  {
+    label: translate('Include revoked'),
+    value: true,
+  },
+];
+
+interface UserAffiliationsFilterProps {
+  showRoleStatus?: boolean;
+}
+
+export const UserAffiliationsFilter: FC<UserAffiliationsFilterProps> = ({
+  showRoleStatus,
+}) => {
   const hideCallScope = !isFeatureVisible(
     MarketplaceFeatures.show_call_management_functionality,
   );
@@ -30,19 +41,29 @@ export const UserAffiliationsFilter = reduxForm<any, {}>({
   return (
     <>
       <InvitationScopeTypeFilter options={SCOPE_TYPE_OPTIONS} />
-      <TableFilterItem
+      <StringFilter
         title={translate('Scope name')}
         name="scope_name"
         getValueLabel={(value) => value}
-      >
-        <Field
-          name="scope_name"
-          component={StringField}
-          {...REACT_SELECT_TABLE_FILTER}
-          placeholder={translate('Enter scope name')}
-        />
-      </TableFilterItem>
+        placeholder={translate('Enter scope name')}
+      />
       <InvitationRoleFilter />
+      {showRoleStatus && (
+        <SelectFilter
+          title={translate('Role status')}
+          name="show_inactive"
+          badgeValue={(value) =>
+            getRoleStatusFilterOptions().find((op) => op.value === value)?.label
+          }
+          ellipsis={false}
+          className="Select"
+          placeholder={translate('Select role status')}
+          options={getRoleStatusFilterOptions()}
+          noUpdateOnBlur={true}
+          simpleValue={true}
+          isClearable={true}
+        />
+      )}
     </>
   );
-});
+};

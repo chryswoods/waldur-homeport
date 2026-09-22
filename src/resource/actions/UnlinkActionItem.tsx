@@ -1,12 +1,11 @@
 import { LinkBreakIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
-import { useDispatch } from 'react-redux';
 import { marketplaceResourcesUnlink } from 'waldur-js-client';
 
-import { formatJsxTemplate, translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { useUser } from '@waldur/workspace/hooks';
+import { formatJsxTemplate, translate } from '@/i18n';
+import { ResourceAction } from '@/marketplace/resources/actions/constants';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { useUser } from '@/workspace/hooks';
 
 import { formatResourceType } from '../utils';
 
@@ -27,39 +26,34 @@ const getConfirmationText = (resource) => {
 };
 
 export const UnlinkActionItem: FC<{ resource }> = ({ resource }) => {
-  const dispatch = useDispatch();
   const user = useUser();
   if (!user.is_staff || !resource.marketplace_resource_uuid) {
     return null;
   }
-  const callback = async () => {
-    try {
-      await waitForConfirmation(
-        dispatch,
-        translate('Unlink resource'),
-        getConfirmationText(resource),
-      );
-    } catch {
-      return;
-    }
 
-    try {
-      await marketplaceResourcesUnlink({
+  const { mutate, isPending = false } = useManagedMutation<any, any, void>({
+    mutationFn: () =>
+      marketplaceResourcesUnlink({
         path: { uuid: resource.marketplace_resource_uuid },
-      });
-      dispatch(showSuccess(translate('Resource has been unlinked.')));
-    } catch (e) {
-      dispatch(showErrorResponse(e, translate('Unable to unlink resource.')));
-    }
-  };
+      }),
+    successMessage: translate('Resource has been unlinked.'),
+    errorMessage: translate('Unable to unlink resource.'),
+    confirmation: {
+      title: translate('Unlink resource'),
+      body: getConfirmationText(resource),
+    },
+  });
   return (
     <ActionItem
       title={translate('Unlink')}
-      action={callback}
+      action={mutate}
+      disabled={isPending}
       className="text-danger"
       staff
       iconNode={<LinkBreakIcon weight="bold" />}
       iconColor="danger"
+      actionId={ResourceAction.UNLINK}
+      resource={resource}
     />
   );
 };

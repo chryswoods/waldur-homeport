@@ -3,6 +3,7 @@
   align-items: center;
   justify-content: center;
   position: relative;
+  height: 100%;
   min-height: 128px;
 
   &:hover {
@@ -30,15 +31,6 @@
     align-items: center;
     overflow: hidden;
     margin-bottom: 16px;
-    border-radius: 8px;
-
-    &.no-image {
-      border: 1px solid var(--bs-border-color);
-    }
-
-    svg {
-      color: var(--bs-gray-600);
-    }
 
     & > img,
     & > svg {
@@ -46,5 +38,32 @@
       width: 100%;
       margin-bottom: 0;
     }
+  }
+
+  // Long category names truncate to one line instead of wrapping, so every
+  // tile in the row keeps the same height. Full name stays available on hover.
+  .category-title {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+
+    svg {
+      flex-shrink: 0;
+    }
+  }
+
+  // Two lines of description, then ellipsis — enough to tell two categories
+  // apart without letting one long text stretch the tile out of the row.
+  .category-description {
+    margin: 8px 0 0;
+    max-width: 100%;
+    font-size: 13px;
+    line-height: 1.4;
+    text-align: center;
+  }
+
+  .category-count {
+    margin-top: 8px;
   }
 }

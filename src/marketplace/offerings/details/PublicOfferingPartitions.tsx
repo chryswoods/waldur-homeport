@@ -1,13 +1,13 @@
 import { FunctionComponent } from 'react';
 import { Col, Row } from 'react-bootstrap';
-import { NestedPartition } from 'waldur-js-client';
+import { NestedPartition, Offering } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { renderFieldOrDash } from '@waldur/table/utils';
+import { translate } from '@/i18n';
+import { createClientPaginatedFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
-import { Offering } from '../../types';
 import { OfferingPartitionExpandableRow } from '../update/partitions/OfferingPartitionExpandableRow';
 
 interface PublicOfferingPartitionsProps {
@@ -19,11 +19,7 @@ export const PublicOfferingPartitions: FunctionComponent<
 > = ({ offering }) => {
   const tableProps = useTable({
     table: 'PublicOfferingPartitions',
-    fetchData: () => {
-      return Promise.resolve({
-        rows: offering?.partitions || [],
-      });
-    },
+    fetchData: createClientPaginatedFetcher(offering?.partitions || []),
   });
 
   return (
@@ -35,6 +31,16 @@ export const PublicOfferingPartitions: FunctionComponent<
             {
               title: translate('Name'),
               render: ({ row }) => renderFieldOrDash(row.partition_name),
+            },
+            {
+              title: translate('CPU architecture'),
+              render: ({ row }) => renderFieldOrDash(row.cpu_arch),
+              optional: true,
+            },
+            {
+              title: translate('GPU architecture'),
+              render: ({ row }) => renderFieldOrDash(row.gpu_arch),
+              optional: true,
             },
             {
               title: translate('Default time limit'),

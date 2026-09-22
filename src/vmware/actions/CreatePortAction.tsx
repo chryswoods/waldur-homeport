@@ -1,10 +1,10 @@
 import { PlusCircleIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { validateState } from '@waldur/resource/actions/base';
-import { DialogActionButton } from '@waldur/resource/actions/DialogActionButton';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { validateState } from '@/resource/actions/base';
+import { DialogActionButton } from '@/resource/actions/DialogActionButton';
 
 const CreatePortDialog = lazyComponent(() =>
   import('./CreatePortDialog').then((module) => ({
@@ -16,7 +16,7 @@ const validators = [validateState('OK')];
 
 export const CreatePortAction: FC<{ resource }> = ({ resource }) => (
   <DialogActionButton
-    title={translate('Create Network adapter')}
+    title={translate('Create network adapter')}
     iconNode={<PlusCircleIcon weight="bold" />}
     modalComponent={CreatePortDialog}
     resource={resource}

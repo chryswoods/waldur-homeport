@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { rolesUpdateDescriptionsUpdate } from 'waldur-js-client';
+import { rolesRetrieve, rolesUpdateDescriptionsUpdate } from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
+import { ENV } from '@/core/config';
+import { renderWithProviders } from '@/test/harness';
 
 import { RoleDescriptionEditDialog } from './RoleDescriptionEditDialog';
 import { getRoles } from './utils';
@@ -12,24 +13,10 @@ import { getRoles } from './utils';
 
 vi.mock('./utils');
 
-vi.mock('waldur-js-client');
-
-vi.mock('@waldur/modal/hooks', () => ({
-  useModal: () => ({
-    closeDialog: vi.fn(),
-  }),
-}));
-
-vi.mock('@waldur/i18n', () => ({
-  translate: (key) => key,
-}));
-
 describe('RoleDescriptionEditDialog', () => {
-  const mockRow = {
-    uuid: 'test-uuid',
-    description_en: 'English description',
-    description_et: 'Estonian description',
-  };
+  // The list row only carries a `uuid`; the per-language descriptions are
+  // fetched on open via rolesRetrieve.
+  const mockRow = { uuid: 'test-uuid' };
 
   const mockRefetch = vi.fn();
 
@@ -39,18 +26,27 @@ describe('RoleDescriptionEditDialog', () => {
       { code: 'en', label: 'English' },
       { code: 'et', label: 'Estonian' },
     ];
+    vi.mocked(rolesRetrieve).mockResolvedValue({
+      data: {
+        uuid: 'test-uuid',
+        description_en: 'English description',
+        description_et: 'Estonian description',
+      },
+    } as any);
   });
 
-  it('renders form with language inputs', () => {
-    render(
+  it('renders form with language inputs', async () => {
+    renderWithProviders(
       <RoleDescriptionEditDialog
         resolve={{ row: mockRow, refetch: mockRefetch }}
       />,
     );
 
+    expect(
+      await screen.findByDisplayValue('English description'),
+    ).toBeInTheDocument();
     expect(screen.getByText('English')).toBeInTheDocument();
     expect(screen.getByText('Estonian')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('English description')).toBeInTheDocument();
     expect(
       screen.getByDisplayValue('Estonian description'),
     ).toBeInTheDocument();
@@ -63,13 +59,13 @@ describe('RoleDescriptionEditDialog', () => {
       .mockResolvedValue(undefined);
     const getRolesSpy = vi.mocked(getRoles).mockResolvedValue([]);
 
-    render(
+    renderWithProviders(
       <RoleDescriptionEditDialog
         resolve={{ row: mockRow, refetch: mockRefetch }}
       />,
     );
 
-    const englishInput = screen.getByDisplayValue('English description');
+    const englishInput = await screen.findByDisplayValue('English description');
     await user.clear(englishInput);
     await user.type(englishInput, 'Updated English description');
 
@@ -85,5 +81,21 @@ describe('RoleDescriptionEditDialog', () => {
     });
     expect(getRolesSpy).toHaveBeenCalled();
     expect(mockRefetch).toHaveBeenCalled();
+  });
+
+  it('shows an error state instead of the form when the role fails to load', async () => {
+    vi.mocked(rolesRetrieve).mockRejectedValue({ response: { status: 404 } });
+    renderWithProviders(
+      <RoleDescriptionEditDialog
+        resolve={{ row: mockRow, refetch: mockRefetch }}
+      />,
+    );
+
+    expect(
+      await screen.findByText('Unable to load role name translations.'),
+    ).toBeInTheDocument();
+    // No Save button → the validator-free form can't submit empty strings and
+    // wipe the role's existing translations.
+    expect(screen.queryByText('Save')).not.toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 import { GearSixIcon } from '@phosphor-icons/react';
 
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
 
 import { MenuItem } from './MenuItem';
 
@@ -10,7 +10,6 @@ export const AdminMenu = () => {
       title={translate('Administration')}
       state="admin.dashboard"
       activeState="admin"
-      child={false}
       icon={<GearSixIcon weight="bold" />}
     />
   );

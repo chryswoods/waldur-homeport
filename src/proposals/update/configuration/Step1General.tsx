@@ -1,17 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { FC, useEffect, useMemo } from 'react';
+import { useForm, useFormState } from 'react-final-form';
 import { proposalProtectedCallsOfferingsList } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { required } from '@waldur/core/validators';
-import { FormContainer, SelectField, StringField } from '@waldur/form';
-import { WizardForm, WizardFormStepProps } from '@waldur/form/WizardForm';
-import { translate } from '@waldur/i18n';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { STALE_TIME } from '@/core/constants';
+import { required } from '@/core/validators';
+import { StringGroup, SelectGroup } from '@/form';
+import { translate } from '@/i18n';
+import { WizardForm, WizardFormStepProps } from '@/wizard';
 
 const getOfferings = (call_uuid: string) =>
   getAllPages((page) =>
     proposalProtectedCallsOfferingsList({
-      query: { page, page_size: 1000, state: 'accepted' },
+      query: { page, page_size: MAX_PAGE_SIZE, state: 'accepted' },
       path: { uuid: call_uuid },
     }),
   );
@@ -20,7 +22,7 @@ export const Step1General: FC<WizardFormStepProps> = (props) => {
   const offeringsQuery = useQuery({
     queryKey: ['proposalRequestedOfferings', props.data.call?.uuid],
     queryFn: () => getOfferings(props.data.call?.uuid),
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_TIME,
   });
 
   const offeringOptions = useMemo(
@@ -33,55 +35,54 @@ export const Step1General: FC<WizardFormStepProps> = (props) => {
     [offeringsQuery],
   );
 
+  const { values, submitting } = useFormState({
+    subscription: { values: true, submitting: true },
+  });
+  const form = useForm();
+
+  const { offering } = values;
+
+  useEffect(() => {
+    if (!offering) return;
+    const fullOffering = (offeringsQuery?.data || []).find(
+      (item) => item.uuid === offering.uuid,
+    );
+    if (fullOffering) {
+      form.change('offering', fullOffering);
+      form.change('plan', fullOffering.plan_details);
+    } else {
+      form.change('offering', null);
+    }
+  }, [offeringsQuery?.data, offering]);
   return (
     <WizardForm {...props}>
-      {(wizardProps) => {
-        const { offering } = wizardProps.formValues;
-
-        useEffect(() => {
-          if (!offering) return;
-          const fullOffering = (offeringsQuery?.data || []).find(
-            (item) => item.uuid === offering.uuid,
-          );
-          if (fullOffering) {
-            wizardProps.change('offering', fullOffering);
-            wizardProps.change('plan', fullOffering.plan_details);
-          } else {
-            wizardProps.change('offering', null);
-          }
-        }, [offeringsQuery?.data, offering]);
-
-        return (
-          <FormContainer
-            submitting={wizardProps.submitting}
-            className="size-lg"
-          >
-            <StringField
-              name="name"
-              label={translate('Template name')}
-              placeholder={translate('e.g., Standard Compute Package')}
-              required
-              validate={required}
-            />
-            <SelectField
-              name="offering"
-              label={translate('Offering')}
-              options={offeringOptions}
-              isLoading={offeringsQuery.isLoading}
-              getOptionValue={(option) => option.uuid}
-              getOptionLabel={(option) => option.offering_name}
-              required
-              validate={required}
-              onChange={(v) => {
-                if (v.uuid !== offering?.uuid) {
-                  wizardProps.change('plan', v.plan_details);
-                  wizardProps.change('limits', null);
-                }
-              }}
-            />
-          </FormContainer>
-        );
-      }}
+      <div className="size-lg">
+        <StringGroup
+          name="name"
+          label={translate('Template name')}
+          placeholder={translate('e.g., Standard Compute Package')}
+          required
+          validate={required}
+          disabled={submitting}
+        />
+        <SelectGroup
+          name="offering"
+          label={translate('Offering')}
+          options={offeringOptions}
+          isLoading={offeringsQuery.isLoading}
+          getOptionValue={(option) => option.uuid}
+          getOptionLabel={(option) => option.offering_name}
+          required
+          validate={required}
+          onChange={(v) => {
+            if (v.uuid !== offering?.uuid) {
+              form.change('plan', v.plan_details);
+              form.change('limits', null);
+            }
+          }}
+          disabled={submitting}
+        />
+      </div>
     </WizardForm>
   );
 };

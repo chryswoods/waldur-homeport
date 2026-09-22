@@ -1,0 +1,168 @@
+import { QuestionIcon, WarningIcon } from '@phosphor-icons/react';
+import { FC, useMemo } from 'react';
+import { proposalProtectedCallsPartialUpdate } from 'waldur-js-client';
+
+import { Select, Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
+
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import {
+  Call,
+  ProposalFieldMetadata,
+  ProposalFieldState,
+  ProposalFieldUsage,
+} from '@/proposals/types';
+import { getCallReadOnlyReason } from '@/proposals/utils';
+
+import {
+  getFieldLabel,
+  getStateLabel,
+  getUsageLabel,
+  getUsageTooltip,
+  isConsequential,
+} from './proposalFieldCopy';
+
+interface ProposalFieldsSectionProps {
+  call: Call;
+  refetch: () => void;
+  isReadOnly?: boolean;
+}
+
+const TITLE = (
+  <>
+    {translate('Project details fields')}{' '}
+    <Tooltip
+      label={translate(
+        'Choose what this call asks applicants for. Name and project duration are always required. A field cannot be made required once the call has proposals.',
+      )}
+    >
+      <QuestionIcon size={20} weight="fill" className="mx-2 text-muted" />
+    </Tooltip>
+  </>
+);
+
+/** The consumers a field feeds, so the cost of switching it off is visible here
+ * rather than only in the backend it silently affects. */
+const UsageList: FC<{ usage: ProposalFieldUsage[] }> = ({ usage }) => (
+  <div className="d-flex flex-wrap gap-2">
+    {usage.map((item) => {
+      const tooltip = getUsageTooltip(item);
+      const badge = (
+        <Badge
+          key={item}
+          variant={isConsequential(item) ? 'warning' : 'neutral'}
+          tone="outline"
+        >
+          {isConsequential(item) && (
+            <WarningIcon size={12} weight="bold" className="me-1" />
+          )}
+          {getUsageLabel(item)}
+        </Badge>
+      );
+      return tooltip ? (
+        <Tooltip key={item} label={tooltip}>
+          <span>{badge}</span>
+        </Tooltip>
+      ) : (
+        badge
+      );
+    })}
+  </div>
+);
+
+export const ProposalFieldsSection: FC<ProposalFieldsSectionProps> = ({
+  call,
+  refetch,
+  isReadOnly,
+}) => {
+  const metadata = useMemo(
+    () => (call.proposal_field_metadata ?? []) as ProposalFieldMetadata[],
+    [call],
+  );
+
+  const { mutateAsync: update } = useManagedMutation({
+    mutationFn: (body: Record<string, ProposalFieldState>) =>
+      proposalProtectedCallsPartialUpdate({
+        path: { uuid: call.uuid },
+        body: { proposal_field_config: body },
+      }),
+    refetch,
+    successMessage: translate('Project details fields have been updated.'),
+    errorMessage: translate('Unable to update Project details fields.'),
+    closeModal: false,
+  });
+
+  if (!metadata.length) {
+    return null;
+  }
+
+  return (
+    <FormTable.Card title={TITLE} className="card-bordered mb-5">
+      <FormTable>
+        {/* Always-on fields come first, so the list reads as the whole step
+            rather than only the part that can be changed. */}
+        <FormTable.Item
+          label={translate('Name')}
+          description={translate(
+            'Names the proposal. The awarded project is named after the call and the round start date, followed by this name.',
+          )}
+          value={
+            <Badge variant="neutral" tone="outline">
+              {getStateLabel('required')}
+            </Badge>
+          }
+        />
+        <FormTable.Item
+          label={translate('Project duration in days')}
+          description={translate(
+            'States the length of the award, so it cannot be switched off.',
+          )}
+          value={
+            <Badge variant="neutral" tone="outline">
+              {getStateLabel('required')}
+            </Badge>
+          }
+        />
+        {metadata.map((row) => {
+          const options = row.allowed_states.map((state) => ({
+            value: state,
+            label: getStateLabel(state),
+          }));
+          const locked = Boolean(row.locked_reason);
+          const select = (
+            <Select
+              inputId={`proposal-field-${row.field}`}
+              options={options}
+              value={{ value: row.state, label: getStateLabel(row.state) }}
+              onChange={(option: { value: ProposalFieldState }) =>
+                update({ [`field_${row.field}`]: option.value })
+              }
+              isDisabled={isReadOnly}
+              isSearchable={false}
+              getOptionValue={(option) => option.value}
+              getOptionLabel={(option) => option.label}
+            />
+          );
+          return (
+            <FormTable.Item
+              key={row.field}
+              label={getFieldLabel(row.field)}
+              htmlFor={`proposal-field-${row.field}`}
+              description={<UsageList usage={row.usage} />}
+              warnTooltip={
+                isReadOnly
+                  ? getCallReadOnlyReason(call)
+                  : locked
+                    ? row.locked_reason
+                    : undefined
+              }
+              value={select}
+            />
+          );
+        })}
+      </FormTable>
+    </FormTable.Card>
+  );
+};

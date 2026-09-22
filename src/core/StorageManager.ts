@@ -1,4 +1,4 @@
-import { ENV } from '@waldur/core/config';
+import { ENV } from '@/core/config';
 
 const getStorage = (): Storage => {
   if (ENV.authStorage === 'localStorage') {
@@ -52,12 +52,26 @@ class JsonStorageManager<T = never> {
 
 export const AuthTokenStorage = new StringStorageManager('waldur/auth/token');
 
+// When the token in AuthTokenStorage stops being accepted, as an ISO 8601
+// string. Recorded from /users/me/ so public/boot-redirect.js can tell a live
+// session from a stale token before the application loads; see
+// UsersService.recordTokenExpiry for when it is written.
+export const AuthTokenExpiryStorage = new StringStorageManager(
+  'waldur/auth/token_expires_at',
+);
+
 export const AuthMethodStorage = new StringStorageManager('waldur/auth/method');
 
 export const RedirectStorage = new JsonStorageManager<{
   toState: string;
   toParams: object;
 }>('waldur/auth/redirect');
+
+/** Separate from RedirectStorage, which the login flow overwrites constantly. */
+export const BlockedNavigationStorage = new JsonStorageManager<{
+  toState: string;
+  toParams: object;
+}>('waldur/navigation/blocked');
 
 export const ImpersonationStorage = new StringStorageManager(
   'waldur/auth/impersonation',
@@ -72,3 +86,7 @@ export const GroupInvitationTokenStorage = new StringStorageManager(
 );
 
 export const LanguageStorage = new StringStorageManager('waldur/i18n/lang');
+
+export const ResourcesFilterStorage = new JsonStorageManager<any>(
+  'waldur/filter/resources',
+);

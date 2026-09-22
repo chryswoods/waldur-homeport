@@ -1,22 +1,36 @@
 import { CaretDownIcon } from '@phosphor-icons/react';
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import * as RadixPopover from '@radix-ui/react-popover';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { FormControl, FormGroup } from 'react-bootstrap';
-import { Field } from 'redux-form';
+import { Field } from 'react-final-form';
+import { FieldRenderProps } from 'react-final-form';
 import { Project } from 'waldur-js-client';
 
-import { Tip } from '@waldur/core/Tooltip';
-import { required } from '@waldur/core/validators';
-import { FormField } from '@waldur/form/types';
-import { translate } from '@waldur/i18n';
-import { MenuComponent } from '@waldur/metronic/components';
-import { Role } from '@waldur/permissions/types';
-import { Customer } from '@waldur/workspace/types';
+import { Tooltip } from 'waldur-ui';
+
+import { required } from '@/core/validators';
+import { translate } from '@/i18n';
+import { PopoverMenuContent } from '@/navigation/NavMenu';
+import { Role } from '@/permissions/types';
+import { getAmbiguousRoleDescriptions } from '@/permissions/utils';
+import { Customer } from '@/workspace/types';
+
+// Role title with the machine name appended only when another offered role
+// shares this description (a system role and its identically-named
+// organization clone); otherwise the name is just noise.
+const RoleTitle: React.FC<{ role: Role; ambiguous: Set<string> }> = ({
+  role,
+  ambiguous,
+}) => (
+  <span className="menu-title">
+    {role.description || role.name}
+    {role.description &&
+      role.description !== role.name &&
+      ambiguous.has(role.description) && (
+        <span className="text-muted ms-2 small">{role.name}</span>
+      )}
+  </span>
+);
 
 interface RoleAndProjectSelectPopupProps {
   roles: (Role & { tooltip? })[];
@@ -25,6 +39,11 @@ interface RoleAndProjectSelectPopupProps {
   selectedRole: Role;
   selectedProject;
   select;
+  /** Closes the enclosing Popover — see RoleAndProjectSelect's own
+   * controlled `open` state. Not every selection closes it: picking a
+   * role that still needs a project reveals the project sub-panel
+   * instead (see onClickRole below). */
+  close(): void;
 }
 
 const RoleAndProjectSelectPopup: React.FC<RoleAndProjectSelectPopupProps> = ({
@@ -34,6 +53,7 @@ const RoleAndProjectSelectPopup: React.FC<RoleAndProjectSelectPopupProps> = ({
   selectedRole,
   selectedProject,
   select,
+  close,
 }) => {
   const refSearch = useRef<HTMLInputElement>();
 
@@ -46,17 +66,17 @@ const RoleAndProjectSelectPopup: React.FC<RoleAndProjectSelectPopupProps> = ({
         );
 
         if (currentProject) {
-          MenuComponent.hideDropdowns(null);
+          close();
         }
       }
       if (role.content_type !== 'project') {
         select(role, null);
-        MenuComponent.hideDropdowns(null);
+        close();
       } else {
         if (refSearch?.current) refSearch.current.focus();
       }
     },
-    [select, selectedRole, selectedProject, refSearch?.current],
+    [select, selectedRole, selectedProject, currentProject, customer, close],
   );
 
   const onClickProject = useCallback(
@@ -64,10 +84,12 @@ const RoleAndProjectSelectPopup: React.FC<RoleAndProjectSelectPopupProps> = ({
       if (project.uuid !== selectedProject?.uuid) {
         select(selectedRole, project);
       }
-      MenuComponent.hideDropdowns(null);
+      close();
     },
-    [select, selectedProject, selectedRole],
+    [select, selectedProject, selectedRole, close],
   );
+
+  const ambiguous = useMemo(() => getAmbiguousRoleDescriptions(roles), [roles]);
 
   const [query, setQuery] = useState('');
   const projects = useMemo(() => {
@@ -82,97 +104,86 @@ const RoleAndProjectSelectPopup: React.FC<RoleAndProjectSelectPopupProps> = ({
   const hasProject = Boolean(customer?.projects_count || currentProject);
 
   return (
-    <div
-      className="role-project-select-popup menu menu-sub menu-sub-dropdown menu-gray-700 menu-state-bg-light menu-state-primary border fw-bold fs-6 py-1"
-      data-kt-menu="true"
-    >
-      <div className="d-flex">
-        <div className="w-200px mw-250px">
-          {roles.map((role) =>
-            hasProject || !showProjects ? (
-              <div key={role.uuid} className="menu-item" data-kt-menu-trigger>
-                {role.is_active ? (
-                  <span
-                    className={
-                      'menu-link' +
-                      (selectedRole?.uuid === role.uuid ? ' active' : '')
-                    }
-                    onClick={() => onClickRole(role)}
-                    aria-hidden="true"
-                  >
-                    <span className="menu-title">
-                      {role.description || role.name}
-                    </span>
-                    {role.content_type === 'project' && !currentProject && (
-                      <span className="menu-arrow" />
-                    )}
-                  </span>
-                ) : (
-                  <Tip
-                    id={'tip-project-role-' + role.name}
-                    label={role.tooltip}
-                    className="menu-link disabled px-3"
-                  >
-                    <span className="menu-title">
-                      {role.description || role.name}
-                    </span>
-                  </Tip>
-                )}
-              </div>
-            ) : (
-              <div
-                key={role.uuid}
-                className="menu-item px-3"
-                data-kt-menu-trigger
-              >
-                <span className="menu-link disabled px-3">
-                  <span className="menu-title">
-                    {role.description || role.name}
-                  </span>
-                  <span className="menu-arrow" />
-                </span>
-              </div>
-            ),
-          )}
-        </div>
-        {showProjects && !currentProject && (
-          <div className="sub-select d-flex flex-column mw-300px mh-300px">
-            <div className="w-100 px-2 border-bottom">
-              <input
-                ref={refSearch}
-                type="text"
-                className="form-control form-control-flush"
-                name="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={translate('Search for project')}
-                autoComplete="off"
-              />
-            </div>
-
-            <div className="scroll-y">
-              {projects.map((project) => (
-                <div
-                  key={project.uuid}
-                  className="menu-item"
-                  data-kt-menu-trigger
+    <div className="d-flex">
+      <div className="w-200px mw-250px">
+        {roles.length === 0 && (
+          // Silently rendering nothing here reads as a broken/loading popup
+          // -- no roles ever means the caller's own role-loading step (e.g.
+          // InviteUserButton.tsx's offering-scoped fetch) came back empty,
+          // which is worth surfacing rather than leaving the picker looking
+          // stuck.
+          <p className="text-center text-muted mb-0 px-3 py-2">
+            {translate('No roles available.')}
+          </p>
+        )}
+        {roles.map((role) =>
+          hasProject || !showProjects ? (
+            <div key={role.uuid} className="menu-item">
+              {role.is_active ? (
+                <span
+                  className={
+                    'menu-link' +
+                    (selectedRole?.uuid === role.uuid ? ' active' : '')
+                  }
+                  onClick={() => onClickRole(role)}
+                  aria-hidden="true"
                 >
-                  <span
-                    className={
-                      'menu-link' +
-                      (selectedProject?.uuid === project.uuid ? ' active' : '')
-                    }
-                    onClick={() => onClickProject(project)}
-                    aria-hidden="true"
-                  >
-                    <span className="menu-title">{project.name}</span>
+                  <RoleTitle role={role} ambiguous={ambiguous} />
+                  {role.content_type === 'project' && !currentProject && (
+                    <span className="menu-arrow" />
+                  )}
+                </span>
+              ) : (
+                <Tooltip label={role.tooltip}>
+                  <span className="menu-link disabled px-3">
+                    <RoleTitle role={role} ambiguous={ambiguous} />
                   </span>
-                </div>
-              ))}
+                </Tooltip>
+              )}
             </div>
-          </div>
+          ) : (
+            <div key={role.uuid} className="menu-item px-3">
+              <span className="menu-link disabled px-3">
+                <RoleTitle role={role} ambiguous={ambiguous} />
+                <span className="menu-arrow" />
+              </span>
+            </div>
+          ),
         )}
       </div>
+      {showProjects && !currentProject && (
+        <div className="sub-select d-flex flex-column mw-300px mh-300px">
+          <div className="w-100 px-2 border-bottom">
+            <input
+              ref={refSearch}
+              type="text"
+              className="form-control form-control-flush"
+              name="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={translate('Search for project')}
+              autoComplete="off"
+            />
+          </div>
+
+          <div className="scroll-y">
+            {projects.map((project) => (
+              <div key={project.uuid} className="menu-item">
+                <span
+                  className={
+                    'menu-link' +
+                    (selectedProject?.uuid === project.uuid ? ' active' : '')
+                  }
+                  onClick={() => onClickProject(project)}
+                  aria-hidden="true"
+                >
+                  <span className="menu-title">{project.name}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -186,8 +197,9 @@ interface RoleAndProjectSelectFieldProps {
   disabled?: boolean;
 }
 interface RoleAndProjectSelectProps
-  extends Omit<RoleAndProjectSelectFieldProps, 'name'>,
-    FormField {}
+  extends
+    Omit<RoleAndProjectSelectFieldProps, 'name'>,
+    FieldRenderProps<any, HTMLElement> {}
 
 const RoleAndProjectSelect: React.FC<RoleAndProjectSelectProps> = (props) => {
   const { roles, customer, currentProject, placeholder } = props;
@@ -195,48 +207,51 @@ const RoleAndProjectSelect: React.FC<RoleAndProjectSelectProps> = (props) => {
   const selectedRole = props.input.value?.role;
   const selectedProject = props.input.value?.project;
 
-  useEffect(() => {
-    MenuComponent.reinitialization();
-  }, []);
+  const [open, setOpen] = useState(false);
 
   return (
     <div className="role-project-select">
-      <FormGroup
-        className="position-relative w-100 rotate"
-        data-kt-menu-trigger="click"
-        data-kt-menu-attach="parent"
-        data-kt-menu-placement="bottom-start"
-      >
-        <FormControl
-          type="text"
-          value={[
-            selectedRole?.description || selectedRole?.name,
-            selectedProject?.name,
-          ]
-            .filter(Boolean)
-            .join(' - ')}
-          placeholder={placeholder}
-          readOnly
-          className="pe-12"
-        />
+      <RadixPopover.Root open={open} onOpenChange={setOpen} modal={false}>
+        <RadixPopover.Trigger asChild>
+          <FormGroup className="position-relative w-100 rotate">
+            <FormControl
+              type="text"
+              value={[
+                selectedRole?.description || selectedRole?.name,
+                selectedProject?.name,
+              ]
+                .filter(Boolean)
+                .join(' - ')}
+              placeholder={placeholder}
+              readOnly
+              className="pe-12"
+            />
 
-        <span className="svg-icon svg-icon-1 rotate-180 position-absolute mx-4 end-0 h-100 d-flex align-items-center">
-          <CaretDownIcon />
-        </span>
-      </FormGroup>
-      <RoleAndProjectSelectPopup
-        roles={roles}
-        customer={customer}
-        currentProject={currentProject}
-        selectedRole={selectedRole}
-        selectedProject={selectedProject}
-        select={(role: Role, project) => {
-          props.input.onChange({
-            role,
-            project,
-          });
-        }}
-      />
+            <span className="svg-icon svg-icon-1 rotate-toggle-180 position-absolute mx-4 end-0 h-100 d-flex align-items-center">
+              <CaretDownIcon weight="bold" />
+            </span>
+          </FormGroup>
+        </RadixPopover.Trigger>
+        <PopoverMenuContent
+          placement="bottom-start"
+          className="role-project-select-popup menu-gray-700 menu-state-bg-light menu-state-primary border fw-bold fs-6 py-1"
+        >
+          <RoleAndProjectSelectPopup
+            roles={roles}
+            customer={customer}
+            currentProject={currentProject}
+            selectedRole={selectedRole}
+            selectedProject={selectedProject}
+            select={(role: Role, project) => {
+              props.input.onChange({
+                role,
+                project,
+              });
+            }}
+            close={() => setOpen(false)}
+          />
+        </PopoverMenuContent>
+      </RadixPopover.Root>
     </div>
   );
 };
@@ -247,20 +262,29 @@ export const RoleAndProjectSelectField: React.FC<
   return !disabled ? (
     <Field
       name={name}
-      roles={roles}
-      customer={customer}
-      currentProject={currentProject}
-      component={RoleAndProjectSelect}
-      placeholder={translate('Select...')}
-      validate={[required]}
+      validate={required}
+      render={(fieldProps) => (
+        <RoleAndProjectSelect
+          {...fieldProps}
+          roles={roles}
+          customer={customer}
+          currentProject={currentProject}
+          placeholder={translate('Select...')}
+        />
+      )}
     />
   ) : (
     <Field
       name={name}
-      component={FormControl}
-      placeholder={translate('Select...')}
-      disabled={disabled}
-      validate={[required]}
+      validate={required}
+      render={({ input, meta }) => (
+        <FormControl
+          {...input}
+          placeholder={translate('Select...')}
+          disabled={disabled}
+          isInvalid={meta.touched && meta.invalid}
+        />
+      )}
     />
   );
 };

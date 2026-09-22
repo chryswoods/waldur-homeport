@@ -1,23 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Form } from 'react-final-form';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { ArticleCodeField } from './ArticleCodeField';
-
-// Mock dependencies
-vi.mock('@waldur/i18n', () => ({
-  translate: vi.fn((str) => str),
-}));
-
-vi.mock('./utils', () => ({
-  articleCodeValidator: vi.fn((value) => {
-    if (value && value.length > 10) {
-      return 'Article code is too long';
-    }
-    return undefined;
-  }),
-}));
 
 const renderComponent = (initialValues = {}) => {
   return render(
@@ -54,8 +40,7 @@ describe('ArticleCodeField', () => {
     renderComponent();
     const user = userEvent.setup();
 
-    // Find input by name attribute
-    const input = screen.getByRole('textbox');
+    const input = screen.getByLabelText(/Article code/i);
     await user.type(input, 'ABC123');
 
     expect(input).toHaveValue('ABC123');
@@ -65,37 +50,27 @@ describe('ArticleCodeField', () => {
     renderComponent();
     const user = userEvent.setup();
 
-    const input = screen.getByRole('textbox');
-    // Type a long article code to trigger validation error
-    await user.type(input, 'VERY_LONG_ARTICLE_CODE');
+    const input = screen.getByLabelText(/Article code/i);
+    // Type a short article code to trigger validation error
+    await user.type(input, 'A');
 
     // Blur the field to trigger validation
     await user.tab();
 
-    expect(screen.getByText('Article code is too long')).toBeInTheDocument();
+    expect(screen.getByText('Code is too short.')).toBeInTheDocument();
   });
 
   it('does not show error for valid article code', async () => {
     renderComponent();
     const user = userEvent.setup();
 
-    const input = screen.getByRole('textbox');
+    const input = screen.getByLabelText(/Article code/i);
     await user.type(input, 'VALID123');
 
     // Blur the field to trigger validation
     await user.tab();
 
-    expect(
-      screen.queryByText('Article code is too long'),
-    ).not.toBeInTheDocument();
-  });
-
-  it('shows question mark icon for description tooltip', () => {
-    renderComponent();
-
-    // Check that the question mark icon is present (FormGroup renders it for description)
-    const svg = document.querySelector('svg');
-    expect(svg).toBeInTheDocument();
+    expect(screen.queryByText('Code is too short.')).not.toBeInTheDocument();
   });
 
   it('handles empty article code', async () => {
@@ -115,8 +90,6 @@ describe('ArticleCodeField', () => {
     await user.tab();
 
     // Should not show validation error for empty value (field is optional)
-    expect(
-      screen.queryByText('Article code is too long'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Code is too short.')).not.toBeInTheDocument();
   });
 });

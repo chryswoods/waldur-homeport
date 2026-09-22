@@ -1,32 +1,64 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCurrentStateAndParams } from '@uirouter/react';
 import { useMemo } from 'react';
-import { useSelector } from 'react-redux';
 import {
   proposalProposalsRetrieve,
   proposalPublicCallsRetrieve,
   proposalReviewsList,
 } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { getQueryParams } from '@waldur/core/filters';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { SidebarLayout } from '@waldur/form/SidebarLayout';
-import { translate } from '@waldur/i18n';
-import { PageBarProvider } from '@waldur/marketplace/context';
-import { useTitle } from '@waldur/navigation/title';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { Proposal } from '@waldur/proposals/types';
-import { getUser } from '@waldur/workspace/selectors';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { getQueryParams } from '@/core/filters';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { SidebarLayout } from '@/form/SidebarLayout';
+import { translate } from '@/i18n';
+import { PageBarProvider } from '@/marketplace/context';
+import { useBreadcrumbs } from '@/navigation/context';
+import { useTitle } from '@/navigation/title';
+import {
+  useCallManagedProposalBreadcrumbItems,
+  useProposalBreadcrumbItems,
+} from '@/proposals/breadcrumbs';
+import { usesCallVocabulary } from '@/proposals/presentation';
+import { Proposal } from '@/proposals/types';
+import { useUser } from '@/workspace/hooks';
 
 import { ProposalDetails } from '../ProposalDetails';
 import { ProposalRoleBasedTabs } from '../ProposalRoleBasedTabs';
+import { WorkflowTimeline } from '../WorkflowTimeline';
 
-import { ProgressSteps } from './ProgressSteps';
 import { ProposalHeader } from './ProposalHeader';
 import { ProposalSubmissionStep } from './ProposalSubmissionStep';
+
+/**
+ * Sets the applicant's breadcrumb chain.
+ *
+ * A component rather than a bare hook call in the page, so it can be left out
+ * entirely for the call-manager view: that route hangs off `call-management`,
+ * whose OrganizationUIView already publishes the organisation chain, and
+ * setting an empty list from here would strip it.
+ */
+const ApplicantBreadcrumbs = ({ proposal }: { proposal: Proposal }) => {
+  useBreadcrumbs(useProposalBreadcrumbItems(proposal));
+  return null;
+};
+
+/**
+ * The call team's chain, down the structure that owns the proposal rather than
+ * through anyone's profile. Same component-not-hook reason as above: the two
+ * are mutually exclusive, and a hook cannot be called conditionally.
+ */
+const CallManagerBreadcrumbs = ({
+  call,
+  proposal,
+}: {
+  call: any;
+  proposal: Proposal;
+}) => {
+  useBreadcrumbs(useCallManagedProposalBreadcrumbItems(call, proposal));
+  return null;
+};
 
 export const ProposalManagePage = () => {
   const {
@@ -45,43 +77,51 @@ export const ProposalManagePage = () => {
     queryFn: () =>
       proposalProposalsRetrieve({
         path: { uuid: proposal_uuid },
-      }).then((response) => response.data as any as Proposal),
+      }).then((response) => response.data),
 
     refetchOnWindowFocus: false,
   });
 
-  const title =
-    proposal?.state === 'draft'
+  const isDraft = proposal?.state === 'draft';
+  const title = usesCallVocabulary()
+    ? isDraft
       ? translate('Update proposal')
-      : translate('View proposal');
+      : translate('View proposal')
+    : isDraft
+      ? translate('Update access request')
+      : translate('View access request');
   useTitle(title);
 
-  const user = useSelector(getUser);
+  const user = useUser();
 
   const isEditPage = state.name === 'proposals.manage-proposal';
-
-  // Check if user can edit the proposal:
-  // 1. Staff users can always edit
-  // 2. The proposal creator can edit
-  // 3. Users with PROPOSAL.MANAGE permission (Proposal Manager role) can edit
+  const isCallManagerView = state.name?.startsWith('call-management');
   const hasPermissionToSubmit =
-    user.is_staff ||
-    (proposal && user.uuid === proposal.created_by_uuid) ||
-    (proposal &&
-      hasPermission(user, {
-        permission: PermissionEnum.MANAGE_PROPOSAL,
-        scopeId: proposal.uuid,
-      }));
+    user.is_staff || (proposal && user.uuid === proposal.created_by_uuid);
 
   const { data: call } = useQuery({
     queryKey: ['ProposalCall', proposal?.call_uuid],
     queryFn: () =>
-      proposal?.call_uuid
-        ? proposalPublicCallsRetrieve({
-            path: { uuid: proposal.call_uuid },
-            query: { field: ['uuid', 'customer_uuid'] },
-          }).then((res) => res.data)
-        : null,
+      proposalPublicCallsRetrieve({
+        path: { uuid: proposal.call_uuid },
+        query: {
+          field: [
+            'uuid',
+            'name',
+            'customer_uuid',
+            // Both name the call-manager breadcrumb chain.
+            'customer_name',
+            'manager_uuid',
+            'compliance_checklist',
+            'compliance_checklist_name',
+            // Drives which Project details fields the form asks for.
+            'proposal_field_config',
+            // Cast: compliance_checklist* are protected-call fields, so the
+            // list is not assignable to keyof PublicCall.
+          ] as any,
+        },
+      }).then((res) => res.data),
+    enabled: !!proposal?.call_uuid,
     refetchOnWindowFocus: false,
     staleTime: Infinity,
   });
@@ -94,6 +134,7 @@ export const ProposalManagePage = () => {
         proposalReviewsList({
           query: {
             page,
+            page_size: MAX_PAGE_SIZE,
             proposal_uuid,
           },
         }),
@@ -146,18 +187,33 @@ export const ProposalManagePage = () => {
     <PageBarProvider scrollOffset={100}>
       <SidebarLayout.Header className="pb-5">
         <div className="w-100">
+          {isCallManagerView ? (
+            <CallManagerBreadcrumbs call={call} proposal={proposal} />
+          ) : (
+            <ApplicantBreadcrumbs proposal={proposal} />
+          )}
           <ProposalRoleBasedTabs
             review={userReview}
             proposal={proposal}
             call={call}
           />
           <ProposalHeader proposal={proposal} className="mb-7" />
-          <ProgressSteps proposal={proposal} bgClass="bg-body" />
+          {/* No stepper while the proposal is a draft: the applicant hasn't
+              submitted yet, so no workflow has started — the page shows the
+              editable submission form instead. The stepper only appears from
+              the submitted state onwards. */}
+          {proposal.state !== 'draft' && (
+            <WorkflowTimeline
+              proposal={proposal}
+              showDetails={isCallManagerView}
+            />
+          )}
         </div>
       </SidebarLayout.Header>
       {proposal.state === 'draft' && isEditPage && hasPermissionToSubmit ? (
         <ProposalSubmissionStep
           proposal={proposal}
+          call={call}
           refetch={refetch}
           reviews={submittedReviews}
         />
@@ -165,6 +221,7 @@ export const ProposalManagePage = () => {
         <ProposalDetails
           proposal={proposal}
           reviews={submittedReviews}
+          review={userReview}
           refetch={refetch}
         />
       )}

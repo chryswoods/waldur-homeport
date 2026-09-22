@@ -1,17 +1,18 @@
+import { useQuery } from '@tanstack/react-query';
 import { FunctionComponent } from 'react';
-import { useSelector } from 'react-redux';
-import { useAsync } from 'react-use';
 import { financialReportsRetrieve } from 'waldur-js-client';
 
-import { defaultCurrency } from '@waldur/core/formatCurrency';
-import { translate } from '@waldur/i18n';
-import { getActiveFixedPricePaymentProfile } from '@waldur/invoices/details/utils';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { translate } from '@/i18n';
+import { getActiveFixedPricePaymentProfile } from '@/invoices/details/utils';
+import { useCustomer } from '@/workspace/hooks';
 
 const AsyncEstimatedCost = ({ customer }) => {
-  const { value } = useAsync(() =>
-    financialReportsRetrieve({ path: { uuid: customer.uuid } }),
-  );
+  const { data: value } = useQuery({
+    queryKey: ['EstimatedCost'],
+
+    queryFn: () => financialReportsRetrieve({ path: { uuid: customer.uuid } }),
+  });
   if (!value) {
     return null;
   }
@@ -28,7 +29,7 @@ const AsyncEstimatedCost = ({ customer }) => {
 };
 
 export const EstimatedCost: FunctionComponent = () => {
-  const customer = useSelector(getCustomer);
+  const customer = useCustomer();
   if (!customer) {
     return null;
   }

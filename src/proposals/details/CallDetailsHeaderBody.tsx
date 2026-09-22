@@ -1,9 +1,11 @@
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { Field } from '@waldur/resource/summary';
+import { Table } from 'react-bootstrap';
 
+import { formatDateTime } from '@/core/dateUtils';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+
+import { CallDurationPolicy } from '../CallDurationPolicy';
 import { Call } from '../types';
 import { getRoundsWithStatus } from '../utils';
 
@@ -19,17 +21,34 @@ export const CallDetailsHeaderBody = (props: CallDetailsHeaderBodyProps) => {
   return (
     <>
       {nextRound.status.label === 'Open' && (
-        <>
-          <Field
-            label={translate('Open round started')}
-            value={formatDateTime(nextRound.start_time)}
-          />
-
-          <Field
-            label={translate('Open round ends')}
-            value={formatDateTime(nextRound.cutoff_time)}
-          />
-        </>
+        <Table className="mb-0 px-0 h-auto w-auto">
+          <tbody>
+            <tr>
+              <th className="fw-bold w-125px p-0 pe-3 pb-1 text-nowrap">
+                {translate('Open round started')}:
+              </th>
+              <td className="text-muted p-0 pb-1">
+                {formatDateTime(nextRound.start_time)}
+              </td>
+            </tr>
+            <tr>
+              <th className="fw-bold w-125px p-0 pe-3 text-nowrap">
+                {translate('Open round ends')}:
+              </th>
+              <td className="text-muted p-0">
+                {formatDateTime(nextRound.cutoff_time)}
+              </td>
+            </tr>
+            <tr>
+              <th className="fw-bold w-125px p-0 pe-3 pt-1 text-nowrap">
+                {translate('Project duration')}:
+              </th>
+              <td className="text-muted p-0 pt-1">
+                <CallDurationPolicy call={props.call} />
+              </td>
+            </tr>
+          </tbody>
+        </Table>
       )}
       {nextRound.status.label === 'Ended' && (
         <p className="text-danger">
@@ -37,17 +56,34 @@ export const CallDetailsHeaderBody = (props: CallDetailsHeaderBodyProps) => {
         </p>
       )}
       {nextRound.status.label === 'Scheduled' && (
-        <>
-          <Field
-            label={translate('Next round starts')}
-            value={formatDateTime(nextRound.start_time)}
-          />
-
-          <Field
-            label={translate('Next round ends')}
-            value={formatDateTime(nextRound.cutoff_time)}
-          />
-        </>
+        <Table className="mb-0 px-0 h-auto w-auto">
+          <tbody>
+            <tr>
+              <th className="fw-bold w-125px p-0 pe-3 pb-1 text-nowrap">
+                {translate('Next round starts')}:
+              </th>
+              <td className="text-muted p-0 pb-1">
+                {formatDateTime(nextRound.start_time)}
+              </td>
+            </tr>
+            <tr>
+              <th className="fw-bold w-125px p-0 pe-3 text-nowrap">
+                {translate('Next round ends')}:
+              </th>
+              <td className="text-muted p-0">
+                {formatDateTime(nextRound.cutoff_time)}
+              </td>
+            </tr>
+            <tr>
+              <th className="fw-bold w-125px p-0 pe-3 pt-1 text-nowrap">
+                {translate('Project duration')}:
+              </th>
+              <td className="text-muted p-0 pt-1">
+                <CallDurationPolicy call={props.call} />
+              </td>
+            </tr>
+          </tbody>
+        </Table>
       )}
     </>
   );

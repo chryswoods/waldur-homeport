@@ -1,20 +1,15 @@
 import { FactoryIcon } from '@phosphor-icons/react';
-import React from 'react';
-import { Props as SelectProps } from 'react-select';
-import { BaseFieldProps, Field } from 'redux-form';
+import { FC, useMemo } from 'react';
 
-import { isFeatureVisible } from '@waldur/features/connect';
-import { ProjectFeatures } from '@waldur/FeaturesEnums';
-import { AsyncPaginate } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { projectAutocomplete } from '@waldur/marketplace/common/autocompletes';
+import { isFeatureVisible } from '@/features/connect';
+import { ProjectFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { projectAutocomplete } from '@/marketplace/common/autocompletes';
+import { AsyncSelectFilter } from '@/table';
 
 interface ProjectFilterProps {
   customer_uuid?: string;
-  placeholder?: string;
-  isDisabled?: boolean;
-  reactSelectProps?: Partial<SelectProps>;
-  validator?: BaseFieldProps['validate'];
+  [key: string]: any;
 }
 
 const getOptionLabel = (option) => (
@@ -23,34 +18,31 @@ const getOptionLabel = (option) => (
     {isFeatureVisible(ProjectFeatures.show_industry_flag) &&
       option.is_industry && (
         <span className="svg-icon svg-icon-3 ms-3">
-          <FactoryIcon />
+          <FactoryIcon weight="bold" />
         </span>
       )}
   </div>
 );
 
-export const ProjectFilter: React.FC<ProjectFilterProps> = (props) => (
-  <Field
-    name="project"
-    validate={props.validator}
-    component={(fieldProps) => (
-      <AsyncPaginate
-        placeholder={props.placeholder || translate('Select project...')}
-        loadOptions={(query, prevOptions, { page }) =>
-          projectAutocomplete(props.customer_uuid, query, prevOptions, page)
-        }
-        defaultOptions
-        getOptionValue={(option) => option.uuid}
-        getOptionLabel={getOptionLabel as any}
-        value={fieldProps.input.value}
-        onChange={(value) => fieldProps.input.onChange(value)}
-        noOptionsMessage={() => translate('No projects')}
-        isClearable={true}
-        isDisabled={props.isDisabled}
-        className="metronic-select-container"
-        classNamePrefix="metronic-select"
-        {...props.reactSelectProps}
-      />
-    )}
-  />
-);
+export const ProjectFilter: FC<ProjectFilterProps> = ({
+  customer_uuid,
+  ...props
+}) => {
+  const loadOptions = useMemo(
+    () => projectAutocomplete(customer_uuid),
+    [customer_uuid],
+  );
+
+  return (
+    <AsyncSelectFilter
+      title={translate('Project')}
+      name="project"
+      badgeValue={(value) => value?.name}
+      placeholder={translate('Select project...')}
+      loadOptions={loadOptions}
+      getOptionValue={(option) => option.uuid}
+      getOptionLabel={getOptionLabel}
+      {...props}
+    />
+  );
+};

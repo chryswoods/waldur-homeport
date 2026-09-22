@@ -1,15 +1,11 @@
 import { FunctionComponent } from 'react';
-import { useDispatch } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { EditAction } from '@waldur/form/EditAction';
-import { openModalDialog } from '@waldur/modal/actions';
+import { EditModalButton } from '@/core/buttons';
+import { lazyComponent } from '@/core/lazyComponent';
 
-import { EDIT_COMPONENT_FORM_ID } from './constants';
-
-const EditComponentDialog = lazyComponent(() =>
-  import('./EditComponentDialog').then((module) => ({
-    default: module.EditComponentDialog,
+const OfferingComponentDialog = lazyComponent(() =>
+  import('./OfferingComponentDialog').then((module) => ({
+    default: module.OfferingComponentDialog,
   })),
 );
 
@@ -17,15 +13,10 @@ export const EditComponentButton: FunctionComponent<{
   offering;
   component;
   refetch;
-}> = ({ offering, component, refetch }) => {
-  const dispatch = useDispatch();
-  const callback = () => {
-    dispatch(
-      openModalDialog(EditComponentDialog, {
-        resolve: { offering, component, refetch },
-        formId: EDIT_COMPONENT_FORM_ID,
-      }),
-    );
-  };
-  return <EditAction action={callback} />;
-};
+}> = ({ offering, component, refetch }) => (
+  <EditModalButton
+    dialog={OfferingComponentDialog}
+    row={component}
+    buildResolve={(r) => ({ offering, component: r, refetch })}
+  />
+);

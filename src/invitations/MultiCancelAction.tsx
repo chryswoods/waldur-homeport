@@ -1,12 +1,11 @@
 import { ProhibitIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { userInvitationsCancel } from 'waldur-js-client';
+import { Invitation, userInvitationsCancel } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { getCustomer, getProject, getUser } from '@waldur/workspace/selectors';
+import { translate } from '@/i18n';
+import { useBatchMutation } from '@/modal/useBatchMutation';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { useUser, useCustomer, useProject } from '@/workspace/hooks';
 
 import { InvitationPolicyService } from './actions/InvitationPolicyService';
 
@@ -16,7 +15,8 @@ const isAnyDisabled = (user, customer, project, rows) => {
       !InvitationPolicyService.canManageInvitation(
         { user, customer, project },
         invitation,
-      ) || invitation.state !== 'pending'
+      ) ||
+      (invitation.state !== 'pending' && invitation.state !== 'project')
     );
   });
 };
@@ -32,7 +32,10 @@ const showTooltip = (user, customer, project, rows) => {
       )
     ) {
       hasPermission = false;
-    } else if (invitation.state !== 'pending') {
+    } else if (
+      invitation.state !== 'pending' &&
+      invitation.state !== 'project'
+    ) {
       hasAvailableState = false;
     }
     if (!hasPermission) {
@@ -41,17 +44,16 @@ const showTooltip = (user, customer, project, rows) => {
       );
     }
     if (!hasAvailableState) {
-      return translate('Only pending invitations can be canceled.');
+      return translate('Only pending or planned invitations can be canceled.');
     }
   }
   return translate('Cancel all selected invitations.');
 };
 
 export const MultiCancelAction = ({ rows, refetch }) => {
-  const user = useSelector(getUser);
-  const customer = useSelector(getCustomer);
-  const project = useSelector(getProject);
-  const dispatch = useDispatch();
+  const user = useUser();
+  const customer = useCustomer();
+  const project = useProject();
 
   const disabled = useMemo(() => {
     return isAnyDisabled(user, customer, project, rows);
@@ -61,27 +63,30 @@ export const MultiCancelAction = ({ rows, refetch }) => {
     return showTooltip(user, customer, project, rows);
   }, [user, customer, project, rows]);
 
-  const callback = () => {
-    try {
-      Promise.all(
-        rows.map((row) => userInvitationsCancel({ path: { uuid: row.uuid } })),
-      ).then(() => {
-        refetch();
-        dispatch(showSuccess(translate('Invitations have been cancelled.')));
-      });
-    } catch (e) {
-      dispatch(
-        showErrorResponse(e, translate('Unable to cancel invitations.')),
-      );
-    }
-  };
+  const { mutate, isPending } = useBatchMutation<Invitation, void>({
+    rows,
+    refetch,
+    mutationFn: (row) => userInvitationsCancel({ path: { uuid: row.uuid } }),
+    successMessage: translate('Invitations have been cancelled.'),
+    renderPartialSuccessMessage: (n) =>
+      translate('{n} invitations have been cancelled.', { n }),
+    errorMessage: translate('Unable to cancel invitations.'),
+    renderErrorMessage: (n) =>
+      translate('{n} invitations could not be cancelled.', { n }),
+    confirmation: {
+      title: translate('Cancel invitations'),
+      body: translate('Are you sure you want to cancel {count} invitations?', {
+        count: rows.length,
+      }),
+    },
+  });
 
   return (
     <ActionItem
       title={translate('Cancel')}
-      action={callback}
+      action={mutate}
       iconNode={<ProhibitIcon weight="bold" />}
-      disabled={disabled}
+      disabled={disabled || isPending}
       tooltip={tooltip}
     />
   );

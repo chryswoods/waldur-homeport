@@ -1,14 +1,11 @@
 import { PlusIcon } from '@phosphor-icons/react';
-import classNames from 'classnames';
 import { FunctionComponent, useCallback } from 'react';
-import { useDispatch } from 'react-redux';
 
-import { ENV } from '@waldur/core/config';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
+import { SidebarCallToAction } from 'waldur-ui';
 
-import './MarketplaceTrigger.scss';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
 
 const MarketplacePopup = lazyComponent(() =>
   import('./MarketplacePopup').then((module) => ({
@@ -16,36 +13,32 @@ const MarketplacePopup = lazyComponent(() =>
   })),
 );
 
-export const MarketplaceTrigger: FunctionComponent = () => {
-  const dispatch = useDispatch();
+interface MarketplaceTriggerProps {
+  disabled?: boolean;
+  disabledTooltip?: string;
+}
+
+export const MarketplaceTrigger: FunctionComponent<MarketplaceTriggerProps> = ({
+  disabled,
+  disabledTooltip,
+}) => {
+  const { openDialog } = useModal();
   const openFormDialog = useCallback(
     () =>
-      dispatch(
-        openModalDialog(MarketplacePopup, {
-          size: 'lg',
-        }),
-      ),
-    [dispatch],
+      openDialog(MarketplacePopup, {
+        size: 'lg',
+      }),
+    [],
   );
-  const sidebarStyle = ENV.plugins.WALDUR_CORE.SIDEBAR_STYLE || 'dark';
 
   return (
-    <div className="menu-item add-resource-toggle">
-      <span
-        className={classNames('menu-link btn btn-outline', {
-          'btn-outline-white': sidebarStyle === 'dark',
-          'btn-outline-primary': sidebarStyle === 'light',
-        })}
-        aria-hidden="true"
-        onClick={openFormDialog}
-      >
-        <span className="menu-icon justify-content-center">
-          <span className="svg-icon svg-icon-2">
-            <PlusIcon weight="bold" />
-          </span>
-        </span>
-        <span className="menu-title">{translate('Add resource')}</span>
-      </span>
-    </div>
+    <SidebarCallToAction
+      icon={<PlusIcon size={20} weight="bold" />}
+      label={translate('Add resource')}
+      disabled={disabled}
+      disabledTooltip={disabledTooltip}
+      onClick={openFormDialog}
+      data-testid="add-resource-toggle"
+    />
   );
 };

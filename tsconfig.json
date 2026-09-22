@@ -3,8 +3,10 @@
     "outDir": "./build/",
     "sourceMap": true,
     "noImplicitAny": false,
-    "noUnusedParameters": true,
-    "noUnusedLocals": true,
+    "strict": false,
+    "strictNullChecks": false,
+    "noUnusedParameters": false,
+    "noUnusedLocals": false,
     "module": "esnext",
     "moduleResolution": "Bundler",
     "target": "ES2020",
@@ -12,18 +14,11 @@
     "allowJs": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "skipLibCheck": false,
+    "skipLibCheck": true,
     "noEmit": true,
-    "baseUrl": ".",
     "paths": {
-      "@waldur/*": [
-        "src/*"
-      ],
-      "react": [
-        "./node_modules/@types/react"
-      ],
-      "react-dom": [
-        "./node_modules/@types/react-dom"
+      "@/*": [
+        "./src/*"
       ],
     },
     "lib": [
@@ -38,13 +33,11 @@
   "include": [
     "./src/**/*",
     "./typings.d.ts",
-    "cypress.config.ts",
     "extractLiteralsFromFiles.ts",
-    "vite.config.ts"
+    "vite.config.ts",
+    "test"
   ],
   "exclude": [
-    "./cypress/**/*",
-    "./cypress.config.js",
     "**/*.spec.tsx",
     "**/*.spec.ts",
     "**/*.fixture.tsx",

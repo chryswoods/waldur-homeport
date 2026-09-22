@@ -1,10 +1,10 @@
 import { useCurrentStateAndParams } from '@uirouter/react';
 import { FunctionComponent } from 'react';
 
-import { ENV } from '@waldur/core/config';
-import { LandingHeroSection } from '@waldur/dashboard/hero/LandingHeroSection';
-import { translate } from '@waldur/i18n';
-import { useFullPage } from '@waldur/navigation/context';
+import { ENV } from '@/core/config';
+import { LandingHeroSection } from '@/dashboard/hero/LandingHeroSection';
+import { translate } from '@/i18n';
+import { useFullPage } from '@/navigation/context';
 
 import { PublicCallsList } from './PublicCallsList';
 
@@ -24,7 +24,7 @@ export const PublicCallsPage: FunctionComponent<PublicCallsPageProps> = ({
     <>
       <LandingHeroSection
         header={ENV.plugins.WALDUR_CORE.SHORT_PAGE_TITLE}
-        title={translate('Calls for proposals')}
+        title={translate('All calls')}
         context="calls"
       />
 

@@ -1,24 +1,41 @@
-import { TrashIcon } from '@phosphor-icons/react';
+import { useRouter } from '@uirouter/react';
 import { FunctionComponent } from 'react';
-import { Button, Card } from 'react-bootstrap';
-import { useDispatch, useSelector } from 'react-redux';
+import { Card } from 'react-bootstrap';
+import { customersDestroy } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { showError } from '@waldur/store/notify';
-import { getCustomer, isStaff } from '@waldur/workspace/selectors';
-
-const CustomerRemoveDialog = lazyComponent(() =>
-  import('@waldur/customer/details/CustomerRemoveDialog').then((module) => ({
-    default: module.CustomerRemoveDialog,
-  })),
-);
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { useNotify } from '@/store/notify';
+import { RemovalActionButton } from '@/table/RemovalActionButton';
+import { useCustomer, useUser, useSetCustomer } from '@/workspace/hooks';
 
 export const CustomerRemovePanel: FunctionComponent = () => {
-  const customer = useSelector(getCustomer);
-  const canDeleteCustomer = useSelector(isStaff);
-  const dispatch = useDispatch();
+  const customer = useCustomer();
+  const user = useUser();
+  const canDeleteCustomer = user?.is_staff;
+  const { showError } = useNotify();
+  const setCurrentCustomer = useSetCustomer();
+  const router = useRouter();
+
+  const callbackMutation = useManagedMutation<any, any, void>({
+    mutationFn: () => customersDestroy({ path: { uuid: customer.uuid } }),
+    errorMessage: translate('Unable to delete organization.'),
+    onSuccess: async () => {
+      await router.stateService.go('organizations');
+      setCurrentCustomer(null);
+    },
+    confirmation: {
+      title: translate('Organization removal'),
+      body: (
+        <>
+          {translate('Organization')}: <strong>{customer.name}</strong>
+        </>
+      ),
+      options: {
+        forDeletion: true,
+      },
+    },
+  });
 
   const removeCustomer = () => {
     const hasProjects = customer.projects_count > 0;
@@ -26,17 +43,11 @@ export const CustomerRemovePanel: FunctionComponent = () => {
       const notification = translate(
         'Before removing organization, please make sure that all projects are removed.',
       );
-      return dispatch(showError(notification));
+      return showError(notification);
     }
-    // Show confirmation dialog
-    dispatch(
-      openModalDialog(CustomerRemoveDialog, {
-        resolve: {
-          customer,
-        },
-        size: 'sm',
-      }),
-    );
+
+    // Trigger the mutation which will handle the confirmation internally
+    callbackMutation.mutate();
   };
 
   return canDeleteCustomer ? (
@@ -61,12 +72,10 @@ export const CustomerRemovePanel: FunctionComponent = () => {
           <li>{translate('Removed organizations cannot be restored!')}</li>
         </ul>
         <div>
-          <Button onClick={removeCustomer} variant="danger">
-            <span className="svg-icon svg-icon-2">
-              <TrashIcon />
-            </span>{' '}
-            {translate('Remove organization')}
-          </Button>
+          <RemovalActionButton
+            action={removeCustomer}
+            title={translate('Remove organization')}
+          />
         </div>
       </Card.Body>
     </Card>

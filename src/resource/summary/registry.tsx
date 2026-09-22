@@ -1,26 +1,21 @@
-import {
-  AzureSQLDatabaseSummaryConfiguration,
-  AzureSQLServerSummaryConfiguration,
-} from '@waldur/azure/sql/summary';
-import { AzureVirtualMachineSummaryConfiguration } from '@waldur/azure/vm/summary';
-import { OpenStackBackupSummaryConfiguration } from '@waldur/openstack/openstack-backup/summary';
-import { OpenStackFloatingIpSummaryConfiguration } from '@waldur/openstack/openstack-floating-ips/summary';
-import { OpenStackInstanceSummaryConfiguration } from '@waldur/openstack/openstack-instance/summary';
-import { OpenStackNetworkSummaryConfiguration } from '@waldur/openstack/openstack-network/summary';
-import { OpenStackSnapshotSummaryConfiguration } from '@waldur/openstack/openstack-snapshot/summary';
-import { OpenStackSubNetSummaryConfiguration } from '@waldur/openstack/openstack-subnet/summary';
+import { OpenStackBackupSummaryConfiguration } from '@/openstack/openstack-backup/summary';
+import { OpenStackFloatingIpSummaryConfiguration } from '@/openstack/openstack-floating-ips/summary';
+import { OpenStackInstanceSummaryConfiguration } from '@/openstack/openstack-instance/summary';
+import { OpenStackNetworkSummaryConfiguration } from '@/openstack/openstack-network/summary';
+import { OpenStackSnapshotSummaryConfiguration } from '@/openstack/openstack-snapshot/summary';
+import { OpenStackSubNetSummaryConfiguration } from '@/openstack/openstack-subnet/summary';
 import {
   OpenStackPortSummaryConfiguration,
   OpenStackRouterSummaryConfiguration,
   OpenStackTenantSummaryConfiguration,
-} from '@waldur/openstack/openstack-tenant/summary';
-import { OpenStackVolumeSummaryConfiguration } from '@waldur/openstack/openstack-volume/summary';
-import { RancherNodeSummaryConfiguration } from '@waldur/rancher/node/summary';
+} from '@/openstack/openstack-tenant/summary';
+import { OpenStackVolumeSummaryConfiguration } from '@/openstack/openstack-volume/summary';
+import { RancherNodeSummaryConfiguration } from '@/rancher/node/summary';
 import {
   VMwareVirtualMachineSummaryConfiguration,
   VMwareDiskSummaryConfiguration,
   VMwarePortSummaryConfiguration,
-} from '@waldur/vmware/summary';
+} from '@/vmware/summary';
 
 import { ResourceSummaryConfiguration } from './types';
 
@@ -34,9 +29,6 @@ export const get = (type: string): ResourceSummaryConfiguration => {
   return registry[type];
 };
 
-register(AzureSQLDatabaseSummaryConfiguration);
-register(AzureSQLServerSummaryConfiguration);
-register(AzureVirtualMachineSummaryConfiguration);
 register(OpenStackBackupSummaryConfiguration);
 register(OpenStackFloatingIpSummaryConfiguration);
 register(OpenStackNetworkSummaryConfiguration);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { INSTANCE_TYPE } from '@waldur/openstack/constants';
-import { Resource } from '@waldur/resource/types';
+import { INSTANCE_TYPE } from '@/openstack/constants';
+import { Resource } from '@/resource/types';
 
 import { getResourceState } from './utils';
 
@@ -40,6 +40,21 @@ describe('getResourceState', () => {
       label: 'ONLINE',
       active: false,
       tooltip: 'Failed to operate with backend.',
+    });
+  });
+
+  it('renders rescue runtime state with warning variant', () => {
+    const resource: Resource = {
+      ...baseResource,
+      state: 'OK',
+      runtime_state: 'RESCUE',
+      service_settings_state: 'OK',
+    };
+    expect(getResourceState(resource)).toEqual({
+      variant: 'warning',
+      label: 'RESCUE',
+      active: false,
+      tooltip: 'Resource is in sync, current state on backend: RESCUE.',
     });
   });
 

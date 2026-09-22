@@ -1,123 +1,110 @@
-import { useMutation } from '@tanstack/react-query';
-import { Form, Field } from 'react-final-form';
-import { openportalRemoteProjectsSetLinks } from 'waldur-js-client';
+import { Form } from 'react-final-form';
+import {
+  RemoteProject,
+  LinkRequest,
+  openportalRemoteProjectsSetLinks,
+} from 'waldur-js-client';
 
-import { SubmitButton } from '@waldur/auth/SubmitButton';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-import { useModal } from '@waldur/modal/hooks';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { useNotify } from '@waldur/store/hooks';
-
-interface LinkValue {
-  id?: string;
-  url?: string;
-}
+import { StringGroup, SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
 interface FormValues {
-  award: LinkValue;
-  call: LinkValue;
-  renewal: LinkValue;
+  award: LinkRequest;
+  call: LinkRequest;
+  project_link: LinkRequest;
+  renewal: LinkRequest;
 }
 
-interface Props {
-  row: any;
-  resolve: { refetch(): Promise<void> };
+interface SetLinksDialogProps {
+  row: RemoteProject;
+  resolve: {
+    refetch: () => Promise<void> | void;
+  };
 }
 
-const LinkFields = ({ prefix, label }: { prefix: string; label: string }) => (
-  <div className="mb-4">
-    <h6 className="fw-semibold mb-2">{label}</h6>
+const emptyLink = (): LinkRequest => ({ id: '', url: '' });
+
+const cleanLink = (link: LinkRequest): LinkRequest | null =>
+  link?.id || link?.url
+    ? { id: link.id || undefined, url: link.url || undefined }
+    : null;
+
+const LinkFields = ({
+  name,
+  label,
+}: {
+  name: 'award' | 'call' | 'project_link' | 'renewal';
+  label: string;
+}) => (
+  <div className="mb-3">
+    <div className="fw-semibold mb-1">{label}</div>
     <div className="row g-2">
-      <div className="col-md-4">
-        <FormGroup controlId={`${prefix}.id`} label={translate('ID')}>
-          <Field
-            name={`${prefix}.id`}
-            render={({ input }) => (
-              <input {...input} className="form-control" placeholder={translate('Identifier')} />
-            )}
-          />
-        </FormGroup>
+      <div className="col-sm-5">
+        <StringGroup
+          name={`${name}.id`}
+          placeholder={translate('Identifier, e.g. EP/X000000/1')}
+          spaceless
+        />
       </div>
-      <div className="col-md-8">
-        <FormGroup controlId={`${prefix}.url`} label={translate('URL')}>
-          <Field
-            name={`${prefix}.url`}
-            render={({ input }) => (
-              <input
-                {...input}
-                className="form-control"
-                type="url"
-                placeholder="https://..."
-              />
-            )}
-          />
-        </FormGroup>
+      <div className="col-sm-7">
+        <StringGroup
+          name={`${name}.url`}
+          placeholder={translate('URL')}
+          spaceless
+        />
       </div>
     </div>
   </div>
 );
 
-const linkFromRow = (link: any): LinkValue => ({
-  id: link?.id ?? '',
-  url: link?.url ?? '',
-});
-
-const linkToBody = (v: LinkValue) =>
-  v?.id || v?.url ? { id: v.id || null, url: v.url || null } : null;
-
-export const SetLinksDialog = ({ row, resolve }: Props) => {
-  const { showSuccess, showErrorResponse } = useNotify();
-  const { closeDialog } = useModal();
-
-  const { mutateAsync } = useMutation({
-    mutationFn: (values: FormValues) =>
+export const SetLinksDialog: React.FC<SetLinksDialogProps> = ({
+  row,
+  resolve,
+}) => {
+  const mutation = useManagedMutation<any, any, FormValues>({
+    mutationFn: (values) =>
       openportalRemoteProjectsSetLinks({
         path: { uuid: row.uuid },
         body: {
-          award: linkToBody(values.award),
-          call: linkToBody(values.call),
-          renewal: linkToBody(values.renewal),
+          award: cleanLink(values.award),
+          call: cleanLink(values.call),
+          project_link: cleanLink(values.project_link),
+          renewal: cleanLink(values.renewal),
         },
       }),
+    successMessage: translate('Links have been updated.'),
+    errorMessage: translate('Unable to update links.'),
+    refetch: resolve.refetch,
   });
 
-  const handleSubmit = async (values: FormValues) => {
-    try {
-      await mutateAsync(values);
-      showSuccess(translate('Links updated.'));
-      closeDialog();
-      await resolve.refetch();
-    } catch (e) {
-      showErrorResponse(e, translate('Unable to update links.'));
-    }
-  };
-
   return (
-    <Form
-      onSubmit={handleSubmit}
+    <Form<FormValues>
+      onSubmit={(values) => mutation.mutateAsync(values)}
       initialValues={{
-        award: linkFromRow(row.link_award),
-        call: linkFromRow(row.link_call),
-        renewal: linkFromRow(row.link_renewal),
+        award: row.link_award ?? emptyLink(),
+        call: row.link_call ?? emptyLink(),
+        project_link: row.link_project ?? emptyLink(),
+        renewal: row.link_renewal ?? emptyLink(),
       }}
+      subscription={{ submitting: true, invalid: true }}
       render={({ handleSubmit, submitting, invalid }) => (
         <form onSubmit={handleSubmit} noValidate>
           <ModalDialog
-            title={translate('Set award links')}
+            title={translate('Set links')}
             footer={
-              <div className="text-end">
-                <SubmitButton
-                  submitting={submitting}
-                  invalid={invalid}
-                  label={translate('Save')}
-                />
-              </div>
+              <SubmitButton
+                submitting={submitting}
+                invalid={invalid}
+                label={translate('Save')}
+              />
             }
           >
-            <LinkFields prefix="award" label={translate('Award')} />
-            <LinkFields prefix="call" label={translate('Call')} />
-            <LinkFields prefix="renewal" label={translate('Renewal')} />
+            <LinkFields name="award" label={translate('Award')} />
+            <LinkFields name="call" label={translate('Funding call')} />
+            <LinkFields name="project_link" label={translate('Project page')} />
+            <LinkFields name="renewal" label={translate('Renewal')} />
           </ModalDialog>
         </form>
       )}

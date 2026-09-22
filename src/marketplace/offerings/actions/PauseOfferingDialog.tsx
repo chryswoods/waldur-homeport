@@ -1,60 +1,63 @@
-import { useDispatch } from 'react-redux';
-import { reduxForm, Field } from 'redux-form';
+import { FunctionComponent } from 'react';
+import { Form } from 'react-final-form';
 import { marketplaceProviderOfferingsPause } from 'waldur-js-client';
 
-import { SubmitButton, TextField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { SubmitButton, TextGroup } from '@/form';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
-export const PauseOfferingDialog = reduxForm<
-  { reason },
-  { resolve: { offering; refreshOffering } }
->({ form: 'marketplacePauseOffering' })((props) => {
-  const dispatch = useDispatch();
-  const callback = async (formData) => {
-    try {
-      await marketplaceProviderOfferingsPause({
-        path: { uuid: props.resolve.offering.uuid },
+export const PauseOfferingDialog: FunctionComponent<{
+  resolve: { offering; refreshOffering };
+}> = ({ resolve: { offering, refreshOffering } }) => {
+  const pauseMutation = useManagedMutation<any, any, any>({
+    mutationFn: (formData) =>
+      marketplaceProviderOfferingsPause({
+        path: { uuid: offering.uuid },
         body: { paused_reason: formData.reason },
-      });
-      if (props.resolve.refreshOffering) {
-        props.resolve.refreshOffering();
-      }
-      dispatch(showSuccess(translate('Offering has been paused.')));
-      dispatch(closeModalDialog());
-    } catch (error) {
-      dispatch(
-        showErrorResponse(error, translate('Unable to pause offering.')),
-      );
-    }
-  };
+      }),
+    successMessage: translate('Offering has been paused.'),
+    errorMessage: translate('Unable to pause offering.'),
+    refetch: refreshOffering,
+  });
+
   return (
-    <form onSubmit={props.handleSubmit(callback)}>
-      <ModalDialog
-        title={translate('Pause offering')}
-        footer={
-          <>
-            <CloseDialogButton />
-            <SubmitButton
-              submitting={props.submitting}
-              label={translate('Submit')}
+    <Form
+      onSubmit={(values) => pauseMutation.mutateAsync(values)}
+      render={({ handleSubmit, submitting }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate('Pause offering')}
+            subtitle={
+              <ScopeSubtitle
+                label={translate('Offering name')}
+                name={offering.name}
+              />
+            }
+            footer={
+              <>
+                <CloseDialogButton />
+                <SubmitButton
+                  submitting={submitting}
+                  label={translate('Pause')}
+                  className="btn btn-primary"
+                />
+              </>
+            }
+          >
+            <TextGroup
+              name="reason"
+              as="textarea"
+              placeholder={translate(
+                'Please enter reason why offering has been paused.',
+              )}
+              rows={7}
             />
-          </>
-        }
-      >
-        <Field
-          name="reason"
-          component={TextField}
-          as="textarea"
-          placeholder={translate(
-            'Please enter reason why offering has been paused.',
-          )}
-          rows={7}
-        />
-      </ModalDialog>
-    </form>
+          </ModalDialog>
+        </form>
+      )}
+    />
   );
-});
+};

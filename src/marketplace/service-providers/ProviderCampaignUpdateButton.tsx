@@ -1,13 +1,12 @@
 import { FunctionComponent } from 'react';
-import { useDispatch } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { EditButton } from '@waldur/form/EditButton';
-import { openModalDialog } from '@waldur/modal/actions';
+import { lazyComponent } from '@/core/lazyComponent';
+import { CompactEditButton } from '@/form/CompactEditButton';
+import { useModal } from '@/modal/actions';
 
-const CampaignUpdateDialog = lazyComponent(() =>
-  import('./CampaignUpdateDialog').then((module) => ({
-    default: module.CampaignUpdateDialog,
+const CampaignDialog = lazyComponent(() =>
+  import('./CampaignDialog').then((module) => ({
+    default: module.CampaignDialog,
   })),
 );
 
@@ -15,14 +14,12 @@ export const ProviderCampaignUpdateButton: FunctionComponent<{
   campaign;
   fetch;
 }> = ({ campaign, fetch }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const callback = () => {
-    dispatch(
-      openModalDialog(CampaignUpdateDialog, {
-        resolve: { campaign, fetch },
-        size: 'lg',
-      }),
-    );
+    openDialog(CampaignDialog, {
+      resolve: { campaign, fetch },
+      size: 'lg',
+    });
   };
-  return <EditButton onClick={callback} size="sm" />;
+  return <CompactEditButton onClick={callback} />;
 };

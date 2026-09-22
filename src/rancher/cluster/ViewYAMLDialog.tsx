@@ -1,94 +1,105 @@
-import { useEffect, useCallback } from 'react';
-import { Button } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
-import { useAsyncFn, useToggle } from 'react-use';
-import { reduxForm, Field } from 'redux-form';
+import { useQuery } from '@tanstack/react-query';
+import { FC, useMemo } from 'react';
+import { Form, Field } from 'react-final-form';
+import { useToggle } from 'react-use';
 
-import { CopyToClipboard } from '@waldur/core/CopyToClipboard';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { MonacoField } from '@waldur/form/MonacoField';
-import { translate } from '@waldur/i18n';
-import { ActionDialog } from '@waldur/modal/ActionDialog';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
+import { CopyToClipboard } from '@/core/CopyToClipboard';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { FormFooter, SubmitButton } from '@/form';
+import { MonacoField } from '@/form/MonacoField';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
-export const ViewYAMLDialog = reduxForm<
-  { yaml: string },
-  { resolve: { resource: { uuid?: string }; yamlRetrieve; yamlUpdate } }
->({ form: 'ViewYAMLDialog', enableReinitialize: true })(({
-  resolve,
-  handleSubmit,
-  submitting,
-  initialize,
-}) => {
-  const dispatch = useDispatch();
+interface ViewYAMLDialogProps {
+  resolve: {
+    resource: { uuid?: string; name?: string };
+    yamlRetrieve;
+    yamlUpdate;
+  };
+}
 
-  const [{ loading, error, value }, fetch] = useAsyncFn(() =>
-    resolve
-      .yamlRetrieve({ path: { uuid: resolve.resource.uuid } })
-      .then((response) => response.data.yaml),
-  );
+export const ViewYAMLDialog: FC<ViewYAMLDialogProps> = ({ resolve }) => {
+  const {
+    data: value,
+    isLoading: loading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['cluster-yaml', resolve.resource.uuid],
+    queryFn: () =>
+      resolve
+        .yamlRetrieve({ path: { uuid: resolve.resource.uuid } })
+        .then((response) => response.data.yaml),
+  });
 
-  useEffect(() => {
-    fetch();
-  }, []);
+  const initialValues = useMemo(() => ({ yaml: value as string }), [value]);
 
-  useEffect(() => {
-    if (value) {
-      initialize({ yaml: value as string });
-    }
-  }, [value, initialize]);
-
-  const updateYAML = useCallback(
-    async (formData: { yaml: string }) => {
-      try {
-        await resolve.yamlUpdate({
-          uuid: resolve.resource.uuid,
-          body: {
-            yaml: formData.yaml,
-          },
-        });
-        dispatch(showSuccess(translate('YAML has been updated.')));
-        dispatch(closeModalDialog());
-      } catch (e) {
-        dispatch(showErrorResponse(e, translate('Unable to update YAML.')));
-      }
-    },
-    [dispatch, resolve.resource.uuid],
-  );
+  const updateYamlMutation = useManagedMutation<any, any, { yaml: string }>({
+    mutationFn: (formData) =>
+      resolve.yamlUpdate({
+        uuid: resolve.resource.uuid,
+        body: {
+          yaml: formData.yaml,
+        },
+      }),
+    successMessage: translate('YAML has been updated.'),
+    errorMessage: translate('Unable to update YAML.'),
+  });
 
   const [showDiff, toggleShowDiff] = useToggle(false);
 
   if (error) {
-    return <LoadingErred loadData={fetch} />;
+    return <LoadingErred loadData={() => refetch()} />;
   }
 
   return (
-    <ActionDialog
-      title={translate('Edit YAML')}
-      submitLabel={translate('Submit')}
-      onSubmit={handleSubmit(updateYAML)}
-      submitting={submitting}
-      loading={loading}
-    >
-      <Field
-        name="yaml"
-        language="yaml"
-        component={MonacoField}
-        original={value as string}
-        diff={showDiff}
-        height={400}
-        options={{ scrollBeyondLastLine: false }}
-      />
+    <Form<{ yaml: string }>
+      onSubmit={(values) => updateYamlMutation.mutateAsync(values)}
+      initialValues={initialValues}
+      enableReinitialize={true}
+      render={({ handleSubmit }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate('Edit YAML')}
+            subtitle={
+              <ScopeSubtitle
+                label={translate('Cluster name')}
+                name={resolve.resource.name}
+              />
+            }
+            footer={<FormFooter />}
+          >
+            {loading ? (
+              <LoadingSpinner />
+            ) : (
+              <div className="size-sm">
+                <Field name="yaml">
+                  {({ input }) => (
+                    <MonacoField input={input} language="yaml" height={400} />
+                  )}
+                </Field>
+              </div>
+            )}
 
-      {value && (
-        <>
-          <CopyToClipboard value={value} textButton className="my-2" />{' '}
-          <Button onClick={toggleShowDiff}>
-            {showDiff ? translate('Hide diff') : translate('Show diff')}
-          </Button>
-        </>
+            {value && !loading && (
+              <div className="d-flex align-items-center gap-2 mt-4">
+                <CopyToClipboard value={value as string} textButton />
+                <SubmitButton
+                  submitting={false}
+                  onClick={toggleShowDiff}
+                  type="button"
+                  label={
+                    showDiff ? translate('Hide diff') : translate('Show diff')
+                  }
+                />
+              </div>
+            )}
+          </ModalDialog>
+        </form>
       )}
-    </ActionDialog>
+    />
   );
-});
+};

@@ -3,18 +3,18 @@ import { UIView, useCurrentStateAndParams } from '@uirouter/react';
 import { FC, useMemo } from 'react';
 import { proposalPublicCallsRetrieve } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { useBreadcrumbs, usePageHero } from '@waldur/navigation/context';
-import { useTitle } from '@waldur/navigation/title';
-import { PageBarTab } from '@waldur/navigation/types';
-import { usePageTabsTransmitter } from '@waldur/navigation/usePageTabsTransmitter';
-import { useThemeFeatures } from '@waldur/theme/useThemeFeatures';
+import { SHORT_STALE_TIME } from '@/core/constants';
+import { lazyComponent } from '@/core/lazyComponent';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { useBreadcrumbs, usePageHero } from '@/navigation/context';
+import { useTitle } from '@/navigation/title';
+import { PageBarTab } from '@/navigation/types';
+import { usePageTabsTransmitter } from '@/navigation/usePageTabsTransmitter';
 
-import { useCallBreadcrumbItems } from '../utils';
+import { usePublicCallBreadcrumbItems } from '../utils';
 
 import { CallTabs } from './CallTabs';
 import { PublicCallDetailsHero } from './PublicCallDetailsHero';
@@ -40,8 +40,6 @@ const CallRoundsList = lazyComponent(() =>
   })),
 );
 
-const themeFeatures = useThemeFeatures();
-
 const tabs: PageBarTab[] = [
   {
     key: 'description',
@@ -52,7 +50,6 @@ const tabs: PageBarTab[] = [
     key: 'rounds',
     title: translate('Rounds'),
     component: CallRoundsList,
-    visible: themeFeatures.ShowPublicCallRounds,
   },
   {
     key: 'documents',
@@ -63,7 +60,6 @@ const tabs: PageBarTab[] = [
     key: 'offerings',
     title: translate('Offerings'),
     component: CallOfferingsCard,
-    visible: themeFeatures.ShowPublicCallOfferings,
   },
 ];
 
@@ -94,24 +90,35 @@ export const PublicCallDetailsContainer: FC = () => {
       ),
 
     refetchOnWindowFocus: false,
-    staleTime: 60 * 1000,
+    staleTime: SHORT_STALE_TIME,
   });
 
   useTitle(call ? call.name : translate('Call details'));
 
   usePageHero(<PageHero call={call} />, [call]);
 
-  const breadcrumbItems = useCallBreadcrumbItems(call);
+  const breadcrumbItems = usePublicCallBreadcrumbItems(call);
   useBreadcrumbs(breadcrumbItems);
 
   const filteredTabs = useMemo(
     () =>
-      tabs.filter(
-        (tab) =>
-          !isFeatureVisible(MarketplaceFeatures.call_only) ||
-          tab.key !== 'rounds',
-      ),
-    [tabs],
+      tabs.filter((tab) => {
+        // Rounds are hidden for call-only (external) calls.
+        if (
+          tab.key === 'rounds' &&
+          isFeatureVisible(MarketplaceFeatures.call_only)
+        ) {
+          return false;
+        }
+        // The Documents tab is applicant-facing and read-only here, so only
+        // show it when the call actually has documents (managers attach them
+        // from the call edit view).
+        if (tab.key === 'documents' && !call?.documents?.length) {
+          return false;
+        }
+        return true;
+      }),
+    [call],
   );
 
   const { tabSpec } = usePageTabsTransmitter(filteredTabs);

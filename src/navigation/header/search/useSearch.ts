@@ -4,9 +4,12 @@ import {
   customersList,
   marketplaceResourcesList,
   projectsList,
+  usersList,
 } from 'waldur-js-client';
 
-import { fetchResultCount } from '@waldur/core/api';
+import { fetchResultCount } from '@/core/api';
+import { SHORT_STALE_TIME } from '@/core/constants';
+import { useUser } from '@/workspace/hooks';
 
 const queryFn =
   (query) =>
@@ -68,7 +71,17 @@ type QueryResult = ReturnType<typeof queryFn>;
 
 export const useSearch = () => {
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 500);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const [activeTab, setActiveTab] = useState('all');
+  const user = useUser();
+  const isStaffOrSupportUser = user?.is_staff || user?.is_support;
 
   const handleClickOutside = useCallback(
     (e) => {
@@ -92,15 +105,55 @@ export const useSearch = () => {
   }, [handleClickOutside]);
 
   const result = useQuery<{}, {}, Awaited<ReturnType<QueryResult>>>({
-    queryKey: [`global-search`, query],
-
-    queryFn: queryFn(query),
-
-    staleTime: 60 * 1000,
+    queryKey: ['global-search', debouncedQuery],
+    queryFn: queryFn(debouncedQuery),
+    staleTime: SHORT_STALE_TIME,
     placeholderData: keepPreviousData,
-    enabled: show,
+    enabled: show && debouncedQuery.length > 0,
   });
-  return { query, setQuery, result, show, setShow };
+
+  const usersResult = useQuery({
+    queryKey: ['global-search-users', debouncedQuery],
+    queryFn: async ({ signal }) => {
+      const response = await usersList({
+        signal,
+        query: {
+          query: debouncedQuery,
+          field: [
+            'uuid',
+            'full_name',
+            'email',
+            'phone_number',
+            'organization',
+            'permissions',
+            'is_active',
+            'has_active_session',
+          ],
+          page_size: 50,
+        },
+      });
+      return {
+        users: response.data,
+        usersCount: fetchResultCount(response),
+      };
+    },
+    enabled: show && isStaffOrSupportUser && debouncedQuery.length > 0,
+    staleTime: SHORT_STALE_TIME,
+    placeholderData: keepPreviousData,
+  });
+
+  return {
+    query,
+    setQuery,
+    result,
+    usersResult,
+    show,
+    setShow,
+    activeTab,
+    setActiveTab,
+    isStaffOrSupportUser,
+  };
 };
 
 export type SearchResult = ReturnType<typeof useSearch>['result'];
+export type UsersSearchResult = ReturnType<typeof useSearch>['usersResult'];

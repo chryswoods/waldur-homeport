@@ -1,50 +1,65 @@
+import { useQuery } from '@tanstack/react-query';
 import { FC } from 'react';
-import { useDispatch } from 'react-redux';
-import { useAsync } from 'react-use';
 import {
   openstackInstancesList,
   rancherNodesLinkOpenstack,
 } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ResourceActionDialog } from '@waldur/resource/actions/ResourceActionDialog';
-import { ActionDialogProps } from '@waldur/resource/actions/types';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { UI_STALE_TIME } from '@/core/constants';
+import { translate } from '@/i18n';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ResourceActionDialog } from '@/resource/actions/ResourceActionDialog';
+import { ActionDialogProps } from '@/resource/actions/types';
 
 export const LinkDialog: FC<ActionDialogProps> = ({
   resolve: { resource, refetch },
 }) => {
-  const dispatch = useDispatch();
-
-  const asyncState = useAsync(async () => {
-    const instances = await getAllPages((page) =>
-      openstackInstancesList({
-        query: {
-          page,
-          project_uuid: resource.project_uuid,
-          field: ['url', 'name'],
-        },
+  const mutation = useManagedMutation<any, any, { instance: string }>({
+    mutationFn: (formData) =>
+      rancherNodesLinkOpenstack({
+        path: { uuid: resource.uuid },
+        body: formData,
       }),
-    );
 
-    return {
-      instances: instances.map((choice) => ({
-        value: choice.url,
-        label: choice.name,
-      })),
-    };
+    successMessage: translate('Instance has been linked.'),
+    errorMessage: translate('Unable to link instance.'),
+    refetch: refetch,
   });
 
-  const fields = asyncState.value
+  const asyncState = useQuery({
+    queryKey: ['openstackInstancesForLink', resource.project_uuid],
+    queryFn: async () => {
+      const instances = await getAllPages((page) =>
+        openstackInstancesList({
+          query: {
+            page,
+            page_size: MAX_PAGE_SIZE,
+            project_uuid: resource.project_uuid,
+            field: ['url', 'name'],
+          },
+        }),
+      );
+
+      return {
+        instances: instances.map((choice) => ({
+          value: choice.url,
+          label: choice.name,
+        })),
+      };
+    },
+    staleTime: UI_STALE_TIME,
+  });
+
+  const fields = asyncState.data
     ? [
         {
           name: 'instance',
           type: 'select',
           required: true,
           label: translate('OpenStack instance'),
-          options: asyncState.value.instances,
+          options: asyncState.data.instances,
         },
       ]
     : [];
@@ -52,22 +67,11 @@ export const LinkDialog: FC<ActionDialogProps> = ({
   return (
     <ResourceActionDialog
       dialogTitle={translate('Link OpenStack Instance')}
+      dialogSubtitle={
+        <ScopeSubtitle label={translate('Node name')} name={resource.name} />
+      }
       formFields={fields}
-      submitForm={async (formData) => {
-        try {
-          await rancherNodesLinkOpenstack({
-            path: { uuid: resource.uuid },
-            body: formData,
-          });
-          dispatch(showSuccess(translate('Instance has been linked.')));
-          dispatch(closeModalDialog());
-          if (refetch) {
-            await refetch();
-          }
-        } catch (e) {
-          dispatch(showErrorResponse(e, translate('Unable to link instance.')));
-        }
-      }}
+      submitForm={mutation.mutateAsync}
     />
   );
 };

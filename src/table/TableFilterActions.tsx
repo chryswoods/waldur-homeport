@@ -1,15 +1,16 @@
-import React from 'react';
-import { Button, Stack } from 'react-bootstrap';
+import React, { useContext } from 'react';
+import { Stack } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
+import { formatDateTime } from '@/core/dateUtils';
+import { CompactSubmitButton } from '@/form/CompactSubmitButton';
+import { translate } from '@/i18n';
 
 import { selectSavedFilter, setSavedFilters } from './actions';
-import { selectSelectedSavedFilter } from './selectors';
+import { TableFilterContext } from './FilterContextProvider';
+import { selectFilterValues, selectSelectedSavedFilter } from './selectors';
 import { TableFilterService } from './TableFilterService';
-import { getFiltersFormId, getSavedFiltersKey } from './utils';
+import { getSavedFiltersKey } from './utils';
 
 interface TableFilterActionsProps {
   filters: JSX.Element;
@@ -21,10 +22,12 @@ interface TableFilterActionsProps {
 export const TableFilterActions: React.FC<TableFilterActionsProps> = (
   props,
 ) => {
-  const dispatch = useDispatch();
-  const filtersFormId = getFiltersFormId(props.filters);
+  const context = useContext(TableFilterContext);
+  const filtersFormId = context.form || '';
 
-  const formValues = useSelector(getFormValues(filtersFormId));
+  const dispatch = useDispatch();
+
+  const formValues = useSelector(selectFilterValues(props.table)) || {};
 
   const selectedSavedFilter = useSelector((state: any) =>
     selectSelectedSavedFilter(state, props.table),
@@ -66,22 +69,31 @@ export const TableFilterActions: React.FC<TableFilterActionsProps> = (
 
   return (
     <Stack direction="horizontal" gap={2}>
-      <Button
+      <CompactSubmitButton
+        submitting={false}
         variant="text-primary"
         className="me-auto"
-        size="sm"
         onClick={saveFilter}
-      >
-        {selectedSavedFilter
-          ? translate('Update filter')
-          : translate('Save filter')}
-      </Button>
-      <Button variant="secondary" size="sm" onClick={props.close}>
-        {translate('Cancel')}
-      </Button>
-      <Button size="sm" onClick={applyCallback}>
-        {translate('Apply')}
-      </Button>
+        type="button"
+        label={
+          selectedSavedFilter
+            ? translate('Update filter')
+            : translate('Save filter')
+        }
+      />
+      <CompactSubmitButton
+        submitting={false}
+        variant="secondary"
+        onClick={props.close}
+        type="button"
+        label={translate('Cancel')}
+      />
+      <CompactSubmitButton
+        submitting={false}
+        onClick={applyCallback}
+        type="button"
+        label={translate('Apply')}
+      />
     </Stack>
   );
 };

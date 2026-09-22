@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { FC, useMemo } from 'react';
+import { FC, ReactNode, useMemo } from 'react';
 import { Card, Nav, Tab } from 'react-bootstrap';
 import {
   proposalProposalsListUsersList,
@@ -7,16 +7,17 @@ import {
   userInvitationsList,
 } from 'waldur-js-client';
 
-import { TableTabsContainer } from '@waldur/customer/list/TableTabsContainer';
-import { BaseEventsList } from '@waldur/events/BaseEventsList';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { GenericInvitationContext } from '@waldur/invitations/types';
-import { RoleEnum } from '@waldur/permissions/enums';
-import { createFetcher } from '@waldur/table/api';
-import { TableTabs } from '@waldur/table/TableTabs';
-import { useTable } from '@waldur/table/useTable';
+import { TableTabsContainer } from '@/customer/list/TableTabsContainer';
+import { BaseEventsList } from '@/events/BaseEventsList';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { GenericInvitationContext } from '@/invitations/types';
+import { RoleEnum } from '@/permissions/enums';
+import { GenericPermission } from '@/permissions/types';
+import { createFetcher } from '@/table/api';
+import { TableTabs } from '@/table/TableTabs';
+import { useTable } from '@/table/useTable';
 
 import { CALL_REVIEWERS_QUERY_KEY } from '../constants';
 import { AddCommentButton } from '../proposal/create-review/AddCommentButton';
@@ -24,6 +25,7 @@ import { FieldReviewComments } from '../proposal/create-review/FieldReviewCommen
 import { ProposalReview } from '../types';
 
 import { InvitationsList } from './InvitationsList';
+import { ReviewerExpandableRow } from './ReviewerExpandableRow';
 import { TeamDropdownActions } from './TeamDropdownActions';
 import { UsersList } from './UsersList';
 
@@ -36,12 +38,12 @@ export const TeamSection: FC<
     readOnlyMode?: boolean;
     id?: string;
     hasTeamTabs?: boolean;
+    extraRowActions?: FC<{ row: GenericPermission }>;
+    roleSuffix?: (row: GenericPermission) => ReactNode;
   }
 > = (props) => {
   const queryClient = useQueryClient();
   const hideRole = props.roles && props.roles.length === 1;
-  const isReviewersSection =
-    props.roles && props.roles.includes(RoleEnum.CALL_REVIEWER);
 
   const usersFilter = useMemo(
     () => ({
@@ -102,12 +104,11 @@ export const TeamSection: FC<
         <Card.Title>
           <h3>{props.title}</h3>
         </Card.Title>
-        <div className="card-toolbar gap-3">
+        <div className="card-toolbar gap-4">
           {!props.readOnlyMode ? (
             <TeamDropdownActions
               refetchUsers={usersTable.fetch}
               refetchInvitations={invitationsTable.fetch}
-              showImportReviewers={isReviewersSection}
               {...props}
             />
           ) : props.onAddCommentClick ? (
@@ -151,16 +152,23 @@ export const TeamSection: FC<
               <Nav.Item className="text-nowrap">
                 <Nav.Link eventKey="users">{translate('Users')}</Nav.Link>
               </Nav.Item>
-              <Nav.Item className="text-nowrap">
-                <Nav.Link eventKey="invitations">
-                  {translate('Invitations')}
-                </Nav.Link>
-              </Nav.Item>
-              <Nav.Item className="text-nowrap">
-                <Nav.Link eventKey="permissions">
-                  {translate('Permissions')}
-                </Nav.Link>
-              </Nav.Item>
+              {/* Invitations and the permissions log are management surfaces the
+                  backend denies to reviewers; in read-only (review) mode we show
+                  only the team roster so the info matches the viewer's role. */}
+              {!props.readOnlyMode && (
+                <>
+                  <Nav.Item className="text-nowrap">
+                    <Nav.Link eventKey="invitations">
+                      {translate('Invitations')}
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item className="text-nowrap">
+                    <Nav.Link eventKey="permissions">
+                      {translate('Permissions')}
+                    </Nav.Link>
+                  </Nav.Item>
+                </>
+              )}
             </Nav>
           </div>
           <Tab.Content className="overflow-auto">
@@ -172,6 +180,13 @@ export const TeamSection: FC<
                 cardBordered={false}
                 hasActionBar={false}
                 fullWidth
+                expandableRow={
+                  props.roles?.includes(RoleEnum.CALL_REVIEWER)
+                    ? ReviewerExpandableRow
+                    : undefined
+                }
+                extraRowActions={props.extraRowActions}
+                roleSuffix={props.roleSuffix}
               />
             </Tab.Pane>
             <Tab.Pane eventKey="invitations" unmountOnExit={true}>

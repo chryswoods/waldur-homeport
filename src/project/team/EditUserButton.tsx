@@ -1,16 +1,13 @@
 import React from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { EditAction } from '@waldur/form/EditAction';
-import { openModalDialog } from '@waldur/modal/actions';
-import { canChangeRoles } from '@waldur/openportal/bindings/helpers';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { GenericPermission } from '@waldur/permissions/types';
-import { getCustomer, getProject, getUser } from '@waldur/workspace/selectors';
+import { lazyComponent } from '@/core/lazyComponent';
+import { EditAction } from '@/form/EditAction';
+import { useModal } from '@/modal/actions';
+import { canChangeRoles } from '@/openportal/awardPolicy';
+import { GenericPermission } from '@/permissions/types';
 
-import { rolesLockedDialog } from '../MembershipLockedDialog';
+import { AwardLockedDialog } from '../AwardLockedDialog';
+import { rolesLockedDialogProps } from '../MembershipLockedDialog';
 import { useProjectAwardDetails } from '../useProjectAwardDetails';
 
 const EditUserDialog = lazyComponent(() =>
@@ -24,6 +21,7 @@ interface EditUserButtonProps {
   refetch;
   projectUuid?;
   customerUuid?;
+  project?;
 }
 
 export const EditUserButton: React.FC<EditUserButtonProps> = ({
@@ -31,32 +29,29 @@ export const EditUserButton: React.FC<EditUserButtonProps> = ({
   refetch,
   projectUuid,
   customerUuid,
+  project,
 }) => {
-  const dispatch = useDispatch();
-  const user = useSelector(getUser);
-  const project = useSelector(getProject);
-  const customer = useSelector(getCustomer);
+  const { openDialog } = useModal();
 
-  const hasContext = projectUuid || customerUuid;
-  const projectId = hasContext ? projectUuid : project?.uuid;
-  const customerId = hasContext ? customerUuid : customer?.uuid;
-
-  if (
-    !hasPermission(user, {
-      permission: PermissionEnum.UPDATE_PROJECT_PERMISSION,
-      customerId,
-      projectId,
-    })
-  ) {
-    return null;
-  }
-
-  const { data: awardDetails } = useProjectAwardDetails(projectId);
+  // An externally managed project may declare that roles are the award's to
+  // set. In that case the edit action opens an explanation rather than the
+  // editor — see src/openportal/awardPolicy.ts.
+  const { data: awardDetails } = useProjectAwardDetails(projectUuid);
   const rolesLocked = !canChangeRoles(awardDetails?.membership_control);
 
-  const callback = rolesLocked && awardDetails
-    ? () => dispatch(rolesLockedDialog(awardDetails))
-    : () => dispatch(openModalDialog(EditUserDialog, { resolve: { permission, refetch } }));
-
+  const callback =
+    rolesLocked && awardDetails
+      ? () =>
+          openDialog(AwardLockedDialog, rolesLockedDialogProps(awardDetails))
+      : () =>
+          openDialog(EditUserDialog, {
+            resolve: {
+              permission,
+              refetch,
+              projectUuid,
+              customerUuid,
+              project,
+            },
+          });
   return <EditAction action={callback} size="sm" />;
 };

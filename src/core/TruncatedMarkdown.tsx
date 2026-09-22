@@ -1,10 +1,10 @@
 import { FC, useRef, useState, useEffect } from 'react';
-import { useDispatch } from 'react-redux';
 
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
+import { Badge } from 'waldur-ui';
 
-import { Badge } from './Badge';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+
 import { SafeMarkdown } from './SafeMarkdown';
 
 interface TruncatedMarkdownProps {
@@ -33,7 +33,7 @@ const FullMarkdownModal: FC<FullMarkdownModalProps> = ({ resolve }) => {
           {resolve.showInternalBadge && (
             <>
               {' '}
-              <Badge variant="warning" light={true} outline={true}>
+              <Badge variant="warning" shape="pill" tone="outline">
                 {translate('Internal')}
               </Badge>
             </>
@@ -54,7 +54,7 @@ export const TruncatedMarkdown: FC<TruncatedMarkdownProps> = ({
 }) => {
   const contentRef = useRef<HTMLDivElement>(null);
   const [isTruncated, setIsTruncated] = useState(false);
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
 
   useEffect(() => {
     const checkTruncation = () => {
@@ -84,12 +84,10 @@ export const TruncatedMarkdown: FC<TruncatedMarkdownProps> = ({
   }, [text, maxHeight]);
 
   const handleShowMore = () => {
-    dispatch(
-      openModalDialog(FullMarkdownModal, {
-        resolve: { text, title, smallTitles, showInternalBadge },
-        size: 'lg',
-      }),
-    );
+    openDialog(FullMarkdownModal, {
+      resolve: { text, title, smallTitles, showInternalBadge },
+      size: 'lg',
+    });
   };
 
   return (

@@ -1,18 +1,21 @@
 import { FunctionComponent } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 
-import { ENV } from '@waldur/core/config';
-import { formatMediumDateTime, formatRelative } from '@waldur/core/dateUtils';
-import { FormattedHtml } from '@waldur/core/FormattedHtml';
-import { FormattedJira } from '@waldur/core/FormattedJira';
-import { getAbbreviation } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
-import { LoadingOverlay } from '@waldur/issues/comments/LoadingOverlay';
-import { type RootState } from '@waldur/store/reducers';
-import { openUserPopover } from '@waldur/user/actions';
+import Avatar from '@/core/Avatar';
+import { ENV } from '@/core/config';
+import { formatMediumDateTime, formatRelative } from '@/core/dateUtils';
+import { FormattedHtml } from '@/core/FormattedHtml';
+import { FormattedJira } from '@/core/FormattedJira';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+
+const UserPopover = lazyComponent(() =>
+  import('@/user/UserPopover').then((module) => ({
+    default: module.UserPopover,
+  })),
+);
 
 import { CommentActions } from './CommentActions';
-import { getIsDeleting } from './selectors';
 import { Comment } from './types';
 
 import './IssueCommentItem.scss';
@@ -42,12 +45,14 @@ const CommentAvatar = ({ comment }) => {
   const color = nameToColor(comment.author_name);
 
   return (
-    <div className="timeline-icon symbol symbol-circle symbol-32px me-4">
-      <div
-        className={`symbol-label fs-5 fw-bold bg-light-${color} text-${color}`}
-      >
-        {getAbbreviation(comment.author_name)}
-      </div>
+    <div className="timeline-icon me-4">
+      <Avatar
+        src={comment.author_image}
+        name={comment.author_name}
+        size={32}
+        circle
+        labelClassName={`fs-5 fw-bold bg-light-${color} text-${color}`}
+      />
     </div>
   );
 };
@@ -55,19 +60,14 @@ const CommentAvatar = ({ comment }) => {
 export const IssueCommentItem: FunctionComponent<IssueCommentItemProps> = ({
   comment,
 }) => {
-  const deleting = useSelector((state: RootState) =>
-    getIsDeleting(state, { comment }),
-  );
-
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
 
   const openUserDialog = () => {
-    dispatch(openUserPopover({ user_uuid: comment.author_uuid }));
+    openDialog(UserPopover, {
+      resolve: { user_uuid: comment.author_uuid },
+      size: 'lg',
+    });
   };
-
-  if (deleting) {
-    return <LoadingOverlay />;
-  }
 
   return (
     <div className="issue-comment timeline-item">

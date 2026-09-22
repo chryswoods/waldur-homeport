@@ -1,46 +1,38 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useAsync } from 'react-use';
-import { reduxForm, formValueSelector, change } from 'redux-form';
+import { useQuery } from '@tanstack/react-query';
+import { FC, useEffect, useMemo } from 'react';
+import { Form } from 'react-final-form';
 import {
   rancherHpasCreate,
   rancherNamespacesList,
   rancherWorkloadsList,
 } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { StringField, SelectField, NumberField, TextField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { ActionDialog } from '@waldur/modal/ActionDialog';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { Resource } from '@waldur/resource/types';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { type RootState } from '@waldur/store/reducers';
-import { createEntity } from '@waldur/table/actions';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { StringGroup, TextGroup, SelectGroup, NumberGroup } from '@/form';
+import { translate } from '@/i18n';
+import { ActionDialogFinal } from '@/modal/ActionDialogFinal';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { Resource } from '@/resource/types';
 
+import { RANCHER_HPAS_TABLE_ID } from './constants';
 import { MetricOption, HPACreateFormData } from './types';
 import {
   getMetricNameOptions,
   getTargetTypeOptions,
   serializeMetrics,
-  FORM_ID,
-  metricSelector,
 } from './utils';
 
-interface OwnProps {
+interface HPACreateDialogProps {
   resolve: {
     cluster: Resource;
   };
 }
 
-const useHPACreateDialog = (cluster) => {
-  const [submitting, setSubmitting] = useState(false);
-  const dispatch = useDispatch();
-  const callback = useCallback(
-    async (formData: HPACreateFormData) => {
-      try {
-        setSubmitting(true);
-        const response = await rancherHpasCreate({
+export const HPACreateDialog: FC<HPACreateDialogProps> = (props) => {
+  const { mutate, isPending } = useManagedMutation<any, any, HPACreateFormData>(
+    {
+      mutationFn: (formData) =>
+        rancherHpasCreate({
           body: {
             name: formData.name,
             description: formData.description,
@@ -49,159 +41,146 @@ const useHPACreateDialog = (cluster) => {
             max_replicas: formData.max_replicas,
             metrics: serializeMetrics(formData),
           },
-        });
-        const hpa = response.data;
-        dispatch(createEntity('rancher-hpas', hpa.uuid, hpa));
-      } catch (error) {
-        dispatch(
-          showErrorResponse(
-            error,
-            translate('Unable to create horizontal pod autoscaler.'),
-          ),
-        );
-        setSubmitting(false);
-        return;
-      }
-      dispatch(
-        showSuccess(translate('Horizontal pod autoscaler has been created.')),
-      );
-      dispatch(closeModalDialog());
+        }),
+      successMessage: translate('Horizontal pod autoscaler has been created.'),
+      errorMessage: translate('Unable to create horizontal pod autoscaler.'),
+      invalidateQueries: [{ queryKey: ['table', RANCHER_HPAS_TABLE_ID] }],
     },
-    [dispatch, cluster],
   );
-  return {
-    submitting,
-    createHPA: callback,
-  };
-};
 
-const getNamespace = (state: RootState) =>
-  formValueSelector(FORM_ID)(state, 'namespace');
+  const { isLoading: loading, data: value } = useQuery({
+    queryKey: ['HPACreateDialog', props.resolve.cluster.uuid],
 
-export const HPACreateDialog = reduxForm<{}, OwnProps>({
-  form: FORM_ID,
-  initialValues: {
-    min_replicas: 1,
-    max_replicas: 10,
-  },
-})((props) => {
-  const { submitting, createHPA } = useHPACreateDialog(props.resolve.cluster);
-
-  const { loading, value } = useAsync(async () => {
-    const namespaces = await getAllPages((page) =>
-      rancherNamespacesList({
-        query: { page, cluster_uuid: props.resolve.cluster.uuid, o: ['name'] },
-      }),
-    );
-    const workloads = await getAllPages((page) =>
-      rancherWorkloadsList({
-        query: { page, cluster_uuid: props.resolve.cluster.uuid, o: ['name'] },
-      }),
-    );
-    return { namespaces, workloads };
-  }, [props.resolve.cluster.uuid]);
-
-  const namespace = useSelector(getNamespace);
-
-  const dispatch = useDispatch();
-
-  // Clear workload selection after namespace selection has been changed
-  useEffect(() => {
-    if (namespace) {
-      dispatch(change(FORM_ID, 'workload', null));
-    }
-  }, [dispatch, namespace]);
-
-  const validWorkloads = useMemo(
-    () =>
-      namespace &&
-      value?.workloads.filter(
-        (workload) => workload.namespace_uuid === namespace.uuid,
-      ),
-    [value, namespace],
-  );
+    queryFn: async () => {
+      const namespaces = await getAllPages((page) =>
+        rancherNamespacesList({
+          query: {
+            page,
+            page_size: MAX_PAGE_SIZE,
+            cluster_uuid: props.resolve.cluster.uuid,
+            o: ['name'],
+          },
+        }),
+      );
+      const workloads = await getAllPages((page) =>
+        rancherWorkloadsList({
+          query: {
+            page,
+            page_size: MAX_PAGE_SIZE,
+            cluster_uuid: props.resolve.cluster.uuid,
+            o: ['name'],
+          },
+        }),
+      );
+      return { namespaces, workloads };
+    },
+  });
 
   const metricNameOptions = useMemo<MetricOption[]>(getMetricNameOptions, []);
-
   const targetTypeOptions = useMemo(getTargetTypeOptions, []);
 
-  const metric: MetricOption = useSelector(metricSelector);
-
   return (
-    <ActionDialog
-      title={translate('Create horizontal pod autoscaler')}
-      submitLabel={translate('Submit')}
-      onSubmit={props.handleSubmit(createHPA)}
-      submitting={submitting}
-    >
-      <StringField name="name" label={translate('Name')} required={true} />
-      <TextField
-        name="description"
-        label={translate('Description')}
-        required={false}
-      />
+    <Form<HPACreateFormData>
+      onSubmit={mutate}
+      initialValues={{
+        min_replicas: 1,
+        max_replicas: 10,
+      }}
+      render={({ handleSubmit, invalid, submitting, values, form }) => {
+        const namespace = values['namespace'] as any;
+        const metric = values.metric_name as any;
 
-      <SelectField
-        name="namespace"
-        label={translate('Namespace')}
-        required={true}
-        getOptionValue={(option) => option.url}
-        getOptionLabel={(option) => option.name}
-        options={value?.namespaces}
-        isLoading={loading}
-        isClearable={true}
-      />
+        // Clear workload selection after namespace selection has been changed
+        useEffect(() => {
+          if (namespace) {
+            form.change('workload', null);
+          }
+        }, [form, namespace]);
 
-      <SelectField
-        name="workload"
-        label={translate('Workload')}
-        required={true}
-        getOptionValue={(option) => option.url}
-        getOptionLabel={(option) => option.name}
-        options={validWorkloads}
-        isLoading={loading}
-        isDisabled={!namespace}
-        isClearable={true}
-      />
+        const validWorkloads = useMemo(
+          () =>
+            namespace &&
+            value?.workloads.filter(
+              (workload) => workload.namespace_uuid === namespace.uuid,
+            ),
+          [namespace],
+        );
 
-      <NumberField
-        name="min_replicas"
-        label={translate('Min replicas')}
-        required={true}
-        min={1}
-        max={10}
-      />
-
-      <NumberField
-        name="max_replicas"
-        label={translate('Max replicas')}
-        required={true}
-        min={1}
-        max={10}
-      />
-
-      <SelectField
-        name="metric_name"
-        label={translate('Metric name')}
-        required={true}
-        options={metricNameOptions}
-        isClearable={true}
-      />
-
-      <SelectField
-        name="target_type"
-        label={translate('Target type')}
-        required={true}
-        options={targetTypeOptions}
-        isClearable={true}
-      />
-
-      <NumberField
-        name="quantity"
-        label={translate('Quantity')}
-        required={true}
-        unit={metric ? metric.unitDisplay : undefined}
-      />
-    </ActionDialog>
+        return (
+          <ActionDialogFinal
+            title={translate('Create horizontal pod autoscaler')}
+            onSubmit={handleSubmit}
+            submitting={submitting || isPending}
+            invalid={invalid}
+          >
+            <StringGroup
+              name="name"
+              label={translate('Name')}
+              required={true}
+            />
+            <TextGroup
+              name="description"
+              label={translate('Description')}
+              required={false}
+            />
+            <SelectGroup
+              name="namespace"
+              label={translate('Namespace')}
+              required={true}
+              getOptionValue={(option) => option.url}
+              getOptionLabel={(option) => option.name}
+              options={value?.namespaces}
+              isLoading={loading}
+              isClearable={true}
+            />
+            <SelectGroup
+              name="workload"
+              label={translate('Workload')}
+              required={true}
+              getOptionValue={(option) => option.url}
+              getOptionLabel={(option) => option.name}
+              options={validWorkloads}
+              isLoading={loading}
+              isDisabled={!namespace}
+              isClearable={true}
+            />
+            <NumberGroup
+              name="min_replicas"
+              label={translate('Min replicas')}
+              required={true}
+              min={1}
+              max={10}
+            />
+            <NumberGroup
+              name="max_replicas"
+              label={translate('Max replicas')}
+              required={true}
+              min={1}
+              max={10}
+            />
+            <SelectGroup
+              name="metric_name"
+              label={translate('Metric name')}
+              required={true}
+              options={metricNameOptions}
+              isClearable={true}
+            />
+            <SelectGroup
+              name="target_type"
+              label={translate('Target type')}
+              required={true}
+              options={targetTypeOptions}
+              isClearable={true}
+            />
+            <NumberGroup
+              name="quantity"
+              label={translate('Quantity')}
+              required={true}
+              unit={metric ? metric.unitDisplay : undefined}
+            />
+          </ActionDialogFinal>
+        );
+      }}
+    />
   );
-});
+};

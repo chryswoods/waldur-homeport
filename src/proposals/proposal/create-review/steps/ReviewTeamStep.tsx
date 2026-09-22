@@ -1,7 +1,7 @@
-import { VStepperFormStepProps } from '@waldur/form/VStepperFormStep';
-import { translate } from '@waldur/i18n';
-import { TeamSection } from '@waldur/proposals/team/TeamSection';
-import { Proposal, ProposalReview } from '@waldur/proposals/types';
+import { translate } from '@/i18n';
+import { TeamSection } from '@/proposals/team/TeamSection';
+import { Proposal, ProposalReview } from '@/proposals/types';
+import { VStepperFormStepProps } from '@/wizard';
 
 export const ReviewTeamStep = (props: VStepperFormStepProps) => {
   const proposal: Proposal = props.params.proposal;

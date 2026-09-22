@@ -1,38 +1,40 @@
 import { XCircleIcon } from '@phosphor-icons/react';
-import { useMutation } from '@tanstack/react-query';
 import { FC } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { marketplaceOrdersRejectByConsumer } from 'waldur-js-client';
 
-import { LoadingSpinnerIcon } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { getUser } from '@waldur/workspace/selectors';
+import { LoadingSpinnerSimple } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { useUser } from '@/workspace/hooks';
 
 import { OrderActionProps } from './types';
 
 export const RejectByConsumerButton: FC<
   OrderActionProps & { className?: string }
-> = ({ order, as, className, refetch }) => {
-  const dispatch = useDispatch();
-  const user = useSelector(getUser);
-  const { mutate, isPending: isLoading } = useMutation({
-    mutationFn: async () => {
-      try {
-        await marketplaceOrdersRejectByConsumer({ path: { uuid: order.uuid } });
-        if (refetch) {
-          await refetch();
-        }
-        dispatch(showSuccess(translate('Order has been rejected.')));
-      } catch (error) {
-        dispatch(
-          showErrorResponse(error, translate('Unable to reject order.')),
-        );
-      }
+> = ({ order, as, className, refetch, size }) => {
+  const user = useUser();
+
+  const { mutate, isPending: isLoading } = useManagedMutation<any, any, any>({
+    mutationFn: (variables) =>
+      marketplaceOrdersRejectByConsumer({
+        path: { uuid: order.uuid },
+        body: { consumer_rejection_comment: variables?.input },
+      }),
+    confirmation: {
+      title: translate('Reject order'),
+      body: translate('Are you sure you want to reject this order?'),
+      options: {
+        showInput: true,
+        inputLabel: translate('Rejection reason (optional)'),
+        positiveButton: translate('Reject'),
+      },
     },
+    successMessage: translate('Order has been rejected.'),
+    errorMessage: translate('Unable to reject order.'),
+    refetch,
   });
   if (
     !hasPermission(user, {
@@ -46,16 +48,18 @@ export const RejectByConsumerButton: FC<
   return (
     <>
       {isLoading ? (
-        <LoadingSpinnerIcon className="me-1" />
+        <LoadingSpinnerSimple className="me-1" />
       ) : (
         <ActionItem
           as={as}
-          className={className}
-          title={translate('Reject')}
+          className={className ?? 'text-danger'}
+          title={translate('Decline')}
           action={mutate}
           disabled={isLoading}
+          variant="danger"
           iconNode={<XCircleIcon weight="bold" />}
-          size="sm"
+          iconColor="danger"
+          size={size}
         />
       )}
     </>

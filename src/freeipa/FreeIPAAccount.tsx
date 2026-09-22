@@ -1,15 +1,14 @@
-import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, Col, Row } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
-import { useAsyncFn, useEffectOnce } from 'react-use';
+import { useEffectOnce } from 'react-use';
 import { freeipaProfilesList } from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { router } from '@waldur/router';
-import { showError } from '@waldur/store/notify';
-import { useUser } from '@waldur/workspace/hooks';
+import { ENV } from '@/core/config';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { goToNotFound } from '@/error/utils';
+import { translate } from '@/i18n';
+import { useNotify } from '@/store/notify';
+import { useUser } from '@/workspace/hooks';
 
 import { FreeIPAAccountCreate } from './FreeIPAAccountCreate';
 import { FreeIPAAccountEdit } from './FreeIPAAccountEdit';
@@ -17,27 +16,30 @@ import { SyncProfile } from './SyncProfile';
 
 export const FreeIpaAccount = () => {
   const user = useUser();
-  const dispatch = useDispatch();
+  const { showError } = useNotify();
 
   if (!ENV.plugins.WALDUR_CORE.FREEIPA_ENABLED) {
-    dispatch(showError(translate('FreeIPA extension is disabled.')));
-    router.stateService.go('errorPage.notFound');
+    showError(translate('FreeIPA extension is disabled.'));
+    goToNotFound();
   }
 
-  const [{ loading: isLoading, error, value: profile }, refreshProfile] =
-    useAsyncFn(
-      () =>
-        freeipaProfilesList({ query: { user: user.uuid } }).then(
-          (r) => r.data[0],
-        ),
-      [user.uuid],
-    );
+  const {
+    isLoading,
+    error,
+    data: profile,
+    refetch: refreshProfile,
+  } = useQuery({
+    queryKey: ['FreeIPAAccount', user.uuid],
+    queryFn: () =>
+      freeipaProfilesList({ query: { user: user.uuid } }).then(
+        // null, not undefined — React Query rejects an undefined result (e.g. empty list).
+        (r) => r.data[0] ?? null,
+      ),
+  });
 
   useEffectOnce(() => {
     refreshProfile();
   });
-  const [loading, setLoading] = React.useState<boolean>();
-
   if (isLoading) return <LoadingSpinner />;
 
   if (error) return <>{translate('Unable to load data.')}</>;
@@ -56,7 +58,6 @@ export const FreeIpaAccount = () => {
               <div className="d-flex justify-content-sm-end flex-wrap flex-sm-nowrap text-nowrap gap-3">
                 <SyncProfile
                   profile={profile}
-                  setLoading={setLoading}
                   refreshProfile={refreshProfile}
                 />
               </div>
@@ -66,7 +67,7 @@ export const FreeIpaAccount = () => {
       </Card.Header>
       <Card.Body>
         {profile ? (
-          <FreeIPAAccountEdit profile={profile} loading={loading} />
+          <FreeIPAAccountEdit profile={profile} />
         ) : (
           <FreeIPAAccountCreate onProfileAdded={refreshProfile} />
         )}

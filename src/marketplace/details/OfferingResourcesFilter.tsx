@@ -1,39 +1,36 @@
 import { FunctionComponent } from 'react';
-import { Field, reduxForm } from 'redux-form';
 
-import { AwesomeCheckboxField } from '@waldur/form/AwesomeCheckboxField';
-import { translate } from '@waldur/i18n';
-import { FILTER_OFFERING_RESOURCE } from '@waldur/marketplace/details/constants';
-import { ResourceStateFilter } from '@waldur/marketplace/resources/list/ResourceStateFilter';
-import { TableFilterItem } from '@waldur/table/TableFilterItem';
+import { translate } from '@/i18n';
+import { TABLE_OFFERING_RESOURCE } from '@/marketplace/details/constants';
+import { ResourceStateFilter } from '@/marketplace/resources/list/ResourceStateFilter';
+import { RuntimeStateFilter } from '@/marketplace/resources/list/RuntimeStateFilter';
+import { BooleanFilter } from '@/table';
+import { ProviderOfferingResourcesFilter } from '@/table/generated/ProviderOfferingResourcesFilter';
+import { useFilterValues } from '@/table/useFilterValues';
 
-const PureOfferingResourcesFilter: FunctionComponent = () => (
-  <>
-    <TableFilterItem
-      title={translate('State')}
-      name="state"
-      ellipsis={false}
-      instantApply={false}
-    >
-      <ResourceStateFilter />
-    </TableFilterItem>
-    <TableFilterItem
-      title={translate('Include terminated')}
-      name="include_terminated"
-      badgeValue={(value) => (value ? translate('Yes') : translate('No'))}
-    >
-      <Field
+interface OfferingResourcesFilterProps {
+  offeringUuid: string;
+}
+
+export const OfferingResourcesFilter: FunctionComponent<
+  OfferingResourcesFilterProps
+> = ({ offeringUuid }) => {
+  const values = useFilterValues(TABLE_OFFERING_RESOURCE);
+
+  return (
+    <>
+      <ProviderOfferingResourcesFilter
+        offeringUuid={offeringUuid}
+        organizationUuid={values?.organization?.uuid}
+      />
+      <RuntimeStateFilter offeringUuid={offeringUuid} />
+      <ResourceStateFilter ellipsis={false} instantApply={false} />
+      <BooleanFilter
+        title={translate('Include terminated')}
         name="include_terminated"
-        component={AwesomeCheckboxField}
+        badgeValue={(value) => (value ? translate('Yes') : translate('No'))}
         label={translate('Include terminated')}
       />
-    </TableFilterItem>
-  </>
-);
-
-const enhance = reduxForm({
-  form: FILTER_OFFERING_RESOURCE,
-  destroyOnUnmount: false,
-});
-
-export const OfferingResourcesFilter = enhance(PureOfferingResourcesFilter);
+    </>
+  );
+};

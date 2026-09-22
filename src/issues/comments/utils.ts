@@ -1,6 +1,6 @@
-import { escapeHtml } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
-import { Attachment } from '@waldur/issues/attachments/types';
+import { escapeHtml } from '@/core/utils';
+import { translate } from '@/i18n';
+import { Attachment } from '@/issues/attachments/types';
 
 // Simplified URL pattern to avoid catastrophic backtracking
 // Matches URLs starting with http://, https://, or www.
@@ -28,8 +28,15 @@ const getAttachmentByFileName = (
   return null;
 };
 
+/**
+ * Escapes a string for safe use inside an HTML attribute value delimited by double-quotes.
+ * escapeHtml() only covers < and >, which is insufficient for attribute contexts
+ * where an unescaped " would break out of the surrounding quotes.
+ */
+const escapeAttr = (value: string): string => value.replace(/"/g, '&quot;');
+
 const renderLink = (href: string, name: string = href, download = false) =>
-  `<a href="${href}"${download ? ' download' : ''}>${name}</a>`;
+  `<a href="${escapeAttr(href)}"${download ? ' download' : ''}>${escapeAttr(name)}</a>`;
 
 // See also JIRA to Markdown converter: https://github.com/kylefarris/J2M/blob/master/index.js
 // and JIRA Text Formatting Notation: https://jira.atlassian.com/secure/WikiRendererHelpAction.jspa?section=all

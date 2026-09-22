@@ -1,7 +1,7 @@
 import classNames from 'classnames';
 import { FC, PropsWithChildren } from 'react';
 
-import { ENV } from '@waldur/core/config';
+import { ENV } from '@/core/config';
 
 interface LandingHeroSectionProps {
   title: string;
@@ -18,6 +18,7 @@ export const LandingHeroSection: FC<
   const bgClassNames = {
     'bg-mode-dark': sidebarStyle === 'dark',
     'bg-mode-light': sidebarStyle === 'light',
+    'bg-mode-primary': sidebarStyle === 'primary',
     'bg-mode-accent': sidebarStyle === 'accent',
     'bg-mode-accent-light': sidebarStyle === 'accent-light',
   };

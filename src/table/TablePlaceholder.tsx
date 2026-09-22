@@ -1,16 +1,15 @@
 import { FunctionComponent, ReactNode } from 'react';
 
-import { translate } from '@waldur/i18n';
-import { NoResult } from '@waldur/navigation/header/search/NoResult';
+import { translate } from '@/i18n';
+import { NoResult } from '@/navigation/header/search/NoResult';
 
 import { TableProps } from './types';
 import { getNoResultMessage, getNoResultTitle } from './utils';
 
-interface TablePlaceholderProps
-  extends Pick<
-    TableProps,
-    'query' | 'verboseName' | 'fetch' | 'filtersStorage' | 'emptyMessage'
-  > {
+interface TablePlaceholderProps extends Pick<
+  TableProps,
+  'query' | 'verboseName' | 'fetch' | 'filtersStorage' | 'emptyMessage'
+> {
   clearSearch(): void;
   actions?: ReactNode;
   hasRetry?: boolean;

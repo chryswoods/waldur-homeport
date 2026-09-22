@@ -1,9 +1,13 @@
 import { OpenStackSubNetAllocationPool } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
 
 export const formatAllocationPool = (pools) =>
-  pools.length === 0
+  // The API can hand back {} rather than a list: SubNet.allocation_pools is a
+  // JSONField whose model default is `dict`, and a subnet created without pools
+  // keeps that default until the first pull. The OpenAPI schema says array, so
+  // the SDK type does not warn about it and .map() took down the whole summary.
+  !Array.isArray(pools) || pools.length === 0
     ? '―'
     : pools.map((pool, index) => (
         <div key={index}>
@@ -51,10 +55,11 @@ const parseCIDR = (
 
 const ipToLong = (ip: IPv4Address): number => {
   return (
-    (ip.octets[0] << 24) |
-    (ip.octets[1] << 16) |
-    (ip.octets[2] << 8) |
-    ip.octets[3]
+    ((ip.octets[0] << 24) |
+      (ip.octets[1] << 16) |
+      (ip.octets[2] << 8) |
+      ip.octets[3]) >>>
+    0
   );
 };
 

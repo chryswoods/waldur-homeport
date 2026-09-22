@@ -1,20 +1,45 @@
 import { useMemo } from 'react';
-import { FieldArray } from 'redux-form';
+import { FieldArray } from 'react-final-form-arrays';
 
-import { required } from '@waldur/core/validators';
-import { translate } from '@waldur/i18n';
-import { isEmailAllowed } from '@waldur/openportal/bindings/helpers';
-import { useProjectEmailPolicy } from '@waldur/project/useProjectEmailPolicy';
-import { DomainRestrictionNotice } from '@waldur/project/team/DomainRestrictionNotice';
+import { translate } from '@/i18n';
+import { isEmailAllowed } from '@/openportal/awardPolicy';
+import { DomainRestrictionNotice } from '@/project/team/DomainRestrictionNotice';
+import { useProjectEmailPolicy } from '@/project/useProjectEmailPolicy';
 
 import { EmailsListGroup } from './EmailsListGroup';
+
+const validateRows = (value) => {
+  if (!value || value.length === 0) {
+    return translate('At least one user is required');
+  }
+
+  const validRows = value.filter(
+    (row) => row && row.email && row.role_project && row.role_project.role,
+  );
+
+  if (validRows.length === 0) {
+    return translate('At least one complete user invitation is required');
+  }
+
+  return undefined;
+};
+
+interface EmailsListGroupWrapperProps {
+  roles;
+  customer;
+  project;
+  disabled;
+}
 
 export const EmailsListGroupWrapper = ({
   roles,
   customer,
   project,
   disabled,
-}) => {
+}: EmailsListGroupWrapperProps) => {
+  // Deployments that enforce allowed domains restrict which addresses may be
+  // invited to a project. waldur_openportal enforces this server-side on the
+  // invitation; validating here just fails the row rather than the request.
   const { data: emailPolicy } = useProjectEmailPolicy(project?.uuid);
 
   const emailDomainValidator = useMemo(() => {
@@ -35,13 +60,17 @@ export const EmailsListGroupWrapper = ({
       />
       <FieldArray
         name="rows"
-        roles={roles}
-        customer={customer}
-        project={project}
-        component={EmailsListGroup}
-        validate={[required]}
-        disabled={disabled}
-        emailDomainValidator={emailDomainValidator}
+        validate={validateRows}
+        render={(arrayProps) => (
+          <EmailsListGroup
+            {...arrayProps}
+            roles={roles}
+            customer={customer}
+            project={project}
+            disabled={disabled}
+            emailDomainValidator={emailDomainValidator}
+          />
+        )}
       />
     </>
   );

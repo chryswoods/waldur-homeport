@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
 
 import './LoginButton.css';
 
@@ -15,7 +15,7 @@ export const LoginButton = ({
   label: string;
   onClick?(): void;
 }) => (
-  <button className="login-button" onClick={onClick}>
+  <button className="login-button btn btn-tertiary" onClick={onClick}>
     <div className="login-button-icon">
       {image}
       {icon && <span className="svg-icon">{icon}</span>}

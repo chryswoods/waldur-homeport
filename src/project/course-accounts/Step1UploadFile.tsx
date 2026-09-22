@@ -1,11 +1,11 @@
 import { FileCsvIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
-import { Button } from 'react-bootstrap';
 import { Field } from 'react-final-form';
 
-import { translate } from '@waldur/i18n';
-import { TemplateUploaderField } from '@waldur/project/import/TemplateUploaderField';
-import saveAsCsv from '@waldur/table/exporters/csv';
+import { translate } from '@/i18n';
+import { TemplateUploaderField } from '@/project/import/TemplateUploaderField';
+import { CompactActionButton } from '@/table/CompactActionButton';
+import saveAsCsv from '@/table/exporters/csv';
 
 import templateFile from './course_accounts_template.json';
 
@@ -24,12 +24,12 @@ export const Step1UploadFile: FC = () => {
               headers: 'email, description',
             })}
           </p>
-          <Button variant="link" size="sm" onClick={onDownloadClick}>
-            <span className="svg-icon svg-icon-2">
-              <FileCsvIcon size={20} weight="bold" />
-            </span>
-            {translate('Download CSV template')}
-          </Button>
+          <CompactActionButton
+            title={translate('Download CSV template')}
+            action={onDownloadClick}
+            iconNode={<FileCsvIcon size={20} weight="bold" />}
+            variant="link"
+          />
         </div>
       }
     />

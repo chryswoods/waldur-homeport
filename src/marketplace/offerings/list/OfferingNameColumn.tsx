@@ -1,9 +1,9 @@
 import { useCurrentStateAndParams } from '@uirouter/react';
 import { useMemo } from 'react';
 
-import { Link } from '@waldur/core/Link';
-import { BackendIdTip } from '@waldur/core/Tooltip';
-import { isDescendantOf } from '@waldur/navigation/useTabs';
+import { BackendIdTip } from '@/core/BackendIdTip';
+import { Link } from '@/core/Link';
+import { isDescendantOf } from '@/navigation/useTabs';
 
 export const OfferingNameColumn = ({ row }) => {
   const { state } = useCurrentStateAndParams();

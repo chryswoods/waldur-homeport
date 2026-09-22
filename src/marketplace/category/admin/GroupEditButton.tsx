@@ -1,28 +1,17 @@
-import { useCallback } from 'react';
-import { useDispatch } from 'react-redux';
-
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { EditAction } from '@waldur/form/EditAction';
-import { openModalDialog } from '@waldur/modal/actions';
+import { EditModalButton } from '@/core/buttons';
+import { lazyComponent } from '@/core/lazyComponent';
 
 const GroupEditDialog = lazyComponent(() =>
-  import('./GroupFromDialog').then((module) => ({
-    default: module.GroupFromDialog,
+  import('./CategoryGroupDialog').then((module) => ({
+    default: module.CategoryGroupDialog,
   })),
 );
 
-const groupEditDialog = (row, refetch) =>
-  openModalDialog(GroupEditDialog, {
-    resolve: { categoryGroup: row, refetch },
-    size: 'lg',
-  });
-
-export const GroupEditButton = ({ row, refetch }) => {
-  const dispatch = useDispatch();
-  const openFormDialog = useCallback(
-    () => dispatch(groupEditDialog(row, refetch)),
-    [dispatch],
-  );
-
-  return <EditAction action={openFormDialog} size="sm" />;
-};
+export const GroupEditButton = ({ row, refetch }) => (
+  <EditModalButton
+    dialog={GroupEditDialog}
+    row={row}
+    buildResolve={(r) => ({ categoryGroup: r, refetch })}
+    size="lg"
+  />
+);

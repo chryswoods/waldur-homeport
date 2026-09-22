@@ -1,16 +1,12 @@
-import { isExperimentalUiComponentsVisible } from '@waldur/marketplace/utils';
-import { ActionsDropdown } from '@waldur/table/ActionsDropdown';
+import { ActionsDropdown } from '@/table/ActionsDropdown';
 
 import { MaintenanceDeleteAction } from './MaintenanceDeleteAction';
 import { MaintenanceEditAction } from './MaintenanceEditAction';
 import { MaintenanceHistoryLogAction } from './MaintenanceHistoryLogAction';
 import { MaintenanceStateActions } from './MaintenanceStateActions';
-import { MaintenanceStopAction } from './MaintenanceStopAction';
 import { MaintenanceViewAction } from './MaintenanceViewAction';
 
 export const MaintenanceRowActions = ({ provider, row, fetch }) => {
-  const showExperimentalUiComponents = isExperimentalUiComponentsVisible();
-
   return (
     <ActionsDropdown
       row={row}
@@ -20,17 +16,17 @@ export const MaintenanceRowActions = ({ provider, row, fetch }) => {
         provider
           ? [
               // Service provider actions
-              MaintenanceEditAction,
               MaintenanceViewAction,
+              MaintenanceEditAction,
               MaintenanceStateActions,
               MaintenanceDeleteAction,
             ].filter(Boolean)
           : [
               // Admin actions
               MaintenanceViewAction,
-              showExperimentalUiComponents && MaintenanceEditAction,
-              showExperimentalUiComponents && MaintenanceHistoryLogAction,
-              showExperimentalUiComponents && MaintenanceStopAction,
+              MaintenanceEditAction,
+              MaintenanceHistoryLogAction,
+              MaintenanceStateActions,
             ].filter(Boolean)
       }
     />

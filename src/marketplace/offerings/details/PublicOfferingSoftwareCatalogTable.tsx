@@ -1,13 +1,21 @@
 import { FunctionComponent, useMemo } from 'react';
-import { marketplaceSoftwarePackagesList } from 'waldur-js-client';
+import { marketplaceSoftwarePackagesList, Offering } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { Offering } from '@waldur/marketplace/types';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { Tooltip } from 'waldur-ui';
+import { Badge } from 'waldur-ui';
 
-import { PublicOfferingSoftwareCatalogFilter } from './PublicOfferingSoftwareCatalogFilter';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import {
+  MarketplaceSoftwarePackagesFilter,
+  MarketplaceSoftwarePackagesFilterFormId,
+  selectMarketplaceSoftwarePackagesFilter,
+} from '@/table/generated/MarketplaceSoftwarePackagesFilter';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
+
 import { SoftwarePackageExpandableRow } from './SoftwarePackageExpandableRow';
 
 interface PublicOfferingSoftwareCatalogTableProps {
@@ -55,23 +63,32 @@ export const PublicOfferingSoftwareCatalogTable: FunctionComponent<
 
     return parts.length > 0 ? parts.join(' | ') : null;
   };
+  const values = useFilterValues('OfferingSoftwarePackages-' + offering.uuid);
+
+  const formFilter = useMemo(
+    () => selectMarketplaceSoftwarePackagesFilter(values),
+    [values],
+  );
+
   const filter = useMemo(
     () => ({
       offering_uuid: offering.uuid,
       ...(offering.software_catalogs?.length > 0 && {
-        enabled_cpu_family: offering.software_catalogs.flatMap(
-          (sc) => sc.enabled_cpu_family || [],
-        ),
-        uniqueCpuMicroarchitectures: offering.software_catalogs.flatMap(
+        cpu_family: offering.software_catalogs.flatMap(
+          (sc) => sc.enabled_cpu_family || '',
+        )[0],
+        cpu_microarchitecture: offering.software_catalogs.flatMap(
           (sc) => sc.enabled_cpu_microarchitectures || [],
         ),
       }),
+      ...formFilter,
     }),
-    [offering.uuid, offering.software_catalogs],
+    [offering.uuid, offering.software_catalogs, formFilter],
   );
 
   const tableProps = useTable({
     table: 'OfferingSoftwarePackages-' + offering.uuid,
+    syncFiltersToURL: true,
     fetchData: createFetcher(marketplaceSoftwarePackagesList),
     queryField: 'query',
     filter,
@@ -87,17 +104,50 @@ export const PublicOfferingSoftwareCatalogTable: FunctionComponent<
           orderField: 'name',
           id: 'name',
           keys: ['name'],
+          width: '15%',
+        },
+        {
+          title: translate('Extension'),
+          render: ({ row }) =>
+            row.is_extension ? (
+              <Badge variant="primary" shape="pill" tone="outline">
+                {translate('Extension')}
+              </Badge>
+            ) : (
+              '—'
+            ),
+          orderField: 'is_extension',
+          id: 'is_extension',
+          keys: ['is_extension'],
+          width: '10%',
         },
         {
           title: translate('Description'),
-          render: ({ row }) => <>{row.description || '—'}</>,
+          render: ({ row }) =>
+            row.description ? (
+              <Tooltip label={row.description} autoWidth>
+                <span>{row.description}</span>
+              </Tooltip>
+            ) : (
+              renderFieldOrDash(row.description)
+            ),
           orderField: 'description',
           id: 'description',
-          keys: ['description'],
+          keys: ['description', 'uuid'],
+          width: '40%',
         },
         {
           title: translate('Catalog'),
-          render: ({ row }) => <>{row.catalog_name}</>,
+          render: ({ row }) => (
+            <>
+              {row.catalog_name}
+              {row.catalog_type_display && (
+                <Badge variant="info" tone="light" className="ms-2">
+                  {row.catalog_type_display}
+                </Badge>
+              )}
+            </>
+          ),
           orderField: 'catalog_name',
           filter: 'catalog_name',
           id: 'catalog_name',
@@ -114,7 +164,21 @@ export const PublicOfferingSoftwareCatalogTable: FunctionComponent<
           optional: true,
         },
         {
+          title: translate('Type'),
+          render: ({ row }) => (
+            <>
+              {renderFieldOrDash(row.catalog_type_display || row.catalog_type)}
+            </>
+          ),
+          orderField: 'catalog_type',
+          filter: 'catalog_type',
+          id: 'catalog_type',
+          keys: ['catalog_type', 'catalog_type_display'],
+          optional: true,
+        },
+        {
           title: translate('Homepage'),
+          width: '20%',
           render: ({ row }) =>
             row.homepage ? (
               <a href={row.homepage} target="_blank" rel="noopener noreferrer">
@@ -131,14 +195,14 @@ export const PublicOfferingSoftwareCatalogTable: FunctionComponent<
       title={translate('Software packages')}
       verboseName={translate('Software packages')}
       subtitle={getTableSubtitle()}
-      equalColWidth
       hasQuery
       showPageSizeSelector
       enableExport
       hasOptionalColumns
-      filters={<PublicOfferingSoftwareCatalogFilter />}
+      filters={<MarketplaceSoftwarePackagesFilter />}
       filter={filter}
       expandableRow={SoftwarePackageExpandableRowWithOffering}
+      formId={MarketplaceSoftwarePackagesFilterFormId}
     />
   );
 };

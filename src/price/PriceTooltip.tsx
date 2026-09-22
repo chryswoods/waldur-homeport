@@ -1,9 +1,10 @@
 import { WarningCircleIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
 
-import { ENV } from '@waldur/core/config';
-import { Tip } from '@waldur/core/Tooltip';
-import { translate } from '@waldur/i18n';
+import { Tooltip } from 'waldur-ui';
+
+import { ENV } from '@/core/config';
+import { translate } from '@/i18n';
 
 interface PriceTooltipProps {
   estimated?: boolean;
@@ -32,9 +33,9 @@ export const PriceTooltip: FC<PriceTooltipProps> = ({
 
   return (
     <span className="ms-1 hidden-print">
-      <Tip label={message} id="price-tooltip">
+      <Tooltip label={message}>
         <WarningCircleIcon weight="bold" size={size} />
-      </Tip>
+      </Tooltip>
     </span>
   );
 };

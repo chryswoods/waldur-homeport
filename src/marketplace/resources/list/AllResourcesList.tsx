@@ -1,79 +1,41 @@
-import { FC } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
-import {
-  marketplaceResourcesList,
-  MarketplaceResourcesListData,
-  Project,
-} from 'waldur-js-client';
+import { FC, useMemo } from 'react';
+import { marketplaceResourcesList, Project } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
 import {
   ALL_RESOURCES_TABLE_ID,
   PROJECT_RESOURCES_ALL_FILTER_FORM_ID,
-} from '@waldur/marketplace/resources/list/constants';
-import { useOrganizationAndProjectFiltersForResources } from '@waldur/navigation/sidebar/resources-filter/utils';
-import { useTitle } from '@waldur/navigation/title';
-import { createFetcher } from '@waldur/table/api';
-import { TableProps } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
+} from '@/marketplace/resources/list/constants';
+import { useOrganizationAndProjectAutocompletesForResources } from '@/navigation/sidebar/resources-filter/utils';
+import { useTitle } from '@/navigation/title';
+import { createFetcher } from '@/table/api';
+import { TableProps } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
 
-import { NON_TERMINATED_STATES } from './constants';
 import { ResourcesAllListTable } from './ResourcesAllListTable';
-import { resourcesListRequiredFields } from './utils';
-
-const mapStateToFilter = createSelector(
-  getFormValues(PROJECT_RESOURCES_ALL_FILTER_FORM_ID),
-  (filters: any) => {
-    const result: MarketplaceResourcesListData['query'] = {};
-    if (filters?.offering) {
-      result.offering_uuid = filters.offering.uuid;
-    }
-    if (filters?.parent_offering) {
-      result.parent_offering_uuid = filters.parent_offering.uuid;
-    }
-    if (filters?.state) {
-      result.state = filters.state.value;
-    }
-    if (filters?.category) {
-      result.category_uuid = filters.category.uuid;
-    }
-    if (filters?.project) {
-      result.project_uuid = filters.project.uuid;
-    }
-    if (filters?.runtime_state) {
-      result.runtime_state = filters.runtime_state.value;
-    }
-    if (filters?.state) {
-      result.state = filters.state.map((option) => option.value);
-      if (filters?.include_terminated) {
-        result.state = [...result.state, 'Terminated'];
-      }
-    } else {
-      if (!filters?.include_terminated) {
-        result.state = NON_TERMINATED_STATES;
-      }
-    }
-    if (filters?.organization) {
-      result.customer_uuid = filters.organization.uuid;
-    }
-    return result;
-  },
-);
+import { buildResourcesAllFilter, resourcesListRequiredFields } from './utils';
 
 interface AllResourcesListProps extends Partial<TableProps> {
   project?: Project;
 }
 
-export const AllResourcesList: FC<AllResourcesListProps> = (props) => {
+export const AllResourcesList: FC<AllResourcesListProps> = ({ ...props }) => {
   useTitle(translate('All resources'), '', 'browser');
   const { syncResourceFilters } =
-    useOrganizationAndProjectFiltersForResources('all-resources');
-  const filter = useSelector(mapStateToFilter);
+    useOrganizationAndProjectAutocompletesForResources('all-resources');
+
+  const values = useFilterValues(ALL_RESOURCES_TABLE_ID);
+  const filterValues: any = values;
+
+  const filter = useMemo(
+    () => buildResourcesAllFilter(filterValues),
+    [filterValues],
+  );
 
   const tableProps = useTable({
     table: ALL_RESOURCES_TABLE_ID,
+    syncFiltersToURL: true,
     fetchData: createFetcher(marketplaceResourcesList),
     queryField: 'query',
     filter,
@@ -93,6 +55,7 @@ export const AllResourcesList: FC<AllResourcesListProps> = (props) => {
     <ResourcesAllListTable
       {...tableProps}
       {...props}
+      formId={PROJECT_RESOURCES_ALL_FILTER_FORM_ID}
       hasProjectColumn
       hasCustomerColumn
       standalone={props.standalone ?? true}

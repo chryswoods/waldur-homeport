@@ -1,50 +1,54 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from '@uirouter/react';
 import { FunctionComponent, useCallback, useEffect } from 'react';
-import { Button } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
 import { userInvitationsDetailsRetrieve } from 'waldur-js-client';
 
-import { getInvitationLinkProps } from '@waldur/administration/getInvitationLinkProps';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { InvitationTokenStorage } from '@waldur/core/StorageManager';
-import { translate } from '@waldur/i18n';
-import { useModal } from '@waldur/modal/hooks';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { getUser } from '@waldur/workspace/selectors';
+import { getInvitationLinkProps } from '@/administration/getInvitationLinkProps';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { InvitationTokenStorage } from '@/core/StorageManager';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useUser } from '@/workspace/hooks';
 
+import { formatInvitationState } from './choices';
 import { InvitationButtons } from './InvitationButtons';
 import { InvitationErrorMessage } from './InvitationErrorMessage';
 import { InvitationMessage } from './InvitationMessage';
-import { formatInvitationState } from './InvitationStateFilter';
 
 export const InvitationConfirmDialog: FunctionComponent<{
-  resolve: { token; deferred };
-}> = ({ resolve: { token, deferred } }) => {
+  resolve: {
+    token;
+    onConfirm: (data: { invitation }) => void;
+    onCancel: () => void;
+  };
+}> = ({ resolve: { token, onConfirm, onCancel } }) => {
   const router = useRouter();
 
-  const user = useSelector(getUser);
+  const user = useUser();
   const asyncResult = useQuery({
     queryKey: ['invitation', token],
-
     queryFn: () =>
       userInvitationsDetailsRetrieve({ path: { uuid: token } }).then(
         (response) => response.data,
       ),
+    retry: false,
+    meta: { skipGlobalErrorRedirect: true },
   });
   const invitation = asyncResult.data;
 
   const { closeDialog } = useModal();
 
   const dismiss = useCallback(() => {
-    deferred.reject();
     closeDialog();
-  }, [closeDialog, deferred]);
+    onCancel();
+  }, [closeDialog, onCancel]);
 
   const closeAcceptingInvitation = useCallback(() => {
     closeDialog();
-    deferred.resolve({ invitation });
-  }, [closeDialog, deferred, invitation]);
+    onConfirm({ invitation });
+  }, [closeDialog, onConfirm, invitation]);
 
   const closeButton = useCallback(() => {
     closeDialog();
@@ -72,13 +76,11 @@ export const InvitationConfirmDialog: FunctionComponent<{
             closeAcceptingInvitation={closeAcceptingInvitation}
           />
         ) : (
-          <Button variant="tertiary" onClick={closeButton}>
-            {translate('Close')}
-          </Button>
+          <CloseDialogButton label={translate('Close')} onClick={closeButton} />
         )
       }
     >
-      {!user ? null : asyncResult.isLoading ? (
+      {!user || asyncResult.isLoading ? (
         <>
           <LoadingSpinner />
           <p className="text-center">

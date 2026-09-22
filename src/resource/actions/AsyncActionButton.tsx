@@ -1,16 +1,14 @@
 import { ReactElement, ReactNode } from 'react';
-import { useDispatch } from 'react-redux';
 
-import { translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { ActionButton } from '@waldur/table/ActionButton';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ActionButton } from '@/table/ActionButton';
 
 import { ActionValidator } from './types';
 import { useValidators } from './useValidators';
 
 interface AsyncActionButtonProps<T> {
-  apiMethod(id: string): Promise<any>;
+  apiMethod(id: string, data?: any): Promise<any>;
   resource: T;
   validators?: ActionValidator<T>[];
   title: string;
@@ -19,6 +17,10 @@ interface AsyncActionButtonProps<T> {
   iconNode?: ReactNode;
   className?: string;
   hasConfirmation?: boolean;
+  confirmationOptions?: {
+    showRouterSelect?: boolean;
+    tenantUuid?: string;
+  };
   refetch?(): void;
 }
 
@@ -31,37 +33,39 @@ export const AsyncActionButton: <T extends { uuid?: string }>(
   refetch,
   hasConfirmation,
   actionTitle,
+  confirmationOptions,
   ...rest
 }) => {
   const validationState = useValidators(validators, resource);
-  const dispatch = useDispatch();
-  const callback = async () => {
-    if (hasConfirmation) {
-      try {
-        await waitForConfirmation(
-          dispatch,
-          translate('Confirmation'),
-          translate('Are you sure you want to {action}?', {
+
+  const { mutate, isPending } = useManagedMutation<any, any, void>({
+    mutationFn: (variables) => apiMethod(resource.uuid, variables),
+    successMessage: translate('Action has been applied.'),
+    errorMessage: translate('Unable to apply action.'),
+    refetch,
+    confirmation: hasConfirmation
+      ? {
+          title: translate('Confirmation'),
+          body: translate('Are you sure you want to {action}?', {
             action: (actionTitle || rest.title).toLowerCase(),
           }),
-          {
+          options: {
             iconNode: rest.iconNode,
             type: 'success',
+            ...confirmationOptions,
           },
-        );
-      } catch {
-        return;
+        }
+      : undefined,
+  });
+  return (
+    <ActionButton
+      {...rest}
+      {...validationState}
+      disabled={isPending || validationState.disabled}
+      tooltip={
+        isPending ? translate('Action is in progress') : validationState.tooltip
       }
-    }
-    try {
-      await apiMethod(resource.uuid);
-      if (refetch) {
-        refetch();
-      }
-      dispatch(showSuccess(translate('Action has been applied.')));
-    } catch (e) {
-      dispatch(showErrorResponse(e, translate('Unable to apply action.')));
-    }
-  };
-  return <ActionButton {...rest} {...validationState} action={callback} />;
+      action={(variables) => mutate(variables)}
+    />
+  );
 };

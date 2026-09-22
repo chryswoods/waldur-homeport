@@ -1,13 +1,22 @@
 import { BuildingsIcon } from '@phosphor-icons/react';
 import { useCurrentStateAndParams } from '@uirouter/react';
+import { FC } from 'react';
 
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
 
 import { isDescendantOf } from '../useTabs';
 
 import { MenuItem } from './MenuItem';
 
-export const OrganizationsListMenu = () => {
+interface OrganizationsListMenuProps {
+  disabled?: boolean;
+  disabledTooltip?: string;
+}
+
+export const OrganizationsListMenu: FC<OrganizationsListMenuProps> = ({
+  disabled,
+  disabledTooltip,
+}) => {
   const { state } = useCurrentStateAndParams();
 
   return (
@@ -22,7 +31,8 @@ export const OrganizationsListMenu = () => {
           : undefined
       }
       icon={<BuildingsIcon weight="bold" />}
-      child={false}
+      disabled={disabled}
+      disabledTooltip={disabledTooltip}
     />
   );
 };

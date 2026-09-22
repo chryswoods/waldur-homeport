@@ -1,0 +1,174 @@
+/**
+ * Layout/surface tokens for dashboard-style micro-apps (stat cards, data
+ * tables, status pills, modals/drawers) — composed from the base ramps
+ * in colors.css and the runtime --waldur-brand-* ramp, same pattern as
+ * buttonColors.css.
+ *
+ * Unlike buttonColors.css, most of these have no existing Bootstrap/
+ * Metronic component to empirically cross-check against — there's no
+ * "real" stat card in waldur-homeport's own src/ that this ports. Values
+ * below are chosen to compose correctly with the existing gray/success/
+ * warning/error/brand ramps, not extracted via getComputedStyle. Treat
+ * them as a reasonable starting point, not verified-parity values the way
+ * buttonColors.css's are.
+ *
+ * Sidebar tokens (--surface-sidebar-bg, --nav-item-*, etc.) are extracted
+ * into sidebarColors.css, imported below.
+ */
+@import './colors.css';
+@import './sidebarColors.css';
+
+:root {
+  --surface-page-bg: var(--color-gray-50);
+  --surface-card-bg: #ffffff;
+  --surface-card-border: var(--color-gray-200);
+  --surface-hover-bg: var(--color-gray-50);
+
+  --surface-text-primary: var(--color-gray-900);
+  --surface-text-secondary: var(--color-gray-500);
+  --surface-text-muted: var(--color-gray-400);
+
+  --pill-success-bg: var(--color-success-50);
+  --pill-success-text: var(--color-success-700);
+  --pill-success-dot: var(--color-success-600);
+
+  --pill-warning-bg: var(--color-warning-50);
+  --pill-warning-text: var(--color-warning-700);
+  --pill-warning-dot: var(--color-warning-600);
+
+  --pill-danger-bg: var(--color-error-50);
+  --pill-danger-text: var(--color-error-700);
+  --pill-danger-dot: var(--color-error-600);
+
+  --pill-neutral-bg: var(--color-gray-100);
+  --pill-neutral-text: var(--color-gray-600);
+  --pill-neutral-dot: var(--color-gray-500);
+
+  /* Purple pill tokens — recipe for UserDropdownMenu's Staff badge
+     (`<Badge variant="purple" outline pill>`). Not part of the generated
+     brand/gray/success/warning/error ramps (there's no other consumer of
+     a purple scale), so these are the literal purple-50/200/700 values.
+     Unlike the other pill-* variants, this one has a visible border. */
+  --pill-purple-bg: #f4f3ff;
+  --pill-purple-border: #d9d6fe;
+  --pill-purple-text: #5925dc;
+
+  --table-header-bg: var(--color-gray-50);
+  --table-header-text: var(--color-gray-500);
+  --table-row-border: var(--color-gray-100);
+  --table-row-hover-bg: var(--color-gray-50);
+
+  /* Unlike the rest of this file, these two DO have a real Metronic
+     source: src/metronic/sass/core/components/_variables.scss's $menu
+     map (dropdown.box-shadow, consumed by Metronic's own data-kt-menu
+     dropdowns — see UserDropdown.tsx's ThemeSwitcher) and its $drawer map
+     (box-shadow/overlay-bg-color, Metronic's mobile slide-in panel,
+     directly analogous to Sheet.tsx). Read from the SCSS source
+     (`$dropdown-box-shadow`/`$drawer`'s `if(isDarkMode(), ...)` branches),
+     not live-measured via getComputedStyle the way buttonColors.css's
+     values are — there's no easy unauthenticated page to measure a real
+     one from. */
+  --dropdown-shadow: 0px 0px 50px 0px rgba(82, 63, 105, 0.15);
+  --drawer-shadow: 0px 1px 9px -3px rgba(0, 0, 0, 0.05);
+  --drawer-overlay-bg: rgba(0, 0, 0, 0.2);
+
+  /* The real modal backdrop, distinct from the drawer overlay above:
+     Bootstrap's $modal-backdrop-bg as this app overrides it
+     (src/metronic/sass/core/components/_variables.scss:
+     `rgba($backdrop-color, .7)`, with $backdrop-color = $gray-900 in
+     light mode — hence gray-900 at 70% here), plus the blur that
+     src/metronic/sass/custom/_modal.scss adds on top
+     (`.modal-backdrop.show { backdrop-filter: blur(3px) }`).
+
+     The alpha belongs to the color, not to an opacity: that same file
+     pins $modal-backdrop-opacity to 1 with the comment "Opacity breaks
+     the blur filter of backdrop". Dialog.tsx animates opacity 0 → 1 on
+     enter/exit only, so the resting state is always the full-alpha
+     color. Written as a literal rgba() like every other value in this
+     block — a var() inside rgba() isn't valid, and color-mix() appears
+     nowhere else in this package. */
+  --modal-backdrop-bg: rgba(16, 24, 40, 0.7);
+  --modal-backdrop-blur: 3px;
+
+  /* Same real-source reasoning as the shadow tokens above, from
+     src/metronic/sass/core/components/_card.scss's .card rule:
+     `box-shadow: $card-box-shadow` unconditionally, `border` only
+     `@if ($card-border-enabled)` — which is itself `if(isDarkMode(),
+     true, false)`. Metronic's real card relies on the shadow alone in
+     light mode (no border at all) and flips to a border with no shadow
+     in dark mode — the opposite of what Card.tsx did before this
+     token existed (always bordered, never shadowed, in both themes). */
+  --card-shadow: 0px 0px 20px 0px rgba(76, 87, 125, 0.02);
+  --card-border-color: transparent;
+
+  /* Generic "colored badge/avatar swatch" tokens — Avatar.tsx's
+     AvatarFallback, SidebarModeCard's icon square, and OrgSwitcher's org
+     badge all need one, unrelated to which SIDEBAR_STYLE is configured
+     (see the sidebar-styles block below). Deliberately theme-invariant,
+     matching what --nav-item-active-bg/-text used to be before this file
+     supported more than one sidebar style — not Metronic-sourced, just a
+     reasonable brand-colored default like the rest of this file. */
+  --badge-brand-bg: var(--waldur-brand-600);
+  --badge-brand-text: #ffffff;
+}
+
+:root[data-theme='dark'] {
+  --surface-page-bg: var(--color-gray-950);
+  --surface-sidebar-border: var(--color-gray-800);
+  --surface-card-bg: var(--color-gray-900);
+  --surface-card-border: var(--color-gray-800);
+  /* `--color-gray-800`, not `--color-gray-900`: identical to
+     `--surface-card-bg` made every hover/focused row in dark mode invisible
+     against its own menu — confirmed live on the select options dropdown.
+     `--color-gray-800` is the same "one step lighter than card" value
+     already used by `--surface-card-border`/`--surface-sidebar-border`
+     just above, for the same "something drawn on top of a card" purpose. */
+  --surface-hover-bg: var(--color-gray-800);
+
+  --surface-text-primary: var(--color-gray-25);
+  --surface-text-secondary: var(--color-gray-400);
+  --surface-text-muted: var(--color-gray-500);
+
+  --nav-section-label: var(--color-gray-600);
+
+  --pill-success-bg: var(--color-success-900);
+  --pill-success-text: var(--color-success-400);
+  --pill-success-dot: var(--color-success-400);
+
+  --pill-warning-bg: var(--color-warning-900);
+  --pill-warning-text: var(--color-warning-400);
+  --pill-warning-dot: var(--color-warning-400);
+
+  --pill-danger-bg: var(--color-error-900);
+  --pill-danger-text: var(--color-error-400);
+  --pill-danger-dot: var(--color-error-400);
+
+  --pill-neutral-bg: var(--color-gray-800);
+  --pill-neutral-text: var(--color-gray-400);
+  --pill-neutral-dot: var(--color-gray-500);
+
+  /* Same $purple-50/200/700 source as the light block above — its
+     if(isDarkMode(), ...) branch swaps to the dark-mode hex triplet. */
+  --pill-purple-bg: #3e1c96;
+  --pill-purple-border: #5925dc;
+  --pill-purple-text: #d9d6fe;
+
+  --table-header-bg: var(--color-gray-900);
+  --table-header-text: var(--color-gray-400);
+  --table-row-border: var(--color-gray-800);
+  --table-row-hover-bg: var(--color-gray-900);
+
+  --dropdown-shadow: 0px 0px 30px rgba(0, 0, 0, 0.3);
+  --drawer-shadow: 0px 0px 30px rgba(0, 0, 0, 0.1);
+  --drawer-overlay-bg: rgba(0, 0, 0, 0.4);
+
+  /* $modal-backdrop-bg's own isDarkMode() branch: rgba($gray-50, .5),
+     and $backdrop-color's dark $gray-50 is this file's dark ramp step
+     (#f5f5f6) — a light scrim over a dark page, not a darker one. The
+     blur is unbranched in the source, so --modal-backdrop-blur isn't
+     redefined here. */
+  --modal-backdrop-bg: rgba(245, 245, 246, 0.5);
+
+  --card-shadow: none;
+  --card-border-color: var(--surface-card-border);
+}

@@ -1,19 +1,14 @@
 import { FunctionComponent, useMemo } from 'react';
 import { Card, Col, Row } from 'react-bootstrap';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { SafeMarkdown } from '@waldur/core/SafeMarkdown';
-import { translate } from '@waldur/i18n';
-import { Field } from '@waldur/resource/summary';
-import { ExpandableContainer } from '@waldur/table/ExpandableContainer';
+import { formatDateTime } from '@/core/dateUtils';
+import { SafeMarkdown } from '@/core/SafeMarkdown';
+import { translate } from '@/i18n';
+import { Field } from '@/resource/summary';
+import { ExpandableContainer } from '@/table/ExpandableContainer';
 
 import { Call } from './types';
-import {
-  formatRoundAllocationStrategy,
-  formatRoundAllocationTime,
-  formatRoundReviewStrategy,
-  getRoundsWithStatus,
-} from './utils';
+import { getRoundsWithStatus } from './utils';
 
 export const PublicCallExpandableRow: FunctionComponent<{
   row: Call;
@@ -51,40 +46,14 @@ export const PublicCallExpandableRow: FunctionComponent<{
         </Col>
 
         {activeRound ? (
-          <>
-            <Col lg={12} xl={6}>
-              <Field
-                label={translate('Next cutoff')}
-                value={formatDateTime(activeRound.cutoff_time)}
-                labelCol={4}
-                valueCol={8}
-              />
-
-              <Field
-                label={translate('Review strategy')}
-                value={formatRoundReviewStrategy(activeRound.review_strategy)}
-                labelCol={4}
-                valueCol={8}
-              />
-            </Col>
-            <Col lg={12} xl={6}>
-              <Field
-                label={translate('Round strategy')}
-                value={formatRoundAllocationStrategy(
-                  activeRound.deciding_entity,
-                )}
-                labelCol={4}
-                valueCol={8}
-              />
-
-              <Field
-                label={translate('Allocation strategy')}
-                value={formatRoundAllocationTime(activeRound.allocation_time)}
-                labelCol={4}
-                valueCol={8}
-              />
-            </Col>
-          </>
+          <Col lg={12} xl={6}>
+            <Field
+              label={translate('Next cutoff')}
+              value={formatDateTime(activeRound.cutoff_time)}
+              labelCol={4}
+              valueCol={8}
+            />
+          </Col>
         ) : (
           <Col xs={12}>
             <p className="text-muted fst-italic fs-7 mb-0">

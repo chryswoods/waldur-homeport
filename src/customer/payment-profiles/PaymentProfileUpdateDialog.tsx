@@ -1,53 +1,45 @@
-import { FunctionComponent, useEffect, useMemo, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { reduxForm } from 'redux-form';
+import { FC, useMemo } from 'react';
+import { Form } from 'react-final-form';
 import { paymentProfilesPartialUpdate } from 'waldur-js-client';
 
-import { required } from '@waldur/core/validators';
-import { EDIT_PAYMENT_PROFILE_FORM_ID } from '@waldur/customer/payment-profiles/constants';
 import {
   getInitialValues,
   getPaymentProfileTypeOptions,
-} from '@waldur/customer/payment-profiles/utils';
-import {
-  FormContainer,
-  NumberField,
-  SelectField,
-  StringField,
-  SubmitButton,
-  TextField,
-} from '@waldur/form';
-import { DateField } from '@waldur/form/DateField';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
-import { setCurrentCustomer } from '@waldur/workspace/actions';
-import { getCustomer } from '@waldur/workspace/selectors';
+} from '@/customer/payment-profiles/utils';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { useCustomer, useSetCustomer } from '@/workspace/hooks';
 
 import { getCustomer as getCustomerApi } from '../utils';
 
-const PaymentProfileUpdateDialog: FunctionComponent<any> = (props) => {
-  const dispatch = useDispatch();
-  useEffect(() => {
-    props.initialize(getInitialValues(props.resolve.profile));
-  }, [props.resolve.profile]);
+import { PaymentProfileFormFields } from './PaymentProfileFormFields';
 
-  const [isFixedPrice, setIsFixedPrice] = useState(
-    props.resolve.payment_type === 'fixed_price',
-  );
+export const PaymentProfileUpdateDialog: FC<any> = (props) => {
+  const setCurrentCustomer = useSetCustomer();
+
+  const customer = useCustomer();
 
   const paymentProfileTypeOptions = useMemo(
     () => getPaymentProfileTypeOptions(),
     [],
   );
 
-  const customer = useSelector(getCustomer);
+  const initialValues = useMemo(() => {
+    const values = getInitialValues(props.resolve.profile);
+    return {
+      ...values,
+      payment_type: paymentProfileTypeOptions.find(
+        (opt) => opt.value === values.payment_type,
+      ),
+    };
+  }, [props.resolve.profile, paymentProfileTypeOptions]);
 
-  const submitRequest = async (formData) => {
-    try {
-      await paymentProfilesPartialUpdate({
+  const updateMutation = useManagedMutation<any, any, any>({
+    mutationFn: (formData) =>
+      paymentProfilesPartialUpdate({
         path: { uuid: props.resolve.profile.uuid },
         body: {
           name: formData.name,
@@ -58,82 +50,41 @@ const PaymentProfileUpdateDialog: FunctionComponent<any> = (props) => {
             contract_sum: formData.contract_sum,
           },
         },
-      });
-      dispatch(showSuccess(translate('Payment profile has been updated.')));
-      dispatch(closeModalDialog());
-      await props.resolve.refetch();
+      }),
+    successMessage: translate('Payment profile has been updated.'),
+    errorMessage: translate('Unable to update payment profile.'),
+    refetch: props.resolve.refetch,
+    onSuccess: async () => {
       const updatedCustomer = await getCustomerApi(customer.uuid);
-      dispatch(setCurrentCustomer(updatedCustomer));
-    } catch (error) {
-      dispatch(
-        showErrorResponse(
-          error,
-          translate('Unable to update payment profile.'),
-        ),
-      );
-    }
-  };
+      setCurrentCustomer(updatedCustomer);
+    },
+  });
 
   return (
-    <form onSubmit={props.handleSubmit(submitRequest)}>
-      <ModalDialog
-        title={translate('Update payment profile')}
-        footer={
-          <>
-            <CloseDialogButton />
-            <SubmitButton
-              disabled={props.invalid}
-              submitting={props.submitting}
-              label={translate('Update')}
-            />
-          </>
-        }
-      >
-        <FormContainer submitting={false} clearOnUnmount={false}>
-          <StringField
-            name="name"
-            label={translate('Name')}
-            required={true}
-            validate={required}
-            maxLength={150}
-          />
-
-          <SelectField
-            name="payment_type"
-            label={translate('Type')}
-            required={true}
-            options={paymentProfileTypeOptions}
-            isClearable={false}
-            validate={required}
-            onChange={(value: any) =>
-              setIsFixedPrice(value.value === 'fixed_price')
+    <Form
+      onSubmit={(values) => updateMutation.mutateAsync(values)}
+      initialValues={initialValues}
+      render={({ handleSubmit, submitting, invalid }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate('Update payment profile')}
+            footer={
+              <>
+                <CloseDialogButton />
+                <SubmitButton
+                  disabled={invalid}
+                  submitting={submitting}
+                  label={translate('Update')}
+                />
+              </>
             }
-          />
-
-          {isFixedPrice ? (
-            <DateField name="end_date" label={translate('End date')} />
-          ) : null}
-
-          {isFixedPrice && (
-            <TextField
-              name="agreement_number"
-              label={translate('Agreement number')}
-              maxLength={150}
+          >
+            <PaymentProfileFormFields
+              paymentProfileTypeOptions={paymentProfileTypeOptions}
             />
-          )}
-
-          {isFixedPrice && (
-            <NumberField
-              name="contract_sum"
-              label={translate('Contract sum')}
-            />
-          )}
-        </FormContainer>
-      </ModalDialog>
-    </form>
+          </ModalDialog>
+        </form>
+      )}
+    />
   );
 };
-
-export const PaymentProfileUpdateDialogContainer = reduxForm({
-  form: EDIT_PAYMENT_PROFILE_FORM_ID,
-})(PaymentProfileUpdateDialog);

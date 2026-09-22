@@ -1,34 +1,29 @@
 import { DateTime } from 'luxon';
-import { Field } from 'react-final-form';
 
-import { required } from '@waldur/core/validators';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { ProjectFeatures } from '@waldur/FeaturesEnums';
-import { DateField } from '@waldur/form/DateField';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
+import { ENV } from '@/core/config';
+import { required } from '@/core/validators';
+import { isFeatureVisible } from '@/features/connect';
+import { ProjectFeatures } from '@/FeaturesEnums';
+import { DateGroup } from '@/form';
+import { translate } from '@/i18n';
 
-export const EndDateGroup = ({ create }: { create?: boolean }) =>
-  !create ||
-  isFeatureVisible(ProjectFeatures.show_end_date_in_create_dialog) ||
-  isFeatureVisible(ProjectFeatures.mandatory_end_date) ? (
-    <FormGroup
+export const EndDateGroup = ({ create }: { create?: boolean }) => {
+  const isMandatoryFromBackend =
+    !!ENV.plugins?.WALDUR_CORE?.PROJECT_END_DATE_MANDATORY;
+
+  return !create ||
+    isFeatureVisible(ProjectFeatures.show_end_date_in_create_dialog) ||
+    isMandatoryFromBackend ? (
+    <DateGroup
+      name="end_date"
+      minDate={DateTime.now().plus({ days: 1 }).toISO()}
+      containerClassName="col-lg"
+      validate={isMandatoryFromBackend ? required : undefined}
       label={translate('End date')}
       help={translate(
-        'The date is inclusive. Once reached, all project resource will be scheduled for termination.',
+        'The date is inclusive. Once reached (plus any configured grace period), all project resources will be scheduled for termination.',
       )}
-      required={isFeatureVisible(ProjectFeatures.mandatory_end_date)}
-    >
-      <Field
-        component={DateField}
-        name="end_date"
-        minDate={DateTime.now().plus({ days: 1 }).toISO()}
-        containerClassName="col-lg"
-        validate={
-          isFeatureVisible(ProjectFeatures.mandatory_end_date)
-            ? required
-            : undefined
-        }
-      />
-    </FormGroup>
+      required={isMandatoryFromBackend}
+    />
   ) : null;
+};

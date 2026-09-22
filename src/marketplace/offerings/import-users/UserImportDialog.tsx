@@ -6,23 +6,15 @@ import {
   ServiceProvider,
 } from 'waldur-js-client';
 
-import { ProgressStep } from '@waldur/core/ProgressSteps';
-import { WizardFormContainer } from '@waldur/form/WizardFormContainer';
-import { formatJsxTemplate, translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import {
-  showError,
-  showErrorResponse,
-  showSuccess,
-} from '@waldur/store/notify';
+import { formatJsxTemplate, translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { useNotify } from '@/store/notify';
+import { ProgressStep, WizardFormContainer } from '@/wizard';
 
 import { Step1UploadFile } from './Step1UploadFile';
 import { Step2PreviewAndImport } from './Step2PreviewAndImport';
 import { OfferingUserRecord, RecordStatus } from './types';
-import {
-  BULK_IMPORT_OFFERING_USERS_FORM_ID,
-  validateOfferingUserCreation,
-} from './utils';
+import { validateOfferingUserCreation } from './utils';
 
 interface UserImportDialogProps {
   resolve: {
@@ -47,13 +39,18 @@ const steps: ProgressStep[] = [
 ];
 
 export const UserImportDialog: FC<UserImportDialogProps> = (props) => {
+  const { showError, showErrorResponse, showSuccess } = useNotify();
+  const { closeDialog } = useModal();
+
   // Save created users (to avoid recreation) when we make modifications on the file after a failed submission
-  const [createdUsers, setCreatedUsers] = useState<OfferingUser[]>([]);
+  const [createdUsers, setCreatedUsers] = useState<
+    Pick<OfferingUser, 'user_username' | 'offering_uuid'>[]
+  >([]);
   // When the submission is failed, we keep the returned status of records here - including errors
   const [status, setStatus] = useState<RecordStatus[]>([]);
 
   const submitForm = useCallback(
-    async (formData, dispatch, formProps) => {
+    async (formData) => {
       try {
         const validRecords: OfferingUserRecord[] = formData.payload.filter(
           (row) => {
@@ -106,7 +103,7 @@ export const UserImportDialog: FC<UserImportDialogProps> = (props) => {
           );
         });
         if (promises.length === 0 && createdUsers.length === 0) {
-          dispatch(showError(translate('No valid offering user to import')));
+          showError(translate('No valid offering user to import'));
           return;
         }
 
@@ -118,41 +115,46 @@ export const UserImportDialog: FC<UserImportDialogProps> = (props) => {
 
           if (success.length) {
             props.resolve.refetch();
-            dispatch(
-              showSuccess(
-                translate('Successfully imported {n} records', {
-                  n: success.length,
-                }),
-              ),
+            showSuccess(
+              translate('Successfully imported {n} records', {
+                n: success.length,
+              }),
             );
           }
           if (error.length) {
-            dispatch(showErrorResponse(error[0].reason));
+            showErrorResponse(error[0].reason);
           }
 
           if (!error.length) {
-            formProps.destroy();
-            dispatch(closeModalDialog());
+            closeDialog();
           }
           return results;
         });
       } catch (err) {
-        dispatch(showErrorResponse(err));
+        showErrorResponse(err);
       }
     },
-    [createdUsers, setCreatedUsers, setStatus, props.resolve.refetch],
+    [
+      createdUsers,
+      setCreatedUsers,
+      setStatus,
+      props.resolve.refetch,
+      showError,
+      showErrorResponse,
+      showSuccess,
+      closeDialog,
+    ],
   );
 
   return (
     <WizardFormContainer
-      form={BULK_IMPORT_OFFERING_USERS_FORM_ID}
       onSubmit={submitForm}
       steps={steps}
       hideStepper
       title={translate('Bulk import')}
       subtitle={translate(
         'Create offering users in bulk: download template {arrow} fill with your data {arrow} upload file',
-        { arrow: <ArrowRightIcon /> },
+        { arrow: <ArrowRightIcon weight="bold" /> },
         formatJsxTemplate,
       )}
       wizardForms={WizardForms}
@@ -161,7 +163,7 @@ export const UserImportDialog: FC<UserImportDialogProps> = (props) => {
         payload: [], // This field will be filled in step 2, when the file is processed for sending to the server
       }}
       data={{ provider: props.resolve?.provider, status }}
-      modalProps={{ headerClassName: 'pb-1', bodyClassName: 'h-500px' }}
+      modalProps={{ bodyClassName: 'h-500px' }}
     />
   );
 };

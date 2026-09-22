@@ -1,14 +1,14 @@
-.login-input {
-  border-radius: 8px;
-  margin-bottom: 14px;
+.login-input,
+.local-login-form .form-control {
+  margin-bottom: 8px;
+  padding: 8px 14px;
   width: 100%;
-  border: 1px solid #9d9d9d;
-  padding: 8px;
+  font-size: 1.077rem;
 }
 
-.login-input:focus {
+.login-input:focus,
+.local-login-form .form-control:focus {
   outline: 0;
-  box-shadow: 0 0 2px var(--waldur-brand-color);
 }
 
 .login-separator {
@@ -19,13 +19,17 @@
 
 .login-separator-border {
   flex-grow: 1;
-  border-bottom: 1px solid var(--waldur-brand-color);
+  border-bottom: 1px solid var(--waldur-border-secondary);
 }
 
 .login-separator-text {
   margin: 0 18px;
 }
 
+/* Deliberately subordinate to the identity-provider buttons above it: local
+   accounts are the fallback path, not the primary one, and the form itself stays
+   collapsed until this is clicked. Styling it as a filled primary CTA inverts
+   that hierarchy. */
 .login-with-local-account-button {
   font-weight: 500;
   font-size: 12px;
@@ -38,16 +42,13 @@
 }
 
 .login-submit-button {
-  background: var(--waldur-brand-color);
-  color: white;
-  text-align: center;
-  border-radius: 12px;
-  padding: 0 8px;
-  height: 42px;
-  align-items: center;
-  justify-content: center;
-  font-size: 15px;
-  display: flex;
+  height: 38px;
   width: 100%;
-  border: none;
+}
+
+.login-lang-select {
+  width: 100px;
+}
+.login-lang-select .metronic-select__control {
+  border-color: transparent;
 }

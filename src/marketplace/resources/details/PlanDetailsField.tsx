@@ -1,14 +1,14 @@
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
-import { useModal } from '@waldur/modal/hooks';
+import { lazyComponent } from '@/core/lazyComponent';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import { getResourceBillingMode } from '@/marketplace/details/plan/billingMode';
+import { PlanBillingModeBadge } from '@/marketplace/details/plan/PlanBillingModeBadge';
+import { useModal } from '@/modal/actions';
 
 const PlanDetailsDialog = lazyComponent(() =>
-  import('@waldur/marketplace/details/plan/PlanDetailsDialog').then(
-    (module) => ({
-      default: module.PlanDetailsDialog,
-    }),
-  ),
+  import('@/marketplace/details/plan/PlanDetailsDialog').then((module) => ({
+    default: module.PlanDetailsDialog,
+  })),
 );
 
 export const PlanDetailsField = ({ resource }) => {
@@ -19,6 +19,10 @@ export const PlanDetailsField = ({ resource }) => {
       value={
         <>
           {resource.plan_name}{' '}
+          <PlanBillingModeBadge
+            mode={getResourceBillingMode(resource)}
+            className="me-1"
+          />
           <button
             className="text-link"
             type="button"

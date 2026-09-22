@@ -1,15 +1,16 @@
 import { useMemo } from 'react';
-import { useSelector } from 'react-redux';
+import { useFormState } from 'react-final-form';
 
-import { Tip } from '@waldur/core/Tooltip';
-import { translate } from '@waldur/i18n';
-import { Field } from '@waldur/resource/summary';
-import { renderFieldOrDash } from '@waldur/table/utils';
+import { Tooltip } from 'waldur-ui';
 
-import { importOfferingSelector } from './selectors';
+import { translate } from '@/i18n';
+import { Field } from '@/resource/summary';
+import { renderFieldOrDash } from '@/table/utils';
+
+import { OfferingImportFormData } from './types';
 
 export const ImportReviewTab = () => {
-  const formData = useSelector(importOfferingSelector);
+  const { values: formData } = useFormState<OfferingImportFormData>();
 
   const tableData = useMemo(() => {
     return formData.offerings.map((offering) => {
@@ -19,8 +20,8 @@ export const ImportReviewTab = () => {
       return {
         uuid: offering.uuid,
         offering: offering.name,
-        remote_category: categoryMap.remote_category,
-        local_category: categoryMap.local_category.title,
+        remote_category: categoryMap?.remote_category,
+        local_category: categoryMap?.local_category?.title,
       };
     });
   }, [formData]);
@@ -60,9 +61,9 @@ export const ImportReviewTab = () => {
               <tr key={data.uuid}>
                 <td className="text-dark">{data.remote_category}</td>
                 <td className="text-dark">
-                  <Tip id={`tip-offering-${data.uuid}`} label={data.offering}>
-                    {data.offering}
-                  </Tip>
+                  <Tooltip label={data.offering}>
+                    <span>{data.offering}</span>
+                  </Tooltip>
                 </td>
                 <td>{data.local_category}</td>
               </tr>

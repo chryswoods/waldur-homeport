@@ -1,10 +1,8 @@
-import { useDispatch } from 'react-redux';
-import { Resource } from 'waldur-js-client';
+import { Resource, OfferingComponent } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { OfferingComponent } from '@waldur/marketplace/types';
-import { openModalDialog } from '@waldur/modal/actions';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
 
 const ResourceComponentsDialog = lazyComponent(() =>
   import('./ResourceComponentsDialog').then((module) => ({
@@ -12,27 +10,27 @@ const ResourceComponentsDialog = lazyComponent(() =>
   })),
 );
 
-const showResourceComponentsDialog = (resource, components) =>
-  openModalDialog(ResourceComponentsDialog, {
-    resolve: { resource, components },
-    size: 'lg',
-  });
-
 export const ResourceShowMoreComponents = ({
   resource,
   components,
 }: {
-  resource: Pick<Resource, 'current_usages' | 'limits' | 'limit_usage'>;
+  resource: Pick<
+    Resource,
+    'name' | 'current_usages' | 'limits' | 'limit_usage'
+  >;
   components: OfferingComponent[];
 }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
 
   return (
     <button
       type="button"
       className="text-anchor fw-bold"
       onClick={() =>
-        dispatch(showResourceComponentsDialog(resource, components))
+        openDialog(ResourceComponentsDialog, {
+          resolve: { resource, components },
+          size: 'lg',
+        })
       }
     >
       {translate('Show more')}

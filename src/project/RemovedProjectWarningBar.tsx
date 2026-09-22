@@ -1,20 +1,21 @@
-import { TrashIcon, ArrowCounterClockwiseIcon } from '@phosphor-icons/react';
+import {
+  WarningCircleIcon,
+  ArrowCounterClockwiseIcon,
+} from '@phosphor-icons/react';
 import { useCurrentStateAndParams } from '@uirouter/react';
 import { FC } from 'react';
-import { Button } from 'react-bootstrap';
-import { useDispatch, useSelector } from 'react-redux';
 
-import { RadarIcon } from '@waldur/core/RadarIcon';
-import { translate } from '@waldur/i18n';
-import { isExperimentalUiComponentsVisible } from '@waldur/marketplace/utils';
-import { openModalDialog } from '@waldur/modal/actions';
-import { getProject } from '@waldur/workspace/selectors';
+import { FeaturedIcon } from '@/core/FeaturedIcon';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { CompactActionButton } from '@/table/CompactActionButton';
+import { useProject } from '@/workspace/hooks';
 
 import { ProjectRecoveryModal } from './ProjectRecoveryModal';
 
 export const RemovedProjectWarningBar: FC = () => {
-  const dispatch = useDispatch();
-  const project = useSelector(getProject);
+  const { openDialog } = useModal();
+  const project = useProject();
   const { state } = useCurrentStateAndParams();
 
   // Only show the warning bar on project-related pages
@@ -26,41 +27,34 @@ export const RemovedProjectWarningBar: FC = () => {
   }
 
   const openRecoveryModal = () => {
-    dispatch(
-      openModalDialog(ProjectRecoveryModal, {
-        resolve: { project },
-        size: 'lg',
-      }),
-    );
+    openDialog(ProjectRecoveryModal, {
+      resolve: { project },
+      size: 'lg',
+    });
   };
 
   return (
-    <div className="removed-project-warning-bar bg-danger bg-opacity-10 border-danger border-opacity-25 border-bottom">
-      <div className="container-fluid">
-        <div className="d-flex justify-content-between align-items-center py-3">
-          <div className="d-flex align-items-center">
-            <RadarIcon IconComponent={TrashIcon} variant="danger" size="sm" />
-            <span className="ms-2 text-danger">
-              <strong>{translate('Project Removed')}:</strong>{' '}
-              {translate(
-                'This project has been removed. All resources have been terminated and user roles have been revoked.',
-              )}
-            </span>
-          </div>
-          {isExperimentalUiComponentsVisible() && (
-            <div>
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={openRecoveryModal}
-                className="d-flex align-items-center gap-2"
-              >
-                <ArrowCounterClockwiseIcon size={16} weight="bold" />
-                {translate('Recover Project')}
-              </Button>
-            </div>
+    <div className="layout-warning-bar bar-warning">
+      <div className="container-fluid w-100 d-flex align-items-center gap-2">
+        {/* eslint-disable-next-line waldur-custom/enforce-phosphor-icon-weight */}
+        <FeaturedIcon
+          IconComponent={WarningCircleIcon}
+          variant="warning"
+          size="sm"
+        />
+        <p className="text-start fs-6 mb-0">
+          <strong className="fw-bold">{translate('Project Removed')}: </strong>
+          {translate(
+            'This project has been removed. All resources have been terminated and user roles have been revoked.',
           )}
-        </div>
+        </p>
+        <CompactActionButton
+          action={openRecoveryModal}
+          title={translate('Recover Project')}
+          iconNode={<ArrowCounterClockwiseIcon weight="bold" />}
+          variant="warning"
+          className="ms-auto"
+        />
       </div>
     </div>
   );

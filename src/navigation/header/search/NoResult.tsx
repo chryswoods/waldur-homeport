@@ -1,21 +1,21 @@
 import { MagnifyingGlassIcon } from '@phosphor-icons/react';
 import classNames from 'classnames';
 import { CSSProperties, FC, ReactNode } from 'react';
-import { Button } from 'react-bootstrap';
 
-import { translate } from '@waldur/i18n';
-import { useTheme } from '@waldur/theme/useTheme';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+
+import { RadialBg } from './RadialBg';
 
 import './NoResult.scss';
-
-import Bg from './Background.svg';
-import BgDark from './BackgroundDark.svg';
 
 interface NoResultProps {
   title?: string;
   message?: ReactNode;
   actions?: ReactNode;
   buttonTitle?: string;
+  // Explicitly marks this empty state as having no actionable CTA.
+  noAction?: boolean;
   callback?(): void;
   isVisible?: boolean;
   className?: string;
@@ -31,9 +31,7 @@ export const NoResult: FC<NoResultProps> = ({
   isVisible = true,
   className,
   style,
-}) => {
-  const { theme } = useTheme();
-
+}: NoResultProps) => {
   return (
     <div
       className={classNames(
@@ -43,19 +41,15 @@ export const NoResult: FC<NoResultProps> = ({
       )}
       style={style}
     >
-      {theme === 'dark' ? (
-        <BgDark className="background" />
-      ) : (
-        <Bg className="background" />
-      )}
-      <div className="text-center d-flex flex-column align-items-center gap-6 pb-10 position-relative z-index-1">
-        <div className="search-icon">
+      <RadialBg className="background" />
+      <div className="text-center d-flex flex-column align-items-center pb-10 position-relative z-index-1">
+        <div className="icon-square icon-lg search-icon">
           <MagnifyingGlassIcon weight="bold" size={24} />
         </div>
 
         <div>
-          <h4 className="fw-bold mb-2">{title}</h4>
-          <div className="d-flex flex-column align-items-center text-muted fs-6">
+          <h4>{title}</h4>
+          <div className="d-flex flex-column align-items-center text-tertiary fs-6">
             {message !== null &&
               (message || (
                 <p className="mb-0">
@@ -67,15 +61,19 @@ export const NoResult: FC<NoResultProps> = ({
           </div>
         </div>
         {(actions || callback) && (
-          <div className="d-flex justify-content-center gap-4 w-100">
+          <div className="actions d-flex justify-content-center gap-4 w-100">
             {Boolean(callback) && (
-              <Button
+              <SubmitButton
+                submitting={false}
+                type="button"
                 variant="tertiary"
-                className={classNames('mw-350px', actions ? 'w-175px' : 'w-50')}
+                className={classNames(
+                  'mw-175px min-w-120px',
+                  actions ? 'w-175px' : 'w-50',
+                )}
                 onClick={callback}
-              >
-                {buttonTitle}
-              </Button>
+                label={buttonTitle}
+              />
             )}
             {actions}
           </div>

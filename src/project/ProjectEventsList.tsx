@@ -1,42 +1,28 @@
-import { FunctionComponent } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
+import { FunctionComponent, useMemo } from 'react';
 
-import { isEmpty } from '@waldur/core/utils';
-import { BaseEventsList } from '@waldur/events/BaseEventsList';
-import { translate } from '@waldur/i18n';
-import { getProject } from '@waldur/workspace/selectors';
-
-import { ProjectEventsFilter } from './ProjectEventsFilter';
-
-const mapStateToFilter = createSelector(
-  getFormValues('projectEventsFilter'),
-  getProject,
-  (userFilter: any, project) => {
-    const filter = {
-      ...userFilter,
-      feature: userFilter?.feature?.map((option) => option.value),
-    };
-    if (project) {
-      filter.scope = project.url;
-    }
-    if (userFilter && isEmpty(userFilter.feature)) {
-      filter.feature = ['projects', 'resources'];
-    }
-    return filter;
-  },
-);
+import { BaseEventsList } from '@/events/BaseEventsList';
+import { translate } from '@/i18n';
+import {
+  selectEventsFilter as selectSupportEventsFilter,
+  EventsFilter as SupportEventsFilter,
+} from '@/table/generated/EventsFilter';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useProject } from '@/workspace/hooks';
 
 export const ProjectEventsView: FunctionComponent = () => {
-  const project = useSelector(getProject);
-  const filter = useSelector(mapStateToFilter);
+  const project = useProject();
+  const tableId = `project-events-${project?.uuid}`;
+  const values = useFilterValues(tableId);
+  const filter = useMemo(() => selectSupportEventsFilter(values), [values]);
   return (
     <BaseEventsList
-      table={`project-events-${project?.uuid}`}
+      table={tableId}
       title={translate('Audit logs')}
-      filter={filter}
-      filters={<ProjectEventsFilter />}
+      filter={{
+        ...filter,
+        scope: project?.url,
+      }}
+      filters={<SupportEventsFilter />}
       initialPageSize={5}
     />
   );

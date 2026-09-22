@@ -1,14 +1,13 @@
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react';
-import { useDispatch } from 'react-redux';
 import { openstackInstancesPull } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { validateOpenStackInstanceManagePermission } from '@waldur/openstack/utils';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { validateState } from '@waldur/resource/actions/base';
-import { ActionContext, ActionItemType } from '@waldur/resource/actions/types';
-import { useValidators } from '@waldur/resource/actions/useValidators';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { validateOpenStackInstanceManagePermission } from '@/openstack/utils';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { validateState } from '@/resource/actions/base';
+import { ActionContext, ActionItemType } from '@/resource/actions/types';
+import { useValidators } from '@/resource/actions/useValidators';
 
 const hasBackendId = (ctx: ActionContext) =>
   ctx.resource.backend_id
@@ -22,26 +21,20 @@ const validators = [
 ];
 
 export const PullInstanceAction: ActionItemType = ({ resource, refetch }) => {
-  const dispatch = useDispatch();
   const { tooltip, disabled } = useValidators(validators, resource);
+
+  const { mutate, isPending = false } = useManagedMutation<any, any, void>({
+    mutationFn: () => openstackInstancesPull({ path: { uuid: resource.uuid } }),
+    successMessage: translate('Resource sync has been scheduled.'),
+    errorMessage: translate('Unable to sync resource.'),
+    refetch,
+  });
 
   return (
     <ActionItem
       title={translate('Synchronise')}
-      action={async () => {
-        try {
-          await openstackInstancesPull({ path: { uuid: resource.uuid } });
-          if (refetch) {
-            await refetch();
-          }
-          dispatch(showSuccess(translate('Resource sync has been scheduled.')));
-        } catch (error) {
-          dispatch(
-            showErrorResponse(error, translate('Unable to sync resource.')),
-          );
-        }
-      }}
-      disabled={disabled}
+      action={mutate}
+      disabled={disabled || isPending}
       tooltip={tooltip}
       iconNode={<ArrowsClockwiseIcon weight="bold" />}
     />

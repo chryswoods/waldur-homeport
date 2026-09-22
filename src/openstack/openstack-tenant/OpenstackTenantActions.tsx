@@ -1,17 +1,27 @@
-import { translate } from '@waldur/i18n';
-import { ActionGroup } from '@waldur/marketplace/resources/actions/ActionGroup';
-import { MoveResourceAction } from '@waldur/marketplace/resources/actions/MoveResourceAction';
-import { ChangeLimitsAction } from '@waldur/marketplace/resources/change-limits/ChangeLimitsAction';
-import { ChangePlanAction } from '@waldur/marketplace/resources/change-plan/ChangePlanAction';
-import { ShowUsageAction } from '@waldur/marketplace/resources/list/ShowUsageAction';
-import { TerminateAction } from '@waldur/marketplace/resources/terminate/TerminateAction';
-import { UnlinkActionItem } from '@waldur/resource/actions/UnlinkActionItem';
+import {
+  openstackTenantsSetErred,
+  openstackTenantsSetOk,
+} from 'waldur-js-client';
+
+import { translate } from '@/i18n';
+import { ActionGroup } from '@/marketplace/resources/actions/ActionGroup';
+import { MoveResourceAction } from '@/marketplace/resources/actions/MoveResourceAction';
+import { PullMarketplaceResourceAction } from '@/marketplace/resources/actions/PullMarketplaceResourceAction';
+import { ChangeLimitsAction } from '@/marketplace/resources/change-limits/ChangeLimitsAction';
+import { ChangePlanAction } from '@/marketplace/resources/change-plan/ChangePlanAction';
+import { ShowUsageAction } from '@/marketplace/resources/list/ShowUsageAction';
+import { RenewAllocationActionAction } from '@/marketplace/resources/renew-allocation/RenewAllocationAction';
+import { TerminateAction } from '@/marketplace/resources/terminate/TerminateAction';
+import { SetResourceErredAction } from '@/resource/actions/SetResourceErredAction';
+import { SetResourceOkAction } from '@/resource/actions/SetResourceOkAction';
+import { UnlinkActionItem } from '@/resource/actions/UnlinkActionItem';
 
 import { ProviderActionsGroup } from '../../marketplace/resources/actions/ProviderActionsGroup';
 
 import { EditAction } from './actions/EditAction';
 import { MigrateTenantAction } from './actions/MigrateTenantAction';
 import { PullTenantAction } from './actions/PullTenantAction';
+import { SetQuotasAction } from './actions/SetQuotasAction';
 
 export const OpenstackTenantActions = (props) => (
   <>
@@ -19,19 +29,33 @@ export const OpenstackTenantActions = (props) => (
       <EditAction {...props} />
       <MigrateTenantAction {...props} />
       <PullTenantAction {...props} />
+      <PullMarketplaceResourceAction {...props} />
     </ActionGroup>
 
     <ActionGroup title={translate('Billing actions')}>
       <ChangePlanAction {...props} />
       <ChangeLimitsAction {...props} />
+      <RenewAllocationActionAction {...props} />
       <ShowUsageAction {...props} />
     </ActionGroup>
 
-    <ProviderActionsGroup {...props} />
+    <ProviderActionsGroup {...props}>
+      <SetQuotasAction resource={props.resource} refetch={props.refetch} />
+    </ProviderActionsGroup>
 
     <ActionGroup title={translate('Staff actions')}>
       <MoveResourceAction {...props} />
       <UnlinkActionItem {...props} />
+      <SetResourceErredAction
+        apiMethod={openstackTenantsSetErred}
+        resource={props.resource}
+        refetch={props.refetch}
+      />
+      <SetResourceOkAction
+        apiMethod={openstackTenantsSetOk}
+        resource={props.resource}
+        refetch={props.refetch}
+      />
     </ActionGroup>
 
     <ActionGroup title={translate('Dangerous actions')}>

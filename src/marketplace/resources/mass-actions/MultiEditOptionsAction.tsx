@@ -1,16 +1,15 @@
 import { PencilSimpleIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
-import { Button } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
 import { Resource } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { EditAction } from '@waldur/form/EditAction';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { useUser } from '@waldur/workspace/hooks';
+import { lazyComponent } from '@/core/lazyComponent';
+import { EditAction } from '@/form/EditAction';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasAllPermissions } from '@/permissions/hasPermission';
+import { ActionButton } from '@/table/ActionButton';
+import { useUser } from '@/workspace/hooks';
 
 const MultiEditOptionsDialog = lazyComponent(() =>
   import('./MultiEditOptionsDialog').then((module) => ({
@@ -27,41 +26,54 @@ export const MultiEditOptionsAction = ({
   refetch;
   asButton?: boolean;
 }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
 
   const user = useUser();
   const canShow = useMemo(() => {
     // Check if the offering of all resources is the same & check permission
     const offeringUuid = rows[0].offering_uuid;
-    return rows.every(
-      (resource) =>
+    return rows.every((resource) => {
+      // Offerings that apply option changes through a marketplace order need
+      // order creation rights as well.
+      const createsOrder = Boolean(
+        (resource.offering_plugin_options as any)
+          ?.create_orders_on_resource_option_change,
+      );
+      return (
         resource.offering_uuid === offeringUuid &&
-        hasPermission(user, {
-          permission: PermissionEnum.UPDATE_RESOURCE_OPTIONS,
-          projectId: resource.project_uuid,
-          customerId: resource.customer_uuid,
-        }),
-    );
+        hasAllPermissions(
+          user,
+          createsOrder
+            ? [
+                PermissionEnum.UPDATE_RESOURCE_OPTIONS,
+                PermissionEnum.CREATE_ORDER,
+              ]
+            : [PermissionEnum.UPDATE_RESOURCE_OPTIONS],
+          {
+            projectId: resource.project_uuid,
+            customerId: resource.customer_uuid,
+          },
+        )
+      );
+    });
   }, [rows, user]);
 
   const callback = () =>
-    dispatch(
-      openModalDialog(MultiEditOptionsDialog, {
-        resolve: {
-          rows,
-          refetch,
-        },
-      }),
-    );
+    openDialog(MultiEditOptionsDialog, {
+      resolve: {
+        rows,
+        refetch,
+      },
+    });
 
   return canShow ? (
     asButton ? (
-      <Button variant="tertiary" onClick={callback}>
-        <span className="svg-icon svg-icon-2">
-          <PencilSimpleIcon weight="bold" />
-        </span>
-        {translate('Edit all')}
-      </Button>
+      <ActionButton
+        variant="tertiary"
+        action={callback}
+        iconNode={<PencilSimpleIcon weight="bold" />}
+        title={translate('Edit all')}
+      />
     ) : (
       <EditAction
         title={translate('Edit resource options')}

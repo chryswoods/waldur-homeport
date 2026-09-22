@@ -2,19 +2,20 @@ import { useQuery } from '@tanstack/react-query';
 import { debounce } from 'lodash-es';
 import { useCallback, useMemo, useState } from 'react';
 import { FormLabel } from 'react-bootstrap';
-import { Field } from 'redux-form';
+import { Field } from 'react-final-form';
 import { openstackImagesList } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { required } from '@waldur/core/validators';
-import { FilterBox } from '@waldur/form/FilterBox';
-import { VStepperFormStepCard } from '@waldur/form/VStepperFormStep';
-import { translate } from '@waldur/i18n';
-import { BoxRadioField } from '@waldur/marketplace/deploy/steps/BoxRadioField';
-import { FormStepProps } from '@waldur/marketplace/deploy/types';
-import { generateSystemImageChoices } from '@waldur/marketplace/deploy/utils';
+import { getAllPages } from '@/core/api';
+import { UI_STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { required } from '@/core/validators';
+import { FilterBox } from '@/form/FilterBox';
+import { translate } from '@/i18n';
+import { BoxRadioField } from '@/marketplace/deploy/steps/BoxRadioField';
+import { FormStepProps } from '@/marketplace/deploy/types';
+import { generateSystemImageChoices } from '@/marketplace/deploy/utils';
+import { VStepperFormStepCard } from '@/wizard';
 
 export const FormImageStep = (props: FormStepProps) => {
   const [query, setQuery] = useState('');
@@ -37,12 +38,13 @@ export const FormImageStep = (props: FormStepProps) => {
                 page,
                 tenant_uuid: props.offering.scope_uuid,
                 name: query,
+                is_rescue_image: false,
               },
             }),
           )
         : Promise.resolve([]),
 
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
 
   const choices = useMemo(() => generateSystemImageChoices(data), [data]);
@@ -75,14 +77,16 @@ export const FormImageStep = (props: FormStepProps) => {
           {translate('There are no option to choose.')}
         </p>
       ) : (
-        <Field
-          name="attributes.image"
-          validate={[required]}
-          component={BoxRadioField}
-          choices={choices}
-          vertical
-          required
-        />
+        <Field name="attributes.image" validate={required}>
+          {(fieldProps) => (
+            <BoxRadioField
+              {...fieldProps}
+              choices={choices}
+              vertical
+              required
+            />
+          )}
+        </Field>
       )}
     </VStepperFormStepCard>
   );

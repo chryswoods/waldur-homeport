@@ -13,15 +13,21 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { DotsSixVerticalIcon, GearIcon } from '@phosphor-icons/react';
+import {
+  ArrowCounterClockwiseIcon,
+  DotsSixVerticalIcon,
+  GearIcon,
+} from '@phosphor-icons/react';
+import * as RadixPopover from '@radix-ui/react-popover';
 import { FC, useMemo, useState } from 'react';
-import { Button, Dropdown, OverlayTrigger, Popover } from 'react-bootstrap';
+import { Button, FormCheck } from 'react-bootstrap';
 
-import { FilterBox } from '@waldur/form/FilterBox';
-import { translate } from '@waldur/i18n';
+import { Tooltip } from 'waldur-ui';
 
-import CheckboxIcon from './Checkbox.svg';
-import CheckboxEmptyIcon from './CheckboxEmpty.svg';
+import { CompactIconButton } from '@/core/buttons/IconButton';
+import { FilterBox } from '@/form/FilterBox';
+import { translate } from '@/i18n';
+
 import { COLUMN_ACTIONS_KEY } from './constants';
 import { TableProps } from './types';
 
@@ -36,22 +42,20 @@ const SortableItem = (props) => {
 
   return (
     <div
-      className="dropdown-item"
+      className="dropdown-item d-flex align-items-center"
       ref={setNodeRef}
       style={style}
       {...attributes}
       {...listeners}
     >
-      <span className="svg-icon svg-icon-2 svg-icon-gray me-3">
-        <DotsSixVerticalIcon size={32} />
-      </span>{' '}
-      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
-      <span
-        className="svg-icon svg-icon-2 svg-icon-transparent me-3"
-        onClick={props.onClick}
-      >
-        {props.isActive ? <CheckboxIcon /> : <CheckboxEmptyIcon />}
+      <span className="svg-icon svg-icon-4 svg-icon-gray">
+        <DotsSixVerticalIcon weight="bold" />
       </span>
+      <FormCheck
+        className="form-check form-check-custom form-check-sm min-h-auto svg-icon"
+        checked={props.isActive}
+        onChange={props.onClick}
+      />
       {props.title}
     </div>
   );
@@ -64,6 +68,7 @@ const ColumnsPopover = ({
   swapColumns,
   columnPositions,
   hasActions,
+  resetColumns,
 }) => {
   const [query, setQuery] = useState('');
 
@@ -113,9 +118,17 @@ const ColumnsPopover = ({
           type="search"
           placeholder={translate('Search...')}
           onChange={(e) => setQuery(e.target.value)}
+          rightAction={
+            <CompactIconButton
+              iconNode={<ArrowCounterClockwiseIcon weight="bold" />}
+              tooltip={translate('Reset settings to default')}
+              onClick={resetColumns}
+              variant="text-secondary"
+            />
+          }
         />
       </div>
-      <div className="mh-300px overflow-auto">
+      <div className="mh-300px overflow-auto pb-2">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -138,16 +151,21 @@ const ColumnsPopover = ({
         </DndContext>
 
         {hasActions && (
-          <Dropdown.Item onClick={() => toggleColumn(COLUMN_ACTIONS_KEY)}>
-            <span className="svg-icon svg-icon-2 svg-icon-transparent me-3">
-              {activeColumns[COLUMN_ACTIONS_KEY] ? (
-                <CheckboxIcon />
-              ) : (
-                <CheckboxEmptyIcon />
-              )}
-            </span>
+          <button
+            type="button"
+            onClick={() =>
+              toggleColumn(COLUMN_ACTIONS_KEY, { keys: [COLUMN_ACTIONS_KEY] })
+            }
+            className="dropdown-item d-flex align-items-center"
+          >
+            <FormCheck
+              key={activeColumns[COLUMN_ACTIONS_KEY]}
+              className="form-check form-check-custom form-check-sm min-h-auto svg-icon"
+              checked={activeColumns[COLUMN_ACTIONS_KEY]}
+              onChange={(e) => e.preventDefault()}
+            />
             {translate('Actions')}
-          </Dropdown.Item>
+          </button>
         )}
       </div>
     </div>
@@ -160,35 +178,75 @@ export const TableColumnButton: FC<TableProps> = ({
   toggleColumn,
   swapColumns,
   columnPositions,
+  initColumnPositions,
+  resetColumns,
   rowActions,
   mode,
-}) => (
-  <OverlayTrigger
-    trigger="click"
-    placement="bottom"
-    overlay={
-      <Popover id="TableColumnButton">
-        <ColumnsPopover
-          columns={columns}
-          activeColumns={activeColumns}
-          toggleColumn={toggleColumn}
-          swapColumns={swapColumns}
-          columnPositions={columnPositions}
-          hasActions={Boolean(rowActions)}
-        />
-      </Popover>
+}) => {
+  const handleReset = () => {
+    resetColumns();
+    initColumnPositions(columns.map((column) => column.id));
+    // Re-run the same initialization Table.tsx uses on mount:
+    // column.optional === true → hidden by default; otherwise → visible.
+    columns.forEach((column) => {
+      toggleColumn(column.id, column, column.optional ? false : true);
+    });
+    if (rowActions) {
+      toggleColumn(COLUMN_ACTIONS_KEY, { keys: [] }, true);
     }
-    rootClose
-  >
-    <Button
-      disabled={mode !== 'table'}
-      variant="tertiary"
-      size="lg"
-      className="btn-icon"
-    >
-      <span className="svg-icon svg-icon-2">
-        <GearIcon weight="bold" />
-      </span>
-    </Button>
-  </OverlayTrigger>
-);
+  };
+  return (
+    <RadixPopover.Root modal={false}>
+      <Tooltip label={translate('Toggle visible columns')}>
+        <span className="d-inline-flex">
+          {/* Trigger wraps the real <Button> (not an ancestor <span>): a
+                                      disabled HTML button never dispatches click events at all, so
+                                      unlike the old OverlayTrigger setup this needs no separate
+                                      trigger-suppression workaround for the grid-mode disabled
+                                      state. */}
+          <RadixPopover.Trigger asChild disabled={mode !== 'table'}>
+            <Button
+              disabled={mode !== 'table'}
+              variant="tertiary"
+              size="lg"
+              className="btn-icon"
+              aria-label={translate('Toggle visible columns')}
+            >
+              <span className="svg-icon svg-icon-2">
+                <GearIcon weight="bold" />
+              </span>
+            </Button>
+          </RadixPopover.Trigger>
+        </span>
+      </Tooltip>
+      <RadixPopover.Portal>
+        <RadixPopover.Content
+          side="bottom"
+          align="end"
+          sideOffset={2}
+          // position-static: Bootstrap's own .popover class hardcodes
+          // `position: absolute; left: 0`, which fights the Radix popper
+          // wrapper — the actual positioned element here — for control of
+          // this box's placement. Left in place, that `position: absolute`
+          // takes the panel out of the wrapper's normal flow, so instead of
+          // Radix's own align="end" transform positioning it, the panel
+          // just pins to the wrapper's local (0,0) and grows rightward,
+          // overflowing the viewport for a trigger anywhere near the right
+          // edge. Same fix, same reasoning, as ActionsDropdownComponent's
+          // own `position-static` on `.dropdown-menu` in ActionsDropdown.tsx.
+          className="popover bs-popover-bottom position-static"
+        >
+          <ColumnsPopover
+            columns={columns}
+            activeColumns={activeColumns}
+            toggleColumn={toggleColumn}
+            swapColumns={swapColumns}
+            columnPositions={columnPositions}
+            hasActions={Boolean(rowActions)}
+            resetColumns={handleReset}
+          />
+        </RadixPopover.Content>
+      </RadixPopover.Portal>
+    </RadixPopover.Root>
+  );
+};

@@ -2,10 +2,21 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { vmwareLimitsRetrieve } from 'waldur-js-client';
 
-import { minAmount } from '@waldur/marketplace/common/utils';
+import { UI_STALE_TIME } from '@/core/constants';
+import { minAmount } from '@/marketplace/common/utils';
 
 export const minOne = minAmount(1);
 
+/**
+ * The offering's ceilings for a VM's hardware.
+ *
+ * These bound the hardware fields; none of them is needed to render one, and a
+ * step must not hold its fields back until they arrive. A field that registers
+ * with react-final-form in the same commit as the template step's write of
+ * cpu, ram and disk misses that notification and stays at zero, with no way
+ * back: re-picking the template writes a value the form already holds, which
+ * final-form does not notify on.
+ */
 export const useVMwareLimitsLoader = (settingsId: string) => {
   const { data, isLoading, error } = useQuery({
     queryKey: ['volumeTypes', settingsId],
@@ -15,7 +26,7 @@ export const useVMwareLimitsLoader = (settingsId: string) => {
         (response) => response.data,
       ),
 
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
   const limits = useMemo(
     () =>

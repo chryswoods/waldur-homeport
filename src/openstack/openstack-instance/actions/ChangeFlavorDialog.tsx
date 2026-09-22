@@ -1,42 +1,62 @@
+import { useQuery } from '@tanstack/react-query';
 import { FC } from 'react';
-import { useDispatch } from 'react-redux';
-import { useAsync } from 'react-use';
 import {
   InstanceFlavorChangeRequest,
+  openstackFlavorsList,
   openstackInstancesChangeFlavor,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { loadFlavors } from '@waldur/openstack/api';
-import { ResourceActionDialog } from '@waldur/resource/actions/ResourceActionDialog';
-import { ActionDialogProps } from '@waldur/resource/actions/types';
-import { formatFlavor } from '@waldur/resource/utils';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
+import { getAllPages } from '@/core/api';
+import { UI_STALE_TIME } from '@/core/constants';
+import { translate } from '@/i18n';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ResourceActionDialog } from '@/resource/actions/ResourceActionDialog';
+import { ActionDialogProps } from '@/resource/actions/types';
+import { formatFlavor } from '@/resource/utils';
 
 import { OpenStackInstanceCurrentFlavor } from '../OpenStackInstanceCurrentFlavor';
 
 export const ChangeFlavorDialog: FC<ActionDialogProps> = ({
   resolve: { resource, refetch },
 }) => {
-  const dispatch = useDispatch();
+  const mutation = useManagedMutation<any, any, InstanceFlavorChangeRequest>({
+    mutationFn: (formData) =>
+      openstackInstancesChangeFlavor({
+        path: { uuid: resource.uuid },
+        body: formData,
+      }),
 
-  const asyncState = useAsync(async () => {
-    const flavors = await loadFlavors({
-      tenant_uuid: resource.tenant_uuid,
-      field: ['url', 'name', 'cores', 'ram'],
-    });
-    return {
-      flavors: flavors
-        .filter((flavor) => flavor.name !== resource.flavor_name)
-        .map((flavor) => ({
-          label: `${flavor.name} (${formatFlavor(flavor)})`,
-          value: flavor.url,
-        })),
-    };
+    successMessage: translate('Flavor change has been scheduled.'),
+    errorMessage: translate('Unable to change flavor.'),
+    refetch: refetch,
   });
 
-  const fields = asyncState.value
+  const asyncState = useQuery({
+    queryKey: ['flavors', resource.tenant_uuid, resource.flavor_name],
+    queryFn: async () => {
+      const flavors = await getAllPages((page) =>
+        openstackFlavorsList({
+          query: {
+            page,
+            tenant_uuid: resource.tenant_uuid,
+            field: ['url', 'name', 'cores', 'ram'],
+          },
+        }),
+      );
+      return {
+        flavors: flavors
+          .filter((flavor) => flavor.name !== resource.flavor_name)
+          .map((flavor) => ({
+            label: `${flavor.name} (${formatFlavor(flavor)})`,
+            value: flavor.url,
+          })),
+      };
+    },
+    staleTime: UI_STALE_TIME,
+  });
+
+  const fields = asyncState.data
     ? [
         {
           name: 'currentFlavor',
@@ -48,7 +68,7 @@ export const ChangeFlavorDialog: FC<ActionDialogProps> = ({
           name: 'flavor',
           type: 'select',
           label: translate('New flavor'),
-          options: asyncState.value.flavors,
+          options: asyncState.data.flavors,
         },
       ]
     : [];
@@ -56,24 +76,16 @@ export const ChangeFlavorDialog: FC<ActionDialogProps> = ({
   return (
     <ResourceActionDialog
       dialogTitle={translate('Change flavor')}
-      loading={asyncState.loading}
+      dialogSubtitle={
+        <ScopeSubtitle
+          label={translate('Instance name')}
+          name={resource.name}
+        />
+      }
+      loading={asyncState.isLoading}
       error={asyncState.error}
       formFields={fields}
-      submitForm={async (formData: InstanceFlavorChangeRequest) => {
-        try {
-          await openstackInstancesChangeFlavor({
-            path: { uuid: resource.uuid },
-            body: formData,
-          });
-          if (refetch) {
-            await refetch();
-          }
-          dispatch(showSuccess(translate('Flavor change has been scheduled.')));
-          dispatch(closeModalDialog());
-        } catch (e) {
-          dispatch(showErrorResponse(e, translate('Unable to change flavor.')));
-        }
-      }}
+      submitForm={mutation.mutateAsync}
     />
   );
 };

@@ -1,12 +1,15 @@
-import { AuthEvents } from '@waldur/auth/AuthEvents';
-import { OrganizationEvents } from '@waldur/customer/events';
-import { formatJsxTemplate, translate } from '@waldur/i18n';
-import { InvoiceEvents } from '@waldur/invoices/events';
-import { IssueEvents } from '@waldur/issues/events';
-import { RoleEvents } from '@waldur/permissions/events';
-import { ProjectEvents } from '@waldur/project/events';
-import { ResourceEvents } from '@waldur/resource/events';
-import { SshEvents, UserEvents } from '@waldur/user/events';
+import { AuthEvents } from '@/auth/AuthEvents';
+import { PatEvents } from '@/auth/PatEvents';
+import { OrganizationEvents } from '@/customer/events';
+import { formatJsxTemplate, translate } from '@/i18n';
+import { InvoiceEvents } from '@/invoices/events';
+import { IssueEvents } from '@/issues/events';
+import { OpenStackEvents } from '@/openstack/events';
+import { RoleEvents } from '@/permissions/events';
+import { PolicyEvents } from '@/policy/events';
+import { ProjectEvents } from '@/project/events';
+import { ResourceEvents } from '@/resource/events';
+import { SshEvents, UserEvents } from '@/user/events';
 
 import { EventGroup } from './types';
 
@@ -46,13 +49,16 @@ export class EventRegistry {
 const registry = new EventRegistry();
 
 registry.registerGroup(AuthEvents);
+registry.registerGroup(PatEvents);
 registry.registerGroup(IssueEvents);
 registry.registerGroup(OrganizationEvents);
 registry.registerGroup(RoleEvents);
 registry.registerGroup(InvoiceEvents);
 registry.registerGroup(ProjectEvents);
+registry.registerGroup(PolicyEvents);
 registry.registerGroup(ResourceEvents);
 registry.registerGroup(UserEvents);
 registry.registerGroup(SshEvents);
+registry.registerGroup(OpenStackEvents);
 
 export default registry;

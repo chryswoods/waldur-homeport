@@ -2,10 +2,11 @@ import { FC } from 'react';
 import { Col, Row } from 'react-bootstrap';
 import { NestedPartition } from 'waldur-js-client';
 
-import { CheckOrX } from '@waldur/core/CheckOrX';
-import { translate } from '@waldur/i18n';
-import { Field } from '@waldur/resource/summary';
-import { ExpandableContainer } from '@waldur/table/ExpandableContainer';
+import { CheckOrX } from '@/core/CheckOrX';
+import { translate } from '@/i18n';
+import { Field } from '@/resource/summary';
+import { ExpandableContainer } from '@/table/ExpandableContainer';
+import { renderFieldOrDash } from '@/table/utils';
 
 interface OwnProps {
   row: NestedPartition;
@@ -16,8 +17,18 @@ export const OfferingPartitionExpandableRow: FC<OwnProps> = ({ row }) => (
     <Row>
       <Col lg={6}>
         <Field
+          label={translate('CPU architecture')}
+          value={renderFieldOrDash(row.cpu_arch)}
+          space={2}
+        />
+        <Field
+          label={translate('GPU architecture')}
+          value={renderFieldOrDash(row.gpu_arch)}
+          space={2}
+        />
+        <Field
           label={translate('Default task binding policy (SLURM cpu_bind)')}
-          value={row.cpu_bind || 'N/A'}
+          value={renderFieldOrDash(row.cpu_bind)}
           space={2}
         />
         <Field
@@ -93,8 +104,18 @@ export const OfferingPartitionExpandableRow: FC<OwnProps> = ({ row }) => (
           space={2}
         />
         <Field
-          label={translate('Quality of service (QOS) name')}
-          value={row.qos}
+          label={translate('Allowed QoS')}
+          value={
+            row.qos_options?.length
+              ? row.qos_options
+                  .map((o) =>
+                    o.is_default
+                      ? `${o.qos_name} (${translate('default')})`
+                      : o.qos_name,
+                  )
+                  .join(', ')
+              : translate('All')
+          }
           space={2}
         />
         <Field

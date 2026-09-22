@@ -1,11 +1,13 @@
 import { FC } from 'react';
 
-import { translate } from '@waldur/i18n';
-import { OfferingDetailsLink } from '@waldur/marketplace/links/OfferingDetailsLink';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { renderFieldOrDash } from '@waldur/table/utils';
+import { translate } from '@/i18n';
+import { OfferingDetailsLink } from '@/marketplace/links/OfferingDetailsLink';
+import { createClientPaginatedFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
+import { prepaidCapLabel } from '../CallDurationPolicy';
 import { CallOffering, Call } from '../types';
 
 interface CallOfferingsCardProps {
@@ -15,11 +17,7 @@ interface CallOfferingsCardProps {
 export const CallOfferingsCard: FC<CallOfferingsCardProps> = (props) => {
   const tableProps = useTable({
     table: 'CallOfferingsList',
-    fetchData: () =>
-      Promise.resolve({
-        rows: props.call.offerings,
-        resultCount: props.call.offerings.length,
-      }),
+    fetchData: createClientPaginatedFetcher(props.call.offerings),
   });
 
   return (
@@ -42,6 +40,21 @@ export const CallOfferingsCard: FC<CallOfferingsCardProps> = (props) => {
         {
           title: translate('Category'),
           render: ({ row }) => <>{row.category_name}</>,
+        },
+        {
+          // Only offerings sold by the month have a length to state, and the
+          // call's fixed duration is the ceiling on it.
+          title: translate('Prepaid subscriptions'),
+          render: ({ row }) => {
+            const prepaid = Array.isArray(row.components)
+              ? row.components.some((component) => component.is_prepaid)
+              : false;
+            if (!prepaid) {
+              return <>{renderFieldOrDash(null)}</>;
+            }
+            const cap = prepaidCapLabel(props.call);
+            return <>{cap ?? translate('any length the offering allows')}</>;
+          },
         },
       ]}
       title={translate('Offerings')}

@@ -1,8 +1,8 @@
 import React from 'react';
 import { ComponentsUsageStats } from 'waldur-js-client';
 
-import { EChart } from '@waldur/core/EChart';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
+import { EChart } from '@/core/EChart';
+import { ModalDialog } from '@/modal/ModalDialog';
 
 import { useAggregateLimitChart } from './utils';
 
@@ -25,7 +25,7 @@ export const AggregateLimitChartModal: React.FC<
   }
 
   return (
-    <ModalDialog title={title} closeButton>
+    <ModalDialog title={title}>
       <div style={{ height: '400px', width: '100%' }}>
         <EChart options={options} exportTitle={title} />
       </div>

@@ -1,21 +1,13 @@
-import { useEffect, useCallback } from 'react';
-import { Form, InputGroup } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
-import { Field, reduxForm, change } from 'redux-form';
+import { Form } from 'react-final-form';
 import { OpenStackVolume, openstackVolumesExtend } from 'waldur-js-client';
 
-import { SubmitButton } from '@waldur/auth/SubmitButton';
-import { formatFilesize } from '@waldur/core/utils';
-import { InputField } from '@waldur/form/InputField';
-import { translate } from '@waldur/i18n';
-import {
-  parseIntField,
-  formatIntField,
-} from '@waldur/marketplace/common/utils';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
+import { formatFilesize } from '@/core/utils';
+import { FormFooter, NumberGroup } from '@/form';
+import { translate } from '@/i18n';
+import { parseIntField, formatIntField } from '@/marketplace/common/utils';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
 interface VolumeExtendDialogOwnProps {
   resolve: { resource: OpenStackVolume; refetch };
@@ -25,82 +17,61 @@ interface VolumeExtendDialogFormData {
   size: number;
 }
 
-export const VolumeExtendDialog = reduxForm<
-  VolumeExtendDialogFormData,
-  VolumeExtendDialogOwnProps
->({ form: 'VolumeExtendDialog' })(({
+export const VolumeExtendDialog = ({
   resolve: { resource, refetch },
-  submitting,
-  handleSubmit,
-}) => {
-  const dispatch = useDispatch();
-
+}: VolumeExtendDialogOwnProps) => {
   const minSize = Math.round(resource.size / 1024) + 1;
 
-  useEffect(() => {
-    dispatch(change('VolumeExtendDialog', 'size', minSize));
-  }, [dispatch, minSize]);
+  const extendMutation = useManagedMutation<
+    any,
+    any,
+    VolumeExtendDialogFormData
+  >({
+    mutationFn: (formData) =>
+      openstackVolumesExtend({
+        path: { uuid: resource.uuid },
+        body: {
+          disk_size: formData.size * 1024,
+        },
+      }),
+    successMessage: translate('Volume extension has been scheduled.'),
+    errorMessage: translate('Unable to extend volume.'),
+    refetch,
+  });
 
-  const extendVolume = useCallback(
-    async (formData: VolumeExtendDialogFormData) => {
-      try {
-        await openstackVolumesExtend({
-          path: { uuid: resource.uuid },
-          body: {
-            disk_size: formData.size * 1024,
-          },
-        });
-        dispatch(
-          showSuccess(translate('Volume extension has been scheduled.')),
-        );
-        dispatch(closeModalDialog());
-        if (refetch) {
-          await refetch();
-        }
-      } catch (e) {
-        dispatch(showErrorResponse(e, translate('Unable to extend volume.')));
-      }
-    },
-    [resource, dispatch],
-  );
   return (
-    <form onSubmit={handleSubmit(extendVolume)}>
-      <ModalDialog
-        title={translate('Extend OpenStack volume')}
-        footer={
-          <>
-            <CloseDialogButton />
-            <SubmitButton submitting={submitting} label={translate('Submit')} />
-          </>
-        }
-      >
-        <p>
-          <strong>{translate('Volume name')}:</strong> {resource.name}
-        </p>
+    <Form<VolumeExtendDialogFormData>
+      initialValues={{ size: minSize }}
+      onSubmit={(formData) => extendMutation.mutateAsync(formData)}
+      render={({ handleSubmit }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate('Extend OpenStack volume')}
+            subtitle={
+              <ScopeSubtitle
+                label={translate('Volume name')}
+                name={resource.name}
+              />
+            }
+            footer={<FormFooter />}
+          >
+            <p>
+              <strong>{translate('Current size')}:</strong>{' '}
+              {formatFilesize(resource.size)}
+            </p>
 
-        <p>
-          <strong>{translate('Current size')}:</strong>{' '}
-          {formatFilesize(resource.size)}
-        </p>
-
-        <Form.Group>
-          <Form.Label>{translate('New size')}:</Form.Label>
-          <InputGroup>
-            <Field
+            <NumberGroup
               name="size"
-              component={InputField}
-              type="number"
+              label={translate('New size')}
               required={true}
               min={minSize}
-              disabled={submitting}
               parse={parseIntField}
               format={formatIntField}
+              unit={translate('GB')}
             />
-
-            <InputGroup.Text>{translate('GB')}</InputGroup.Text>
-          </InputGroup>
-        </Form.Group>
-      </ModalDialog>
-    </form>
+          </ModalDialog>
+        </form>
+      )}
+    />
   );
-});
+};

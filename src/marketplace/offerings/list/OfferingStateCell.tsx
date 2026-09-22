@@ -1,4 +1,4 @@
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
 
 export const OfferingStateCell = ({ row }) =>
   ({
@@ -6,4 +6,5 @@ export const OfferingStateCell = ({ row }) =>
     Active: translate('Active'),
     Paused: translate('Paused'),
     Archived: translate('Archived'),
-  })[row.state];
+    Unavailable: translate('Unavailable'),
+  })[row.state] || row.state;

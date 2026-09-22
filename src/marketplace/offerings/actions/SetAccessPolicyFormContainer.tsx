@@ -1,11 +1,12 @@
 import { FunctionComponent, useMemo } from 'react';
-import { Field } from 'redux-form';
+import { Field } from 'react-final-form';
 import { OrganizationGroup } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { DASH_ESCAPE_CODE } from '@waldur/table/constants';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { translate } from '@/i18n';
+import { createClientPaginatedFetcher } from '@/table/api';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
 
 interface SetAccessPolicyFormContainerProps {
   organizationGroups: OrganizationGroup[];
@@ -17,11 +18,7 @@ export const SetAccessPolicyFormContainer: FunctionComponent<
 > = ({ organizationGroups, submitting }) => {
   const tableProps = useTable({
     table: 'OrganizationGroups',
-    fetchData: () =>
-      Promise.resolve({
-        rows: organizationGroups,
-        totalCount: organizationGroups.length,
-      }),
+    fetchData: createClientPaginatedFetcher(organizationGroups),
   });
 
   const columns = useMemo(
@@ -59,6 +56,10 @@ export const SetAccessPolicyFormContainer: FunctionComponent<
   return (
     <Table
       {...tableProps}
+      // Render every group: each row hosts a form checkbox, so paginating
+      // would hide groups beyond the first page from the policy form.
+      rows={organizationGroups}
+      hasPagination={false}
       columns={columns}
       hasHeaders={false}
       hasActionBar={false}

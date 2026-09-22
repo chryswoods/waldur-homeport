@@ -10,17 +10,11 @@ import {
   ReactNode,
 } from 'react';
 import { Card } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
 
-import { Link } from '@waldur/core/Link';
-import { translate } from '@waldur/i18n';
-import { isDescendantOf } from '@waldur/navigation/useTabs';
-import {
-  getCustomer,
-  getProject,
-  getUser,
-  isStaffOrSupport,
-} from '@waldur/workspace/selectors';
+import { Link } from '@/core/Link';
+import { translate } from '@/i18n';
+import { isDescendantOf } from '@/navigation/useTabs';
+import { useUser, useCustomer, useProject } from '@/workspace/hooks';
 
 type Permission = 'allowed' | 'limited' | 'restricted' | 'custom';
 interface PermissionMessage {
@@ -95,7 +89,7 @@ const RestrictedView = () => {
       <Card.Body>
         <div className="d-flex flex-column align-items-center justify-content-center my-10 my-xl-20 min-h-150px">
           <span className="svg-icon mb-6 svg-icon-5x text-danger">
-            <ShieldWarningIcon />
+            <ShieldWarningIcon weight="bold" />
           </span>
           <h3 className="text-danger mb-4">{pageMessage.title}</h3>
           <p className="mb-10 text-dark mw-400px text-center">
@@ -120,10 +114,10 @@ const PermissionLayout: FC<PropsWithChildren> = ({ children }) => {
     clearPermissionView,
   } = useContext(PermissionContext);
 
-  const hasAllAccess = useSelector(isStaffOrSupport);
-  const user = useSelector(getUser);
-  const project = useSelector(getProject);
-  const customer = useSelector(getCustomer);
+  const user = useUser();
+  const hasAllAccess = user?.is_staff || user?.is_support;
+  const project = useProject();
+  const customer = useCustomer();
   const { state, params } = useCurrentStateAndParams();
 
   const [hasPermissionView, setHasPermissionView] = useState(false);

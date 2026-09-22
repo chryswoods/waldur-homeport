@@ -1,9 +1,12 @@
 import { FC } from 'react';
-import { PlanUsageResponse } from 'waldur-js-client';
+import {
+  PlanUsageResponse,
+  ProviderOfferingDetails as Offering,
+} from 'waldur-js-client';
 
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { Category, Offering } from '@waldur/marketplace/types';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { Category } from '@/marketplace/types';
 
 import { OfferingDetails } from './OfferingDetails';
 

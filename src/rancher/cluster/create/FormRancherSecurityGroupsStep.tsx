@@ -1,27 +1,36 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { useSelector } from 'react-redux';
+import { useForm } from 'react-final-form';
+import { openstackSecurityGroupsList } from 'waldur-js-client';
 
-import { VStepperFormStepCard } from '@waldur/form/VStepperFormStep';
-import { translate } from '@waldur/i18n';
-import { StepCardPlaceholder } from '@waldur/marketplace/deploy/steps/StepCardPlaceholder';
-import { FormStepProps } from '@waldur/marketplace/deploy/types';
-import { loadSecurityGroups } from '@waldur/openstack/api';
-import { FormSecurityGroupsField } from '@waldur/openstack/openstack-instance/deploy/FormSecurityGroupsField';
+import { getAllPages } from '@/core/api';
+import { UI_STALE_TIME } from '@/core/constants';
+import { translate } from '@/i18n';
+import { StepCardPlaceholder } from '@/marketplace/deploy/steps/StepCardPlaceholder';
+import { FormStepProps } from '@/marketplace/deploy/types';
+import { FormSecurityGroupsField } from '@/openstack/openstack-instance/deploy/FormSecurityGroupsField';
+import { VStepperFormStepCard } from '@/wizard';
 
-import { formTenantSelector } from './utils';
+import { useFormTenant } from './utils';
 
 export const FormRancherSecurityGroupsStep = (props: FormStepProps) => {
-  const tenant = useSelector(formTenantSelector);
+  const tenant = useFormTenant();
+  const form = useForm();
 
   // Fetch default security group
   const { data: defaultItems } = useQuery({
     queryKey: ['security-groups-step-default', tenant],
 
     queryFn: () =>
-      tenant ? loadSecurityGroups({ tenant: tenant.url, name: 'default' }) : [],
+      tenant
+        ? getAllPages((page) =>
+            openstackSecurityGroupsList({
+              query: { page, tenant: tenant.url, name: 'default' },
+            }),
+          )
+        : [],
 
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
 
   // Select default security group initially
@@ -31,11 +40,11 @@ export const FormRancherSecurityGroupsStep = (props: FormStepProps) => {
     );
 
     if (defaultSecurityGroup) {
-      props.change('attributes.security_groups', [
+      form.change('attributes.security_groups', [
         { ...defaultSecurityGroup, clearableValue: false },
       ]);
     }
-  }, [props.change, defaultItems]);
+  }, [form, defaultItems]);
 
   return (
     <VStepperFormStepCard
@@ -45,10 +54,7 @@ export const FormRancherSecurityGroupsStep = (props: FormStepProps) => {
       disabledTooltip={props.disabledTooltip}
     >
       {tenant ? (
-        <FormSecurityGroupsField
-          offering={props.offering}
-          change={props.change}
-        />
+        <FormSecurityGroupsField offering={props.offering} />
       ) : (
         <StepCardPlaceholder>
           {translate('Please select a tenant first')}

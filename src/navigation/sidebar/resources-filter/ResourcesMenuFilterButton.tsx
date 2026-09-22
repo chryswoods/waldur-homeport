@@ -1,12 +1,15 @@
 import { FunnelSimpleIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { ALL_RESOURCES_TABLE_ID } from '@waldur/marketplace/resources/list/constants';
-import { openModalDialog } from '@waldur/modal/actions';
-import { HeaderButtonBullet } from '@waldur/navigation/header/HeaderButtonBullet';
-import { selectFiltersStorage } from '@waldur/table/selectors';
+import { Tooltip } from 'waldur-ui';
+
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { ALL_RESOURCES_TABLE_ID } from '@/marketplace/resources/list/constants';
+import { useModal } from '@/modal/actions';
+import { HeaderButtonBullet } from '@/navigation/header/HeaderButtonBullet';
+import { selectFiltersStorage } from '@/table/selectors';
 
 const FilterByOrgAndProjectDialog = lazyComponent(() =>
   import('./FilterByOrgAndProjectDialog').then((module) => ({
@@ -25,31 +28,47 @@ export const ResourcesMenuFilterButton = () => {
     return { project: project?.value, organization: organization?.value };
   }, [filters]);
 
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const callback = (e) => {
-    dispatch(
-      openModalDialog(FilterByOrgAndProjectDialog, {
-        size: 'sm',
-        initialValues: values,
-      }),
-    );
+    openDialog(FilterByOrgAndProjectDialog, {
+      size: 'sm',
+      initialValues: values,
+    });
     e.stopPropagation();
   };
   return (
-    <button
-      type="button"
-      className="text-btn menu-btn btn-filter-resources position-relative"
-      onClick={callback}
-    >
-      <FunnelSimpleIcon size={20} weight="bold" />
-      {(values?.organization || values?.project) && (
-        <HeaderButtonBullet
-          size={9}
-          blink={false}
-          variant="primary"
-          className="me-n2 mt-2 border border-2"
-        />
-      )}
-    </button>
+    <Tooltip label={translate('Filter resources')}>
+      {/* A plain <span>, not <button>: this renders inside
+          SidebarMenuAccordion's `badge` slot, which sits inside the
+          accordion header's own real <button> (Collapsible.Trigger). A
+          nested <button> there would be invalid HTML, silently reparented
+          by the browser's parser. `stopPropagation` (already needed
+          regardless, so this button's own click doesn't also toggle the
+          accordion) plus explicit role/tabIndex/onKeyDown restore the same
+          keyboard reachability a native <button> gave for free. */}
+      <span
+        role="button"
+        tabIndex={0}
+        className="relative flex size-6 shrink-0 items-center justify-center rounded text-[var(--nav-item-icon)] hover:bg-[var(--nav-item-hover-bg)]"
+        onClick={callback}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            callback(e);
+          }
+        }}
+        aria-label={translate('Filter resources')}
+      >
+        <FunnelSimpleIcon size={18} weight="bold" />
+        {(values?.organization || values?.project) && (
+          <HeaderButtonBullet
+            size={9}
+            blink={false}
+            variant="primary"
+            className="me-n2 mt-2 border border-2"
+          />
+        )}
+      </span>
+    </Tooltip>
   );
 };

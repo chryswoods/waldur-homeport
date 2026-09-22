@@ -1,4 +1,11 @@
-import { ActionConfiguration } from '@waldur/resource/actions/types';
+import {
+  openstackSecurityGroupsSetErred,
+  openstackSecurityGroupsSetOk,
+} from 'waldur-js-client';
+
+import { createSetErredAction } from '@/resource/actions/SetResourceErredAction';
+import { createSetOkAction } from '@/resource/actions/SetResourceOkAction';
+import { ActionConfiguration } from '@/resource/actions/types';
 
 import { DestroySecurityGroupAction } from './DestroySecurityGroupAction';
 import { EditAction } from './EditAction';
@@ -14,5 +21,7 @@ export const OpenStackSecurityGroupActions: ActionConfiguration = {
     DestroySecurityGroupAction,
     PullSecurityGroupAction,
     UnlinkSecurityGroupAction,
+    createSetErredAction(openstackSecurityGroupsSetErred),
+    createSetOkAction(openstackSecurityGroupsSetOk),
   ],
 };

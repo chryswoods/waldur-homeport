@@ -1,38 +1,9 @@
-import { applyMiddleware, combineReducers, createStore } from 'redux';
-import createSagaMiddleware from 'redux-saga';
-import thunk from 'redux-thunk';
+import { applyMiddleware, createStore } from 'redux';
 
-import sagas from './effects';
-import { staticReducers } from './reducers';
+import { sentryUserMiddleware } from '@/core/sentry';
 
-const sagaMiddleware = createSagaMiddleware();
+import { rootReducer } from './reducers';
 
-const middlewares = [sagaMiddleware, thunk];
-
-const store: any = createStore(
-  combineReducers(staticReducers),
-  applyMiddleware(...middlewares),
-);
-
-const injectedReducers = {};
-export const injectReducer = (key, reducer) => {
-  injectedReducers[key] = reducer;
-  store.replaceReducer(
-    // @ts-ignore
-    combineReducers({
-      ...staticReducers,
-      ...injectedReducers,
-    }),
-  );
-};
-
-const injectedSagas = new Set();
-export const injectSaga = (key, saga) => {
-  if (injectedSagas.has(key)) return;
-  sagaMiddleware.run(saga);
-  injectedSagas.add(key);
-};
-
-sagas.forEach((saga) => sagaMiddleware.run(saga));
+const store = createStore(rootReducer, applyMiddleware(sentryUserMiddleware));
 
 export default store;

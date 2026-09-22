@@ -1,62 +1,79 @@
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
+import { useMemo } from 'react';
 import { customerQuotasList } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import {
+  CustomerQuotasFilter,
+  CustomerQuotasFilterInitialValues,
+  selectCustomerQuotasFilter,
+  CustomerQuotasFilterFormId,
+} from '@/table/generated/CustomerQuotasFilter';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
 
-import { CustomerQuotasFilter } from './CustomerQuotasFilter';
-import { CustomerQuota, QuotaChoice } from './types';
+import { ReportingTitle } from '../ReportingTitle';
 
-const filterSelector = createSelector(
-  getFormValues('CustomerQuotasFilter'),
-  (filters: { quota: { key } }) => ({ quota_name: filters?.quota.key }),
-);
+import { getQuotas } from './constants';
+import { QuotasAnalytics } from './QuotasAnalytics';
+import { CustomerQuota } from './types';
 
 export const CustomerQuotasList = () => {
-  const filter = useSelector(filterSelector);
+  const values = useFilterValues('CustomerQuotasList');
+  const filter = useMemo(() => selectCustomerQuotasFilter(values), [values]);
   const tableProps = useTable({
     table: 'CustomerQuotasList',
+    syncFiltersToURL: true,
     fetchData: createFetcher(customerQuotasList),
     filter,
+    // The /customer-quotas/ endpoint requires a quota_name; seed the default so
+    // the first request is valid (otherwise it 400s and the table never loads).
+    initialFilters: CustomerQuotasFilterInitialValues,
   });
-  const formValues = useSelector<any, { quota: QuotaChoice }>(
-    getFormValues('CustomerQuotasFilter') as any,
-  );
+
+  const activeQuota = getQuotas(true).find((q) => q.key === filter?.quota_name);
 
   return (
-    <Table<CustomerQuota>
-      {...tableProps}
-      columns={[
-        {
-          title: translate('Name'),
-          render: ({ row }) => <>{row.customer_name}</>,
-          copyField: (row) => row.customer_name,
-          orderField: 'name',
-        },
-        {
-          title: translate('Abbreviation'),
-          render: ({ row }) => <>{row.customer_abbreviation}</>,
-        },
-        {
-          title: translate('Value'),
-          render: ({ row }) => (
-            <>
-              {formValues.quota.tooltipValueFormatter
-                ? formValues.quota.tooltipValueFormatter(row.value)
-                : row.value}
-            </>
-          ),
+    <>
+      <ReportingTitle reportKey="quotas" />
+      <Table<CustomerQuota>
+        {...tableProps}
+        columns={[
+          {
+            title: translate('Name'),
+            render: ({ row }) => <>{row.customer_name}</>,
+            copyField: (row) => row.customer_name,
+            orderField: 'name',
+          },
+          {
+            title: translate('Abbreviation'),
+            render: ({ row }) => <>{row.customer_abbreviation}</>,
+          },
+          {
+            title: translate('Value'),
+            render: ({ row }) => (
+              <>
+                {activeQuota?.tooltipValueFormatter
+                  ? activeQuota.tooltipValueFormatter(row.value)
+                  : row.value}
+              </>
+            ),
 
-          orderField: 'value',
-        },
-      ]}
-      showPageSizeSelector={true}
-      filters={<CustomerQuotasFilter />}
-      hideClearFilters
-    />
+            orderField: 'value',
+          },
+        ]}
+        showPageSizeSelector={true}
+        filters={<CustomerQuotasFilter />}
+        hideClearFilters
+        tableActions={
+          <QuotasAnalytics
+            data={tableProps.rows}
+            loading={tableProps.loading}
+          />
+        }
+        formId={CustomerQuotasFilterFormId}
+      />
+    </>
   );
 };

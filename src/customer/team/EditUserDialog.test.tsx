@@ -1,135 +1,20 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import {
   customersAddUser,
   customersDeleteUser,
   customersUpdateUser,
+  rolesList,
 } from 'waldur-js-client';
 
+import { ENV } from '@/core/config';
+import { renderWithProviders } from '@/test/harness';
+import { getSelectByLabel, openAndSelectOption } from '@/test/select';
+import { mockListResponse } from '@/test/utils';
+import { useCustomer } from '@/workspace/hooks';
+
 import { EditUserDialog } from './EditUserDialog';
-
-// Mock API calls
-vi.mock('waldur-js-client', () => ({
-  customersAddUser: vi.fn(),
-  customersDeleteUser: vi.fn(),
-  customersUpdateUser: vi.fn(),
-}));
-
-// Mock store hooks
-vi.mock('@waldur/store/hooks', () => ({
-  useModal: () => ({
-    closeDialog: vi.fn(),
-  }),
-  useNotify: () => ({
-    showSuccess: vi.fn(),
-    showErrorResponse: vi.fn(),
-  }),
-}));
-
-// Mock translation
-vi.mock('@waldur/i18n', () => ({
-  translate: (str: string) => str,
-}));
-
-// Mock table constants
-vi.mock('@waldur/table/constants', () => ({
-  DASH_ESCAPE_CODE: '—',
-}));
-
-// Mock workspace selectors
-vi.mock('@waldur/workspace/selectors', () => ({
-  getCustomer: () => ({
-    uuid: 'customer-uuid',
-    name: 'Test Customer',
-  }),
-}));
-
-// Mock React Redux
-vi.mock('react-redux', () => ({
-  useDispatch: () => vi.fn(),
-  useSelector: (selector) => selector(),
-}));
-
-// Mock permissions utils
-vi.mock('@waldur/permissions/utils', () => ({
-  getCustomerRoles: () => [
-    {
-      name: 'owner',
-      description: 'Owner',
-      content_type: 'customer',
-    },
-    {
-      name: 'manager',
-      description: 'Manager',
-      content_type: 'customer',
-    },
-  ],
-  getRoles: (types) =>
-    types.map((type) => ({
-      name: `${type}_role`,
-      description: `${type} role`,
-      content_type: type,
-    })),
-}));
-
-// Mock form components - customer variant to avoid duplication
-vi.mock('@waldur/form/SelectField', () => ({
-  SelectField: ({ options, getOptionLabel }) => (
-    <select data-testid="customer-select">
-      {options?.map((option, idx) => (
-        <option key={idx} value={option.name}>
-          {getOptionLabel?.(option) || option.name}
-        </option>
-      ))}
-    </select>
-  ),
-}));
-
-vi.mock('@waldur/form/DateField', () => ({
-  DateField: ({ placeholder }) => (
-    <input type="date" placeholder={placeholder} data-testid="customer-date" />
-  ),
-}));
-
-vi.mock('@waldur/form', () => ({
-  FormGroup: ({ children, label, required }) => (
-    <div data-testid="customer-group">
-      {label && (
-        <label>
-          {label}
-          {required && ' *'}
-        </label>
-      )}
-      {children}
-    </div>
-  ),
-  SubmitButton: ({ children, disabled, submitting }) => (
-    <button
-      type="submit"
-      disabled={disabled || submitting}
-      data-testid="customer-submit"
-    >
-      {submitting ? 'Loading...' : children}
-    </button>
-  ),
-  FormContainer: ({ children }) => (
-    <div data-testid="customer-container">{children}</div>
-  ),
-}));
-
-vi.mock('@waldur/modal/CloseDialogButton', () => ({
-  CloseDialogButton: () => <button data-testid="customer-close">Close</button>,
-}));
-
-vi.mock('@waldur/modal/ModalDialog', () => ({
-  ModalDialog: ({ title, children, footer }) => (
-    <div data-testid="customer-modal">
-      <h2>{title}</h2>
-      <div>{children}</div>
-      <div data-testid="customer-footer">{footer}</div>
-    </div>
-  ),
-}));
 
 const mockCustomerUser = {
   uuid: 'user-uuid',
@@ -138,26 +23,54 @@ const mockCustomerUser = {
   username: 'jane',
   role_name: 'owner',
   expiration_time: '2024-12-31',
-};
+} as any;
 
 const mockResolve = {
   customer: mockCustomerUser,
   refetch: vi.fn(),
 };
 
+const renderDialog = (resolve = mockResolve) => {
+  return renderWithProviders(<EditUserDialog resolve={resolve} />);
+};
+
 describe('EditUserDialog (Customer)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(useCustomer).mockReturnValue({
+      uuid: 'customer-uuid',
+      name: 'Test Customer',
+    } as any);
+    // The role picker now fetches the organization's roles via
+    // available_for_customer (RoleGroup scope), so mock that list.
+    vi.mocked(rolesList).mockResolvedValue(
+      mockListResponse([
+        {
+          uuid: 'owner-role-uuid',
+          name: 'owner',
+          description: 'Owner',
+          content_type: 'customer',
+          is_active: true,
+        },
+        {
+          uuid: 'manager-role-uuid',
+          name: 'manager',
+          description: 'Manager',
+          content_type: 'customer',
+          is_active: true,
+        },
+      ]) as any,
+    );
   });
 
   it('renders dialog with correct title and user information', () => {
-    render(<EditUserDialog resolve={mockResolve} />);
+    renderDialog();
 
     expect(screen.getByText('Edit organization member')).toBeInTheDocument();
     expect(screen.getByText('User')).toBeInTheDocument();
     expect(
-      screen.getByText((content) => content.includes('Jane Smith')),
-    ).toBeInTheDocument();
+      screen.getAllByText((content) => content.includes('Jane Smith')).length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByText((content) => content.includes('jane@example.com')),
     ).toBeInTheDocument();
@@ -166,60 +79,93 @@ describe('EditUserDialog (Customer)', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('renders role selection with customer roles', () => {
-    render(<EditUserDialog resolve={mockResolve} />);
+  it('renders role selection with customer roles', async () => {
+    const user = userEvent.setup();
+    renderDialog();
 
     expect(screen.getByText('Role')).toBeInTheDocument();
-    expect(screen.getByTestId('customer-select')).toBeInTheDocument();
+    expect(screen.getByText('Owner')).toBeInTheDocument();
+    // Manager only comes from the scoped fetch, so seeing it proves the roles
+    // have loaded; while loading, the empty-state message is absent anyway.
+    await user.click(within(getSelectByLabel('Role')).getByRole('combobox'));
+    expect(
+      await screen.findByRole('option', { name: /Manager/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/roles are available in this organization/),
+    ).not.toBeInTheDocument();
   });
 
   it('renders expiration time field', () => {
-    render(<EditUserDialog resolve={mockResolve} />);
+    renderDialog();
 
     expect(screen.getByText('Role expires on')).toBeInTheDocument();
-    expect(screen.getByTestId('customer-date')).toBeInTheDocument();
   });
 
-  it('renders submit and close buttons in correct order', () => {
-    render(<EditUserDialog resolve={mockResolve} />);
-
-    expect(screen.getByText('Save')).toBeInTheDocument();
-    expect(screen.getByText('Close')).toBeInTheDocument();
-
-    // In customer dialog, Close comes before Save button
-    const footer = screen.getByTestId('customer-footer');
-    expect(footer).toBeInTheDocument();
-  });
-
-  it('pre-populates form with existing customer user data', () => {
-    render(<EditUserDialog resolve={mockResolve} />);
-
-    // The form should be initialized with current customer user values
-    expect(screen.getByTestId('customer-modal')).toBeInTheDocument();
-  });
-
-  it('handles API calls for customer permission updates', () => {
-    const mockCustomersUpdateUser = vi.mocked(customersUpdateUser);
-    mockCustomersUpdateUser.mockResolvedValue({} as any);
-
-    render(<EditUserDialog resolve={mockResolve} />);
-
-    // This would require form interaction to actually submit
-    expect(mockCustomersUpdateUser).toHaveBeenCalledTimes(0);
-  });
-
-  it('handles role changes that require delete and add operations for customers', () => {
+  it('handles submission with role change', async () => {
+    const user = userEvent.setup();
     const mockCustomersDeleteUser = vi.mocked(customersDeleteUser);
     const mockCustomersAddUser = vi.mocked(customersAddUser);
-
     mockCustomersDeleteUser.mockResolvedValue({} as any);
     mockCustomersAddUser.mockResolvedValue({} as any);
 
-    render(<EditUserDialog resolve={mockResolve} />);
+    renderDialog();
 
-    // This would require form interaction to test role change logic
-    expect(mockCustomersDeleteUser).toHaveBeenCalledTimes(0);
-    expect(mockCustomersAddUser).toHaveBeenCalledTimes(0);
+    // Change role from Owner to Manager
+    await openAndSelectOption(user, 'Role', 'Manager');
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(mockCustomersDeleteUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: { uuid: 'customer-uuid' },
+          body: {
+            user: 'user-uuid',
+            role: 'owner',
+          },
+        }),
+      );
+      expect(mockCustomersAddUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: { uuid: 'customer-uuid' },
+          body: expect.objectContaining({
+            user: 'user-uuid',
+            role: 'manager',
+          }),
+        }),
+      );
+      expect(mockResolve.refetch).toHaveBeenCalled();
+    });
+  });
+
+  it('handles submission with only expiration time change', async () => {
+    const user = userEvent.setup();
+    const mockCustomersUpdateUser = vi.mocked(customersUpdateUser);
+    mockCustomersUpdateUser.mockResolvedValue({} as any);
+
+    renderDialog();
+
+    // Change expiration date
+    const dateInput = screen.getByDisplayValue('2024-12-31');
+    await user.clear(dateInput);
+    await user.type(dateInput, '2025-12-31');
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(mockCustomersUpdateUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: { uuid: 'customer-uuid' },
+          body: expect.objectContaining({
+            user: 'user-uuid',
+            role: 'owner',
+            expiration_time: '2025-12-31',
+          }),
+        }),
+      );
+      expect(mockResolve.refetch).toHaveBeenCalled();
+    });
   });
 
   it('handles customers without existing role names', () => {
@@ -228,16 +174,12 @@ describe('EditUserDialog (Customer)', () => {
       role_name: null,
     };
 
-    render(
-      <EditUserDialog
-        resolve={{ ...mockResolve, customer: customerWithoutRole }}
-      />,
-    );
+    renderDialog({ ...mockResolve, customer: customerWithoutRole });
 
     expect(screen.getByText('Edit organization member')).toBeInTheDocument();
     expect(
-      screen.getByText((content) => content.includes('Jane Smith')),
-    ).toBeInTheDocument();
+      screen.getAllByText((content) => content.includes('Jane Smith')).length,
+    ).toBeGreaterThan(0);
   });
 
   it('handles API errors gracefully', () => {
@@ -245,7 +187,7 @@ describe('EditUserDialog (Customer)', () => {
     const mockError = new Error('API Error');
     mockCustomersUpdateUser.mockRejectedValue(mockError);
 
-    render(<EditUserDialog resolve={mockResolve} />);
+    renderDialog();
 
     // Error handling would be tested through form submission
     expect(screen.getByText('Edit organization member')).toBeInTheDocument();
@@ -257,15 +199,11 @@ describe('EditUserDialog (Customer)', () => {
       email: null,
     };
 
-    render(
-      <EditUserDialog
-        resolve={{ ...mockResolve, customer: customerWithoutEmail }}
-      />,
-    );
+    renderDialog({ ...mockResolve, customer: customerWithoutEmail });
 
     expect(
-      screen.getByText((content) => content.includes('Jane Smith')),
-    ).toBeInTheDocument();
+      screen.getAllByText((content) => content.includes('Jane Smith')).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText('Username')).toBeInTheDocument();
     expect(screen.queryByText('Email')).not.toBeInTheDocument();
   });
@@ -276,15 +214,155 @@ describe('EditUserDialog (Customer)', () => {
       full_name: null,
     };
 
-    render(
-      <EditUserDialog
-        resolve={{ ...mockResolve, customer: customerWithoutName }}
-      />,
-    );
+    renderDialog({ ...mockResolve, customer: customerWithoutName });
 
     expect(
       screen.getByText((content) => content.includes('—')),
     ).toBeInTheDocument(); // DASH_ESCAPE_CODE
     expect(screen.getByText('Username')).toBeInTheDocument();
+  });
+
+  describe('member holds a role the picker does not offer', () => {
+    const originalRoles = ENV.roles;
+
+    afterEach(() => {
+      ENV.roles = originalRoles;
+    });
+
+    // A deactivated role is still in the cache but filtered out of the picker;
+    // an organization clone created after page load is not cached at all.
+    it.each([
+      {
+        situation: 'the role is deactivated',
+        cached: [
+          {
+            name: 'retired',
+            description: 'Retired role',
+            content_type: 'customer',
+            is_active: false,
+          },
+        ],
+        label: 'Retired role',
+      },
+      { situation: 'the role is not cached', cached: [], label: 'retired' },
+    ])(
+      'keeps it selected and saves the expiration when $situation',
+      async ({ cached, label }) => {
+        ENV.roles = [...originalRoles, ...(cached as any)];
+        const user = userEvent.setup();
+        vi.mocked(customersUpdateUser).mockResolvedValue({} as any);
+
+        renderDialog({
+          ...mockResolve,
+          customer: { ...mockCustomerUser, role_name: 'retired' },
+        });
+
+        expect(screen.getByText(label)).toBeInTheDocument();
+        const dateInput = screen.getByDisplayValue('2024-12-31');
+        await user.clear(dateInput);
+        await user.type(dateInput, '2025-12-31');
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        await waitFor(() => {
+          expect(customersUpdateUser).toHaveBeenCalledWith(
+            expect.objectContaining({
+              body: expect.objectContaining({
+                user: 'user-uuid',
+                role: 'retired',
+                expiration_time: '2025-12-31',
+              }),
+            }),
+          );
+        });
+        expect(customersDeleteUser).not.toHaveBeenCalled();
+        expect(customersAddUser).not.toHaveBeenCalled();
+      },
+    );
+
+    // Switching away and back must not revoke the grant: the picker has to keep
+    // offering the held role, and an unchanged role saves as an update.
+    it('offers the held role again after another one was picked', async () => {
+      const user = userEvent.setup();
+      vi.mocked(customersUpdateUser).mockResolvedValue({} as any);
+
+      renderDialog({
+        ...mockResolve,
+        customer: { ...mockCustomerUser, role_name: 'retired' },
+      });
+
+      await openAndSelectOption(user, 'Role', 'Manager');
+      await openAndSelectOption(user, 'Role', 'retired');
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      await waitFor(() => {
+        expect(customersUpdateUser).toHaveBeenCalledWith(
+          expect.objectContaining({
+            body: expect.objectContaining({ role: 'retired' }),
+          }),
+        );
+      });
+      expect(customersDeleteUser).not.toHaveBeenCalled();
+      expect(customersAddUser).not.toHaveBeenCalled();
+    });
+
+    // The held role stays selected, so "no roles" would read as if the member
+    // could not be edited at all.
+    it('says no other role is available when the organization offers none', async () => {
+      vi.mocked(rolesList).mockResolvedValue(mockListResponse([]) as any);
+
+      renderDialog({
+        ...mockResolve,
+        customer: { ...mockCustomerUser, role_name: 'retired' },
+      });
+
+      expect(
+        await screen.findByText(
+          'No other roles are available in this organization. Ask staff to reveal a concealed role or reactivate one.',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    // The fallback role is a fresh object, and final-form reinitializes when
+    // initialValues stop being shallow-equal, wiping what the user typed.
+    it('keeps a typed expiration when the dialog re-renders', async () => {
+      const user = userEvent.setup();
+      const resolve = {
+        ...mockResolve,
+        customer: { ...mockCustomerUser, role_name: 'retired' },
+      };
+
+      const { rerender } = renderDialog(resolve);
+      const dateInput = screen.getByDisplayValue('2024-12-31');
+      await user.clear(dateInput);
+      await user.type(dateInput, '2025-12-31');
+      rerender(<EditUserDialog resolve={resolve} />);
+
+      expect(screen.getByDisplayValue('2025-12-31')).toBeInTheDocument();
+    });
+  });
+
+  it('explains an empty role picker when the organization has no roles', async () => {
+    vi.mocked(rolesList).mockResolvedValue(mockListResponse([]) as any);
+
+    renderDialog({
+      ...mockResolve,
+      customer: { ...mockCustomerUser, role_name: null },
+    });
+
+    expect(
+      await screen.findByText(
+        'No roles are available in this organization. Ask staff to reveal a concealed role or reactivate one.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('says so when the organization roles fail to load', async () => {
+    vi.mocked(rolesList).mockRejectedValue(new Error('Network error'));
+
+    renderDialog();
+
+    expect(
+      await screen.findByText('Unable to load roles.'),
+    ).toBeInTheDocument();
   });
 });

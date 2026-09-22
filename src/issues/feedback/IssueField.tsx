@@ -1,4 +1,4 @@
-import { Link } from '@waldur/core/Link';
+import { Link } from '@/core/Link';
 
 const issueLabel = (key: string, summary: string) =>
   key ? `${key}: ${summary}` : summary;
@@ -6,7 +6,7 @@ const issueLabel = (key: string, summary: string) =>
 export const IssueField = ({ row }) => (
   <Link
     state="support.detail"
-    params={{ uuid: row.issue_uuid }}
+    params={{ issue_uuid: row.issue_uuid }}
     label={issueLabel(row.issue_key, row.issue_summary)}
   />
 );

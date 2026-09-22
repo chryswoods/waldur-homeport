@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { Project } from 'waldur-js-client';
 
-import { Customer } from '@waldur/workspace/types';
+import { Customer } from '@/workspace/types';
 
 export interface IssueFormData {
   type: any;
@@ -13,6 +13,9 @@ export interface IssueFormData {
   customer?: Customer;
   project?: Project;
   resource?: any;
+  /** Offering UUID — set when a request is opened from an offering, so the
+   * backend can route it to that offering's provider helpdesk. */
+  offering?: string;
 }
 
 export interface IssueTypeOption {

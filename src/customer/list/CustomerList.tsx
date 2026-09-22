@@ -1,24 +1,27 @@
 import { FunctionComponent, useCallback, useMemo } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
 import { financialReportsList } from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
-import { formatDate } from '@waldur/core/dateUtils';
-import { FinancialReportSendButton } from '@waldur/customer/list/FinancialReportSendButton';
-import { translate } from '@waldur/i18n';
-import { PriceTooltip } from '@waldur/price/PriceTooltip';
-import { createFetcher } from '@waldur/table/api';
-import { ExpandableContainer } from '@waldur/table/ExpandableContainer';
-import Table from '@waldur/table/Table';
-import { Column } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { renderFieldOrDash } from '@waldur/table/utils';
-import { Customer } from '@waldur/workspace/types';
+import { ENV } from '@/core/config';
+import { formatDate } from '@/core/dateUtils';
+import { FinancialReportSendButton } from '@/customer/list/FinancialReportSendButton';
+import { translate } from '@/i18n';
+import { PriceTooltip } from '@/price/PriceTooltip';
+import { createFetcher } from '@/table/api';
+import { ExpandableContainer } from '@/table/ExpandableContainer';
+import {
+  FinancialReportsFilter,
+  FinancialReportsFilterFormId,
+  selectFinancialReportsFilter,
+} from '@/table/generated/FinancialReportsFilter';
+import Table from '@/table/Table';
+import { Column } from '@/table/types';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
+import { Customer } from '@/workspace/types';
 
 import { CurrentCostField } from './CurrentCostField';
 import { CustomerExpandableRow } from './CustomerExpandableRow';
-import { CustomerListFilter } from './CustomerListFilter';
 import {
   EstimatedCostField,
   ExportEstimatedCostField,
@@ -53,14 +56,11 @@ const renderTitleWithPriceTooltip = (title) => (
 );
 
 export const CustomerList: FunctionComponent<{
-  initialValues;
   accountingPeriods;
-}> = ({ initialValues, accountingPeriods }) => {
-  const customerListFilter: any = useSelector(
-    getFormValues('customerListFilter'),
-  );
-  const accountingPeriodIsCurrent =
-    customerListFilter?.accounting_period?.value.current;
+  initialFilters;
+}> = ({ accountingPeriods, initialFilters }) => {
+  const values = useFilterValues('customerList');
+  const accountingPeriodIsCurrent = values?.accounting_period?.value?.current;
   const vatMessage =
     ENV.accountingMode === 'accounting'
       ? translate('VAT is not included')
@@ -125,22 +125,21 @@ export const CustomerList: FunctionComponent<{
     });
   }
 
-  const filter = useMemo(
-    () => formatFilter(customerListFilter),
-    [customerListFilter],
-  );
+  const filter = useMemo(() => selectFinancialReportsFilter(values), [values]);
 
   const props = useTable({
     table: 'customerList',
+    syncFiltersToURL: true,
     fetchData: createFetcher(financialReportsList),
     queryField: 'query',
     filter,
+    initialFilters,
   });
 
   const expandableRow = useCallback(
     ({ row }) => (
       <ExpandableContainer>
-        <CustomerExpandableRow row={row} providerUUID={filter?.provider_uuid} />
+        <CustomerExpandableRow row={row} providerUUID={filter?.customer_uuid} />
       </ExpandableContainer>
     ),
 
@@ -150,6 +149,7 @@ export const CustomerList: FunctionComponent<{
   return (
     <Table
       {...props}
+      formId={FinancialReportsFilterFormId}
       columns={columns}
       subtitle={<TotalCostContainer />}
       verboseName={translate('Organizations')}
@@ -158,30 +158,7 @@ export const CustomerList: FunctionComponent<{
       enableExport={true}
       expandableRow={expandableRow}
       tableActions={<FinancialReportSendButton />}
-      filters={
-        <CustomerListFilter
-          initialValues={initialValues}
-          accountingPeriods={accountingPeriods}
-        />
-      }
+      filters={<FinancialReportsFilter accountingPeriods={accountingPeriods} />}
     />
   );
-};
-
-const formatFilter = (filter) => {
-  if (filter) {
-    const formattedFilter: any = {
-      ...(filter.accounting_period && {
-        accounting_is_running: filter.accounting_is_running
-          ? filter.accounting_is_running.value
-          : undefined,
-        year: filter.accounting_period.value.year,
-        month: filter.accounting_period.value.month,
-      }),
-      ...(filter.provider && {
-        customer_uuid: filter.provider.customer_uuid,
-      }),
-    };
-    return formattedFilter;
-  }
 };

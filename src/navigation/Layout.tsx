@@ -3,21 +3,29 @@ import classNames from 'classnames';
 import React, { PropsWithChildren, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 
-import { ImpersonationBar } from '@waldur/administration/ImpersonationBar';
-import * as AuthService from '@waldur/auth/AuthService';
-import { PermissionDataProvider } from '@waldur/auth/PermissionLayout';
-import WarningBar from '@waldur/auth/WarningBar';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { DefaultLayoutConfig, useLayout } from '@waldur/metronic/layout/core';
-import { MasterLayout } from '@waldur/metronic/layout/MasterLayout';
-import { RemovedProjectWarningBar } from '@waldur/project/RemovedProjectWarningBar';
-import { OfferingUsersWarningBar } from '@waldur/user/OfferingUsersWarningBar';
-import { UsersService } from '@waldur/user/UsersService';
-import { getImpersonatorUser, getUser } from '@waldur/workspace/selectors';
+import { SidebarProvider, useSidebar } from 'waldur-ui';
 
-import { AppFooter } from './AppFooter';
+import { ImpersonationBar } from '@/administration/ImpersonationBar';
+import * as AuthService from '@/auth/AuthService';
+import { PermissionDataProvider } from '@/auth/PermissionLayout';
+import WarningBar from '@/auth/WarningBar';
+import { GRID_BREAKPOINTS } from '@/core/constants';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { InvitationCheck } from '@/invitations/InvitationCheck';
+import { DefaultLayoutConfig, useLayout } from '@/metronic/layout/core';
+import { MasterLayout } from '@/metronic/layout/MasterLayout';
+import { GracePeriodWarningBar } from '@/project/GracePeriodWarningBar';
+import { RemovedProjectWarningBar } from '@/project/RemovedProjectWarningBar';
+import { OfferingUsersWarningBar } from '@/user/OfferingUsersWarningBar';
+import { ProfileCompletenessProvider } from '@/user/ProfileCompletenessContext';
+import { UsersService } from '@/user/UsersService';
+import { useUser } from '@/workspace/hooks';
+import { ReviewCheck } from '@/workspace/ReviewCheck';
+import { getImpersonatorUser } from '@/workspace/selectors';
+
 import { LayoutContext, LayoutContextInterface } from './context';
 import { CookiesConsent } from './cookies/CookiesConsent';
+import { AppFooter } from './footer/AppFooter';
 import { Announcements } from './header/announcements/Announcements';
 import { AppHeader } from './header/AppHeader';
 import { BreadcrumbMain } from './header/breadcrumb/BreadcrumbMain';
@@ -28,9 +36,19 @@ import { Toolbar } from './Toolbar';
 import { IBreadcrumbItem } from './types';
 import { useTabs } from './useTabs';
 
-export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
+export const Layout: React.FC<PropsWithChildren> = ({ children }) => (
+  <SidebarProvider
+    renderWrapper={false}
+    mobileBreakpoint={GRID_BREAKPOINTS.lg}
+    style={{ '--sidebar-width-icon': '75px' } as React.CSSProperties}
+  >
+    <LayoutContent>{children}</LayoutContent>
+  </SidebarProvider>
+);
+
+const LayoutContent: React.FC<PropsWithChildren> = ({ children }) => {
   const { state } = useCurrentStateAndParams();
-  const currentUser = useSelector(getUser);
+  const currentUser = useUser();
   const impersonatorUser = useSelector(getImpersonatorUser);
   const [actions, setActions] = useState(null);
   const [breadcrumbs, setBreadcrumbs] = useState<IBreadcrumbItem[]>([]);
@@ -41,6 +59,12 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
   const [ExtraAnnouncementBar, setExtraAnnouncementBar] =
     useState<React.ReactNode>(null);
   const [ExtraToolbar, setExtraToolbar] = useState<React.ReactNode>(null);
+  const { state: sidebarState, setOpenMobile } = useSidebar();
+
+  useEffect(() => {
+    setOpenMobile(false);
+  }, [state, setOpenMobile]);
+
   const context = useMemo<Partial<LayoutContextInterface>>(
     () => ({
       setActions,
@@ -73,11 +97,21 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
   const layout = useLayout();
   const tabs = useTabs();
 
-  const showToolbar = Boolean(actions || tabs?.length || extraTabs?.length);
+  const showToolbar = Boolean(actions || tabs?.length > 1 || extraTabs?.length);
 
   useEffect(() => {
+    // Synchronize aside.minimized with the real Sidebar's state from useSidebar()
+    // rather than guessing or defaulting to false. This guarantees that whenever
+    // the sidebar is collapsed (on mount, resize, user toggle, or navigation),
+    // layout.config.aside.minimized is true and Metronic's header/toolbar content
+    // offset CSS (data-kt-aside-minimize='on') remains correctly aligned.
     layout.setLayout({
-      aside: currentUser ? DefaultLayoutConfig.aside : false,
+      aside: currentUser
+        ? {
+            ...DefaultLayoutConfig.aside,
+            minimized: sidebarState === 'collapsed',
+          }
+        : false,
       toolbar: showToolbar ? DefaultLayoutConfig.toolbar : false,
       extraToolbar: ExtraToolbar ? DefaultLayoutConfig.extraToolbar : false,
       hero: PageHero ? DefaultLayoutConfig.hero : false,
@@ -86,11 +120,19 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
         width: 'fluid',
       },
     });
-  }, [showToolbar, fullPage, PageHero, PageBar, ExtraToolbar, currentUser]);
+  }, [
+    showToolbar,
+    fullPage,
+    PageHero,
+    PageBar,
+    ExtraToolbar,
+    currentUser,
+    sidebarState,
+  ]);
 
   useEffect(() => {
     if (AuthService.isAuthenticated() && !currentUser) {
-      UsersService.refreshCurrentUser({ throwOnError: false });
+      UsersService.refreshCurrentUser().catch(() => {});
     }
     UsersService.refreshImpersonatorUser();
   }, []);
@@ -108,50 +150,54 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
 
   return (
     <LayoutContext.Provider value={context}>
+      <ReviewCheck />
+      <InvitationCheck />
       <PermissionDataProvider>
-        <div className="d-flex flex-column flex-root print-content-only">
-          {PageBar && <OutstandingBar>{PageBar}</OutstandingBar>}
-          <div className="page d-flex flex-row flex-column-fluid">
-            <UnifiedSidebar />
-            <div className="wrapper d-flex flex-column flex-row-fluid">
-              <CookiesConsent />
-              {!state?.data?.hideHeader && (
-                <AppHeader hasBreadcrumbs={Boolean(breadcrumbs.length)} />
-              )}
-              <BreadcrumbMain mobile />
-              <Announcements />
-              {ExtraAnnouncementBar}
-              <WarningBar />
-              <OfferingUsersWarningBar />
-              <RemovedProjectWarningBar />
-              <div
-                className={classNames(
-                  'content d-flex flex-column flex-grow-1',
-                  { 'full-page': fullPage },
+        <ProfileCompletenessProvider>
+          <div className="d-flex flex-column flex-root print-content-only">
+            {PageBar && <OutstandingBar>{PageBar}</OutstandingBar>}
+            <div className="page d-flex flex-row flex-column-fluid">
+              <UnifiedSidebar />
+              <div className="wrapper d-flex flex-column flex-row-fluid">
+                <CookiesConsent />
+                {!state?.data?.hideHeader && (
+                  <AppHeader hasBreadcrumbs={Boolean(breadcrumbs.length)} />
                 )}
-              >
-                {PageHero && (
-                  <div className="hero w-100 d-flex flex-column">
-                    {PageHero}
-                  </div>
-                )}
-                {showToolbar && <Toolbar actions={actions} />}
-                {ExtraToolbar && (
-                  <div className="extra-toolbar">{ExtraToolbar}</div>
-                )}
-                <div className="post w-100 d-flex flex-column-fluid">
-                  {state.data.auth && !currentUser ? (
-                    <LoadingSpinner />
-                  ) : (
-                    children
+                <BreadcrumbMain mobile />
+                <Announcements extraAnnouncement={ExtraAnnouncementBar} />
+                <WarningBar />
+                <OfferingUsersWarningBar />
+                <RemovedProjectWarningBar />
+                <GracePeriodWarningBar />
+                <div
+                  className={classNames(
+                    'content d-flex flex-column flex-grow-1',
+                    { 'full-page': fullPage },
                   )}
-                  <MasterLayout />
+                >
+                  {PageHero && (
+                    <div className="hero w-100 d-flex flex-column">
+                      {PageHero}
+                    </div>
+                  )}
+                  {showToolbar && <Toolbar actions={actions} />}
+                  {ExtraToolbar && (
+                    <div className="extra-toolbar">{ExtraToolbar}</div>
+                  )}
+                  <div className="post w-100 d-flex flex-column-fluid">
+                    {state?.data?.auth && !currentUser ? (
+                      <LoadingSpinner />
+                    ) : (
+                      children
+                    )}
+                    <MasterLayout />
+                  </div>
                 </div>
+                <AppFooter />
               </div>
-              <AppFooter />
             </div>
           </div>
-        </div>
+        </ProfileCompletenessProvider>
       </PermissionDataProvider>
     </LayoutContext.Provider>
   );

@@ -1,4 +1,4 @@
-import { StateIndicator } from '@waldur/core/StateIndicator';
+import { StateIndicator } from '@/core/StateIndicator';
 
 import { CallOfferingState } from '../types';
 import { formatCallOfferingState } from '../utils';
@@ -11,7 +11,7 @@ export const CallOfferingStateField = ({
   <StateIndicator
     label={formatCallOfferingState(row.state)}
     variant={row.state === 'accepted' ? 'success' : 'warning'}
-    pill
-    outline
+    shape="pill"
+    tone="outline"
   />
 );

@@ -1,9 +1,11 @@
-import { ActionsDropdown } from '@waldur/table/ActionsDropdown';
+import { ActionsDropdown } from '@/table/ActionsDropdown';
 
 import { RuleAddTemplateButton } from './RuleAddTemplateButton';
 import { RuleDeleteButton } from './RuleDeleteButton';
 import { RuleDeleteTemplateButton } from './RuleDeleteTemplateButton';
+import { RuleDuplicateButton } from './RuleDuplicateButton';
 import { RuleEditButton } from './RuleEditButton';
+import { RuleTestMatchButton } from './RuleTestMatchButton';
 
 export const RuleActions = ({ row, refetch }) => (
   <ActionsDropdown
@@ -11,10 +13,11 @@ export const RuleActions = ({ row, refetch }) => (
     refetch={refetch}
     actions={[
       RuleEditButton,
+      RuleDuplicateButton,
+      RuleTestMatchButton,
       RuleAddTemplateButton,
       !!row.plan && RuleDeleteTemplateButton,
       RuleDeleteButton,
     ].filter(Boolean)}
-    data-cy="rules-list-actions-dropdown-btn"
   />
 );

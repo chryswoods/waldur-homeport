@@ -1,45 +1,61 @@
 import { FC } from 'react';
-import { useDispatch } from 'react-redux';
+import { Alert } from 'react-bootstrap';
 import { marketplaceResourcesTerminate } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { DestroyInstanceParams } from '@waldur/openstack/api';
-import { ResourceActionDialog } from '@waldur/resource/actions/ResourceActionDialog';
-import { ActionDialogProps } from '@waldur/resource/actions/types';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
+import { translate } from '@/i18n';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { DestroyInstanceParams } from '@/openstack/api';
+import { ResourceActionDialog } from '@/resource/actions/ResourceActionDialog';
+import { ActionDialogProps } from '@/resource/actions/types';
 
 import { getDeleteField } from './utils';
+
+const TerminationWarning = () => (
+  <Alert variant="warning" className="mb-4">
+    {translate(
+      'The instance will be stopped if it is running. Existing backups and volume snapshots will be deleted.',
+    )}
+  </Alert>
+);
 
 export const DestroyDialog: FC<ActionDialogProps> = ({
   resolve: { resource, refetch },
 }) => {
-  const dispatch = useDispatch();
+  const mutation = useManagedMutation<any, any, DestroyInstanceParams>({
+    mutationFn: (formData) =>
+      marketplaceResourcesTerminate({
+        path: { uuid: resource.marketplace_resource_uuid },
+        body: {
+          attributes: {
+            delete_volumes: formData.delete_volumes,
+            release_floating_ips: formData.release_floating_ips,
+          },
+        },
+      }),
+
+    successMessage: translate('Instance deletion has been scheduled.'),
+    errorMessage: translate('Unable to delete instance.'),
+    refetch: refetch,
+  });
+
+  const { formFields, initialValues } = getDeleteField();
+
   return (
     <ResourceActionDialog
-      dialogTitle={translate('Destroy {name} instance', {
-        name: resource.name,
-      })}
-      {...getDeleteField()}
-      submitForm={async (formData: DestroyInstanceParams) => {
-        try {
-          await marketplaceResourcesTerminate({
-            path: { uuid: resource.marketplace_resource_uuid },
-            body: { attributes: formData },
-          });
-          dispatch(
-            showSuccess(translate('Instance deletion has been scheduled.')),
-          );
-          if (refetch) {
-            await refetch();
-          }
-          dispatch(closeModalDialog());
-        } catch (e) {
-          dispatch(
-            showErrorResponse(e, translate('Unable to delete instance.')),
-          );
-        }
-      }}
+      dialogTitle={translate('Destroy instance')}
+      dialogSubtitle={
+        <ScopeSubtitle
+          label={translate('Instance name')}
+          name={resource.name}
+        />
+      }
+      formFields={[
+        { name: 'termination_warning', component: TerminationWarning },
+        ...formFields,
+      ]}
+      initialValues={initialValues}
+      submitForm={mutation.mutateAsync}
     />
   );
 };

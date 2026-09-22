@@ -1,20 +1,14 @@
-import { useSelector } from 'react-redux';
-import { formValueSelector, Field } from 'redux-form';
+import { useFormState } from 'react-final-form';
 
-import { validateEmailPatterns } from '@waldur/administration/auto-provisioning-rules/utils';
-import { AccordionCard } from '@waldur/core/AccordionCard';
-import { FormGroup } from '@waldur/form';
-import { CommaSeparatedListField } from '@waldur/form/CommaSeparatedListField';
-import { translate } from '@waldur/i18n';
-import { type RootState } from '@waldur/store/reducers';
-
-import { GROUP_INVITATION_CREATE_FORM_ID } from './constants';
+import { validateEmailPatterns } from '@/administration/auto-provisioning-rules/utils';
+import { AccordionCard } from '@/core/AccordionCard';
+import { BooleanGroup, CommaSeparatedListGroup } from '@/form';
+import { translate } from '@/i18n';
 
 export const AdvancedSettingsGroup = ({ disabled }) => {
-  const role = useSelector((state: RootState) =>
-    formValueSelector(GROUP_INVITATION_CREATE_FORM_ID)(state, 'role'),
-  );
-  const projectEnabled = role?.content_type === 'project';
+  const { values } = useFormState();
+  const projectEnabled = values?.role?.content_type === 'project';
+
   if (!projectEnabled) {
     return null;
   }
@@ -26,32 +20,65 @@ export const AdvancedSettingsGroup = ({ disabled }) => {
       className="mb-5 bg-gray-50"
       titleClassName="fs-6"
     >
-      <Field
-        name="user_email_patterns"
-        component={FormGroup}
-        label={translate('Allowed email patterns')}
-        placeholder={translate('e.g. .*@example.com')}
+      <BooleanGroup
+        name="auto_approve"
+        label={translate('Auto-approve permission requests')}
         description={translate(
-          'Enter space separated regex pattern to match user email',
+          'Automatically approve permission requests from users matching the specified rules.',
+        )}
+        alignMiddle
+        disabled={disabled}
+      />
+      <CommaSeparatedListGroup
+        label={translate('Additional email patterns')}
+        description={translate(
+          'Enter space-separated regex patterns. These are applied in addition to any existing restrictions.',
+        )}
+        name="user_email_patterns"
+        validate={validateEmailPatterns}
+        placeholder={translate('e.g. .*@example.com')}
+        disabled={disabled}
+        separator="space"
+      />
+      <CommaSeparatedListGroup
+        label={translate('Additional affiliations')}
+        description={translate(
+          'Enter comma-separated affiliation identifiers. These are applied in addition to any existing restrictions.',
+        )}
+        name="user_affiliations"
+        placeholder="student, faculty, researcher (comma-separated)"
+        disabled={disabled}
+      />
+      <CommaSeparatedListGroup
+        label={translate('Required nationalities')}
+        description={translate(
+          'Enter comma-separated ISO country codes. Users with any of these nationalities will be allowed.',
+        )}
+        name="user_nationalities"
+        placeholder={translate('e.g. DE, FR, US (comma-separated)')}
+        disabled={disabled}
+      />
+      <CommaSeparatedListGroup
+        label={translate('Required organization types')}
+        description={translate(
+          'Enter comma-separated SCHAC organization type URNs.',
+        )}
+        name="user_organization_types"
+        placeholder={translate(
+          'e.g. urn:schac:homeOrganizationType:int:university',
         )}
         disabled={disabled}
-        validate={validateEmailPatterns}
-        space={5}
-      >
-        <CommaSeparatedListField separator="space" />
-      </Field>
-
-      <Field
-        name="user_affiliations"
-        component={FormGroup}
-        label={translate('Allowed affiliations')}
-        placeholder="student, faculty, researcher (comma-separated)"
-        description={translate('Enter comma-separated affiliation identifiers')}
-        disabled={disabled}
+      />
+      <CommaSeparatedListGroup
+        label={translate('Required assurance levels')}
+        description={translate(
+          'Enter comma-separated REFEDS assurance URIs. Users must have ALL of these levels.',
+        )}
         spaceless
-      >
-        <CommaSeparatedListField />
-      </Field>
+        name="user_assurance_levels"
+        placeholder={translate('e.g. https://refeds.org/assurance/IAP/medium')}
+        disabled={disabled}
+      />
     </AccordionCard>
   );
 };

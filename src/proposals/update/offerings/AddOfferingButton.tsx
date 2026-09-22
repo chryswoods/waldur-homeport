@@ -1,10 +1,9 @@
 import { useCallback } from 'react';
-import { useDispatch } from 'react-redux';
 
-import { AddButton } from '@waldur/core/AddButton';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { openModalDialog } from '@waldur/modal/actions';
-import { Call } from '@waldur/proposals/types';
+import { AddButton } from '@/core/AddButton';
+import { lazyComponent } from '@/core/lazyComponent';
+import { useModal } from '@/modal/actions';
+import { Call } from '@/proposals/types';
 
 const CallOfferingCreateDialog = lazyComponent(() =>
   import('./CallOfferingCreateDialog').then((module) => ({
@@ -15,23 +14,31 @@ const CallOfferingCreateDialog = lazyComponent(() =>
 interface AddOfferingButtonProps {
   call: Call;
   refetch(): void;
+  disabled?: boolean;
+  tooltip?: string;
 }
 
 export const AddOfferingButton = ({
   call,
   refetch,
+  disabled,
+  tooltip,
 }: AddOfferingButtonProps) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const openOfferingCreateDialog = useCallback(
     () =>
-      dispatch(
-        openModalDialog(CallOfferingCreateDialog, {
-          resolve: { call, refetch },
-          size: 'lg',
-        }),
-      ),
-    [dispatch],
+      openDialog(CallOfferingCreateDialog, {
+        resolve: { call, refetch },
+        size: 'lg',
+      }),
+    [],
   );
 
-  return <AddButton action={openOfferingCreateDialog} />;
+  return (
+    <AddButton
+      action={openOfferingCreateDialog}
+      disabled={disabled}
+      tooltip={tooltip}
+    />
+  );
 };

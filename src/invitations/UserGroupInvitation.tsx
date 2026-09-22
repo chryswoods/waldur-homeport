@@ -1,25 +1,27 @@
-import { useCurrentStateAndParams, useRouter } from '@uirouter/react';
+import { useCurrentStateAndParams } from '@uirouter/react';
 import { FunctionComponent } from 'react';
 import { useEffectOnce } from 'react-use';
 
-import { ENV } from '@waldur/core/config';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
+import { ENV } from '@/core/config';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { goToNotFound } from '@/error/utils';
+import { translate } from '@/i18n';
 
-import { submitPermissionRequest } from './utils';
+import { useSubmitPermissionRequest } from './useSubmitPermissionRequest';
 
 export const UserGroupInvitation: FunctionComponent = () => {
-  const router = useRouter();
   const {
     params: { token },
   } = useCurrentStateAndParams();
 
+  const { submit } = useSubmitPermissionRequest(token);
+
   useEffectOnce(() => {
     if (!ENV.plugins.WALDUR_CORE.INVITATIONS_ENABLED) {
-      router.stateService.go('errorPage.notFound');
+      goToNotFound();
       return;
     }
-    submitPermissionRequest(token);
+    submit();
   });
 
   return (

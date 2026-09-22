@@ -1,35 +1,30 @@
-import { TrashIcon } from '@phosphor-icons/react';
-import { useDispatch } from 'react-redux';
 import { supportTemplatesDestroy } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { RemovalActionItem } from '@/resource/actions/RemovalActionItem';
 
 export const IssueTemplateDeleteAction = ({ row, refetch }) => {
-  const dispatch = useDispatch();
-  const openDialog = async () => {
-    try {
-      await waitForConfirmation(
-        dispatch,
-        translate('Confirmation'),
-        translate('Are you sure you want to delete the issue template?'),
-        { forDeletion: true },
-      );
-    } catch {
-      return;
-    }
-    await supportTemplatesDestroy({ path: { uuid: row.uuid } });
-    await refetch();
-  };
+  const { mutate, isPending } = useManagedMutation<any, any, void>({
+    mutationFn: () => supportTemplatesDestroy({ path: { uuid: row.uuid } }),
+    refetch: refetch,
+
+    confirmation: {
+      title: translate('Confirmation'),
+
+      body: translate('Are you sure you want to delete the issue template?'),
+
+      options: {
+        forDeletion: true,
+      },
+    },
+  });
+
   return (
-    <ActionItem
+    <RemovalActionItem
       title={translate('Remove')}
-      action={openDialog}
-      iconNode={<TrashIcon weight="bold" />}
-      className="text-danger"
-      iconColor="danger"
-      size="sm"
+      action={mutate}
+      disabled={isPending}
     />
   );
 };

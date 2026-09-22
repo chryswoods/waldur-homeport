@@ -1,23 +1,18 @@
-import { DateTime } from 'luxon';
 import { FC, useCallback, useMemo } from 'react';
-import { useDispatch } from 'react-redux';
 import {
   proposalProtectedCallsRoundsUpdate,
   ProtectedRound,
   ProtectedRoundRequest,
 } from 'waldur-js-client';
 
-import { parseDate } from '@waldur/core/dateUtils';
-import { WizardFormContainer } from '@waldur/form/WizardFormContainer';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { Call } from '@waldur/proposals/types';
-import {
-  domainsToText,
-  textToDomains,
-  WizardFormFirstPage,
-} from '@waldur/proposals/update/rounds/WizardFormFirstPage';
-import { getRoundInitialValues } from '@waldur/proposals/utils';
+import { parseDate } from '@/core/dateUtils';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { Call } from '@/proposals/types';
+import { WizardFormFirstPage } from '@/proposals/update/rounds/WizardFormFirstPage';
+import { getRoundInitialValues } from '@/proposals/utils';
+import { WizardFormContainer } from '@/wizard';
 
 interface EditRoundSubmissionDialogProps {
   resolve: {
@@ -40,12 +35,17 @@ export const EditRoundSubmissionDialog: FC<EditRoundSubmissionDialogProps> = (
 ) => {
   const initialValues = useMemo(
     () => getRoundInitialValues(props.resolve.round),
-    [props.resolve],
+    [props.resolve.round],
   );
-  const dispatch = useDispatch();
-  const submit = useCallback(
-    (formData: any, _dispatch, formProps) => {
-      return proposalProtectedCallsRoundsUpdate({
+  const { closeDialog } = useModal();
+
+  const updateRoundMutation = useManagedMutation<
+    any,
+    any,
+    ProtectedRoundRequest
+  >({
+    mutationFn: (formData) =>
+      proposalProtectedCallsRoundsUpdate({
         path: {
           uuid: props.resolve.call.uuid,
           obj_uuid: props.resolve.round.uuid,
@@ -53,17 +53,18 @@ export const EditRoundSubmissionDialog: FC<EditRoundSubmissionDialogProps> = (
         body: {
           ...initialValues,
           ...formData,
-          default_allowed_domains: textToDomains(formData.default_allowed_domains ?? ''),
-          default_reapply_url: formData.default_reapply_url || null,
-          default_reapply_text: formData.default_reapply_text || null,
         },
-      }).then(() => {
-        formProps.destroy();
-        dispatch(closeModalDialog());
-        props.resolve.refetch();
-      });
-    },
-    [dispatch, props.resolve, initialValues],
+      }),
+    successMessage: translate('Round has been updated.'),
+    errorMessage: translate('Unable to update round.'),
+    refetch: props.resolve.refetch,
+    onSuccess: closeDialog,
+  });
+
+  const submit = useCallback(
+    (formData: ProtectedRoundRequest) =>
+      updateRoundMutation.mutateAsync(formData),
+    [updateRoundMutation],
   );
 
   return (
@@ -76,16 +77,7 @@ export const EditRoundSubmissionDialog: FC<EditRoundSubmissionDialogProps> = (
         { key: 'submission', label: translate('Submission'), completed: false },
       ]}
       wizardForms={[WizardFormFirstPage]}
-      initialValues={{
-        timezone: DateTime.local().zoneName,
-        start_time: initialValues.start_time,
-        cutoff_time: initialValues.cutoff_time,
-        minimum_required_uploads: initialValues.minimum_required_uploads ?? 0,
-        default_membership_control: initialValues.default_membership_control ?? 'open',
-        default_allowed_domains: domainsToText(initialValues.default_allowed_domains),
-        default_reapply_url: initialValues.default_reapply_url ?? '',
-        default_reapply_text: initialValues.default_reapply_text ?? '',
-      }}
+      initialValues={initialValues}
       validate={validate}
     />
   );

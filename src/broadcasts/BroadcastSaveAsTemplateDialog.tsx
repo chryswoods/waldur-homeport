@@ -1,99 +1,70 @@
-import { ArrowLeftIcon } from '@phosphor-icons/react';
-import { useCallback } from 'react';
-import { Button } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
-import { reduxForm } from 'redux-form';
+import { FC } from 'react';
+import { Form } from 'react-final-form';
 import {
   broadcastMessageTemplatesCreate,
   MessageTemplateRequest,
 } from 'waldur-js-client';
 
-import { SubmitButton } from '@waldur/auth/SubmitButton';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { required } from '@waldur/core/validators';
-import { FormContainer, StringField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog, openModalDialog } from '@waldur/modal/actions';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { required } from '@/core/validators';
+import { StringGroup, SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
 
-const BroadcastFormDialog = lazyComponent(() =>
-  import('./BroadcastFormDialog').then((module) => ({
-    default: module.BroadcastFormDialog,
-  })),
-);
+import { BroadcastFormData } from './types';
 
-export const BroadcastSaveAsTemplateDialog = reduxForm<
-  MessageTemplateRequest,
-  { resolve: { refetch; broadcastData; broadcastUuid? } }
->({
-  form: 'BroadcastSaveAsTemplateDialog',
-})(({ submitting, handleSubmit, resolve }) => {
-  const dispatch = useDispatch();
-  const backToBroadcast = (broadcastData) =>
-    dispatch(
-      openModalDialog(BroadcastFormDialog, {
-        dialogClassName: 'modal-dialog-centered',
-        resolve: {
-          refetch: resolve.refetch,
-          uuid: resolve.broadcastUuid, // We need this if we came from the edit form
+interface BroadcastSaveAsTemplateDialogProps {
+  resolve: {
+    refetch: () => void;
+    broadcastData: BroadcastFormData;
+  };
+}
+
+export const BroadcastSaveAsTemplateDialog: FC<
+  BroadcastSaveAsTemplateDialogProps
+> = ({ resolve }) => {
+  const saveMutation = useManagedMutation<any, any, MessageTemplateRequest>({
+    mutationFn: (formData) =>
+      broadcastMessageTemplatesCreate({
+        body: {
+          ...formData,
+          ...resolve.broadcastData,
         },
-        initialValues: broadcastData,
-        size: 'xl',
       }),
-    );
-  const callback = useCallback(
-    async (formData: MessageTemplateRequest) => {
-      try {
-        await broadcastMessageTemplatesCreate({
-          body: {
-            ...formData,
-            ...resolve.broadcastData,
-          },
-        });
-        await resolve.refetch();
-        dispatch(
-          showSuccess(translate('Broadcast has been save as a template.')),
-        );
-        dispatch(closeModalDialog());
-      } catch (e) {
-        dispatch(
-          showErrorResponse(
-            e,
-            translate('Unable to save a broadcast as a template.'),
-          ),
-        );
-      }
-    },
-    [dispatch, resolve],
-  );
+    successMessage: translate('Broadcast has been saved as a template.'),
+    errorMessage: translate('Unable to save a broadcast as a template.'),
+    refetch: resolve.refetch,
+  });
 
   return (
-    <ModalDialog title={translate('Create a broadcast template')}>
-      <form onSubmit={handleSubmit(callback)}>
-        <FormContainer submitting={submitting}>
-          <StringField
-            name="name"
-            label={translate('Name')}
-            maxLength={150}
-            required={true}
-            validate={required}
-          />
-
-          <div className="d-flex justify-content-between">
-            <Button
-              onClick={() => backToBroadcast(resolve.broadcastData)}
-              variant="secondary"
-            >
-              <span className="svg-icon svg-icon-2">
-                <ArrowLeftIcon />
-              </span>{' '}
-              {translate('Back')}
-            </Button>
-            <SubmitButton submitting={submitting} label={translate('Save')} />
-          </div>
-        </FormContainer>
-      </form>
-    </ModalDialog>
+    <Form<MessageTemplateRequest>
+      onSubmit={(values) => saveMutation.mutateAsync(values)}
+      render={({ handleSubmit, submitting, invalid }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate('Create a broadcast template')}
+            footer={
+              <div className="d-flex justify-content-end gap-2">
+                <CloseDialogButton />
+                <SubmitButton
+                  submitting={submitting}
+                  invalid={invalid}
+                  label={translate('Save')}
+                />
+              </div>
+            }
+          >
+            <StringGroup
+              name="name"
+              label={translate('Name')}
+              required={true}
+              validate={required}
+              maxLength={150}
+            />
+          </ModalDialog>
+        </form>
+      )}
+    />
   );
-});
+};

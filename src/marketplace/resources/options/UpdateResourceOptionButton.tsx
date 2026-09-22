@@ -1,13 +1,12 @@
 import { FunctionComponent } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { EditButton } from '@waldur/form/EditButton';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { getUser } from '@waldur/workspace/selectors';
+import { lazyComponent } from '@/core/lazyComponent';
+import { EditButton } from '@/form/EditButton';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasAllPermissions } from '@/permissions/hasPermission';
+import { useUser } from '@/workspace/hooks';
 
 import { UpdateResourceOptionDialogProps } from './UpdateResourceOptionDialog';
 
@@ -20,28 +19,45 @@ const UpdateResourceOptionDialog = lazyComponent(() =>
 export const UpdateResourceOptionButton: FunctionComponent<
   UpdateResourceOptionDialogProps['resolve']
 > = (props) => {
-  const user = useSelector(getUser);
-  const disabled = !hasPermission(user, {
-    permission: PermissionEnum.UPDATE_RESOURCE_OPTIONS,
+  const user = useUser();
+  // Some offerings apply option changes through a marketplace order rather
+  // than writing them straight to the resource. Those need order creation
+  // rights on top of the options permission.
+  const createsOrder = Boolean(
+    (props.resource.offering_plugin_options as any)
+      ?.create_orders_on_resource_option_change,
+  );
+  const requiredPermissions = createsOrder
+    ? [PermissionEnum.UPDATE_RESOURCE_OPTIONS, PermissionEnum.CREATE_ORDER]
+    : [PermissionEnum.UPDATE_RESOURCE_OPTIONS];
+  const hasPerms = hasAllPermissions(user, requiredPermissions, {
     projectId: props.resource.project_uuid,
     customerId: props.resource.customer_uuid,
   });
-  const dispatch = useDispatch();
+  const isResourceOk = props.resource.state === 'OK';
+  const disabled = !hasPerms || !isResourceOk;
+
+  const { openDialog } = useModal();
   const callback = () => {
-    dispatch(
-      openModalDialog(UpdateResourceOptionDialog, {
-        resolve: props,
-      }),
-    );
+    openDialog(UpdateResourceOptionDialog, {
+      resolve: props,
+    });
   };
+
+  let tooltip: string | undefined;
+  if (disabled) {
+    if (!isResourceOk) {
+      tooltip = translate(
+        'Options cannot be edited while resource is being updated.',
+      );
+    } else if (!hasPerms) {
+      tooltip = translate(
+        "You don't have enough privileges to perform this operation.",
+      );
+    }
+  }
+
   return (
-    <EditButton
-      onClick={callback}
-      disabled={disabled}
-      tooltip={
-        disabled &&
-        translate("You don't have enough privileges to perform this operation.")
-      }
-    />
+    <EditButton onClick={callback} disabled={disabled} tooltip={tooltip} />
   );
 };

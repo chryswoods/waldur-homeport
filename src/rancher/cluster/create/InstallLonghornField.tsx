@@ -1,14 +1,10 @@
-import { Field } from 'redux-form';
-
-import { ExternalLink } from '@waldur/core/ExternalLink';
-import { FormGroup } from '@waldur/form';
-import { AwesomeCheckboxField } from '@waldur/form/AwesomeCheckboxField';
-import { translate } from '@waldur/i18n';
+import { ExternalLink } from '@/core/ExternalLink';
+import { BooleanGroup } from '@/form';
+import { translate } from '@/i18n';
 
 export const InstallLonghornField = () => (
-  <Field
+  <BooleanGroup
     name="attributes.install_longhorn"
-    component={FormGroup}
     hideLabel={true}
     description={
       <ExternalLink
@@ -18,11 +14,6 @@ export const InstallLonghornField = () => (
         url="https://longhorn.io/docs/"
       />
     }
-  >
-    <AwesomeCheckboxField
-      label={translate(
-        'Deploy Longhorn block storage after cluster is deployed',
-      )}
-    />
-  </Field>
+    label={translate('Deploy Longhorn block storage after cluster is deployed')}
+  />
 );

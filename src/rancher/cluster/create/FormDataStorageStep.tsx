@@ -1,25 +1,20 @@
 import { PlusIcon } from '@phosphor-icons/react';
 import { Fragment, useCallback } from 'react';
-import { Button } from 'react-bootstrap';
-import { useSelector } from 'react-redux';
-import { FieldArray, FormSection } from 'redux-form';
+import { FieldArray } from 'react-final-form-arrays';
 
-import { isFeatureVisible } from '@waldur/features/connect';
-import { RancherFeatures } from '@waldur/FeaturesEnums';
-import { VStepperFormStepCard } from '@waldur/form/VStepperFormStep';
-import { translate } from '@waldur/i18n';
-import { StepCardPlaceholder } from '@waldur/marketplace/deploy/steps/StepCardPlaceholder';
-import { FormStepProps } from '@waldur/marketplace/deploy/types';
+import { isFeatureVisible } from '@/features/connect';
+import { RancherFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { StepCardPlaceholder } from '@/marketplace/deploy/steps/StepCardPlaceholder';
+import { FormStepProps } from '@/marketplace/deploy/types';
+import { ActionButton } from '@/table/ActionButton';
+import { VStepperFormStepCard } from '@/wizard';
 
 import {
   FormNodeStorageRow,
   FormNodeStorageTable,
 } from './FormNodeStorageTable';
-import {
-  formNodesSelector,
-  formTenantSelector,
-  useVolumeDataLoader,
-} from './utils';
+import { useFormNodes, useFormTenant, useVolumeDataLoader } from './utils';
 import { VolumeMountPointGroup } from './VolumeMountPointGroup';
 
 import './FormDataStorageStep.scss';
@@ -31,15 +26,14 @@ const renderDataVolumeRows = ({
   defaultVolumeType,
   sizeLimit,
   sizeValidate,
-  change,
 }: any) => {
   return (
     <>
       {fields.length > 0 &&
         fields.map((volume, index) => (
-          <FormSection key={index} name={volume} component={Fragment}>
+          <Fragment key={index}>
             <FormNodeStorageRow
-              parentName={`${fields.name}[${index}]`}
+              parentName={volume}
               typeName="volume_type"
               sizeName="size"
               altRowName={'#' + (index + 1)}
@@ -47,7 +41,6 @@ const renderDataVolumeRows = ({
               defaultVolumeType={defaultVolumeType}
               sizeLimit={sizeLimit}
               sizeValidate={sizeValidate}
-              change={change}
               onDeleteRow={() => fields.remove(index)}
             />
 
@@ -58,22 +51,19 @@ const renderDataVolumeRows = ({
                 </td>
               </tr>
             )}
-          </FormSection>
+          </Fragment>
         ))}
       <tr>
         <td colSpan={4}>
-          <Button
+          <ActionButton
             variant="tertiary"
             className="text-nowrap"
-            onClick={() =>
+            action={() =>
               fields.push({ size: 1, volume_type: defaultVolumeType })
             }
-          >
-            <span className="svg-icon svg-icon-2">
-              <PlusIcon weight="bold" />
-            </span>
-            {translate('Add data volume')}
-          </Button>
+            iconNode={<PlusIcon weight="bold" />}
+            title={translate('Add data volume')}
+          />
         </td>
       </tr>
     </>
@@ -81,8 +71,8 @@ const renderDataVolumeRows = ({
 };
 
 export const FormDataStorageStep = (props: FormStepProps) => {
-  const tenant = useSelector(formTenantSelector);
-  const nodes = useSelector(formNodesSelector);
+  const tenant = useFormTenant();
+  const nodes = useFormNodes();
   const { data, isLoading } = useVolumeDataLoader(tenant);
 
   const limit = 10240; // GB
@@ -112,18 +102,15 @@ export const FormDataStorageStep = (props: FormStepProps) => {
             volumeTypeChoices={data?.volumeTypeChoices}
             title={node.name}
           >
-            <FormSection name={String(`attributes.nodes[${i}]`)}>
-              <FieldArray
-                name="data_volumes"
-                component={renderDataVolumeRows}
-                volumeTypeChoices={data?.volumeTypeChoices}
-                defaultVolumeType={data?.defaultVolumeType}
-                sizeLimit={limit}
-                sizeValidate={[exceeds]}
-                change={props.change}
-                nodeIndex={i}
-              />
-            </FormSection>
+            <FieldArray
+              name={`attributes.nodes[${i}].data_volumes`}
+              component={renderDataVolumeRows}
+              volumeTypeChoices={data?.volumeTypeChoices}
+              defaultVolumeType={data?.defaultVolumeType}
+              sizeLimit={limit}
+              sizeValidate={[exceeds]}
+              nodeIndex={i}
+            />
           </FormNodeStorageTable>
         ))
       ) : (

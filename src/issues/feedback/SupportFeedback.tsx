@@ -1,96 +1,89 @@
 import { useRouter } from '@uirouter/react';
-import { Form } from 'react-bootstrap';
-import ReactStars from 'react-rating-stars-component';
-import { connect, useDispatch } from 'react-redux';
-import { compose } from 'redux';
-import { Field, reduxForm } from 'redux-form';
+import { useMemo } from 'react';
+import { Form as BootstrapForm } from 'react-bootstrap';
+import { Form } from 'react-final-form';
 import { supportFeedbacksCreate } from 'waldur-js-client';
 
-import { RATING_STAR_ACTIVE_COLOR } from '@waldur/core/constants';
-import { FormContainer, SubmitButton, TextField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { SUPPORT_FEEDBACK_FORM_ID } from '@waldur/issues/feedback/constants';
-import { useTitle } from '@waldur/navigation/title';
-import { router } from '@waldur/router';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { SubmitButton, TextGroup } from '@/form';
+import { withFormGroup } from '@/form/withFormGroup';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { useTitle } from '@/navigation/title';
+import { RateStars } from '@/proposals/proposal/create-review/RateStars';
 import './SupportFeedback.scss';
 
-const SupportFeedbackContainer = (props) => {
+const EvaluationField = (props) => (
+  <RateStars
+    count={10}
+    size={24}
+    edit
+    isHalf={false}
+    value={props.input.value}
+    onChange={props.input.onChange}
+  />
+);
+
+const EvaluationGroup = withFormGroup(EvaluationField);
+
+export const SupportFeedback = () => {
   useTitle(translate('Feedback'));
-  const dispatch = useDispatch();
   const router = useRouter();
 
-  const submitRequest = async (formData) => {
-    try {
-      await supportFeedbacksCreate({
+  const initialValues = useMemo(
+    () => ({
+      evaluation: parseInt(router.globals.params?.evaluation || '0', 10),
+    }),
+    [router.globals.params?.evaluation],
+  );
+
+  const { mutate, isPending } = useManagedMutation({
+    mutationFn: (formData: any) =>
+      supportFeedbacksCreate({
         body: {
           ...formData,
           token: router.globals.params.token,
         },
-      });
-      dispatch(showSuccess(translate('Thank you for your response!')));
+      }),
+    successMessage: translate('Thank you for your response!'),
+    errorMessage: translate('Unable to send feedback.'),
+    closeModal: false,
+    onSuccess: () => {
       router.stateService.go('login');
-    } catch (error) {
-      dispatch(showErrorResponse(error, translate('Unable to send feedback.')));
-    }
-  };
+    },
+  });
 
   return (
-    <form
-      onSubmit={props.handleSubmit(submitRequest)}
-      className="center-vertically"
-    >
-      <FormContainer submitting={props.submitting}>
-        <Field
-          name="evaluation"
-          label={translate('Evaluation')}
-          component={(fieldProps) => (
-            <ReactStars
-              count={10}
-              size={24}
-              edit={true}
-              isHalf={false}
-              activeColor={RATING_STAR_ACTIVE_COLOR}
-              value={fieldProps.input.value}
-              onChange={(value) => fieldProps.input.onChange(value)}
+    <Form
+      onSubmit={mutate}
+      initialValues={initialValues}
+      render={({ handleSubmit, invalid }) => (
+        <form onSubmit={handleSubmit} className="center-vertically">
+          <div className="size-sm">
+            <EvaluationGroup
+              name="evaluation"
+              label={translate('Evaluation')}
             />
-          )}
-        />
 
-        <TextField
-          name="comment"
-          label={translate('Comment')}
-          maxLength={150}
-          rows={2}
-        />
-
-        <Form.Group>
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <SubmitButton
-              disabled={props.invalid}
-              submitting={props.submitting}
-              label={translate('Submit')}
+            <TextGroup
+              name="comment"
+              label={translate('Comment')}
+              maxLength={150}
+              rows={2}
+              disabled={isPending}
             />
+
+            <BootstrapForm.Group>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <SubmitButton
+                  disabled={invalid}
+                  submitting={isPending}
+                  label={translate('Submit')}
+                />
+              </div>
+            </BootstrapForm.Group>
           </div>
-        </Form.Group>
-      </FormContainer>
-    </form>
+        </form>
+      )}
+    />
   );
 };
-
-const mapStateToProps = () => ({
-  initialValues: {
-    evaluation: parseInt(router.globals.params?.evaluation || 0, 10),
-  },
-});
-
-const connector = connect(mapStateToProps);
-
-const enhance = compose(
-  connector,
-  reduxForm({
-    form: SUPPORT_FEEDBACK_FORM_ID,
-  }),
-);
-
-export const SupportFeedback = enhance(SupportFeedbackContainer);

@@ -7,11 +7,11 @@ import {
   rancherTemplateVersionsRetrieve,
 } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
 
-import { Question, QuestionType } from '../types';
+import { QuestionType } from '../types';
 
-import { FormData } from './types';
+import { Question, FormData } from './types';
 
 export const groupQuestions = (
   questions: Question[],
@@ -98,7 +98,7 @@ export const loadData = async (templateUuid: string, clusterUuid: string) => {
   }).then((r) => r.data);
   const projects = await getAllPages((page) =>
     rancherProjectsList({
-      query: { page, cluster_uuid: clusterUuid },
+      query: { page, page_size: MAX_PAGE_SIZE, cluster_uuid: clusterUuid },
     }),
   );
   const namespaces = projects[0].namespaces;

@@ -1,26 +1,27 @@
 import { PlusCircleIcon, TrashIcon } from '@phosphor-icons/react';
+import { useQuery } from '@tanstack/react-query';
+import arrayMutators from 'final-form-arrays';
 import { DateTime } from 'luxon';
+import { FC } from 'react';
 import { Col, Form, Row } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
-import { useAsync } from 'react-use';
-import { Field, FieldArray, reduxForm } from 'redux-form';
+import { Field, Form as FinalForm } from 'react-final-form';
+import { FieldArray } from 'react-final-form-arrays';
 import {
   invoiceSendFinancialReportByMail,
   invoicesList,
 } from 'waldur-js-client';
 
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { AccountingPeriodField } from '@waldur/customer/list/AccountingPeriodField';
-import { getOptions } from '@waldur/customer/list/AccountingRunningField';
-import { EXPORT_AS_EMAIL_FORM_ID } from '@waldur/customer/list/constants';
-import { makeAccountingPeriods } from '@waldur/customer/list/utils';
-import { SubmitButton } from '@waldur/form';
-import { EmailField } from '@waldur/form/EmailField';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { ActionButton } from '@waldur/table/ActionButton';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { composeValidators, email, required } from '@/core/validators';
+import { AccountingPeriodFieldComponent } from '@/customer/list/AccountingPeriodField';
+import { getOptions } from '@/customer/list/AccountingRunningField';
+import { makeAccountingPeriods } from '@/customer/list/utils';
+import { SubmitButton } from '@/form';
+import { EmailField } from '@/form/EmailField';
+import { translate } from '@/i18n';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ActionButton } from '@/table/ActionButton';
 
 async function oldestInvoice() {
   const response = (
@@ -53,22 +54,18 @@ async function loadData() {
   return { initialValues, accountingPeriods };
 }
 
-export const ExportAsEmailDialog = reduxForm<{}, any>({
-  form: EXPORT_AS_EMAIL_FORM_ID,
-  enableReinitialize: true,
-})(({ submitting, handleSubmit }) => {
-  const { loading, error, value: data } = useAsync(loadData);
-  const dispatch = useDispatch();
-  if (loading) {
-    return <LoadingSpinner />;
-  }
-  if (error) {
-    return <>{translate('Unable to load financial overview.')}</>;
-  }
-
-  const submit = async (formData: any) => {
-    try {
-      await invoiceSendFinancialReportByMail({
+export const ExportAsEmailDialog: FC = () => {
+  const {
+    isLoading: loading,
+    error,
+    data,
+  } = useQuery({
+    queryKey: ['ExportAsEmailDialog'],
+    queryFn: loadData,
+  });
+  const submitMutation = useManagedMutation<any, any, any>({
+    mutationFn: (formData) =>
+      invoiceSendFinancialReportByMail({
         body: {
           emails: formData.emails || [],
           month: formData.accounting_period
@@ -78,57 +75,79 @@ export const ExportAsEmailDialog = reduxForm<{}, any>({
             ? formData.accounting_period.value.year || null
             : null,
         },
-      });
-      dispatch(showSuccess(translate('Report has been sent')));
-      dispatch(closeModalDialog());
-    } catch (error) {
-      dispatch(showErrorResponse(error, translate('Something went wrong')));
-    }
-  };
+      }),
+    successMessage: translate('Report has been sent'),
+    errorMessage: translate('Something went wrong'),
+  });
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+  if (error) {
+    return <>{translate('Unable to load financial overview.')}</>;
+  }
 
   return (
-    <form onSubmit={handleSubmit(submit)}>
-      <ModalDialog
-        title={translate('Send report')}
-        footer={
-          <SubmitButton
-            submitting={submitting}
-            label={translate('Send report')}
-          />
-        }
-        closeButton
-      >
-        <Row>
-          <Col md={12} lg={8} className="d-flex flex-column">
-            <div>
-              <Form.Label>{translate('Emails')}</Form.Label>
-              <FieldArray name="emails" component={renderEmails} />
-            </div>
+    <FinalForm
+      onSubmit={(values) => submitMutation.mutateAsync(values)}
+      initialValues={data.initialValues}
+      mutators={{ ...arrayMutators }}
+      render={({ handleSubmit, submitting, invalid }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={translate('Send report')}
+            footer={
+              <SubmitButton
+                submitting={submitting}
+                invalid={invalid}
+                label={translate('Send report')}
+              />
+            }
+          >
+            <Row>
+              <Col md={12} lg={8} className="d-flex flex-column">
+                <div>
+                  <Form.Label>{translate('Emails')}</Form.Label>
+                  <FieldArray name="emails" component={renderEmails} />
+                </div>
 
-            <div className="mt-4">
-              <AccountingPeriodField options={data.accountingPeriods} />
-            </div>
+                <div className="mt-4">
+                  <Field
+                    name="accounting_period"
+                    component={AccountingPeriodFieldComponent}
+                    options={data.accountingPeriods}
+                  />
+                </div>
 
-            <div className="mt-4" />
-          </Col>
-        </Row>
-      </ModalDialog>
-    </form>
+                <div className="mt-4" />
+              </Col>
+            </Row>
+          </ModalDialog>
+        </form>
+      )}
+    />
   );
-});
+};
 
 const renderEmails = ({ fields }: any) => (
   <>
-    {fields.map((email: any, index: number) => (
-      <Row key={index} className="mb-3">
+    {fields.map((emailName: any, index: number) => (
+      <Row key={emailName} className="mb-3">
         <Col md={10}>
           <Field
-            name={`${email}`}
+            name={emailName}
             type="email"
-            component={EmailField}
-            label={translate('Email')}
-            required={true}
-          />
+            validate={composeValidators(required, email)}
+          >
+            {({ input, meta }) => (
+              <EmailField
+                input={input}
+                meta={meta}
+                aria-label={translate('Email')}
+                required={true}
+              />
+            )}
+          </Field>
         </Col>
         <Col sm={2}>
           <button
@@ -137,7 +156,7 @@ const renderEmails = ({ fields }: any) => (
             onClick={() => fields.remove(index)}
           >
             <span className="svg-icon svg-icon-2">
-              <TrashIcon />
+              <TrashIcon weight="bold" />
             </span>
           </button>
         </Col>
@@ -147,7 +166,7 @@ const renderEmails = ({ fields }: any) => (
       <Col>
         <ActionButton
           title={translate('Add email')}
-          action={() => fields.push()}
+          action={() => fields.push(undefined)}
           iconNode={<PlusCircleIcon weight="bold" />}
           variant="primary"
         />

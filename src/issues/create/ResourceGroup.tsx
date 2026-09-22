@@ -1,91 +1,64 @@
 import { useEffect } from 'react';
-import { Form } from 'react-bootstrap';
-import { useDispatch, useSelector } from 'react-redux';
-import { change, Field, formValueSelector } from 'redux-form';
-import { MarketplaceResourcesListData } from 'waldur-js-client';
+import { useForm, useFormState } from 'react-final-form';
 
-import { Select as AsyncSelectField } from '@waldur/form/AsyncSelectField';
-import { Select } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { resourceAutocomplete } from '@waldur/marketplace/common/autocompletes';
-import { NON_TERMINATED_STATES } from '@waldur/marketplace/resources/list/constants';
-import { formatResourceShort } from '@waldur/marketplace/utils';
-import { RootState } from '@waldur/store/reducers';
-
-import { ISSUE_CREATION_FORM_ID } from './constants';
-
-const projectSelector = (state: RootState) =>
-  formValueSelector(ISSUE_CREATION_FORM_ID)(state, 'project');
-
-const resourceSelector = (state: RootState) =>
-  formValueSelector(ISSUE_CREATION_FORM_ID)(state, 'resource');
+import { AsyncSelectGroup, SelectGroup } from '@/form';
+import { translate } from '@/i18n';
+import { resourceAutocomplete } from '@/marketplace/common/autocompletes';
+import { NON_TERMINATED_STATES } from '@/marketplace/resources/list/constants';
+import { formatResourceShort } from '@/marketplace/utils';
 
 export const ResourceGroup = ({ disabled }) => {
-  const project = useSelector(projectSelector);
-  const resource = useSelector(resourceSelector);
-  const dispatch = useDispatch();
+  const { change } = useForm();
+  const { values } = useFormState();
+  const project = values.project;
+  const resource = values.resource;
 
   useEffect(() => {
     if (resource && project && resource.project_uuid !== project.uuid) {
-      dispatch(change(ISSUE_CREATION_FORM_ID, 'resource', undefined));
+      change('resource', undefined);
     }
-  }, [dispatch, project, resource]);
+  }, [change, project, resource]);
+
+  if (project) {
+    return (
+      <AsyncSelectGroup
+        key={project.uuid}
+        name="resource"
+        label={translate('Affected resource')}
+        isClearable={true}
+        defaultOptions
+        loadOptions={resourceAutocomplete({
+          project_uuid: project.uuid,
+          field: ['name', 'url', 'uuid', 'offering_name', 'project_uuid'],
+          state: NON_TERMINATED_STATES,
+        })}
+        getOptionValue={(option) => option.uuid}
+        getOptionLabel={(option) => formatResourceShort(option)}
+        filterOption={null}
+        isDisabled={disabled}
+      />
+    );
+  }
 
   return (
-    <Form.Group className="mb-5">
-      <Form.Label>{translate('Affected resource')}</Form.Label>
-      {project ? (
-        <Field
-          name="resource"
-          component={AsyncSelectField}
-          isClearable={true}
-          defaultOptions
-          loadOptions={(query, prevOptions, { page }) =>
-            resourceAutocomplete(
+    <SelectGroup
+      name="resource"
+      label={translate('Affected resource')}
+      getOptionValue={(option) => option.uuid}
+      getOptionLabel={(option) => formatResourceShort(option)}
+      options={
+        resource
+          ? [
               {
-                project_uuid: project.uuid,
-                name: query,
-                field: ['name', 'url', 'uuid', 'offering_name', 'project_uuid'],
-                state:
-                  NON_TERMINATED_STATES as MarketplaceResourcesListData['query']['state'],
+                name: resource.name,
+                uuid: resource.uuid,
+                url: resource.url,
+                offering_name: resource.offering_name,
               },
-              prevOptions,
-              page,
-            )
-          }
-          getOptionValue={(option) => option.uuid}
-          getOptionLabel={(option) => formatResourceShort(option)}
-          filterOption={(options) => options}
-          isDisabled={disabled}
-          key={project.uuid}
-        />
-      ) : (
-        <Field
-          name="resource"
-          component={({ input: { value } }) => (
-            <Select
-              getOptionValue={(option) => option.uuid}
-              getOptionLabel={(option) => formatResourceShort(option)}
-              options={
-                resource
-                  ? [
-                      {
-                        name: resource.name,
-                        uuid: resource.uuid,
-                        url: resource.url,
-                        offering_name: resource.offering_name,
-                      },
-                    ]
-                  : []
-              }
-              value={value}
-              isDisabled
-              className="metronic-select-container"
-              classNamePrefix="metronic-select"
-            />
-          )}
-        />
-      )}
-    </Form.Group>
+            ]
+          : []
+      }
+      isDisabled
+    />
   );
 };

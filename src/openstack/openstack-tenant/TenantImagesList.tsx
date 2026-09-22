@@ -1,20 +1,21 @@
-import { FunctionComponent } from 'react';
+import { FunctionComponent, ReactElement } from 'react';
 import {
   OpenStackImage,
   openstackImagesList,
   OpenstackImagesListData,
 } from 'waldur-js-client';
 
-import { formatFilesize } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import { DASH_ESCAPE_CODE } from '@waldur/table/constants';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { formatFilesize } from '@/core/utils';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import { DASH_ESCAPE_CODE } from '@/table/constants';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
 
 export const TenantImagesList: FunctionComponent<{
   filter: OpenstackImagesListData['query'];
-}> = ({ filter }) => {
+  filters?: ReactElement | null;
+}> = ({ filter, filters }) => {
   const props = useTable({
     table: 'openstack-images',
     fetchData: createFetcher(openstackImagesList),
@@ -66,6 +67,7 @@ export const TenantImagesList: FunctionComponent<{
       hasQuery={true}
       hasOptionalColumns
       showPageSizeSelector
+      filters={filters}
     />
   );
 };

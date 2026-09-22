@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 import { marketplaceServiceProvidersUserCustomersList } from 'waldur-js-client';
 
-import { EstimatedCostField } from '@waldur/customer/list/EstimatedCostField';
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { EstimatedCostField } from '@/customer/list/EstimatedCostField';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 import { CustomerContactColumn } from './CustomerContactColumn';
 import { CustomerMembersColumn } from './CustomerMembersColumn';
@@ -33,6 +34,10 @@ export const ProviderUserCustomersList = ({ user, provider }) => {
       copyField: (row) => row.name,
     },
     {
+      title: translate('Abbreviation'),
+      render: ({ row }) => <>{renderFieldOrDash(row.abbreviation)}</>,
+    },
+    {
       title: translate('Projects'),
       render: ProjectsCountColumn,
     },
@@ -43,6 +48,9 @@ export const ProviderUserCustomersList = ({ user, provider }) => {
     {
       title: translate('Members'),
       render: CustomerMembersColumn,
+      // Ellipsis clips the first avatar: symbol-group children have a
+      // negative left margin, which td.ellipsis's overflow-x hides.
+      ellipsis: false,
     },
     {
       title: translate('Estimated cost'),

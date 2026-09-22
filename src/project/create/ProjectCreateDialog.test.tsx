@@ -1,112 +1,80 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {
-  pushStateLocationPlugin,
-  servicesPlugin,
-  UIRouter,
-  UIRouterReact,
-} from '@uirouter/react';
-import { Provider } from 'react-redux';
-import { createStore } from 'redux';
+import { UIRouter } from '@uirouter/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { projectTypesList, projectsCreate } from 'waldur-js-client';
+import {
+  projectsCreate,
+  projectsList,
+  projectTypesList,
+} from 'waldur-js-client';
 
-import { formDataOptions } from '@waldur/core/api';
-import { Customer } from '@waldur/workspace/types';
+import { formDataOptions } from '@/core/api';
+import { ENV } from '@/core/config';
+import { createTestQueryClient, renderWithProviders } from '@/test/harness';
+import { createTestRouter } from '@/test/router';
+import { openAndSelectOption } from '@/test/select';
+import * as workspaceHooks from '@/workspace/hooks';
+import { Customer } from '@/workspace/types';
 
 import { ProjectCreateDialog } from './ProjectCreateDialog';
 
-// Mock API calls
-vi.mock('../api');
-vi.mock('waldur-js-client');
-
-// Create a mocked config that can be modified in tests
-const mockConfig = vi.hoisted(() => ({
-  ENV: {
-    plugins: {
-      WALDUR_CORE: {
-        OECD_FOS_2007_CODE_MANDATORY: false,
-        ENABLE_PROJECT_KIND_COURSE: false,
-      },
-    },
-    FEATURES: {
-      project: {
-        show_description_in_create_dialog: true,
-        show_type_in_create_dialog: true,
-      },
-    },
-  },
-}));
-
-vi.mock('@waldur/core/config', () => mockConfig);
+ENV.plugins.WALDUR_CORE.OECD_FOS_2007_CODE_MANDATORY = false;
+ENV.plugins.WALDUR_CORE.ENABLE_PROJECT_KIND_COURSE = false;
+ENV.FEATURES.project = {
+  show_description_in_create_dialog: true,
+  show_type_in_create_dialog: true,
+};
 
 describe('ProjectCreateDialog', () => {
   const mockedRefetch = vi.fn();
 
   const renderComponent = async () => {
-    // Mock Redux store
-    const mockStore = createStore(() => ({
-      workspace: {
-        user: {
-          is_staff: true,
-          permissions: [],
-        },
-      },
-    }));
-
+    vi.mocked(workspaceHooks.useUser).mockReturnValue({
+      is_staff: true,
+      permissions: [],
+    } as any);
     vi.mocked(projectsCreate).mockResolvedValue({
       data: { uuid: 'mock-project-uuid' },
     } as any);
 
-    const router = new UIRouterReact();
-    router.plugin(servicesPlugin);
-    router.plugin(pushStateLocationPlugin);
+    const router = createTestRouter();
 
-    const queryClient = new QueryClient();
-    // Prepare cache data
+    const queryClient = createTestQueryClient();
     queryClient.setQueryData(['CustomerProjects', 'mock-customer-uuid'], []);
 
-    await render(
-      <Provider store={mockStore}>
-        <UIRouter router={router}>
-          <QueryClientProvider client={queryClient}>
-            <ProjectCreateDialog
-              customer={
-                {
-                  uuid: 'mock-customer-uuid',
-                  url: 'mock-customer-url',
-                  projects: [],
-                } as Customer
-              }
-              refetch={mockedRefetch}
-            />
-          </QueryClientProvider>
-        </UIRouter>
-      </Provider>,
+    await renderWithProviders(
+      <UIRouter router={router}>
+        <ProjectCreateDialog
+          customer={
+            {
+              uuid: 'mock-customer-uuid',
+              url: 'mock-customer-url',
+              name: 'Mock Customer',
+              projects: [],
+            } as Customer
+          }
+          refetch={mockedRefetch}
+        />
+      </UIRouter>,
+      { queryClient },
     );
   };
 
   beforeEach(() => {
     // Reset to default config values
-    mockConfig.ENV = {
-      plugins: {
-        WALDUR_CORE: {
-          OECD_FOS_2007_CODE_MANDATORY: false,
-          ENABLE_PROJECT_KIND_COURSE: false,
-        },
-      },
-      FEATURES: {
-        project: {
-          show_description_in_create_dialog: true,
-          show_type_in_create_dialog: true,
-        },
-      },
+    ENV.plugins.WALDUR_CORE.OECD_FOS_2007_CODE_MANDATORY = false;
+    ENV.plugins.WALDUR_CORE.ENABLE_PROJECT_KIND_COURSE = false;
+    ENV.FEATURES.project = {
+      show_description_in_create_dialog: true,
+      show_type_in_create_dialog: true,
     };
+    vi.mocked(projectsList).mockResolvedValue({
+      data: [],
+    } as any);
   });
 
   afterEach(() => {
-    vi.clearAllMocks(); // Clear mocks after each test
+    vi.clearAllMocks();
   });
 
   it('should render the form correctly', async () => {
@@ -123,20 +91,7 @@ describe('ProjectCreateDialog', () => {
 
   it('should conceal disabled feature fields', async () => {
     // Modify the mock config for this specific test
-    mockConfig.ENV = {
-      plugins: {
-        WALDUR_CORE: {
-          OECD_FOS_2007_CODE_MANDATORY: false,
-          ENABLE_PROJECT_KIND_COURSE: false,
-        },
-      },
-      FEATURES: {
-        project: {
-          show_description_in_create_dialog: false,
-          show_type_in_create_dialog: true,
-        },
-      },
-    };
+    ENV.FEATURES.project.show_description_in_create_dialog = false;
 
     renderComponent();
     // Assert that the form fields are rendered
@@ -187,12 +142,15 @@ describe('ProjectCreateDialog', () => {
     } as any);
     renderComponent();
     await userEvent.type(screen.getByText('Project name'), 'Test Project');
+    screen.getByText('Project name').blur();
+
     await userEvent.type(
       screen.getByText('Project description'),
       'This is a test project',
     );
-    await userEvent.click(screen.getByRole('combobox'));
-    await userEvent.click(screen.getByText('Basic project type'));
+
+    const user = userEvent.setup();
+    await openAndSelectOption(user, 'Project type', 'Basic project type');
 
     // Submit the form
     await userEvent.click(screen.getByText('Create'));
@@ -215,5 +173,64 @@ describe('ProjectCreateDialog', () => {
       });
       expect(mockedRefetch).toHaveBeenCalled();
     });
+  });
+
+  it('shows error when project name is duplicate', async () => {
+    vi.mocked(projectTypesList).mockResolvedValue({ data: [] } as any);
+    vi.mocked(projectsList).mockResolvedValue({
+      data: [{ name: 'Test Project', uuid: 'existing-uuid' }],
+    } as any);
+
+    renderComponent();
+
+    const nameInput = screen.getByLabelText(/Project name/i);
+    await userEvent.type(nameInput, 'Test Project');
+
+    // Trigger validation (blur)
+    nameInput.blur();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Name is duplicated. Choose other name.'),
+      ).toBeInTheDocument();
+    });
+
+    // Should not submit
+    await userEvent.click(screen.getByText('Create'));
+    expect(projectsCreate).not.toHaveBeenCalled();
+  });
+
+  it('should NOT call projectsList when typing in description field', async () => {
+    vi.mocked(projectTypesList).mockResolvedValue({ data: [] } as any);
+    vi.mocked(projectsList).mockResolvedValue({ data: [] } as any);
+
+    renderComponent();
+
+    // Wait for form to be ready
+    await waitFor(() => {
+      expect(screen.getByText('Project description')).toBeInTheDocument();
+    });
+
+    // First, enter a valid project name (to pass pattern validation)
+    const nameInput = screen.getByLabelText(/Project name/i);
+    await userEvent.type(nameInput, 'Valid Project Name');
+
+    // Wait for debounced validation to complete
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    // Clear any calls made during name entry
+    vi.mocked(projectsList).mockClear();
+
+    // Now type in the description field
+    const descriptionInput = screen.getByPlaceholderText(
+      'Enter a description...',
+    );
+    await userEvent.type(descriptionInput, 'This is a test description');
+
+    // Wait a bit to ensure no delayed calls are made
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    // projectsList should NOT have been called when typing in description
+    expect(projectsList).not.toHaveBeenCalled();
   });
 });

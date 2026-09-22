@@ -1,51 +1,42 @@
-import { Dispatch, FC, SetStateAction, useState } from 'react';
+import { ArrowLeftIcon } from '@phosphor-icons/react';
+import { FC } from 'react';
 
-import { translate } from '@waldur/i18n';
+import { translate } from '@/i18n';
 
 import './LocalLogin.css';
 
 import { SigninForm } from './SigninForm';
 
-interface LocalLoginProps {
-  enableSeperator: boolean;
+interface LocalLoginButtonProps {
+  onClick: () => void;
 }
 
-interface SigninWithLocalAccountProps {
-  setShowForm: Dispatch<SetStateAction<boolean>>;
+interface LocalLoginFormProps {
+  onBack?: () => void;
 }
 
-const Border = () => <div className="login-separator-border" />;
-
-const SignInWithLocalAccount: FC<SigninWithLocalAccountProps> = ({
-  setShowForm,
-}) => (
+export const LocalLoginButton: FC<LocalLoginButtonProps> = ({ onClick }) => (
   <button
     type="button"
-    className="login-with-local-account-button"
-    onClick={() => setShowForm(true)}
+    className="btn btn-link login-with-local-account-button"
+    onClick={onClick}
   >
     {translate('Sign in with local account')}
   </button>
 );
 
-export const LocalLogin: FC<LocalLoginProps> = ({
-  enableSeperator = false,
-}) => {
-  const [showSigninForm, setShowSigninForm] = useState(false);
-  return (
-    <>
-      {enableSeperator && (
-        <div className="login-separator">
-          <Border />
-          <div className="login-separator-text">{translate('OR')}</div>
-          <Border />
-        </div>
-      )}
-      {!showSigninForm ? (
-        <SignInWithLocalAccount setShowForm={setShowSigninForm} />
-      ) : (
-        <SigninForm />
-      )}
-    </>
-  );
-};
+export const LocalLoginForm: FC<LocalLoginFormProps> = ({ onBack }) => (
+  <div className="local-login-form">
+    <SigninForm />
+    {onBack && (
+      <button
+        type="button"
+        className="btn btn-link text-muted mt-2"
+        onClick={onBack}
+      >
+        <ArrowLeftIcon className="me-2" weight="bold" />
+        {translate('Back to all sign-in options')}
+      </button>
+    )}
+  </div>
+);

@@ -1,22 +1,25 @@
-import { useAsync } from 'react-use';
+import { useQuery } from '@tanstack/react-query';
 import { openstackVolumeTypesRetrieve } from 'waldur-js-client';
 
-import { formatFilesize, getUUID } from '@waldur/core/utils';
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
-import { OrderDetailsProps } from '@waldur/marketplace/types';
+import { formatFilesize, getUUID } from '@/core/utils';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import { OrderDetailsProps } from '@/marketplace/types';
 
 import { formatVolumeTypeLabel } from '../openstack-instance/utils';
 
 export const OpenstackVolumeDetails = (props: OrderDetailsProps) => {
   const { order } = props;
-  const { value: volumeType } = useAsync(() =>
-    order.attributes['type']
-      ? openstackVolumeTypesRetrieve(getUUID(order.attributes['type'])).then(
-          (response) => response.data,
-        )
-      : Promise.resolve(null),
-  );
+  const { data: volumeType } = useQuery({
+    queryKey: ['OpenstackVolumeDetails'],
+
+    queryFn: () =>
+      order.attributes['type']
+        ? openstackVolumeTypesRetrieve(getUUID(order.attributes['type'])).then(
+            (response) => response.data,
+          )
+        : Promise.resolve(null),
+  });
   return (
     <>
       <FormTable.Item label={translate('Size')}>

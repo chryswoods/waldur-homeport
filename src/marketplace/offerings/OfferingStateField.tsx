@@ -1,36 +1,42 @@
-import { StateIndicator } from '@waldur/core/StateIndicator';
+import { Offering } from 'waldur-js-client';
 
-import { Offering } from '../types';
+import { BadgeVariant } from 'waldur-ui';
 
-import { ACTIVE, ARCHIVED, DRAFT, PAUSED } from './store/constants';
+import { StateIndicator } from '@/core/StateIndicator';
+
+import {
+  ACTIVE,
+  ARCHIVED,
+  DRAFT,
+  PAUSED,
+  UNAVAILABLE,
+} from './store/constants';
 
 interface OfferingStateFieldProps {
-  offering: Offering;
-  mode?: 'light' | 'outline';
+  offering: Pick<Offering, 'state'>;
   hasBullet?: boolean;
 }
 
+const OFFERING_STATE_VARIANTS: Record<string, BadgeVariant> = {
+  [DRAFT]: 'neutral',
+  [ACTIVE]: 'success',
+  [PAUSED]: 'warning',
+  [ARCHIVED]: 'neutral',
+  [UNAVAILABLE]: 'danger',
+};
+
 export const OfferingStateField = ({
   offering,
-  mode = 'light',
   hasBullet,
 }: OfferingStateFieldProps) => {
-  const disabled = [DRAFT, ARCHIVED].includes(offering.state);
   return (
     <StateIndicator
       label={offering.state}
-      variant={
-        {
-          [DRAFT]: 'light',
-          [ACTIVE]: 'success',
-          [PAUSED]: 'warning',
-          [ARCHIVED]: 'light',
-        }[offering.state]
-      }
-      light={mode === 'light' && !disabled}
-      outline={mode === 'outline' && !disabled}
+      variant={OFFERING_STATE_VARIANTS[offering.state] || 'neutral'}
       hasBullet={hasBullet}
-      pill
+      tone="outline"
+      shape="pill"
+      data-testid="offering-state-field"
     />
   );
 };

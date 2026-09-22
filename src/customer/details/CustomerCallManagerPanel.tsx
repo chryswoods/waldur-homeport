@@ -1,29 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
 import { FunctionComponent, useState } from 'react';
 import { Card } from 'react-bootstrap';
-import { useDispatch, useSelector } from 'react-redux';
-import { useAsyncFn } from 'react-use';
 import {
   callManagingOrganisationsCreate,
   callManagingOrganisationsDestroy,
   callManagingOrganisationsList,
 } from 'waldur-js-client';
 
-import { AwesomeCheckbox } from '@waldur/core/AwesomeCheckbox';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { showErrorResponse } from '@waldur/store/notify';
-import { setCurrentCustomer } from '@waldur/workspace/actions';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { AwesomeCheckbox } from '@/core/AwesomeCheckbox';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { useCustomer, useSetCustomer } from '@/workspace/hooks';
 
 import { getCustomer as getCustomerApi } from '../utils';
 
 export const CustomerCallManagerPanel: FunctionComponent = () => {
-  const customer = useSelector(getCustomer);
+  const customer = useCustomer();
   const [infoUuid, setInfoUuid] = useState('');
-  const dispatch = useDispatch();
+  const setCurrentCustomer = useSetCustomer();
 
   const { error: errorInfo, refetch } = useQuery({
     queryKey: ['callManagingOrganization', customer.uuid],
@@ -39,25 +35,10 @@ export const CustomerCallManagerPanel: FunctionComponent = () => {
       }),
   });
 
-  const [{ loading: loadingToggle }, toggleCallManager] = useAsyncFn(
-    async (value: boolean) => {
-      try {
-        await waitForConfirmation(
-          dispatch,
-          translate('Confirmation'),
-          value
-            ? translate(
-                'Are you sure you want to allow this organization to manage calls?',
-              )
-            : translate(
-                'Are you sure you want to prohibit this organization from managing calls?',
-              ),
-        );
-      } catch {
-        return;
-      }
-      if (value) {
-        try {
+  const { mutate: toggleCallManager, isPending: loadingToggle } =
+    useManagedMutation<any, any, boolean>({
+      mutationFn: async (value: boolean) => {
+        if (value) {
           const result = await callManagingOrganisationsCreate({
             body: {
               customer: customer.url,
@@ -65,35 +46,33 @@ export const CustomerCallManagerPanel: FunctionComponent = () => {
               image: null,
             },
           }).then((response) => response.data);
-          const newCustomer = await getCustomerApi(customer.uuid);
-          dispatch(setCurrentCustomer(newCustomer));
           setInfoUuid(result.uuid);
           return result;
-        } catch (error) {
-          dispatch(
-            showErrorResponse(error, translate('Unable to perform operation.')),
-          );
-          throw error;
-        }
-      } else {
-        if (!infoUuid) return null;
-        try {
+        } else {
+          if (!infoUuid) return null;
           const result = await callManagingOrganisationsDestroy({
             path: { uuid: infoUuid },
           });
-          const newCustomer = await getCustomerApi(customer.uuid);
-          dispatch(setCurrentCustomer(newCustomer));
           return result;
-        } catch (error) {
-          dispatch(
-            showErrorResponse(error, translate('Unable to perform operation.')),
-          );
-          throw error;
         }
-      }
-    },
-    [infoUuid, customer],
-  );
+      },
+      confirmation: {
+        title: translate('Confirmation'),
+        body: (value) =>
+          value
+            ? translate(
+                'Are you sure you want to allow this organization to manage calls?',
+              )
+            : translate(
+                'Are you sure you want to prohibit this organization from managing calls?',
+              ),
+      },
+      errorMessage: translate('Unable to perform operation.'),
+      onSuccess: async () => {
+        const newCustomer = await getCustomerApi(customer.uuid);
+        setCurrentCustomer(newCustomer);
+      },
+    });
 
   return (
     <Card className="card-bordered">

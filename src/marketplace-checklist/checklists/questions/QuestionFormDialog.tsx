@@ -1,10 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { FormApi } from 'final-form';
 import arrayMutators from 'final-form-arrays';
 import { isEqual } from 'lodash-es';
 import { FC, useMemo, useState } from 'react';
 import { Tab, Tabs } from 'react-bootstrap';
 import { Form } from 'react-final-form';
-import { useDispatch } from 'react-redux';
 import {
   Checklist,
   checklistsAdminQuestionDependenciesCreate,
@@ -16,24 +16,28 @@ import {
   checklistsAdminQuestionOptionsPartialUpdate,
   checklistsAdminQuestionsCreate,
   checklistsAdminQuestionsUpdate,
+  onboardingQuestionMetadataCreate,
+  onboardingQuestionMetadataList,
+  onboardingQuestionMetadataUpdate,
   QuestionAdmin,
   QuestionAdminRequest,
 } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { AtLeast } from '@waldur/core/types';
-import { SubmitButton } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { CHECKLIST_TABLE_ID } from '@waldur/marketplace-checklist/constants';
-import { ChecklistQuestionForm } from '@waldur/marketplace-checklist/types';
-import { CHECKLIST_FLAGS } from '@waldur/marketplace-checklist/utils';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { useModal } from '@waldur/modal/hooks';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { useNotify } from '@waldur/store/hooks';
-import { fetchListStart, updateEntity } from '@waldur/table/actions';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { AwesomeCheckbox } from '@/core/AwesomeCheckbox';
+import { STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { AtLeast } from '@/core/types';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { CHECKLIST_TABLE_ID } from '@/marketplace-checklist/constants';
+import { ChecklistQuestionForm } from '@/marketplace-checklist/types';
+import { CHECKLIST_FLAGS } from '@/marketplace-checklist/utils';
+import { useModal } from '@/modal/actions';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useNotify } from '@/store/notify';
 
 import { QuestionGeneralForm } from './QuestionGeneralForm';
 import { QuestionGuidanceForm } from './QuestionGuidanceForm';
@@ -54,7 +58,6 @@ export const QuestionFormDialog: FC<QuestionFormDialogProps> = ({
 }) => {
   const { closeDialog } = useModal();
   const { showSuccess, showErrorResponse } = useNotify();
-  const dispatch = useDispatch();
   const queryClient = useQueryClient();
 
   // Load question dependencies (For edit mode - visibility tab)
@@ -69,43 +72,117 @@ export const QuestionFormDialog: FC<QuestionFormDialogProps> = ({
       question?.uuid
         ? getAllPages((page) =>
             checklistsAdminQuestionDependenciesList({
-              query: { question_uuid: question.uuid, page, page_size: 1000 },
+              query: {
+                question_uuid: question.uuid,
+                page,
+                page_size: MAX_PAGE_SIZE,
+              },
             }),
           )
         : null,
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_TIME,
+  });
+
+  // Load onboarding metadata (For edit mode - if checklist is onboarding type)
+  const isOnboardingChecklist =
+    checklist?.checklist_type === 'onboarding_customer' ||
+    checklist?.checklist_type === 'onboarding_intent';
+
+  const {
+    data: onboardingMetadata,
+    isLoading: isLoadingMetadata,
+    error: errorMetadata,
+    refetch: refetchMetadata,
+  } = useQuery({
+    queryKey: ['OnboardingMetadata', question?.uuid],
+    queryFn: () =>
+      question?.uuid && isOnboardingChecklist
+        ? onboardingQuestionMetadataList({
+            query: { question_uuid: question.uuid },
+          }).then((response) => response.data[0] || null)
+        : null,
+    staleTime: STALE_TIME,
+    enabled: Boolean(question?.uuid) && isOnboardingChecklist,
   });
 
   const initialValuesWithDeps = useMemo<ChecklistQuestionForm>(() => {
-    if (!deps?.length) return initialValues;
-    return {
-      ...initialValues,
-      conditions: deps.map((dep) => ({
-        uuid: dep.uuid,
-        depends_on_question: dep.depends_on_question,
-        operator: dep.operator,
-        required_answer_value: dep.required_answer_value,
-      })),
-    };
-  }, [initialValues, deps]);
+    let values = initialValues;
+
+    // Add dependencies
+    if (deps?.length) {
+      values = {
+        ...values,
+        conditions: deps.map((dep) => ({
+          uuid: dep.uuid,
+          depends_on_question: dep.depends_on_question,
+          operator: dep.operator,
+          required_answer_value: dep.required_answer_value,
+        })),
+      };
+    }
+
+    // Add onboarding metadata
+    if (onboardingMetadata) {
+      values = {
+        ...values,
+        maps_to_customer_field: onboardingMetadata.maps_to_customer_field || '',
+        intent_field: onboardingMetadata.intent_field || '',
+      };
+    }
+
+    return values;
+  }, [initialValues, deps, onboardingMetadata]);
 
   // Store the question if it saved, to avoid recreating it if there is an error with options, deps or conditions.
   const [savedQuestion, setSavedQuestion] = useState<QuestionAdmin>(null);
+  const [createAnother, setCreateAnother] = useState(false);
   const isEdit = Boolean(question?.uuid);
 
   // FIX THIS: complete the function - user guidance and trigger remained
-  const onSubmit = async (formData: ChecklistQuestionForm) => {
+  const onSubmit = async (formData: ChecklistQuestionForm, form: FormApi) => {
     try {
       const body: QuestionAdminRequest = {
         checklist: checklist.url,
         description: formData.description,
+        user_guidance: formData.user_guidance,
         question_type: formData.question_type,
         review_answer_value: formData.review_answer_value,
+        required: formData.required || false,
+        order: formData.order,
       };
 
       if (formData.question_type === 'number') {
-        if (formData.min_value) body.min_value = formData.min_value;
-        if (formData.max_value) body.max_value = formData.max_value;
+        body.min_value = formData.min_value || null;
+        body.max_value = formData.max_value || null;
+      }
+
+      if (formData.question_type === 'likert') {
+        body.likert_scale_length = formData.likert_scale_length ?? 5;
+        body.likert_low_label = formData.likert_low_label || '';
+        body.likert_high_label = formData.likert_high_label || '';
+        body.likert_allow_na = Boolean(formData.likert_allow_na);
+      }
+
+      if (formData.question_type === 'rich_text') {
+        body.rich_text_char_limit = formData.rich_text_char_limit
+          ? Number(formData.rich_text_char_limit)
+          : null;
+        body.rich_text_toolbar_level =
+          formData.rich_text_toolbar_level ?? 'standard';
+      }
+
+      if (['file', 'multiple_files'].includes(formData.question_type)) {
+        body.allowed_file_types = formData.allowed_file_types ?? [];
+        body.allowed_mime_types = formData.allowed_mime_types ?? [];
+        body.max_file_size_mb = formData.max_file_size_mb
+          ? Number(formData.max_file_size_mb)
+          : null;
+        // max_files_count is only valid for multiple_files (backend rejects it for file).
+        body.max_files_count =
+          formData.question_type === 'multiple_files' &&
+          formData.max_files_count
+            ? Number(formData.max_files_count)
+            : null;
       }
 
       if (formData.conditions?.length) {
@@ -259,14 +336,52 @@ export const QuestionFormDialog: FC<QuestionFormDialogProps> = ({
         }
       }
 
-      if (!isEdit) {
-        // Update questions_count on the checklists table when creation
-        dispatch(
-          updateEntity(CHECKLIST_TABLE_ID, checklist.uuid, (entity) => ({
-            ...entity,
-            questions_count: entity.questions_count + 1,
-          })),
+      // Save onboarding metadata (for onboarding checklists only)
+      if (isOnboardingChecklist) {
+        const hasCustomerField = Boolean(
+          formData.maps_to_customer_field?.trim(),
         );
+        const hasIntentField = Boolean(formData.intent_field?.trim());
+
+        if (hasCustomerField || hasIntentField) {
+          // Create or update metadata
+          if (onboardingMetadata?.uuid) {
+            // Update existing
+            await onboardingQuestionMetadataUpdate({
+              path: { uuid: onboardingMetadata.uuid },
+              body: {
+                question: saved.url,
+                maps_to_customer_field:
+                  formData.maps_to_customer_field?.trim() || '',
+                intent_field: formData.intent_field?.trim() || '',
+              },
+            });
+          } else {
+            // Create new
+            await onboardingQuestionMetadataCreate({
+              body: {
+                question: saved.url,
+                maps_to_customer_field:
+                  formData.maps_to_customer_field?.trim() || undefined,
+                intent_field: formData.intent_field?.trim() || undefined,
+              },
+            });
+          }
+
+          // Invalidate metadata query
+          setTimeout(() => {
+            queryClient.invalidateQueries({
+              queryKey: ['OnboardingMetadata', saved.uuid],
+            });
+          }, 1000);
+        }
+      }
+
+      if (!isEdit) {
+        // Invalidate the checklists table query cache
+        queryClient.invalidateQueries({
+          queryKey: ['table', CHECKLIST_TABLE_ID],
+        });
       }
 
       // Invalidate checklist questions query (after 1 sec to prevent immediate refetch)
@@ -277,14 +392,22 @@ export const QuestionFormDialog: FC<QuestionFormDialogProps> = ({
       }, 1000);
 
       // Refetch the questions table
-      dispatch(fetchListStart('ChecklistQuestions-' + checklist.uuid));
+      queryClient.invalidateQueries({
+        queryKey: ['table', 'ChecklistQuestions-' + checklist.uuid],
+      });
 
       showSuccess(
         isEdit
           ? translate('Question has been updated.')
           : translate('Question has been added.'),
       );
-      closeDialog();
+      if (createAnother) {
+        form.restart();
+        setCreateAnother(false);
+        setSavedQuestion(null);
+      } else {
+        closeDialog();
+      }
     } catch (e) {
       showErrorResponse(
         e,
@@ -295,10 +418,12 @@ export const QuestionFormDialog: FC<QuestionFormDialogProps> = ({
     }
   };
 
-  if (isLoadingDeps) {
+  if (isLoadingDeps || isLoadingMetadata) {
     return <LoadingSpinner />;
   } else if (errorDeps) {
     return <LoadingErred loadData={refetchDeps} />;
+  } else if (errorMetadata) {
+    return <LoadingErred loadData={refetchMetadata} />;
   }
 
   return (
@@ -312,10 +437,20 @@ export const QuestionFormDialog: FC<QuestionFormDialogProps> = ({
             title={
               isEdit ? translate('Edit question') : translate('Add question')
             }
-            closeButton
             bodyClassName="h-500px mh-500px"
             footer={
               <>
+                {!isEdit && (
+                  <AwesomeCheckbox
+                    type="checkbox"
+                    label={translate('Create another')}
+                    disabled={submitting}
+                    value={createAnother}
+                    onChange={setCreateAnother}
+                    className="me-auto"
+                    id="check-another"
+                  />
+                )}
                 <CloseDialogButton className="min-w-125px" />
                 <SubmitButton
                   disabled={invalid || pristine}
@@ -331,11 +466,11 @@ export const QuestionFormDialog: FC<QuestionFormDialogProps> = ({
             <Tabs
               defaultActiveKey="general"
               id="questions-tabs"
-              className="nav-line-tabs mb-7"
+              className="nav-line-tabs mb-5"
               mountOnEnter
             >
               <Tab eventKey="general" title={translate('General')}>
-                <QuestionGeneralForm values={values} />
+                <QuestionGeneralForm values={values} checklist={checklist} />
               </Tab>
               {CHECKLIST_FLAGS.questionFormUserGuidance && (
                 <Tab

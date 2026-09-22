@@ -1,19 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback } from 'react';
-import { useDispatch } from 'react-redux';
-import { adminAnnouncementsList } from 'waldur-js-client';
+import { AdminAnnouncement, adminAnnouncementsList } from 'waldur-js-client';
 
-import {
-  ANNOUNCEMENT_ICON,
-  getAnnouncementTypeLabel,
-} from '@waldur/administration/utils';
-import { getAllPages } from '@waldur/core/api';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { openModalDialog } from '@waldur/modal/actions';
+import { ANNOUNCEMENT_ICON } from '@/administration/utils';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { STALE_TIME, HOUR } from '@/core/constants';
+import { lazyComponent } from '@/core/lazyComponent';
+import { useModal } from '@/modal/actions';
 
 import { AnnouncementBar } from './AnnouncementBar';
 import { AnnouncementError } from './AnnouncementError';
+import { AnnouncementGroup } from './AnnouncementGroup';
 import { ADMIN_ANNOUNCEMENTS_QUERY_KEY } from './queryKeys';
+
+// Above this count the bars are collapsed into a single expandable group.
+const GROUP_THRESHOLD = 3;
 
 const AnnouncementDetailsDialog = lazyComponent(() =>
   import('./AnnouncementDetailsDialog').then((module) => ({
@@ -26,12 +27,16 @@ export const AdminAnnouncements = () => {
     queryKey: ADMIN_ANNOUNCEMENTS_QUERY_KEY,
 
     queryFn: () =>
-      getAllPages(() => adminAnnouncementsList({ query: { is_active: true } })),
+      getAllPages((page) =>
+        adminAnnouncementsList({
+          query: { page, page_size: MAX_PAGE_SIZE, is_active: true },
+        }),
+      ),
 
-    staleTime: 1000 * 60 * 5,
+    staleTime: STALE_TIME,
 
     // Keep cached data for 60 minutes
-    gcTime: 1000 * 60 * 60,
+    gcTime: HOUR,
 
     // Retry failed requests twice before showing error
     retry: 2,
@@ -40,14 +45,12 @@ export const AdminAnnouncements = () => {
     refetchOnReconnect: false,
   });
 
-  const dispatch = useDispatch();
-  const callback = useCallback((announcement) => {
-    dispatch(
-      openModalDialog(AnnouncementDetailsDialog, {
-        resolve: { announcement },
-        size: 'lg',
-      }),
-    );
+  const { openDialog } = useModal();
+  const callback = useCallback((announcement: AdminAnnouncement) => {
+    openDialog(AnnouncementDetailsDialog, {
+      resolve: { announcement },
+      size: 'lg',
+    });
   }, []);
 
   if (error) {
@@ -56,10 +59,15 @@ export const AdminAnnouncements = () => {
 
   if (isLoading || !data) return null;
 
+  if (data.length > GROUP_THRESHOLD) {
+    return <AnnouncementGroup announcements={data} onShowMore={callback} />;
+  }
+
   return data.map((announcement) => (
     <AnnouncementBar
       key={announcement.uuid}
-      label={getAnnouncementTypeLabel(announcement.type)}
+      title={announcement.maintenance_name || undefined}
+      provider={announcement.maintenance_service_provider || undefined}
       description={announcement.description}
       icon={ANNOUNCEMENT_ICON[announcement.type].icon}
       variant={ANNOUNCEMENT_ICON[announcement.type].variant}

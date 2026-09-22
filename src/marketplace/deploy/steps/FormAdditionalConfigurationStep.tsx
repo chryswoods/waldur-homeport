@@ -1,26 +1,28 @@
 import classNames from 'classnames';
-import { useSelector } from 'react-redux';
 
-import { AccordionCard } from '@waldur/core/AccordionCard';
-import { Tip } from '@waldur/core/Tooltip';
-import { OptionsForm } from '@waldur/marketplace/common/OptionsForm';
+import { AccordionCard } from '@/core/AccordionCard';
+import { OptionsForm } from '@/marketplace/common/OptionsForm';
+import { StepContent } from '@/wizard/VStepperFormStep';
 
-import { orderCustomerSelector } from '../selectors';
+import { useOrderFormData } from '../selectors';
 import { FormStepProps } from '../types';
 
 export const FormAdditionalConfigurationStep = (props: FormStepProps) => {
-  const customer = useSelector(orderCustomerSelector);
+  const { customer } = useOrderFormData();
+
   return (
-    <Tip id={`tip-${props.id}`} label={props.disabledTooltip}>
-      <AccordionCard
-        title={props.title}
-        id={props.id}
-        className={classNames('step-card', props.disabled && 'step-disabled')}
-        defaultOpen
+    <AccordionCard
+      title={props.title}
+      id={props.id}
+      className={classNames('step-card', props.disabled && 'step-disabled')}
+      defaultOpen
+    >
+      <StepContent
+        disabled={props.disabled}
+        disabledReason={props.disabledTooltip}
       >
-        {props.disabled && <div className="step-blocker" />}
         <OptionsForm options={props.offering.options} customer={customer} />
-      </AccordionCard>
-    </Tip>
+      </StepContent>
+    </AccordionCard>
   );
 };

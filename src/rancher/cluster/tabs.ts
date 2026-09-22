@@ -1,7 +1,7 @@
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { RancherFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { ResourceTabsConfiguration } from '@waldur/resource/tabs/types';
+import { lazyComponent } from '@/core/lazyComponent';
+import { RancherFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { ResourceTabsConfiguration } from '@/resource/tabs/types';
 
 export const RancherClusterTabConfiguration: ResourceTabsConfiguration = {
   type: 'Rancher.Cluster',
@@ -41,7 +41,7 @@ export const RancherClusterTabConfiguration: ResourceTabsConfiguration = {
           title: translate('Users'),
           visible: false,
           component: lazyComponent(() =>
-            import('@waldur/rancher/cluster/users/ClusterUsersList').then(
+            import('@/rancher/cluster/users/ClusterUsersList').then(
               (module) => ({
                 default: module.ClusterUsersList,
               }),
@@ -136,29 +136,6 @@ export const RancherClusterTabConfiguration: ResourceTabsConfiguration = {
           component: lazyComponent(() =>
             import('./ClusterServicesList').then((module) => ({
               default: module.ClusterServicesList,
-            })),
-          ),
-        },
-      ],
-    },
-
-    {
-      title: translate('Team'),
-      key: 'team',
-      component: lazyComponent(() =>
-        import('./TeamTable').then((module) => ({
-          default: module.TeamTable,
-        })),
-      ),
-      defaultKey: 'resource-access',
-      children: [
-        {
-          key: 'resource-access',
-          title: translate('Resource access'),
-          visible: false,
-          component: lazyComponent(() =>
-            import('./team/KeycloakMembershipList').then((module) => ({
-              default: module.KeycloakMembershipList,
             })),
           ),
         },

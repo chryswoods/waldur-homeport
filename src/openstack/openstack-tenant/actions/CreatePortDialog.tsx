@@ -1,40 +1,35 @@
 import { useQuery } from '@tanstack/react-query';
-import { FC, useCallback, useMemo } from 'react';
+import { FC, useMemo } from 'react';
 import { Col, Form, Row } from 'react-bootstrap';
-import { useDispatch, useSelector } from 'react-redux';
+import { useFormState } from 'react-final-form';
 import { useToggle } from 'react-use';
-import { Field, formValueSelector } from 'redux-form';
-import { openstackPortsCreate, OpenStackSubNet } from 'waldur-js-client';
+import {
+  openstackNetworksList,
+  openstackPortsCreate,
+  openstackSubnetsList,
+} from 'waldur-js-client';
 
-import { AwesomeCheckbox } from '@waldur/core/AwesomeCheckbox';
-import { isMatchPattern, required } from '@waldur/core/validators';
-import { FormGroup, SelectField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { loadNetworks, loadSubnets } from '@waldur/openstack/api';
+import { getAllPages } from '@/core/api';
+import { AwesomeCheckbox } from '@/core/AwesomeCheckbox';
+import { SHORT_STALE_TIME } from '@/core/constants';
+import { isMatchPattern, required } from '@/core/validators';
+import { SelectGroup } from '@/form';
+import { translate } from '@/i18n';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { CustomIpFieldFinal as CustomIpField } from '@/openstack/openstack-instance/actions/update-internal-ips/CustomIpFieldFinal';
+import { SubnetValueContainer } from '@/openstack/openstack-instance/deploy/FormNetworkSecurityStep';
 import {
-  CustomIpField,
-  SubnetValueContainer,
-} from '@waldur/openstack/openstack-instance/deploy/FormNetworkSecurityStep';
-import {
-  createLatinNameField,
   createDescriptionField,
-} from '@waldur/resource/actions/base';
-import { RESOURCE_ACTION_FORM } from '@waldur/resource/actions/constants';
-import { ResourceActionDialog } from '@waldur/resource/actions/ResourceActionDialog';
-import { ActionDialogProps } from '@waldur/resource/actions/types';
-import { showSuccess, showErrorResponse } from '@waldur/store/notify';
-import { RootState } from '@waldur/store/reducers';
+  createLatinNameField,
+} from '@/resource/actions/base';
+import { ResourceActionDialog } from '@/resource/actions/ResourceActionDialog';
+import { ActionDialogProps } from '@/resource/actions/types';
 
 const MAC_ADDRESS_PATTERN = new RegExp(
   '^([0-9a-fA-F][0-9a-fA-F]:){5}([0-9a-fA-F][0-9a-fA-F])$',
   'gm',
 );
-
-const selector = formValueSelector(RESOURCE_ACTION_FORM);
-
-const networkSelector = (state: RootState) => selector(state, 'network');
-const fixedIpsSelector = (state: RootState) => selector(state, 'fixed_ips');
 
 const macAddressValidator = (value) =>
   isMatchPattern(
@@ -43,12 +38,45 @@ const macAddressValidator = (value) =>
   )(value);
 
 export const FixedIPsField: FC<{
-  subnets: OpenStackSubNet[];
+  networks?: any[];
+  resource?: any;
+  subnets?: any[];
   customIp?: boolean;
   change;
-}> = ({ subnets, customIp = false, change }) => {
+}> = ({
+  networks,
+  resource,
+  subnets: subnetsProp,
+  customIp = false,
+  change,
+}) => {
   const [customIpEnabled, setCustomIpEnabled] = useToggle(customIp);
-  const fixedIps = useSelector(fixedIpsSelector);
+  const { values } = useFormState();
+  const network = values.network;
+  const fixedIps = values.fixed_ips;
+
+  const { data: subnetsFetched } = useQuery({
+    queryKey: ['port-form-subnets', resource?.uuid, network],
+
+    queryFn: () => {
+      if (!network || !resource) return Promise.resolve([]);
+      const networkObj = networks?.find((net) => net.url === network);
+      if (!networkObj) return Promise.resolve([]);
+      return getAllPages((page) =>
+        openstackSubnetsList({
+          query: {
+            page,
+            tenant_uuid: resource.uuid,
+            network_uuid: networkObj.uuid,
+          },
+        }),
+      );
+    },
+    enabled: !subnetsProp && Boolean(networks && network && resource),
+    staleTime: SHORT_STALE_TIME,
+  });
+
+  const subnets = subnetsProp || subnetsFetched;
 
   const toggleCustomIp = (value) => {
     setCustomIpEnabled(value);
@@ -72,20 +100,17 @@ export const FixedIPsField: FC<{
       <div className="border-rows mb-4">
         <Row className="g-4">
           <Col xs={12}>
-            <Field
+            <SelectGroup
               name="fixed_ips.subnet"
               label={translate('Subnet')}
-              component={FormGroup}
-              options={subnets}
+              options={subnets || []}
               placeholder={translate('Select subnet')}
               getOptionValue={(option) => option.url}
               getOptionLabel={(option) => option.name}
               noUpdateOnBlur
               spaceless
               components={{ ValueContainer: SubnetValueContainer }}
-            >
-              <SelectField />
-            </Field>
+            />
           </Col>
           {customIpEnabled && fixedIps && (
             <Col xs={12}>
@@ -101,9 +126,6 @@ export const FixedIPsField: FC<{
 export const CreatePortDialog: FC<ActionDialogProps> = ({
   resolve: { resource, refetch },
 }) => {
-  const dispatch = useDispatch();
-  const network = useSelector(networkSelector);
-
   const {
     data: networks,
     error: errorNetworks,
@@ -113,27 +135,17 @@ export const CreatePortDialog: FC<ActionDialogProps> = ({
     queryKey: ['port-form-networks', resource.uuid],
 
     queryFn: () =>
-      loadNetworks({
-        tenant_uuid: resource.uuid,
-        field: ['name', 'uuid', 'url'],
-      }),
+      getAllPages((page) =>
+        openstackNetworksList({
+          query: {
+            page,
+            tenant_uuid: resource.uuid,
+            field: ['name', 'uuid', 'url'],
+          },
+        }),
+      ),
 
-    staleTime: 60 * 1000,
-  });
-
-  const { data: subnets } = useQuery({
-    queryKey: ['port-form-subnets', resource.uuid, network],
-
-    queryFn: () => {
-      if (!network) return Promise.resolve([]);
-      const networkObj = networks.find((net) => net.url === network);
-      return loadSubnets({
-        tenant_uuid: resource.uuid,
-        network_uuid: networkObj.uuid,
-      });
-    },
-
-    staleTime: 60 * 1000,
+    staleTime: SHORT_STALE_TIME,
   });
 
   const networkOptions = useMemo(
@@ -147,8 +159,19 @@ export const CreatePortDialog: FC<ActionDialogProps> = ({
     [networks],
   );
 
-  const submitForm = useCallback(
-    async (formData) => {
+  const mutation = useManagedMutation<
+    any,
+    any,
+    {
+      name: string;
+      description?: string;
+      network: string;
+      fixed_ips?: { subnet: { backend_id: string }; fixed_ip?: string };
+      mac_address?: string;
+      port_security_enabled?: boolean;
+    }
+  >({
+    mutationFn: (formData) => {
       let fixed_ips;
       if (formData.fixed_ips) {
         fixed_ips = [
@@ -159,40 +182,30 @@ export const CreatePortDialog: FC<ActionDialogProps> = ({
         ];
       }
 
-      const body = {
-        ...formData,
-        fixed_ips,
-        port_security_enabled: formData.port_security_enabled || false,
-      };
-
-      try {
-        await openstackPortsCreate({ body });
-        dispatch(
-          showSuccess(translate('OpenStack network port has been created.')),
-        );
-        dispatch(closeModalDialog());
-        if (refetch) {
-          await refetch();
-        }
-      } catch (e) {
-        dispatch(
-          showErrorResponse(
-            e,
-            translate('Unable to create OpenStack network port.'),
-          ),
-        );
-      }
+      return openstackPortsCreate({
+        body: {
+          ...formData,
+          fixed_ips,
+          port_security_enabled: formData.port_security_enabled || false,
+          target_tenant: resource.url,
+        },
+      });
     },
-    [dispatch, refetch],
-  );
+    successMessage: translate('OpenStack network port has been created.'),
+    errorMessage: translate('Unable to create OpenStack network port.'),
+    refetch,
+  });
 
   return (
     <ResourceActionDialog
       dialogTitle={translate('Create port for OpenStack network')}
+      dialogSubtitle={
+        <ScopeSubtitle label={translate('Network name')} name={resource.name} />
+      }
       loading={isLoadingNetworks}
       error={errorNetworks}
       refetch={refetchNetworks}
-      submitForm={submitForm}
+      submitForm={mutation.mutateAsync}
       formFields={[
         createLatinNameField(),
         createDescriptionField(),
@@ -207,7 +220,7 @@ export const CreatePortDialog: FC<ActionDialogProps> = ({
         {
           name: 'fixed_ips',
           component: FixedIPsField,
-          extraProps: { subnets },
+          extraProps: { networks, resource },
         },
         {
           name: 'mac_address',

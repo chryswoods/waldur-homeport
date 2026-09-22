@@ -2,10 +2,11 @@ import { KeyIcon, ProhibitIcon } from '@phosphor-icons/react';
 import { FC } from 'react';
 import { OptionProps, components } from 'react-select';
 
-import { Image } from '@waldur/core/Image';
-import { ImagePlaceholder } from '@waldur/core/ImagePlaceholder';
-import { Tip } from '@waldur/core/Tooltip';
-import { translate } from '@waldur/i18n';
+import { Tooltip } from 'waldur-ui';
+
+import { Image } from '@/core/Image';
+import { ImagePlaceholder } from '@/core/ImagePlaceholder';
+import { translate } from '@/i18n';
 
 type UserListOptionInlineProps = OptionProps<{
   full_name: string;
@@ -52,16 +53,13 @@ export const UserListOptionInline: FC<UserListOptionInlineProps> = (props) => (
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
         {props.data.is_active === false && (
-          <Tip label={translate('Inactive')} id="inactive-user-tooltip">
-            <ProhibitIcon />
-          </Tip>
+          <Tooltip label={translate('Inactive')}>
+            <ProhibitIcon weight="bold" />
+          </Tooltip>
         )}
-        <Tip
-          label={props.data.registration_method}
-          id="registration-method-tooltip"
-        >
-          <KeyIcon />
-        </Tip>
+        <Tooltip label={props.data.registration_method}>
+          <KeyIcon weight="bold" />
+        </Tooltip>
       </div>
     </div>
   </components.Option>

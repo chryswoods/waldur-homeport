@@ -1,10 +1,10 @@
 import { FunctionComponent } from 'react';
 import { Modal } from 'react-bootstrap';
+import type { AwardDetails } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-
-import type { AwardDetails } from '@waldur/openportal/bindings/AwardDetails';
+import { BaseButton } from '@/core/buttons/BaseButton';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
 
 interface AwardLockedDialogProps {
   resolve: {
@@ -14,6 +14,10 @@ interface AwardLockedDialogProps {
   };
 }
 
+/**
+ * Shown in place of a membership or role action that the funding award
+ * controls, pointing the user at the award instead.
+ */
 export const AwardLockedDialog: FunctionComponent<AwardLockedDialogProps> = ({
   resolve: { awardDetails, title, message },
 }) => {
@@ -35,14 +39,13 @@ export const AwardLockedDialog: FunctionComponent<AwardLockedDialogProps> = ({
       </Modal.Body>
       <Modal.Footer>
         {awardUrl && (
-          <a
-            href={awardUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn-primary"
-          >
-            {translate('Go to award')}
-          </a>
+          <BaseButton
+            variant="primary"
+            label={translate('Go to award')}
+            onClick={() =>
+              window.open(awardUrl, '_blank', 'noopener,noreferrer')
+            }
+          />
         )}
         <CloseDialogButton label={translate('Close')} variant="secondary" />
       </Modal.Footer>

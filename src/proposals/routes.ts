@@ -1,12 +1,12 @@
 import { UIView } from '@uirouter/react';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { StateDeclaration } from '@waldur/core/types';
-import { fetchCustomer } from '@waldur/customer/workspace/fetchCustomer';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { ANONYMOUS_LAYOUT_ROUTE_CONFIG } from '@waldur/marketplace/constants';
+import { lazyComponent } from '@/core/lazyComponent';
+import { StateDeclaration } from '@/core/types';
+import { fetchCustomer } from '@/customer/workspace/fetchCustomer';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { ANONYMOUS_LAYOUT_ROUTE_CONFIG } from '@/marketplace/constants';
 
 export const states: StateDeclaration[] = [
   {
@@ -14,7 +14,7 @@ export const states: StateDeclaration[] = [
     url: '/call-management/:uuid/',
     parent: 'layout',
     component: lazyComponent(() =>
-      import('@waldur/organization/OrganizationUIView').then((module) => ({
+      import('@/organization/OrganizationUIView').then((module) => ({
         default: module.OrganizationUIView,
       })),
     ),
@@ -97,7 +97,7 @@ export const states: StateDeclaration[] = [
   },
   {
     name: 'call-management.proposal-details',
-    url: 'proposals/:proposal_uuid/?review_uuid',
+    url: 'proposals/:proposal_uuid/?review_uuid&panels',
     component: lazyComponent(() =>
       import('./proposal/create/ProposalManagePage').then((module) => ({
         default: module.ProposalManagePage,
@@ -117,44 +117,64 @@ export const states: StateDeclaration[] = [
   },
   {
     name: 'protected-call.main',
-    url: 'edit/?tab',
+    url: 'edit/?tab&coi_tab&matching_tab',
     component: lazyComponent(() =>
       import('./update/CallUpdateContainer').then((module) => ({
         default: module.CallUpdateContainer,
       })),
     ),
+    params: {
+      tab: {
+        dynamic: true,
+      },
+      coi_tab: {
+        dynamic: true,
+      },
+      matching_tab: {
+        dynamic: true,
+      },
+    },
+  },
+  {
+    name: 'protected-call.manage',
+    url: 'manage/?tab&pool_tab&discovery_tab',
+    component: lazyComponent(() =>
+      import('./manage/CallManageContainer').then((module) => ({
+        default: module.CallManageContainer,
+      })),
+    ),
+    params: {
+      tab: {
+        dynamic: true,
+      },
+      pool_tab: {
+        dynamic: true,
+      },
+      discovery_tab: {
+        dynamic: true,
+      },
+    },
   },
 
   {
-    name: 'protected-call-round',
-    url: '',
-    abstract: true,
-    parent: 'protected-call',
-    component: lazyComponent(() =>
-      import('./round/RoundUIView').then((module) => ({
-        default: module.RoundUIView,
-      })),
-    ),
-  },
-  {
-    name: 'protected-call-round.details',
-    url: 'round/:round_uuid/?tab',
-    component: lazyComponent(() =>
-      import('./round/RoundPage').then((module) => ({
-        default: module.RoundPage,
-      })),
-    ),
-  },
-  {
+    // The editable "Submit review" page is review-scoped and role-neutral: both
+    // reviewers (from "My reviews") and call managers (from the review list)
+    // open the same review, and the page reads only :review_uuid. It used to
+    // live at /call-management/:uuid/review/... — a customer-workspace URL that
+    // wrongly implied call-manager scope and carried a dead :uuid segment
+    // (a call uuid via some links, a customer uuid via others), whose inherited
+    // fetchCustomer 404'd on the call-uuid variant. Now it is a standalone,
+    // layout-parented, review-scoped route.
     name: 'proposal-review',
-    url: 'review/:review_uuid/',
+    url: '/proposal-review/:review_uuid/',
     component: lazyComponent(() =>
       import('./proposal/create-review/ProposalReviewCreatePage').then(
         (module) => ({ default: module.ProposalReviewCreatePage }),
       ),
     ),
-    parent: 'call-management',
+    parent: 'layout',
     data: {
+      auth: true,
       skipHero: true,
       hideHeaderMenu: true,
     },
@@ -219,7 +239,7 @@ export const states: StateDeclaration[] = [
   },
   {
     name: 'calls-for-proposals-all-calls',
-    url: 'all-calls/?:offering_uuid/',
+    url: 'all-calls/?:offering_uuid&{state}',
     parent: 'calls-for-proposals',
     component: lazyComponent(() =>
       import('./PublicCallsPage').then((module) => ({
@@ -259,13 +279,89 @@ export const states: StateDeclaration[] = [
     url: '',
     parent: 'reviews',
     component: lazyComponent(() =>
-      import('./review/UserReviewsList').then((module) => ({
-        default: module.UserReviewsList,
+      import('./review/MyReviewsPage').then((module) => ({
+        default: module.MyReviewsPage,
       })),
     ),
     data: {
-      breadcrumb: () => translate('All reviews'),
       priority: 100,
+    },
+  },
+  {
+    name: 'reviews-assignments',
+    url: 'assignments/',
+    parent: 'reviews',
+    component: lazyComponent(() =>
+      import('./review/MyAssignmentsPage').then((module) => ({
+        default: module.MyAssignmentsPage,
+      })),
+    ),
+  },
+  {
+    name: 'reviews-invitations',
+    url: 'invitations/',
+    parent: 'reviews',
+    component: lazyComponent(() =>
+      import('./review/MyInvitationsPage').then((module) => ({
+        default: module.MyInvitationsPage,
+      })),
+    ),
+  },
+  {
+    name: 'reviews-calls',
+    url: 'calls/',
+    parent: 'reviews',
+    component: lazyComponent(() =>
+      import('./review/MyCallsPage').then((module) => ({
+        default: module.MyCallsPage,
+      })),
+    ),
+  },
+
+  // Every call this user can manage, whichever organisation runs it. The
+  // organisation-scoped list at call-management.call-list stays for the
+  // Call management tab of a single organisation.
+  {
+    name: 'manage-calls',
+    url: '/manage-calls/?{state}',
+    parent: 'layout',
+    component: lazyComponent(() =>
+      import('./call-management/ManageCallsPage').then((module) => ({
+        default: module.ManageCallsPage,
+      })),
+    ),
+    data: {
+      title: () => translate('Manage calls'),
+      breadcrumb: () => translate('Manage calls'),
+    },
+  },
+  // Admin routes for staff/support/call managers
+  {
+    name: 'admin-proposals',
+    url: '/admin/proposals/?{state}&{call}&{organization}',
+    parent: 'layout',
+    component: lazyComponent(() =>
+      import('./proposal/AdminProposalsList').then((module) => ({
+        default: module.AdminProposalsList,
+      })),
+    ),
+    data: {
+      title: () => translate('All proposals'),
+      breadcrumb: () => translate('All proposals'),
+    },
+  },
+  {
+    name: 'admin-reviews',
+    url: '/admin/reviews/?{state}&{call}&{organization}&{reviewer}',
+    parent: 'layout',
+    component: lazyComponent(() =>
+      import('./review/AdminReviewsList').then((module) => ({
+        default: module.AdminReviewsList,
+      })),
+    ),
+    data: {
+      title: () => translate('All reviews'),
+      breadcrumb: () => translate('All reviews'),
     },
   },
   {
@@ -325,7 +421,7 @@ export const states: StateDeclaration[] = [
   },
   {
     name: 'proposals.manage-proposal',
-    url: ':proposal_uuid/?review_uuid',
+    url: ':proposal_uuid/?review_uuid&panels',
     component: lazyComponent(() =>
       import('./proposal/create/ProposalManagePage').then((module) => ({
         default: module.ProposalManagePage,
@@ -333,6 +429,22 @@ export const states: StateDeclaration[] = [
     ),
     data: {
       hideHeaderMenu: true,
+    },
+  },
+
+  // Reviewer invitation acceptance
+  {
+    name: 'reviewer-invitation-accept',
+    url: '/reviewer-invitation/:token/',
+    parent: 'layout',
+    component: lazyComponent(() =>
+      import('./invitations/ReviewerInvitationAccept').then((module) => ({
+        default: module.ReviewerInvitationAccept,
+      })),
+    ),
+    data: {
+      auth: true,
+      title: () => translate('Reviewer invitation'),
     },
   },
 ];

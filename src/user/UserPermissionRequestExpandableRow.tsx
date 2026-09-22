@@ -1,10 +1,10 @@
 import { FC } from 'react';
 import { Col, Row } from 'react-bootstrap';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { translate } from '@waldur/i18n';
-import { Field } from '@waldur/resource/summary';
-import { ExpandableContainer } from '@waldur/table/ExpandableContainer';
+import { formatDateTime } from '@/core/dateUtils';
+import { translate } from '@/i18n';
+import { Field } from '@/resource/summary';
+import { ExpandableContainer } from '@/table/ExpandableContainer';
 
 import { RoleField } from './affiliations/RoleField';
 
@@ -39,6 +39,22 @@ export const UserPermissionRequestExpandableRow: FC<{
           labelCol={5}
           valueCol={7}
         />
+        {permissionRequest.project_name && (
+          <Field
+            label={translate('Requested project name')}
+            value={permissionRequest.project_name}
+            labelCol={5}
+            valueCol={7}
+          />
+        )}
+        {permissionRequest.project_description && (
+          <Field
+            label={translate('Requested description')}
+            value={permissionRequest.project_description}
+            labelCol={5}
+            valueCol={7}
+          />
+        )}
       </Col>
       <Col md={5} lg={12} xl={5} xxl={6}>
         <Field

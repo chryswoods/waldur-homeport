@@ -1,18 +1,17 @@
 import { useEffect, useRef } from 'react';
-import { useDispatch } from 'react-redux';
-import { change } from 'redux-form';
-import { getLatinNameValidators } from '@waldur/core/validators';
-import { translate } from '@waldur/i18n';
-import { OrderFormComponentProps } from '@waldur/marketplace/common/types';
-import { BaseDeployPage } from '@waldur/marketplace/deploy/DeployPage';
+import { useForm } from 'react-final-form';
+
+import { getLatinNameValidators } from '@/core/validators';
+import { translate } from '@/i18n';
+import { OrderFormComponentProps } from '@/marketplace/common/types';
+import { BaseDeployPage } from '@/marketplace/deploy/DeployPage';
 import {
   AdditionalConfigurationStep,
   DetailsOverviewStep,
   PlanStep,
-} from '@waldur/marketplace/deploy/steps/constants';
-import { ORDER_FORM_ID } from '@waldur/marketplace/details/constants';
-import { FinalConfigurationStep } from '@waldur/openportal/constants';
-import { OfferingConfigurationFormStep } from '@waldur/marketplace/deploy/types';
+} from '@/marketplace/deploy/steps/constants';
+import { OfferingConfigurationFormStep } from '@/marketplace/deploy/types';
+import { FinalConfigurationStep } from '@/openportal/constants';
 
 const deployOfferingSteps: OfferingConfigurationFormStep[] = [
   DetailsOverviewStep,
@@ -28,15 +27,15 @@ const deployOfferingSteps: OfferingConfigurationFormStep[] = [
 ];
 
 export const OpenPortalRemoteOrderForm = (props: OrderFormComponentProps) => {
-  const dispatch = useDispatch();
+  const form = useForm();
   const hasInitialized = useRef(false);
 
   useEffect(() => {
     if (props.selectedOffering?.name && !hasInitialized.current) {
-      dispatch(change(ORDER_FORM_ID, 'attributes.name', props.selectedOffering.name));
+      form.change('attributes.name', props.selectedOffering.name);
       hasInitialized.current = true;
     }
-  }, [props.selectedOffering?.name, dispatch]);
+  }, [props.selectedOffering?.name, form]);
 
   return <BaseDeployPage inputFormSteps={deployOfferingSteps} {...props} />;
 };

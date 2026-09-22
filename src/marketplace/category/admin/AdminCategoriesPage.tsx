@@ -1,29 +1,60 @@
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
-import { FunctionComponent } from 'react';
-import { Button } from 'react-bootstrap';
+import { FunctionComponent, useMemo } from 'react';
 import {
   marketplaceCategoriesList,
   MarketplaceCategoriesListData,
 } from 'waldur-js-client';
 
-import Avatar from '@waldur/core/Avatar';
-import { Link } from '@waldur/core/Link';
-import { truncate } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
-import { getCategoryGroups } from '@waldur/marketplace/common/api';
-import { CategoryLink } from '@waldur/marketplace/links/CategoryLink';
-import { Category } from '@waldur/marketplace/types';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import Avatar from '@/core/Avatar';
+import { FAST_STALE_TIME } from '@/core/constants';
+import { Link } from '@/core/Link';
+import { truncate } from '@/core/utils';
+import { translate } from '@/i18n';
+import { getCategoryGroups } from '@/marketplace/common/api';
+import { CategoryLink } from '@/marketplace/links/CategoryLink';
+import { Category } from '@/marketplace/types';
+import { SelectFilter } from '@/table';
+import { createFetcher } from '@/table/api';
+import { CompactActionButton } from '@/table/CompactActionButton';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
 
 import { CategoryCreateButton } from './CategoryCreateButton';
 import { CategoryRowActions } from './CategoryRowActions';
 
+const ADMIN_CATEGORIES_FILTER_FORM_ID = 'AdminCategoriesListFilter';
+
+interface GroupOption {
+  label: string;
+  value: string;
+}
+
 const categoryFields: MarketplaceCategoriesListData['query'] = {
-  field: ['uuid', 'title', 'description', 'icon', 'offering_count', 'group'],
+  field: [
+    'uuid',
+    'title',
+    'description',
+    'icon',
+    'offering_count',
+    'group',
+    'url',
+  ],
 };
+
+const CategoriesListFilter: FunctionComponent<{ options: GroupOption[] }> = ({
+  options,
+}) => (
+  <SelectFilter
+    title={translate('Group')}
+    name="group"
+    badgeValue={(value: GroupOption) => value?.label}
+    placeholder={translate('Select group...')}
+    options={options}
+    isClearable={true}
+  />
+);
 
 export const AdminCategoriesPage: FunctionComponent = () => {
   const {
@@ -34,14 +65,31 @@ export const AdminCategoriesPage: FunctionComponent = () => {
   } = useQuery({
     queryKey: ['MarketplaceCategoryGroups'],
     queryFn: () => getCategoryGroups(),
-    staleTime: 30 * 1000,
+    staleTime: FAST_STALE_TIME,
   });
+
+  const values = useFilterValues('CategoriesList');
+
+  const filter = useMemo<MarketplaceCategoriesListData['query']>(() => {
+    const obj: MarketplaceCategoriesListData['query'] = { ...categoryFields };
+    if (values?.group) {
+      obj.group_uuid = values.group.value;
+    }
+    return obj;
+  }, [values]);
+
+  const groupOptions = useMemo<GroupOption[]>(
+    () =>
+      (categoryGroups || []).map((g) => ({ label: g.title, value: g.uuid })),
+    [categoryGroups],
+  );
 
   const tableProps = useTable({
     table: 'CategoriesList',
+    syncFiltersToURL: true,
     fetchData: createFetcher(marketplaceCategoriesList),
     queryField: 'title',
-    filter: categoryFields,
+    filter,
   });
 
   return (
@@ -50,6 +98,7 @@ export const AdminCategoriesPage: FunctionComponent = () => {
       columns={[
         {
           title: translate('Title'),
+          orderField: 'title',
           render: ({ row }) => (
             <>
               <div className="d-inline-block align-middle me-2">
@@ -61,12 +110,13 @@ export const AdminCategoriesPage: FunctionComponent = () => {
         },
         {
           title: translate('Group'),
+          orderField: 'group__title',
           render: ({ row }) => {
             if (row.group) {
               if (loadingGroups) {
                 return (
                   <span className="svg-icon svg-icon-4 animation-spin me-2">
-                    <ArrowsClockwiseIcon />
+                    <ArrowsClockwiseIcon weight="bold" />
                   </span>
                 );
               } else if (errorGroups) {
@@ -75,16 +125,12 @@ export const AdminCategoriesPage: FunctionComponent = () => {
                     <span className="text-danger">
                       {translate('Error in fetching groups')}
                     </span>
-                    <Button
-                      variant="flush"
-                      size="sm"
-                      className="btn-icon ms-1"
-                      onClick={() => refetch()}
-                    >
-                      <span className="svg-icon svg-icon-4 me-2">
-                        <ArrowsClockwiseIcon />
-                      </span>
-                    </Button>
+                    <CompactActionButton
+                      action={() => refetch()}
+                      iconNode={<ArrowsClockwiseIcon weight="bold" />}
+                      variant="secondary"
+                      className="ms-1"
+                    />
                   </>
                 );
               }
@@ -116,12 +162,14 @@ export const AdminCategoriesPage: FunctionComponent = () => {
         },
       ]}
       verboseName={translate('Categories')}
-      initialSorting={{ field: 'title', mode: 'desc' }}
+      initialSorting={{ field: 'group__title', mode: 'asc' }}
       rowActions={({ row }) => (
         <CategoryRowActions row={row} refetch={tableProps.fetch} />
       )}
       hasQuery={true}
       tableActions={<CategoryCreateButton refetch={tableProps.fetch} />}
+      filters={<CategoriesListFilter options={groupOptions} />}
+      formId={ADMIN_CATEGORIES_FILTER_FORM_ID}
     />
   );
 };

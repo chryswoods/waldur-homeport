@@ -2,10 +2,11 @@ import { WarningIcon } from '@phosphor-icons/react';
 import { FunctionComponent } from 'react';
 import { ProgressBar } from 'react-bootstrap';
 
-import { Tip } from '@waldur/core/Tooltip';
-import { translate } from '@waldur/i18n';
-import { Quota } from '@waldur/openstack/types';
-import { formatQuotaName, formatQuotaValue } from '@waldur/quotas/utils';
+import { Tooltip } from 'waldur-ui';
+
+import { translate } from '@/i18n';
+import { Quota } from '@/openstack/types';
+import { formatQuotaName, formatQuotaValue } from '@/quotas/utils';
 
 interface QuotaUsageBarChartProps {
   quotas: Quota[];
@@ -15,9 +16,12 @@ interface QuotaUsageBarChartProps {
 
 export const exceeds = (quota) => quota.usage + quota.required > quota.limit;
 
+const getTotalUsage = (quota: Quota) =>
+  (quota.usage || 0) + (quota.required || 0);
+
 export const getSummary = (quota) =>
   translate('{usage} of {limit} used', {
-    usage: formatQuotaValue(quota.usage, quota.name),
+    usage: formatQuotaValue(getTotalUsage(quota), quota.name),
     limit: formatQuotaValue(quota.limit, quota.name),
   });
 
@@ -32,7 +36,7 @@ export const getPlanned = (quota) =>
   });
 
 export const getAvailable = (quota) => {
-  const availableQuota = quota.limit - quota.usage;
+  const availableQuota = quota.limit - getTotalUsage(quota);
   return translate('Available quota usage: {usage}', {
     usage: formatQuotaValue(availableQuota, quota.name),
   });
@@ -56,17 +60,9 @@ export const QuotaUsageBarChartDescription = ({ quota, hideLabel = false }) => (
     <p className="mb-0">
       {!hideLabel && formatQuotaName(quota.name)}
       {exceeds(quota) && (
-        <Tip
-          id={quota.name}
-          label={translate('Quota usage exceeds available limit.')}
-        >
-          {' '}
-          <WarningIcon
-            className="text-warning"
-            size={16}
-            data-testid="warning"
-          />
-        </Tip>
+        <Tooltip label={translate('Quota usage exceeds available limit.')}>
+          <WarningIcon className="text-warning ms-1" size={16} weight="bold" />
+        </Tooltip>
       )}
     </p>
     <span>{getSummary(quota)}</span>
@@ -86,25 +82,23 @@ export const QuotaUsageBarChart: FunctionComponent<QuotaUsageBarChartProps> = (
               hideLabel={props.hideLabel}
             />
 
-            <Tip
-              id="quota-usage"
-              label={<ProgressTooltipMessage quota={quota} />}
-              className="quota-progress"
-            >
-              <ProgressBar>
-                <ProgressBar
-                  variant="primary"
-                  now={(quota.usage * 100) / quota.limit}
-                  key={1}
-                />
+            <Tooltip label={<ProgressTooltipMessage quota={quota} />}>
+              <span className="quota-progress">
+                <ProgressBar>
+                  <ProgressBar
+                    variant="primary"
+                    now={(quota.usage * 100) / quota.limit}
+                    key={1}
+                  />
 
-                <ProgressBar
-                  variant="warning"
-                  now={(quota.required * 100) / quota.limit}
-                  key={2}
-                />
-              </ProgressBar>
-            </Tip>
+                  <ProgressBar
+                    variant="warning"
+                    now={(quota.required * 100) / quota.limit}
+                    key={2}
+                  />
+                </ProgressBar>
+              </span>
+            </Tooltip>
           </div>
         );
       }

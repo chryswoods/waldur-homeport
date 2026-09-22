@@ -2,10 +2,11 @@ import { TrashIcon } from '@phosphor-icons/react';
 import { FunctionComponent } from 'react';
 import { Col, Row } from 'react-bootstrap';
 
-import { FileUploadField } from '@waldur/form';
-import { FileUploadFieldProps } from '@waldur/form/FileUploadField';
-import { translate } from '@waldur/i18n';
-import { ActionButton } from '@waldur/table/ActionButton';
+import { FileUploadField } from '@/form';
+import { FileUploadFieldProps } from '@/form/FileUploadField';
+import { withFormGroup } from '@/form/withFormGroup';
+import { translate } from '@/i18n';
+import { ActionButton } from '@/table/ActionButton';
 
 const getImageUrl = (image) => {
   if (image instanceof File) {
@@ -17,9 +18,7 @@ const getImageUrl = (image) => {
   return '';
 };
 
-export const ImageUploadField: FunctionComponent<FileUploadFieldProps> = (
-  props,
-) => {
+const ImageUploadField: FunctionComponent<FileUploadFieldProps> = (props) => {
   if (!props.input.value) {
     return <FileUploadField {...props} />;
   }
@@ -51,7 +50,7 @@ export const ImageUploadField: FunctionComponent<FileUploadFieldProps> = (
               className="btn btn-sm btn-danger mb-2"
               title={translate('Remove')}
               action={() => props.input.onChange(null)}
-              iconNode={<TrashIcon />}
+              iconNode={<TrashIcon weight="bold" />}
             />
           )}
         </Col>
@@ -59,3 +58,5 @@ export const ImageUploadField: FunctionComponent<FileUploadFieldProps> = (
     </div>
   );
 };
+
+export const ImageUploadGroup = withFormGroup(ImageUploadField);

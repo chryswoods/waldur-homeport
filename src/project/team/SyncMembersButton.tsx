@@ -1,13 +1,10 @@
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react';
-import { useDispatch } from 'react-redux';
-import { useSelector } from 'react-redux';
 import { Project, projectsSyncUserRoles } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
-import { isStaff as isStaffSelector } from '@waldur/workspace/selectors';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ActionItem } from '@/resource/actions/ActionItem';
+import { useUser } from '@/workspace/hooks';
 
 interface SyncMembersButtonProps {
   project: Project;
@@ -18,53 +15,38 @@ export const SyncMembersButton = ({
   project,
   refetch,
 }: SyncMembersButtonProps) => {
-  const dispatch = useDispatch();
-  const isStaff = useSelector(isStaffSelector);
-  const handleSync = async () => {
-    try {
-      await waitForConfirmation(
-        dispatch,
-        translate('Synchronise members'),
-        translate(
-          'This action will send an event requesting to synchronise membership information to all Waldur site agents connected with resources in this project.',
-        ),
-        {
-          positiveButton: translate('Synchronise'),
-          positiveButtonVariant: 'primary',
-        },
-      );
-    } catch {
-      return;
-    }
+  const user = useUser();
+  const isStaff = user?.is_staff;
 
-    try {
-      await projectsSyncUserRoles({
+  const { mutate, isPending } = useManagedMutation<any, any, void>({
+    mutationFn: () =>
+      projectsSyncUserRoles({
         path: { uuid: project.uuid },
-      });
-
-      dispatch(
-        showSuccess(
-          translate('Project members have been synchronised successfully.'),
-        ),
-      );
-
-      await refetch();
-    } catch (e) {
-      dispatch(
-        showErrorResponse(
-          e,
-          translate('Unable to synchronise project members.'),
-        ),
-      );
-    }
-  };
+      }),
+    successMessage: translate(
+      'Project members have been synchronised successfully.',
+    ),
+    errorMessage: translate('Unable to synchronise project members.'),
+    refetch,
+    confirmation: {
+      title: translate('Synchronise members'),
+      body: translate(
+        'This action will send an event requesting to synchronise membership information to all Waldur site agents connected with resources in this project.',
+      ),
+      options: {
+        positiveButton: translate('Synchronise'),
+        positiveButtonVariant: 'primary',
+      },
+    },
+  });
   if (!isStaff || project.is_removed) {
     return null;
   }
   return (
     <ActionItem
       title={translate('Sync members')}
-      action={handleSync}
+      action={mutate}
+      disabled={isPending}
       iconNode={<ArrowsClockwiseIcon weight="bold" />}
     />
   );

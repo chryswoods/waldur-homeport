@@ -1,4 +1,4 @@
-import { StateIndicator } from '@waldur/core/StateIndicator';
+import { StateIndicator } from '@/core/StateIndicator';
 
 import { formatReviewState, getReviewStateBadgeVariant } from '../utils';
 
@@ -8,8 +8,8 @@ export const ReviewStateRenderer = (props) => {
     <StateIndicator
       variant={variant}
       label={formatReviewState(props.row.state)}
-      outline
-      pill
+      tone="outline"
+      shape="pill"
     />
   );
 };

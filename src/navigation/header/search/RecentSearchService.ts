@@ -9,7 +9,7 @@ const MAX_ALLOWED_ITEMS = 5;
 interface RecentSearchItem {
   id: string;
   title: string;
-  type: 'organization' | 'project' | 'resource';
+  type: 'organization' | 'project' | 'resource' | 'user';
   to: string;
   params?: { [key: string]: string };
 }
@@ -47,6 +47,10 @@ class RecentSearchServiceClass {
     const prevList = this.list();
     const newList = prevList.filter((x) => x.id !== item.id);
     localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(newList));
+  };
+
+  clear = () => {
+    localStorage.removeItem(RECENT_SEARCH_KEY);
   };
 }
 
@@ -90,8 +94,14 @@ export const useRecentSearch = () => {
     ],
   );
 
+  const clearRecentSearches = useCallback(() => {
+    RecentSearchService.clear();
+    setRecentSearchItems([]);
+  }, []);
+
   return {
     recentSearchItems,
     addRecentSearch,
+    clearRecentSearches,
   };
 };

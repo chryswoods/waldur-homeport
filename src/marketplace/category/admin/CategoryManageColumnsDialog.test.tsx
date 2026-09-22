@@ -1,17 +1,15 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Provider } from 'react-redux';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   marketplaceCategoryColumnsCreate,
   marketplaceCategoryColumnsDestroy,
+  marketplaceCategoryColumnsList,
 } from 'waldur-js-client';
-import { marketplaceCategoryColumnsList } from 'waldur-js-client';
 
-import { Category } from '@waldur/marketplace/types';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { createActionStore } from '@waldur/resource/actions/testUtils';
-import { useNotify } from '@waldur/store/hooks';
+import { Category } from '@/marketplace/types';
+import { renderWithProviders } from '@/test/harness';
+import { mockListResponse } from '@/test/utils';
 
 import { CategoryManageColumnsDialog } from './CategoryManageColumnsDialog';
 
@@ -21,33 +19,21 @@ const category = {
   columns: [],
 } as Category;
 
-vi.mock('waldur-js-client');
-vi.mock('@waldur/store/hooks');
-vi.mock('@waldur/modal/actions');
-
 describe('CategoryManageColumnsDialog', () => {
   const renderDialog = () => {
-    return render(
-      <Provider store={createActionStore()}>
-        <CategoryManageColumnsDialog resolve={{ category }} />
-      </Provider>,
+    return renderWithProviders(
+      <CategoryManageColumnsDialog resolve={{ category }} />,
     );
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
-
-    vi.mocked(useNotify).mockReturnValue({
-      showError: vi.fn(),
-      showSuccess: vi.fn(),
-      showErrorResponse: vi.fn(),
-    });
   });
 
   it('renders dialog with title and form', async () => {
-    vi.mocked(marketplaceCategoryColumnsList).mockResolvedValue({
-      data: [],
-    } as any);
+    vi.mocked(marketplaceCategoryColumnsList).mockResolvedValue(
+      mockListResponse([]),
+    );
 
     renderDialog();
     await screen.findByText('Set columns in Test Category category');
@@ -59,15 +45,16 @@ describe('CategoryManageColumnsDialog', () => {
   });
 
   it('allows adding a new column', async () => {
-    vi.mocked(marketplaceCategoryColumnsList).mockResolvedValue({
-      data: [],
-    } as any);
+    const user = userEvent.setup();
+    vi.mocked(marketplaceCategoryColumnsList).mockResolvedValue(
+      mockListResponse([]),
+    );
 
     renderDialog();
     await screen.findByText('Set columns in Test Category category');
 
-    const addButton = screen.getByText('Add column');
-    fireEvent.click(addButton);
+    const addButton = screen.getByRole('button', { name: /Add column/i });
+    await user.click(addButton);
 
     // After clicking add button, the form should show column fields
     expect(screen.getByText('Title')).toBeInTheDocument();
@@ -75,28 +62,29 @@ describe('CategoryManageColumnsDialog', () => {
     expect(screen.getByText('Widget')).toBeInTheDocument();
     expect(screen.getByText('Index')).toBeInTheDocument();
 
-    const user = userEvent.setup();
-
-    // Fill in form fields
-    await user.type(screen.getAllByRole('textbox')[0], 'Test Column');
-    await user.type(screen.getAllByRole('textbox')[1], 'test_attribute');
-    await user.type(screen.getAllByRole('textbox')[2], '1');
+    // Fill in form fields using semantic labels
+    await user.type(screen.getByLabelText('Title'), 'Test Column');
+    await user.type(screen.getByLabelText('Attribute'), 'test_attribute');
+    await user.type(screen.getByLabelText('Index'), '1');
 
     // Submit form
-    const submitButton = screen.getByText('Submit');
+    const submitButton = screen.getByRole('button', { name: /Submit/i });
     await user.click(submitButton);
 
     // Verify API call
-    expect(marketplaceCategoryColumnsCreate).toHaveBeenCalledWith({
-      body: {
-        title: 'Test Column',
-        attribute: 'test_attribute',
-        index: '1',
-      },
+    await waitFor(() => {
+      expect(marketplaceCategoryColumnsCreate).toHaveBeenCalledWith({
+        body: expect.objectContaining({
+          title: 'Test Column',
+          attribute: 'test_attribute',
+          index: '1',
+        }),
+      });
     });
   });
 
   it('allows removing an existing column', async () => {
+    const user = userEvent.setup();
     const existingColumn = {
       uuid: 'col1-uuid',
       title: 'Existing Column',
@@ -104,27 +92,25 @@ describe('CategoryManageColumnsDialog', () => {
       index: 1,
     };
 
-    vi.mocked(marketplaceCategoryColumnsList).mockResolvedValue({
-      data: [existingColumn],
-    } as any);
+    vi.mocked(marketplaceCategoryColumnsList).mockResolvedValue(
+      mockListResponse([existingColumn]),
+    );
 
-    const { container } = renderDialog();
+    renderDialog();
     await screen.findByText('Set columns in Test Category category');
 
     // Verify existing column is displayed
     expect(screen.getByDisplayValue('Existing Column')).toBeInTheDocument();
 
     // Click delete button for the column
-    const deleteButton = container.querySelector(
-      'button[aria-description="Delete"]',
-    );
-    await userEvent.click(deleteButton);
+    const deleteButton = screen.getByRole('button', { name: /Remove/i });
+    await user.click(deleteButton);
 
-    // Mock confirmation dialog to return true
-    vi.mocked(waitForConfirmation).mockRejectedValue(true);
     // Verify API call
-    expect(marketplaceCategoryColumnsDestroy).toHaveBeenCalledWith({
-      path: { uuid: existingColumn.uuid },
+    await waitFor(() => {
+      expect(marketplaceCategoryColumnsDestroy).toHaveBeenCalledWith({
+        path: { uuid: existingColumn.uuid },
+      });
     });
   });
 });

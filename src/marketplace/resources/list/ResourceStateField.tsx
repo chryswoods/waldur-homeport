@@ -1,23 +1,21 @@
 import { capitalize, lowerCase } from 'lodash-es';
 import { Resource } from 'waldur-js-client';
 
-import { StateIndicator } from '@waldur/core/StateIndicator';
-import { translate } from '@waldur/i18n';
+import { BadgeShape, BadgeTone } from 'waldur-ui';
+
+import { StateIndicator } from '@/core/StateIndicator';
+import { translate } from '@/i18n';
 
 export const ResourceStateField = ({
   resource,
-  roundless,
-  light,
-  outline,
-  pill,
+  shape,
+  tone,
   hasBullet,
   size,
 }: {
   resource: Resource;
-  roundless?: boolean;
-  light?: boolean;
-  outline?: boolean;
-  pill?: boolean;
+  shape?: BadgeShape;
+  tone?: BadgeTone;
   hasBullet?: boolean;
   size?: 'sm' | 'lg';
 }) => {
@@ -41,14 +39,12 @@ export const ResourceStateField = ({
           : isDead
             ? 'warning'
             : ['SHUTOFF', 'STOPPED', 'SUSPENDED'].includes(runtimeState)
-              ? 'default'
+              ? 'neutral'
               : 'success'
       }
       active={isActive}
-      roundless={roundless}
-      light={light}
-      outline={outline}
-      pill={pill}
+      shape={shape}
+      tone={tone}
       hasBullet={hasBullet}
       size={size}
       tooltip={
@@ -58,6 +54,7 @@ export const ResourceStateField = ({
             })
           : ''
       }
+      data-testid="state-indicator"
     />
   );
 };

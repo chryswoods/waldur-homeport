@@ -1,48 +1,20 @@
+import { FieldValidator } from 'final-form';
 import React, { ComponentType, ReactNode } from 'react';
 import { ColProps } from 'react-bootstrap';
-import { BaseFieldProps } from 'redux-form';
+
+import { Fetcher, FetcherOptions, TableRequest } from 'waldur-api-client';
 
 import { TableFiltersGroup } from './TableFilterService';
 
-interface RequestConfigExtended extends RequestInit {
-  staleTime?: number;
-  params?: Record<string, any>;
-}
-
-export interface TableRequest {
-  tableKey: string;
-  pageSize: number;
-  currentPage: number;
-  filter?: any;
-  query?: string;
-  sortField?: string;
-  sortOrder?: boolean;
-  options?: RequestConfigExtended;
-}
+export type { Fetcher, FetcherOptions, TableRequest };
 
 export interface StateTables {
   tables: { [key: string]: TableState };
 }
 
-interface TableResponse<RowType = any> {
-  rows: RowType[];
-  resultCount: number;
-  nextPage: number;
-}
-
-export type Fetcher = <RowType = any>(
-  request: TableRequest,
-) => Promise<TableResponse<RowType>>;
-
-export type FetcherOptions<QueryPayload = any, PathPayload = any> = {
-  query?: QueryPayload;
-  path?: PathPayload;
-  parser?: (data, query?: any) => any[];
-};
-
 export interface TableOptionsType<RowType = any> {
   table: string;
-  fetchData: (request: TableRequest) => any;
+  fetchData: Fetcher<RowType>;
   onFetch?: (rows: RowType[], totalCount: number, firstFetch: boolean) => void;
   onApplyFilter?: (filters: FilterItem[], firstFetch: boolean) => void;
   staleTime?: number;
@@ -51,9 +23,10 @@ export interface TableOptionsType<RowType = any> {
   exportKeys?: string[];
   exportData?: (rows: RowType[], props: any) => string[][];
   exportRow?: (row: RowType, props: any) => string[];
-  pullInterval?: number | (() => number);
   filter?;
   mandatoryFields?: string[];
+  initialFilters?: Record<string, any>;
+  syncFiltersToURL?: boolean;
 }
 
 export interface Column<RowType = any> {
@@ -63,6 +36,7 @@ export interface Column<RowType = any> {
   meta?: ReactNode;
   render: React.ComponentType<{ row: RowType }>;
   className?: string;
+  headerClassName?: string;
   orderField?: string;
   visible?: boolean;
   copyField?: (row: RowType) => string | number;
@@ -77,13 +51,24 @@ export interface Column<RowType = any> {
   exportKeys?: string[];
   disabledClick?: boolean;
   ellipsis?: boolean;
+  /** In px or % */
+  width?: string;
 }
 
 export type DisplayMode = 'table' | 'grid';
 
 export type FilterPosition = 'menu' | 'sidebar' | 'header';
 
-export type PinnedColumns = Record<string, boolean>;
+/** Key present = column is pinned. For the actions column the value is the
+ * classic is-floating boolean. For data columns the value carries the edge of
+ * the floating shadow: 'end' while the cell is stuck at the left edge (content
+ * slides under its right side), 'start' while stuck at the right edge. */
+export type PinnedColumns = Record<string, boolean | 'start' | 'end'>;
+
+/** Sticky insets (px) per pinned column key. `left` pins the column at the
+ * left edge when scrolled past it; `right` pins it at the right edge (before
+ * the actions column) while its natural position is off-screen. */
+export type PinnedOffsets = Record<string, { left: number; right: number }>;
 
 export interface Pagination {
   resultCount: number;
@@ -92,10 +77,10 @@ export interface Pagination {
 }
 
 export interface FilterItem {
-  label: string;
+  label: string | null;
   name: string;
   value: any;
-  component: () => JSX.Element;
+  component?: () => JSX.Element;
 }
 
 export interface TableState {
@@ -109,6 +94,12 @@ export interface TableState {
   sorting?: SortingState;
   filterPosition?: FilterPosition;
   filtersStorage?: FilterItem[];
+  /** Names of the filter fields actually rendered by this table (each leaf
+   * filter self-registers via `withTableFilter`). Used to scope URL-restored
+   * filters to fields this table actually owns, so unrelated global URL params
+   * (e.g. the workspace `organization`/`project` selector) are not absorbed as
+   * phantom filters. */
+  registeredFilterNames?: string[];
   savedFilters?: TableFiltersGroup[];
   selectedSavedFilter?: TableFiltersGroup;
   /** Don't apply the filters at first (let's set it `false`), because the filters are empty and the request will be invalid. \
@@ -117,8 +108,10 @@ export interface TableState {
   toggled?: Record<string, boolean>;
   selectedRows?: any[];
   firstFetch?: boolean;
-  activeColumns: Record<string, boolean>;
+  activeColumns: Record<string, string[] | false>;
   columnPositions: string[];
+  /** Ids of columns pinned (sticky) to the left edge. Session-only. */
+  pinnedColumnKeys?: string[];
 }
 
 export interface Sorting {
@@ -149,11 +142,28 @@ export interface TableTab {
   state?: string;
   params?: Record<string, any>;
   component?: ComponentType<any>;
+  /** Mark this tab as default when no other tab matches */
+  default?: boolean;
+  /**
+   * Local-state mode: when set, clicking the tab calls this callback
+   * instead of navigating via ui-router state.go(). Use together with
+   * `active` so TableTabs knows which tab to highlight without reading
+   * URL params. Useful when multiple instances of the table coexist on
+   * one page and a single URL param can't disambiguate them (e.g.
+   * sub-tabs inside expandable rows).
+   */
+  onSelect?: (key: string) => void;
+  /**
+   * Local-state mode companion to `onSelect`: explicitly marks this tab
+   * as the active one, overriding the default URL-based detection.
+   */
+  active?: boolean;
 }
 
 interface TablePortal {
   toolbar?: HTMLElement;
   refresh?: HTMLElement;
+  additionalActions?: any;
 }
 
 export interface TableProps<RowType = any> extends TableState {
@@ -171,16 +181,22 @@ export interface TableProps<RowType = any> extends TableState {
   setDisplayMode?: (mode: DisplayMode) => void;
   gridItem?: React.ComponentType<{ row: RowType }>;
   gridSize?: ColProps;
-  openFiltersDrawer?: (filters: React.ReactNode) => void;
-  renderFiltersDrawer?: (filters: React.ReactNode) => void;
+  gridSpace?: number;
+  gridFixedWidth?: boolean;
+  openFiltersDrawer?: (filters: React.ReactNode, formId?: string) => void;
+  renderFiltersDrawer?: (filters: React.ReactNode, formId?: string) => void;
   dropdownActions?: ReactNode;
+  dropdownActionsSize?: 'sm' | 'lg';
   tableActions?: React.ReactNode;
   verboseName?: string;
   className?: string;
   headerClassName?: string;
   titleClassName?: string;
+  bodyClassName?: string;
   id?: string;
   rowClass?: (({ row }: { row: RowType }) => string) | string;
+  /** Opt-in row-click handler; ignored when clicking inner buttons/links. */
+  onRowClick?: (row: RowType) => void;
   hoverable?: boolean;
   hoverShadow?: { table?: boolean; grid?: boolean } | boolean;
   fullWidth?: boolean;
@@ -207,6 +223,7 @@ export interface TableProps<RowType = any> extends TableState {
   /** Prefered empty table message */
   emptyMessage?: React.ReactNode;
   filters?: JSX.Element;
+  formId?: string;
   title?: React.ReactNode;
   alterTitle?: React.ReactNode;
   subtitle?: React.ReactNode;
@@ -221,17 +238,34 @@ export interface TableProps<RowType = any> extends TableState {
   filter?: Record<string, any>;
   fieldType?: 'checkbox' | 'radio';
   fieldName?: string;
-  validate?: BaseFieldProps['validate'];
+  validate?: FieldValidator<any>;
+  rowValidate?: (
+    row: RowType,
+    formValues: any,
+  ) => string | string[] | undefined;
   footer?: React.ReactNode;
   /** If enabled, set `keys` and `id` for each column. Also pass the required keys separately. */
   hasOptionalColumns?: boolean;
   toggleColumn?(id, column, value?): void;
   initColumnPositions?(ids: string[]): void;
   swapColumns?(column1: string, column2: string): void;
+  resetColumns?(): void;
+  toggleColumnPin?(id: string): void;
   initialMode?: 'grid' | 'table';
+  /** Function to determine initial display mode based on result count.
+   * Called after first data fetch. Takes precedence over initialMode when provided. */
+  initialModeResolver?: (resultCount: number) => DisplayMode;
   standalone?: boolean;
   standaloneActionsInTable?: boolean;
   hideClearFilters?: boolean;
   hideRefresh?: boolean;
+  hideTitle?: boolean;
+  hideIfEmpty?: boolean;
+  hideExpandToggle?: boolean;
   portal?: TablePortal;
+  /**
+   * Function to determine if a row is expandable.
+   * If not provided, all rows are considered expandable if expandableRow is set.
+   */
+  isRowExpandable?: (row: RowType) => boolean;
 }

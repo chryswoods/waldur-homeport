@@ -1,12 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 import { Col, Row } from 'react-bootstrap';
-import { MarketplaceProviderOfferingsListData } from 'waldur-js-client';
+import {
+  customersCount,
+  marketplaceCategoriesCount,
+  marketplaceProviderOfferingsCount,
+  MarketplaceProviderOfferingsListData,
+  projectsCount,
+  usersCount,
+} from 'waldur-js-client';
 
-import { count } from '@waldur/core/api';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { StatisticsCard } from '@waldur/core/StatisticsCard';
-import { translate } from '@waldur/i18n';
+import { fetchResultCount } from '@/core/api';
+import { STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { StatisticsCard } from '@/core/StatisticsCard';
+import { translate } from '@/i18n';
 
 import * as api from '../api';
 
@@ -17,14 +25,16 @@ export const AdminStatistics = () => {
     queryFn: async () => {
       // Order is important
       const promises = [
-        count(`/api/customers/`),
-        count(`/api/projects/`),
-        count(`/api/users/`),
-        count(`/api/marketplace-categories/`),
-        count(`/api/marketplace-provider-offerings/`, {
-          shared: true,
-          state: ['Active', 'Paused'],
-        } satisfies MarketplaceProviderOfferingsListData['query']),
+        customersCount().then(fetchResultCount),
+        projectsCount().then(fetchResultCount),
+        usersCount().then(fetchResultCount),
+        marketplaceCategoriesCount().then(fetchResultCount),
+        marketplaceProviderOfferingsCount({
+          query: {
+            shared: true,
+            state: ['Active', 'Paused'],
+          } satisfies MarketplaceProviderOfferingsListData['query'],
+        }).then(fetchResultCount),
         api.getResourcesCount({
           state: ['Creating', 'OK', 'Erred', 'Updating', 'Terminating'],
         }),
@@ -48,7 +58,7 @@ export const AdminStatistics = () => {
       };
     },
 
-    staleTime: 5 * 60 * 1000,
+    staleTime: STALE_TIME,
   });
 
   return (
@@ -80,7 +90,7 @@ export const AdminStatistics = () => {
             <StatisticsCard
               title={translate('Users')}
               value={data.users}
-              to={{ state: 'admin-user-users' }}
+              to={{ state: 'support-users' }}
             />
           </Col>
           <Col md={6} lg={4}>

@@ -1,8 +1,8 @@
 import { FunctionComponent, useMemo } from 'react';
 
-import { Select } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
+import { FormGroup } from '@/form';
+import { Select } from '@/form/select';
+import { translate } from '@/i18n';
 
 import { getDurationOptions } from '../utils';
 

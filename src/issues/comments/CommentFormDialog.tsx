@@ -1,116 +1,133 @@
-import { FC } from 'react';
-import { connect } from 'react-redux';
-import { compose } from 'redux';
-import { InjectedFormProps, reduxForm } from 'redux-form';
+import { FC, useMemo } from 'react';
+import { Form } from 'react-final-form';
 import {
   Issue,
   supportCommentsUpdate,
   supportIssuesComment,
 } from 'waldur-js-client';
 
-import { required } from '@waldur/core/validators';
-import { FormContainer, SubmitButton, TextField } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse } from '@waldur/store/notify';
+import { getUUID } from '@/core/utils';
+import { required } from '@/core/validators';
+import { SubmitButton, TextGroup } from '@/form';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { CannedResponseSelector } from '@/provider-helpdesk/canned-responses/CannedResponseSelector';
 
-import * as actions from './actions';
-import * as constants from './constants';
-import { getIssue } from './selectors';
+import { ISSUE_COMMENTS_QUERY_KEY } from './constants';
+import { Comment } from './types';
 
-interface CommentFormDialogProps extends InjectedFormProps {
-  resolve: { comment };
-  isEdit: boolean;
-  issue: Issue;
+interface CommentFormData {
+  description: string;
 }
 
-const PureCommentFormDialog: FC<CommentFormDialogProps> = (props) => {
-  const onSubmit = async (data: { [key: string]: string }, dispatch) => {
-    if (props.isEdit) {
-      try {
-        const response = await supportCommentsUpdate({
+interface CommentFormDialogProps {
+  resolve: { comment?: Comment; issue?: Issue };
+}
+
+export const CommentFormDialog: FC<CommentFormDialogProps> = (props) => {
+  const isEdit = Boolean(props.resolve?.comment);
+  const issue = props.resolve?.issue;
+
+  const commentMutation = useManagedMutation<any, any, CommentFormData>({
+    mutationFn: (data) => {
+      if (isEdit) {
+        return supportCommentsUpdate({
           path: { uuid: props.resolve.comment.uuid },
           body: {
             is_public: true,
-            description: data[constants.FORM_FIELDS.comment],
+            description: data.description,
           },
         });
-        dispatch(actions.issueCommentsUpdateSuccess(response.data));
-        dispatch(closeModalDialog());
-      } catch (error) {
-        dispatch(
-          showErrorResponse(error, translate('Unable to edit comment.')),
-        );
-      }
-    } else {
-      try {
-        const response = await supportIssuesComment({
-          path: { uuid: props.issue.uuid },
+      } else {
+        return supportIssuesComment({
+          path: { uuid: issue.uuid },
           body: {
             is_public: true,
-            description: data[constants.FORM_FIELDS.comment],
+            description: data.description,
           },
         });
-
-        dispatch(actions.issueCommentsCreateSuccess(response.data));
-        dispatch(closeModalDialog());
-      } catch (error) {
-        dispatch(
-          showErrorResponse(error, translate('Unable to post comment.')),
-        );
       }
-    }
+    },
+    errorMessage: isEdit
+      ? translate('Unable to edit comment.')
+      : translate('Unable to post comment.'),
+    invalidateQueries: [
+      {
+        queryKey: [
+          ISSUE_COMMENTS_QUERY_KEY,
+          isEdit ? props.resolve.comment.issue : issue.url,
+        ],
+      },
+    ],
+  });
+
+  const initialValues = useMemo(() => {
+    return props.resolve?.comment
+      ? { description: props.resolve.comment.description }
+      : {};
+  }, [props.resolve]);
+
+  // Provider (routed child) issues carry a provider_helpdesk; only those get the
+  // canned-response picker, and only when replying (not when editing a comment).
+  const helpdeskUuid =
+    !isEdit && issue?.provider_helpdesk
+      ? getUUID(issue.provider_helpdesk)
+      : null;
+  const cannedResponseContext = {
+    customer_name: issue?.customer_name ?? '',
+    caller_name: issue?.caller_full_name ?? '',
+    key: issue?.key ?? '',
+    summary: issue?.summary ?? '',
   };
 
   return (
-    <form onSubmit={props.handleSubmit(onSubmit)}>
-      <ModalDialog
-        title={
-          props.isEdit ? translate('Change comment') : translate('Add comment')
-        }
-        footer={
-          <>
-            <CloseDialogButton variant="tertiary" className="flex-equal" />
-            <SubmitButton
-              submitting={props.submitting}
-              disabled={props.invalid || props.submitting}
-              label={translate('Confirm')}
-              className="btn btn-primary flex-equal"
+    <Form<CommentFormData>
+      onSubmit={(values) => commentMutation.mutateAsync(values)}
+      initialValues={initialValues}
+      render={({ handleSubmit, submitting, invalid, pristine, form }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={
+              isEdit ? translate('Change comment') : translate('Add comment')
+            }
+            footer={
+              <>
+                <CloseDialogButton variant="tertiary" className="flex-equal" />
+                <SubmitButton
+                  submitting={submitting}
+                  disabled={invalid || submitting || pristine}
+                  label={translate('Confirm')}
+                  className="btn btn-primary flex-equal"
+                />
+              </>
+            }
+          >
+            {helpdeskUuid && (
+              <CannedResponseSelector
+                helpdeskUuid={helpdeskUuid}
+                context={cannedResponseContext}
+                onInsert={(text) => {
+                  const current = form.getState().values.description ?? '';
+                  form.change(
+                    'description',
+                    current ? `${current}\n\n${text}` : text,
+                  );
+                }}
+              />
+            )}
+            <TextGroup
+              name="description"
+              spaceless
+              hideLabel
+              placeholder={translate('Enter a comment...')}
+              validate={required}
+              autoFocus
             />
-          </>
-        }
-      >
-        <FormContainer submitting={props.submitting}>
-          <TextField
-            name={constants.FORM_FIELDS.comment}
-            spaceless
-            hideLabel
-            placeholder={translate('Enter a comment...')}
-            validate={required}
-            autoFocus
-          />
-        </FormContainer>
-      </ModalDialog>
-    </form>
+          </ModalDialog>
+        </form>
+      )}
+    />
   );
 };
-
-const mapStateToProps = (state, ownProps) => ({
-  isEdit: Boolean(ownProps.resolve?.comment),
-  initialValues: ownProps.resolve?.comment
-    ? { [constants.FORM_FIELDS.comment]: ownProps.resolve.comment.description }
-    : undefined,
-  issue: getIssue(state),
-});
-
-const enhance = compose(
-  connect(mapStateToProps),
-  reduxForm({
-    form: constants.MAIN_FORM_ID,
-    destroyOnUnmount: true,
-  }),
-);
-
-export const CommentFormDialog = enhance(PureCommentFormDialog);

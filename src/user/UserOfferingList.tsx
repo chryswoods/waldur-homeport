@@ -1,19 +1,24 @@
+import { useCurrentStateAndParams } from '@uirouter/react';
 import { FunctionComponent, useMemo } from 'react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
 import { marketplaceOfferingUsersList, User } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { OfferingUserStateField } from '@waldur/marketplace/OfferingUserStateField';
-import { PROVIDER_OFFERING_USERS_FORM_ID } from '@waldur/marketplace/service-providers/constants';
-import { ProviderOfferingUsersFilter } from '@waldur/marketplace/service-providers/ProviderOfferingUsersFilter';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { useUser } from '@waldur/workspace/hooks';
+import { formatDateTime } from '@/core/dateUtils';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { OfferingUserStateField } from '@/marketplace/OfferingUserStateField';
+import { PROVIDER_OFFERING_USERS_FORM_ID } from '@/marketplace/service-providers/constants';
+import { OfferingUsersExpandableRow } from '@/marketplace/service-providers/offering-users/OfferingUsersExpandableRow';
+import { ProviderOfferingUsersFilter } from '@/marketplace/service-providers/offering-users/ProviderOfferingUsersFilter';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
+import { createAttentionOfferingUsersFetcher } from '@/user/createAttentionOfferingUsersFetcher';
+import { useUser } from '@/workspace/hooks';
+
+import { UserPosixIdentitiesButton } from './UserPosixIdentitiesButton';
 
 interface OwnProps {
   user?: User;
@@ -24,11 +29,21 @@ export const UserOfferingList: FunctionComponent<OwnProps> = ({
   hasActionBar = true,
   ...props
 }) => {
+  const { params } = useCurrentStateAndParams();
+  const filterAttention =
+    params?.filterAttention === true || params?.filterAttention === 'true';
+
   const currentUser = useUser();
   const user = props.user || currentUser;
-  const filterValues = useSelector(
-    getFormValues(PROVIDER_OFFERING_USERS_FORM_ID),
-  ) as { offering?; provider?; state?: Array<{ value: any }> };
+  const filterValues = useFilterValues('UserOfferingList');
+
+  const initialFilters = useMemo(() => {
+    if (filterAttention || !params?.filterState) {
+      return undefined;
+    }
+    return { state: params.filterState };
+  }, [filterAttention, params?.filterState]);
+
   const filter = useMemo(
     () => ({
       provider_uuid: filterValues?.provider?.customer_uuid,
@@ -38,12 +53,23 @@ export const UserOfferingList: FunctionComponent<OwnProps> = ({
     }),
     [filterValues, user],
   );
+
+  const fetchData = useMemo(() => {
+    if (filterAttention && user?.uuid) {
+      return createAttentionOfferingUsersFetcher(user.uuid);
+    }
+    return createFetcher(marketplaceOfferingUsersList);
+  }, [filterAttention, user?.uuid]);
+
   const tableProps = useTable({
-    table: 'UserOfferingList',
-    fetchData: createFetcher(marketplaceOfferingUsersList),
-    filter,
-    queryField: 'query',
+    table: filterAttention ? 'UserOfferingList-attention' : 'UserOfferingList',
+    syncFiltersToURL: !filterAttention,
+    initialFilters,
+    fetchData,
+    filter: filterAttention ? { user_uuid: user?.uuid } : filter,
+    queryField: filterAttention ? undefined : 'query',
   });
+
   const columns = [
     {
       title: translate('Offering'),
@@ -51,7 +77,15 @@ export const UserOfferingList: FunctionComponent<OwnProps> = ({
     },
     {
       title: translate('Username'),
-      render: ({ row }) => <>{row.username || 'N/A'}</>,
+      render: ({ row }) => <>{renderFieldOrDash(row.username)}</>,
+    },
+    isFeatureVisible(MarketplaceFeatures.show_posix_id_pools) && {
+      title: translate('UID'),
+      render: ({ row }) => <>{renderFieldOrDash(row.uidnumber)}</>,
+    },
+    isFeatureVisible(MarketplaceFeatures.show_posix_id_pools) && {
+      title: translate('GID'),
+      render: ({ row }) => <>{renderFieldOrDash(row.primarygroup)}</>,
     },
     {
       title: translate('Created at'),
@@ -77,9 +111,16 @@ export const UserOfferingList: FunctionComponent<OwnProps> = ({
       columns={columns}
       verboseName={translate('remote accounts')}
       showPageSizeSelector={true}
-      hasQuery={true}
+      hasQuery={!filterAttention}
       hasActionBar={hasActionBar}
-      filters={<ProviderOfferingUsersFilter hasOrganizationColumn={true} />}
+      filters={
+        filterAttention ? undefined : (
+          <ProviderOfferingUsersFilter hasOrganizationColumn={true} />
+        )
+      }
+      expandableRow={OfferingUsersExpandableRow}
+      formId={PROVIDER_OFFERING_USERS_FORM_ID}
+      tableActions={<UserPosixIdentitiesButton userUuid={user?.uuid} />}
     />
   );
 };

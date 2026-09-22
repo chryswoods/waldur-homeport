@@ -7,8 +7,8 @@ Waldur authorization system determines what user can do. It consists of permissi
 Permissions are defined in `PermissionEnum` which is automatically generated from backend code and pushed to fronted code by GitLab CI. Most of the time you're going to use `hasPermission` function which checks, whether user is allowed to perform action on given customer, project or offering. The following example shows how to check whether user is allowed to create offering in organization.
 
 ```js
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
 
 hasPermission(user, {
   permission: PermissionEnum.CREATE_OFFERING,
@@ -22,8 +22,16 @@ Previously we have relied on hard-coded roles, such as customer owner and projec
 
 ```js
 export const AcceptAction = (props) => {
-  const isOwnerOrStaff = useSelector(isOwnerOrStaffSelector);
-  const isServiceManager = useSelector(isServiceManagerSelector);
+  const user = useUser();
+  const customer = useCustomer();
+  const isOwnerOrStaff = useMemo(
+    () => checkIsOwnerOrStaff(customer, user),
+    [customer, user],
+  );
+  const isServiceManager = useMemo(
+    () => checkIsServiceManager(customer, user),
+    [customer, user],
+  );
   if (!isOwnerOrStaff && !isServiceManager) {
     return null;
   } else {

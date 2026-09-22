@@ -1,28 +1,27 @@
 import { PlusCircleIcon } from '@phosphor-icons/react';
 import { FC, useMemo } from 'react';
-import { useSelector } from 'react-redux';
 import {
   marketplacePublicOfferingsList,
   MarketplacePublicOfferingsListData,
 } from 'waldur-js-client';
 
-import { AsyncSearchBox } from '@waldur/core/async/AsyncSearchBox';
-import { Image } from '@waldur/core/Image';
-import { ImagePlaceholder } from '@waldur/core/ImagePlaceholder';
-import { TextWithoutFormatting } from '@waldur/core/TextWithoutFormatting';
-import { Tip } from '@waldur/core/Tooltip';
-import { truncate } from '@waldur/core/utils';
-import { isFeatureVisible } from '@waldur/features/connect';
-import { MarketplaceFeatures } from '@waldur/FeaturesEnums';
-import { translate } from '@waldur/i18n';
-import { getItemAbbreviation } from '@waldur/navigation/workspace/context-selector/utils';
-import { getCustomer, getProject } from '@waldur/workspace/selectors';
+import { Tooltip } from 'waldur-ui';
+
+import { AsyncSearchBox } from '@/core/async/AsyncSearchBox';
+import { Image } from '@/core/Image';
+import { ImagePlaceholder } from '@/core/ImagePlaceholder';
+import { TextWithoutFormatting } from '@/core/TextWithoutFormatting';
+import { truncate } from '@/core/utils';
+import { isFeatureVisible } from '@/features/connect';
+import { MarketplaceFeatures } from '@/FeaturesEnums';
+import { translate } from '@/i18n';
+import { getItemAbbreviation } from '@/navigation/workspace/context-selector/utils';
+import { useCustomer, useProject } from '@/workspace/hooks';
 
 import { OfferingDetailsLink } from '../links/OfferingDetailsLink';
 import { OfferingLink } from '../links/OfferingLink';
-import { Offering } from '../types';
 
-const OfferingListItem: FC<{ row: Offering }> = ({ row }) => {
+const OfferingListItem: FC<{ row: any }> = ({ row }) => {
   const abbreviation = useMemo(() => getItemAbbreviation(row), [row]);
 
   return (
@@ -52,20 +51,19 @@ const OfferingListItem: FC<{ row: Offering }> = ({ row }) => {
         </div>
         {!isFeatureVisible(MarketplaceFeatures.catalogue_only) && (
           <div className="flex-shrink-0">
-            <Tip
-              id={`search-offering-${row.uuid}`}
-              label={translate('Add resource')}
-            >
-              <OfferingLink
-                offering_uuid={row.uuid}
-                buttonVariant="text-primary"
-                className="btn-icon btn-sm"
-              >
-                <span className="svg-icon svg-icon-2">
-                  <PlusCircleIcon weight="bold" />
-                </span>
-              </OfferingLink>
-            </Tip>
+            <Tooltip label={translate('Add resource')}>
+              <span>
+                <OfferingLink
+                  offering_uuid={row.uuid}
+                  buttonVariant="text-primary"
+                  className="btn-icon btn-sm"
+                >
+                  <span className="svg-icon svg-icon-2">
+                    <PlusCircleIcon weight="bold" />
+                  </span>
+                </OfferingLink>
+              </span>
+            </Tooltip>
           </div>
         )}
       </div>
@@ -74,8 +72,8 @@ const OfferingListItem: FC<{ row: Offering }> = ({ row }) => {
 };
 
 export const OfferingsSearchBox = () => {
-  const customer = useSelector(getCustomer);
-  const project = useSelector(getProject);
+  const customer = useCustomer();
+  const project = useProject();
 
   const params = useMemo(() => {
     const field = [
@@ -105,7 +103,10 @@ export const OfferingsSearchBox = () => {
       queryField="keyword"
       params={params}
       RowComponent={OfferingListItem}
-      emptyMessage={translate('There are no offerings.')}
+      placeholder={translate('Search offerings...')}
+      emptyMessage={translate(
+        'No offerings match your search. To find organisations, projects or resources, use the search in the top bar.',
+      )}
       className="w-400px"
     />
   );

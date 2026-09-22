@@ -3,19 +3,56 @@ import {
   MaintenanceAnnouncementStateEnum,
 } from 'waldur-js-client';
 
-import { getUUID } from '@waldur/core/utils';
-import { translate } from '@waldur/i18n';
+import { BadgeVariant } from 'waldur-ui';
+
+import { getUUID } from '@/core/utils';
+import { translate } from '@/i18n';
 
 import { MaintenanceForm } from './types';
 
 export const MAINTENANCE_ANNOUNCEMENT_FORM_ID = 'MaintenanceAnnouncementForm';
 
+/**
+ * Validate a maintenance window tuple coming from the range picker.
+ *
+ * - Requires both start and end to be present (array of length 2 with Date values).
+ * - End must be strictly after start.
+ * - For new maintenances (no `maintenanceUuid`) both ends must be in the future.
+ *
+ * Returns a translated error string when invalid, or `undefined` when valid.
+ */
+export const validateWindow = (
+  value: unknown,
+  options: { maintenanceUuid?: string } = {},
+): string | undefined => {
+  if (!Array.isArray(value) || value.length !== 2) {
+    return translate('Select a start and end date/time.');
+  }
+  const [start, end] = value as [unknown, unknown];
+  if (!(start instanceof Date) || !(end instanceof Date)) {
+    return translate('Select a start and end date/time.');
+  }
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return translate('Select a start and end date/time.');
+  }
+  if (end.getTime() <= start.getTime()) {
+    return translate('End must be after start.');
+  }
+  if (!options.maintenanceUuid) {
+    const now = Date.now();
+    if (start.getTime() < now || end.getTime() < now) {
+      return translate('Start and end time must be in the future.');
+    }
+  }
+  return undefined;
+};
+
 export const getMaintenanceState = (
   state: MaintenanceAnnouncementStateEnum,
-) => {
+): { label: string; color: BadgeVariant } => {
   switch (state) {
     case 'Draft':
-      return { label: translate('Draft'), color: 'default' };
+      return { label: translate('Draft'), color: 'neutral' };
     case 'Scheduled':
       return { label: translate('Scheduled'), color: 'warning' };
     case 'In progress':
@@ -26,7 +63,7 @@ export const getMaintenanceState = (
       return { label: translate('Cancelled'), color: 'danger' };
 
     default:
-      return { label: state, color: 'default' };
+      return { label: state, color: 'neutral' };
   }
 };
 

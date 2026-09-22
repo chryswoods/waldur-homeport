@@ -4,20 +4,25 @@ import {
   proposalProtectedCallsOfferingsList,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { CallOfferingStateField } from '@waldur/proposals/details/CallOfferingStateField';
-import { Call } from '@waldur/proposals/types';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { renderFieldOrDash } from '@waldur/table/utils';
+import { translate } from '@/i18n';
+import { CallOfferingStateField } from '@/proposals/details/CallOfferingStateField';
+import { Call } from '@/proposals/types';
+import { UnpreviewableDiscountWarning } from '@/proposals/UnpreviewableDiscountWarning';
+import { callLockedTooltip } from '@/proposals/workflow/constants';
+import { ActionsDropdown } from '@/table/ActionsDropdown';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 import { AddOfferingButton } from './AddOfferingButton';
 import { CallOfferingExpandableRow } from './CallOfferingExpandableRow';
+import { CallOfferingPurchaseOrderField } from './CallOfferingPurchaseOrderField';
 import { CallOfferingRowActions } from './CallOfferingRowActions';
 
 interface CallOfferingsSectionProps {
   call: Call;
+  isReadOnly?: boolean;
 }
 
 export const CallOfferingsSection: FC<CallOfferingsSectionProps> = (props) => {
@@ -35,11 +40,23 @@ export const CallOfferingsSection: FC<CallOfferingsSectionProps> = (props) => {
       columns={[
         {
           title: translate('Offering name'),
-          render: ({ row }) => <>{row.offering_name}</>,
+          render: ({ row }) => (
+            <span className="d-inline-flex align-items-center gap-2">
+              {row.offering_name}
+              <UnpreviewableDiscountWarning
+                planComponents={(row.plan_details as any)?.components}
+                offeringComponents={row.components as any}
+              />
+            </span>
+          ),
         },
         {
           title: translate('Provider'),
           render: ({ row }) => <>{renderFieldOrDash(row.provider_name)}</>,
+        },
+        {
+          title: translate('Purchase order'),
+          render: CallOfferingPurchaseOrderField,
         },
         {
           title: translate('Requested by'),
@@ -57,12 +74,22 @@ export const CallOfferingsSection: FC<CallOfferingsSectionProps> = (props) => {
       title={translate('Offerings')}
       verboseName={translate('Offerings')}
       tableActions={
-        <AddOfferingButton call={props.call} refetch={tableProps.fetch} />
+        <AddOfferingButton
+          call={props.call}
+          refetch={tableProps.fetch}
+          disabled={props.isReadOnly}
+          tooltip={props.isReadOnly ? callLockedTooltip() : undefined}
+        />
       }
       expandableRow={CallOfferingExpandableRow}
-      rowActions={({ row }) => (
-        <CallOfferingRowActions row={row} refetch={tableProps.fetch} />
-      )}
+      rowActions={({ row }) =>
+        props.isReadOnly ? (
+          <ActionsDropdown disabled tooltip={callLockedTooltip()} />
+        ) : (
+          <CallOfferingRowActions row={row} refetch={tableProps.fetch} />
+        )
+      }
+      showPageSizeSelector
     />
   );
 };

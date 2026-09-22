@@ -1,14 +1,14 @@
-import { useCurrentStateAndParams, useRouter } from '@uirouter/react';
+import { useQuery } from '@tanstack/react-query';
+import { useCurrentStateAndParams } from '@uirouter/react';
 import { FunctionComponent, useEffect } from 'react';
-import { useDispatch } from 'react-redux';
-import { useAsyncFn } from 'react-use';
 import { invoicesRetrieve } from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { useTitle } from '@waldur/navigation/title';
-import { showError, showSuccess } from '@waldur/store/notify';
+import { ENV } from '@/core/config';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { goToNotFound } from '@/error/utils';
+import { translate } from '@/i18n';
+import { useTitle } from '@/navigation/title';
+import { useNotify } from '@/store/notify';
 
 import { BillingRecordDetails } from './BillingRecordDetails';
 import { InvoiceDetails } from './InvoiceDetails';
@@ -22,43 +22,46 @@ export const BillingDetails: FunctionComponent = () => {
       : translate('Invoice'),
   );
 
-  const router = useRouter();
   const {
     params: { invoice_uuid: invoiceId, status },
   } = useCurrentStateAndParams();
 
-  const [{ loading, error, value: invoice }, callback] = useAsyncFn(
-    () =>
+  const {
+    isLoading: loading,
+    error,
+    data: invoice,
+    refetch: callback,
+  } = useQuery({
+    queryKey: ['invoice', invoiceId],
+    queryFn: () =>
       invoicesRetrieve({ path: { uuid: invoiceId } }).then(
         (response) => response.data,
       ),
-    [invoiceId],
-  );
+    enabled: !!invoiceId,
+  });
 
   useEffect(() => {
     if (!invoiceId) {
-      router.stateService.go('errorPage.notFound');
-    } else {
-      callback();
+      goToNotFound();
     }
-  }, [invoiceId, router.stateService, callback]);
+  }, [invoiceId]);
 
   useEffect(() => {
     if ((error as any)?.status === 404) {
-      router.stateService.go('errorPage.notFound');
+      goToNotFound();
     }
-  }, [error, router.stateService]);
+  }, [error]);
 
-  const dispatch = useDispatch();
+  const { showError, showSuccess } = useNotify();
   useEffect(() => {
     if (status === 'succeeded') {
-      dispatch(showSuccess(translate('Payment succeeded.')));
+      showSuccess(translate('Payment succeeded.'));
     } else if (status === 'failed') {
-      dispatch(showError(translate('Payment failed.')));
+      showError(translate('Payment failed.'));
     } else if (status === 'skipped') {
-      dispatch(showSuccess(translate('Payment has already been done.')));
+      showSuccess(translate('Payment has already been done.'));
     }
-  }, [status, dispatch]);
+  }, [status]);
 
   return loading ? (
     <LoadingSpinner />

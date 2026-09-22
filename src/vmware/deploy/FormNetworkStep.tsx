@@ -1,16 +1,17 @@
 import { PlusIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
-import { Button } from 'react-bootstrap';
 import { vmwareNetworksList } from 'waldur-js-client';
 
-import { ENV } from '@waldur/core/config';
-import { VStepperFormStepCard } from '@waldur/form/VStepperFormStep';
-import { translate } from '@waldur/i18n';
-import { FormStepProps } from '@waldur/marketplace/deploy/types';
-import { isExperimentalUiComponentsVisible } from '@waldur/marketplace/utils';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { ENV } from '@/core/config';
+import { UI_STALE_TIME } from '@/core/constants';
+import { translate } from '@/i18n';
+import { FormStepProps } from '@/marketplace/deploy/types';
+import { isExperimentalUiComponentsVisible } from '@/marketplace/utils';
+import { createFetcher } from '@/table/api';
+import { CompactActionButton } from '@/table/CompactActionButton';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { VStepperFormStepCard } from '@/wizard';
 
 export const FormNetworkStep = (props: FormStepProps) => {
   const showExperimentalUiComponents = isExperimentalUiComponentsVisible();
@@ -28,7 +29,7 @@ export const FormNetworkStep = (props: FormStepProps) => {
     table: 'deploy-security-groups',
     fetchData: createFetcher(vmwareNetworksList),
     filter,
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
 
   return (
@@ -40,12 +41,13 @@ export const FormNetworkStep = (props: FormStepProps) => {
       actions={
         showExperimentalUiComponents ? (
           <div className="d-flex justify-content-end flex-grow-1">
-            <Button variant="tertiary" className="text-nowrap" size="sm">
-              <span className="svg-icon svg-icon-2">
-                <PlusIcon weight="bold" />
-              </span>
-              {translate('New interface')}
-            </Button>
+            <CompactActionButton
+              variant="tertiary"
+              className="text-nowrap"
+              iconNode={<PlusIcon weight="bold" />}
+              title={translate('New interface')}
+              action={() => {}}
+            />
           </div>
         ) : null
       }

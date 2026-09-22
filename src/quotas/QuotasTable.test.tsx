@@ -1,17 +1,7 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 import { QuotasTable } from './QuotasTable';
-
-vi.mock('@waldur/store/hooks', () => ({
-  useTheme: () => 'light',
-}));
-
-vi.mock('@waldur/core/EChart', () => ({
-  EChart: ({ options }) => (
-    <div data-testid="echart">{JSON.stringify(options)}</div>
-  ),
-}));
 
 const renderQuotas = (quotas) => render(<QuotasTable resource={{ quotas }} />);
 

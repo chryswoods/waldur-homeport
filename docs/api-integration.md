@@ -4,7 +4,7 @@ This guide covers data loading patterns, API client usage, and refresh mechanism
 
 ## API Data Loading and Refresh Patterns
 
-The application uses multiple approaches for loading data from REST APIs in forms and handling data refresh operations, showing evolution from legacy Redux patterns to modern React Query implementations.
+The application utilizes React Query efficiently for loading data from REST APIs, rendering forms, and handling real-time data refresh operations.
 
 ## Data Loading Patterns
 
@@ -39,17 +39,20 @@ Centralized data fetching logic wrapped in reusable hooks:
 
 ```typescript
 export const useOrganizationGroups = () => {
-  const user = useSelector(getUser);
+  const user = useUser();
   const query = useQuery({
     queryKey: ['organizationGroups'],
-    queryFn: () => getAllPages((page) =>
-      organizationGroupsList({ query: { page } })
-    ).then(items => items.map(item => ({ ...item, value: item.url }))),
+    queryFn: () =>
+      getAllPages((page) => organizationGroupsList({ query: { page } })).then(
+        (items) => items.map((item) => ({ ...item, value: item.url })),
+      ),
     staleTime: 5 * 60 * 1000,
   });
 
   const disabled = query.data?.length === 0 && !user.is_staff;
-  const tooltip = disabled ? translate('Access policies cannot be configured...') : undefined;
+  const tooltip = disabled
+    ? translate('Access policies cannot be configured...')
+    : undefined;
 
   return { ...query, disabled, tooltip };
 };
@@ -62,96 +65,58 @@ export const useOrganizationGroups = () => {
 - **Reusability**: Shared across multiple components
 - **Centralized Error Handling**: Consistent error management
 
-### Redux/Redux Saga Pattern (Legacy)
-
-Used primarily for table data management:
-
-```typescript
-function* fetchList(action) {
-  const { table, extraFilter, pullInterval, force } = action.payload;
-
-  try {
-    const state = yield select(getTableState(table));
-    const request = {
-      currentPage: state.pagination.currentPage,
-      pageSize: state.pagination.pageSize,
-      filter: { ...extraFilter, field: fields },
-    };
-
-    const { rows, resultCount } = yield call(options.fetchData, request);
-    yield put(actions.fetchListDone(table, entities, order, resultCount));
-  } catch (error) {
-    yield put(actions.fetchListError(table, error));
-  }
-}
-```
-
-**Characteristics:**
-
-- **Centralized State**: Redux store for table data
-- **Automatic Pagination**: Built-in pagination and filtering
-- **Request Cancellation**: AbortController support
-- **Periodic Polling**: Configurable refresh intervals
-
 ## Data Refresh Mechanisms
 
-### CRUD Operations Refresh
+## Mutations with Notifications and Table Reload
 
-**Create Operations:**
+For form and modal mutations (CRUD operations) that need to display notifications, update data caches, and potentially close dialogs, use the custom `useManagedMutation` hook.
+
+### Best Practice: `useManagedMutation`
+
+This hook encapsulates the try-catch block, notification logic (`useNotify`), and modal closure (`useModal`) in a declarative API. It is the preferred way to handle mutations in Waldur.
+
+For detailed documentation, examples, and edge cases, see the [useManagedMutation Guide](./useManagedMutation.md).
 
 ```typescript
-const onSubmit = async (formData: ProjectFormData) => {
-  try {
-    const response = await projectsCreate({
+import { useManagedMutation } from '@/modal/useManagedMutation';
+
+const saveProjectMutation = useManagedMutation({
+  mutationFn: (formData: ProjectFormData) =>
+    projectsCreate({
       body: {
         name: formData.name,
-        description: formData.description,
         customer: formData.customer.url,
       },
-    });
-
-    if (refetch) {
-      await refetch(); // Refresh parent data
-    }
-
-    showSuccess(translate('Project has been created.'));
-    closeDialog();
-  } catch (e) {
-    showErrorResponse(e, translate('Unable to create project.'));
-  }
-};
-```
-
-**Edit Operations:**
-
-```typescript
-// Optimistic updates in Redux
-yield put(actions.entityUpdate(table, entity));
-
-// Manual refresh after edit
-await updateResource(resourceData);
-refetch(); // Refresh data
-```
-
-**Delete Operations:**
-
-```typescript
-await marketplaceProviderOfferingsRemoveOfferingComponent({
-  path: { uuid: offering.uuid },
-  body: { uuid: component.uuid },
+    }),
+  successMessage: translate('Project has been created.'),
+  errorMessage: translate('Unable to create project.'),
+  refetch, // Option 1: Pass a refetch callback directly
+  // Option 2: Provide an array of query filters to automatically invalidate
+  invalidateQueries: [{ queryKey: ['CustomerProjects'] }],
 });
-refetch(); // Refresh parent data
-dispatch(showSuccess(translate('Component has been removed.')));
+
+// Use .mutateAsync for form submission
+const onSubmit = (formData) => saveProjectMutation.mutateAsync(formData);
+
+// Use .mutate for simple action buttons
+const onDelete = () => deleteMutation.mutate({});
 ```
+
+**Benefits:**
+
+- **Automatic modal closure** upon successful completion.
+- **Declarative notifications** for success/error handling.
+- **Easy state sync** with table reloads using `refetch` or `invalidateQueries`.
+- **Integrated confirmation** dialog support.
 
 ### Refresh Strategies
 
-| Strategy | Implementation | Use Case |
-|----------|----------------|----------|
-| **Explicit Refetch** | `const { refetch } = useQuery(...); await refetch();` | Manual refresh after CRUD operations |
-| **Table Refresh Button** | `<TableRefreshButton onClick={() => props.fetch(true)} />` | User-initiated refresh |
-| **Automatic Polling** | `pullInterval` in Redux saga | Real-time data updates |
-| **Query Invalidation** | `queryClient.invalidateQueries(['queryKey'])` | Cache invalidation |
+| Strategy                 | Implementation                                             | Use Case                             |
+| ------------------------ | ---------------------------------------------------------- | ------------------------------------ |
+| **Explicit Refetch**     | `const { refetch } = useQuery(...); await refetch();`      | Manual refresh after CRUD operations |
+| **Table Refresh Button** | `<TableRefreshButton onClick={() => props.fetch(true)} />` | User-initiated refresh               |
+| **Automatic Polling**    | `refetchInterval` in React Query                           | Real-time data updates               |
+| **Query Invalidation**   | `queryClient.invalidateQueries(['queryKey'])`              | Cache invalidation                   |
 
 ## Error Handling and Loading States
 
@@ -191,11 +156,7 @@ export const queryClient = new QueryClient({
 Primary API client with typed endpoints:
 
 ```typescript
-import {
-  projectsCreate,
-  projectsList,
-  customersList
-} from 'waldur-js-client';
+import { projectsCreate, projectsList, customersList } from 'waldur-js-client';
 
 // Typed API calls with request/response types
 const response = await projectsCreate({
@@ -210,19 +171,34 @@ const response = await projectsCreate({
 
 Dynamic data loading for form fields:
 
-```typescript
-<Field
-  component={Select}
-  name="customer"
-  loadOptions={(query, prevOptions, page) =>
-    organizationAutocomplete(query, prevOptions, page, {
-      field: ['uuid', 'name', 'url'],
-      o: 'name',
-    })
-  }
-  getOptionLabel={(option) => option.name}
-  getOptionValue={(option) => option.url}
-/>
+```tsx
+import { useMemo } from 'react';
+import { Field } from 'react-final-form';
+import { customersList } from 'waldur-js-client';
+
+import { AsyncSelect } from '@/form/select';
+import { createLoadOptions } from '@/form/select/createLoadOptions';
+
+export const MyComponent = () => {
+  const loadOrganizations = useMemo(
+    () =>
+      createLoadOptions(customersList, 'query', {
+        field: ['uuid', 'name', 'url'],
+        o: 'name',
+      }),
+    [],
+  );
+
+  return (
+    <Field
+      component={AsyncSelect}
+      name="customer"
+      loadOptions={loadOrganizations}
+      getOptionLabel={(option) => option.name}
+      getOptionValue={(option) => option.url}
+    />
+  );
+};
 ```
 
 ## Caching Strategies
@@ -250,17 +226,4 @@ Dynamic data loading for form fields:
 6. **API Integration**: Prefer `waldur-js-client` over direct fetch calls
 7. **Form Validation**: Use async validation with API dependency checking
 
-This data loading architecture demonstrates the application's evolution toward modern React patterns while maintaining backward compatibility with existing table infrastructure and Redux-based components.
-
-## Migration Patterns
-
-The application shows clear migration from Redux to React Query:
-
-| Aspect | Redux Pattern | React Query Pattern |
-|--------|---------------|---------------------|
-| **Data Loading** | Redux actions + sagas | `useQuery` hooks |
-| **Caching** | Redux store | Query cache |
-| **Error Handling** | Redux error actions | Query error states |
-| **Loading States** | Redux loading flags | `isLoading` state |
-| **Refresh** | Dispatch actions | `refetch()` function |
-| **Polling** | Saga intervals | Query refetch intervals |
+This data loading architecture demonstrates the application's comprehensive utilization of modern React patterns for seamless API integrations.

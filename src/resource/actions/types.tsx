@@ -1,7 +1,7 @@
 import { ComponentType } from 'react';
 import { User } from 'waldur-js-client';
 
-import { BaseResource } from '@waldur/resource/types';
+import { BaseResource } from '@/resource/types';
 
 interface BaseField<Resource> {
   name: string;
@@ -14,6 +14,7 @@ interface BaseField<Resource> {
   resource_default_value?: boolean;
   help_text?: string;
   formGroupClass?: string;
+  parse?: (value: any, name: string) => any;
 }
 
 interface TextField<Resource> extends BaseField<Resource> {
@@ -44,7 +45,7 @@ export type ActionValidator<Resource> = (
 
 export interface ActionContext<Resource = BaseResource> {
   resource: Resource;
-  user: Pick<User, 'is_staff' | 'is_support'>;
+  user: Pick<User, 'is_staff' | 'is_support' | 'permissions'>;
 }
 
 export type ActionItemType<T = any> = ComponentType<{

@@ -1,4 +1,4 @@
-import { StateIndicator } from '@waldur/core/StateIndicator';
+import { StateIndicator } from '@/core/StateIndicator';
 
 const LABEL_CLASSES = {
   draft: 'info',
@@ -11,7 +11,7 @@ export const CampaignStateIndicator = ({ row }) => (
     label={row.state}
     variant={LABEL_CLASSES[row.state] || 'info'}
     active={row.state === 'pending'}
-    outline
-    pill
+    tone="outline"
+    shape="pill"
   />
 );

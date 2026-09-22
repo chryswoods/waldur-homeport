@@ -1,35 +1,36 @@
 import { ChartPieIcon } from '@phosphor-icons/react';
-import { useDispatch } from 'react-redux';
 import { Resource } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { ActionItem } from '@/resource/actions/ActionItem';
+
+import { ResourceAction } from '../actions/constants';
 
 const ResourceShowUsageDialog = lazyComponent(() =>
-  import('@waldur/marketplace/resources/usage/ResourceShowUsageDialog').then(
+  import('@/marketplace/resources/usage/ResourceShowUsageDialog').then(
     (module) => ({ default: module.ResourceShowUsageDialog }),
   ),
 );
 
 export const ShowUsageAction = ({ resource }: { resource: Resource }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const callback = (resource) => {
-    dispatch(
-      openModalDialog(ResourceShowUsageDialog, {
-        resolve: {
-          resource,
-        },
-        size: 'lg',
-      }),
-    );
+    openDialog(ResourceShowUsageDialog, {
+      resolve: {
+        resource,
+      },
+      size: 'lg',
+    });
   };
   const isDisabled = !resource.is_usage_based && !resource.is_limit_based;
   return (
     <ActionItem
       title={translate('Show usage')}
       iconNode={<ChartPieIcon weight="bold" />}
+      actionId={ResourceAction.SHOW_USAGE}
+      resource={resource}
       action={() =>
         callback({
           ...resource,

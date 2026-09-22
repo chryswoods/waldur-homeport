@@ -1,11 +1,17 @@
-import type { AwardDetails } from '../bindings/AwardDetails';
+import { ManagedProject } from 'waldur-js-client';
 
-export const embargoedUntil = (row: any): string | null => {
-    const earliest = (row.details as AwardDetails).earliest_approve;
-    if (earliest && new Date(earliest) > new Date()) {
-        return earliest;
-    }
-    return null;
+/**
+ * The date this project's approval is held until, or null if it is not on
+ * hold. Exported for the dashboard card, which shows the date rather than
+ * just the fact of the embargo.
+ */
+export const embargoedUntil = (row: ManagedProject): string | null => {
+  const earliest = row.details?.earliest_approve;
+  if (earliest && new Date(earliest) > new Date()) {
+    return earliest;
+  }
+  return null;
 };
 
-export const isEmbargoed = (row: any): boolean => embargoedUntil(row) !== null;
+export const isEmbargoed = (row: ManagedProject): boolean =>
+  embargoedUntil(row) !== null;

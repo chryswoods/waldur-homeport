@@ -1,41 +1,42 @@
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
+import { useMemo } from 'react';
 import { MarketplaceProviderOfferingsListData } from 'waldur-js-client';
 
-import { PUBLIC_OFFERINGS_FILTER_FORM_ID } from '@waldur/marketplace/offerings/store/constants';
-import { getCustomer } from '@waldur/workspace/selectors';
+import {
+  MarketplaceProviderOfferingsFilter,
+  MarketplaceProviderOfferingsFilterFormId,
+  selectMarketplaceProviderOfferingsFilter,
+} from '@/table/generated/MarketplaceProviderOfferingsFilter';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useCustomer } from '@/workspace/hooks';
 
-import { OfferingsFilter as MyOfferingsFilter } from './OfferingsFilter';
 import { BaseOfferingsList } from './OfferingsList';
 
-const mapStateToFilter = createSelector(
-  getCustomer,
-  getFormValues(PUBLIC_OFFERINGS_FILTER_FORM_ID),
-  (customer, filterValues: any) => {
-    const filter: MarketplaceProviderOfferingsListData['query'] = {
+export const MyOfferingsList = () => {
+  const customer = useCustomer();
+  const values = useFilterValues('marketplace-my-offerings');
+  const filterValues = useMemo(
+    () => selectMarketplaceProviderOfferingsFilter(values),
+    [values],
+  );
+
+  const filter = useMemo(() => {
+    const result: MarketplaceProviderOfferingsListData['query'] = {
+      ...filterValues,
       billable: false,
     };
     if (customer) {
-      filter.customer_uuid = customer.uuid;
+      result.customer_uuid = customer.uuid;
     }
-    if (filterValues) {
-      if (filterValues.state) {
-        filter.state = filterValues.state.map((option) => option.value);
-      }
-    }
-    return filter;
-  },
-);
+    return result;
+  }, [customer, filterValues]);
 
-export const MyOfferingsList = () => {
-  const filter = useSelector(mapStateToFilter);
   return (
     <BaseOfferingsList
       table="marketplace-my-offerings"
+      formId={MarketplaceProviderOfferingsFilterFormId}
       filter={filter}
       showActions={false}
-      filters={<MyOfferingsFilter />}
+      filters={<MarketplaceProviderOfferingsFilter />}
     />
   );
 };

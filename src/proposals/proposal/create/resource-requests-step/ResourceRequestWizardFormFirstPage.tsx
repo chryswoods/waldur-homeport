@@ -1,14 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { FunctionComponent, useMemo } from 'react';
-import { Field } from 'redux-form';
+import { Field, useForm, useFormState } from 'react-final-form';
 import { proposalPublicCallsRetrieve } from 'waldur-js-client';
 
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { required } from '@waldur/core/validators';
-import { FormContainer, SelectField } from '@waldur/form';
-import { WizardForm, WizardFormStepProps } from '@waldur/form/WizardForm';
-import { translate } from '@waldur/i18n';
+import { SHORT_STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { required } from '@/core/validators';
+import { SelectField } from '@/form';
+import { translate } from '@/i18n';
+import { showsCallContext } from '@/proposals/presentation';
+import { WizardForm, WizardFormStepProps } from '@/wizard';
 
 export const ResourceRequestWizardFormFirstPage: FunctionComponent<
   WizardFormStepProps
@@ -27,7 +29,7 @@ export const ResourceRequestWizardFormFirstPage: FunctionComponent<
       }).then((r) => r.data),
 
     refetchOnWindowFocus: false,
-    staleTime: 60 * 1000,
+    staleTime: SHORT_STALE_TIME,
   });
   const options = useMemo(() => {
     if (!call) return [];
@@ -35,56 +37,83 @@ export const ResourceRequestWizardFormFirstPage: FunctionComponent<
       call.offerings
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         .map(({ options, ...rest }) => ({ ...rest })) // To avoid error on react-select because of group options
+        // Only an offering with a plan can be priced, so only those can be
+        // requested. A call can carry accepted offerings without one.
         .filter((opt) => Boolean(opt.plan))
     );
   }, [call]);
 
+  // Distinguish "this call offers nothing" from "it offers things that are not
+  // requestable" — the second is a call misconfiguration the applicant cannot
+  // act on, and saying only "there are no offerings" sends them hunting.
+  const hasPlanlessOfferings = Boolean(
+    call?.offerings?.length && options.length === 0,
+  );
+  const {
+    values: { offering },
+  } = useFormState({ subscription: { values: true } });
+  const { change } = useForm();
+
   return (
-    <WizardForm {...(props as any)} submitDisabled={options.length === 0}>
-      {(wizardProps) => {
-        const { offering } = wizardProps.formValues;
-        return (
-          <FormContainer
-            submitting={wizardProps.submitting}
-            clearOnUnmount={false}
-            className="size-lg row"
-          >
-            {isLoading ? (
-              <LoadingSpinner />
-            ) : error ? (
-              <LoadingErred loadData={refetch} />
-            ) : options.length === 0 ? (
-              <h2 className="text-center text-muted">
-                {translate('There are no offerings')}
-              </h2>
+    <WizardForm {...props}>
+      <div className="size-lg row">
+        {isLoading ? (
+          <LoadingSpinner />
+        ) : error ? (
+          <LoadingErred loadData={refetch} />
+        ) : options.length === 0 ? (
+          <div className="text-center text-muted">
+            <h2 className="text-muted">
+              {translate('There are no offerings to request')}
+            </h2>
+            {hasPlanlessOfferings ? (
+              <p className="mb-0">
+                {showsCallContext()
+                  ? translate(
+                      'This call lists offerings, but none of them has a plan, so none can be requested. Ask the call manager to set one.',
+                    )
+                  : translate(
+                      'The offerings here are not priced yet, so none can be requested. Please contact support.',
+                    )}
+              </p>
             ) : (
-              <Field<any>
-                name="offering"
+              <p className="mb-0">
+                {showsCallContext()
+                  ? translate('No offerings have been added to this call yet.')
+                  : translate('There is nothing available to request yet.')}
+              </p>
+            )}
+          </div>
+        ) : (
+          <Field<any> name="offering" validate={required}>
+            {({ input, meta }) => (
+              <SelectField
+                input={input}
+                meta={meta}
                 options={options}
                 isClearable={true}
-                component={SelectField}
                 getOptionValue={(option) => option.uuid}
                 getOptionLabel={(option) => option.offering_name}
                 placeholder={translate('Select offering...')}
                 isLoading={isLoading}
                 noUpdateOnBlur
-                validate={required}
                 onChange={(value) => {
+                  input.onChange(value);
                   if (value?.uuid !== offering?.uuid) {
-                    wizardProps.change('plan', value.plan);
+                    change('plan', value?.plan);
                   }
                 }}
               />
             )}
-            {offering && (
-              <p>
-                <strong>{translate('Service provider')}: </strong>
-                {offering.provider_name}
-              </p>
-            )}
-          </FormContainer>
-        );
-      }}
+          </Field>
+        )}
+        {offering && (
+          <p className="mt-5">
+            <strong>{translate('Service provider')}: </strong>
+            {offering.provider_name}
+          </p>
+        )}
+      </div>
     </WizardForm>
   );
 };

@@ -1,12 +1,11 @@
 import { PencilSimpleIcon } from '@phosphor-icons/react';
 import React from 'react';
-import { useDispatch } from 'react-redux';
 import { CustomerUser, NestedProjectPermission } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { ActionItem } from '@/resource/actions/ActionItem';
 
 const EditProjectUserDialog = lazyComponent(() =>
   import('./EditProjectUserDialog').then((module) => ({
@@ -25,17 +24,15 @@ export const EditProjectUserButton: React.FC<EditProjectUserButtonProps> = ({
   customer,
   refetch,
 }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const callback = () =>
-    dispatch(
-      openModalDialog(EditProjectUserDialog, {
-        resolve: {
-          project,
-          customer,
-          refetch,
-        },
-      }),
-    );
+    openDialog(EditProjectUserDialog, {
+      resolve: {
+        project,
+        customer,
+        refetch,
+      },
+    });
   return (
     <ActionItem
       title={translate('Edit')}

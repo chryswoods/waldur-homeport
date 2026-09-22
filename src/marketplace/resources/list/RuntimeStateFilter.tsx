@@ -1,48 +1,68 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCurrentStateAndParams } from '@uirouter/react';
 import React from 'react';
-import { useSelector } from 'react-redux';
-import { Field } from 'redux-form';
 import { marketplaceRuntimeStatesList } from 'waldur-js-client';
 
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { REACT_SELECT_TABLE_FILTER, Select } from '@waldur/form/themed-select';
-import { translate } from '@waldur/i18n';
-import { getProject } from '@waldur/workspace/selectors';
+import { translate } from '@/i18n';
+import { SelectFilter } from '@/table';
+import { useProject } from '@/workspace/hooks';
 
-export const RuntimeStateFilter: React.FC<{}> = () => {
+interface RuntimeStateFilterProps {
+  /** Limits the offered states to the resources of a single offering. */
+  offeringUuid?: string;
+  /** Limits the offered states to the resources of a single organization. */
+  customerUuid?: string;
+  [key: string]: any;
+}
+
+export const RuntimeStateFilter: React.FC<RuntimeStateFilterProps> = ({
+  offeringUuid,
+  customerUuid,
+  ...props
+}) => {
   const { params } = useCurrentStateAndParams();
-  const project = useSelector(getProject);
+  const project = useProject();
+  const categoryUuid = params.category_uuid;
+  const projectUuid = project?.uuid;
+  const hasScope = Boolean(
+    offeringUuid || categoryUuid || projectUuid || customerUuid,
+  );
 
   const { data, isLoading } = useQuery({
-    queryKey: ['runtime-states', project?.uuid, params.category_uuid],
-
+    queryKey: [
+      'runtime-states',
+      projectUuid,
+      categoryUuid,
+      offeringUuid,
+      customerUuid,
+    ],
     queryFn: () =>
       marketplaceRuntimeStatesList({
         query: {
-          project_uuid: project?.uuid,
-          category_uuid: params.category_uuid,
+          project_uuid: projectUuid,
+          category_uuid: categoryUuid,
+          offering_uuid: offeringUuid,
+          customer_uuid: customerUuid,
         },
       }).then((r) => r.data),
+    enabled: hasScope,
   });
 
-  if (isLoading) {
-    return <LoadingSpinner />;
+  if (!hasScope) {
+    return null;
   }
 
   return (
-    <Field
+    <SelectFilter
+      title={translate('Runtime state')}
       name="runtime_state"
-      component={(fieldProps) => (
-        <Select
-          placeholder={translate('Select state...')}
-          options={data}
-          value={fieldProps.input.value}
-          onChange={(value) => fieldProps.input.onChange(value)}
-          isClearable={true}
-          {...REACT_SELECT_TABLE_FILTER}
-        />
-      )}
+      badgeValue={(value) => value?.label}
+      placeholder={translate('Select state...')}
+      options={data}
+      isLoading={isLoading}
+      isDisabled={isLoading}
+      isClearable={true}
+      {...props}
     />
   );
 };

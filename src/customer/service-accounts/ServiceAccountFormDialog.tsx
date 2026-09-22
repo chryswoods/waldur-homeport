@@ -1,31 +1,23 @@
 import { PencilSimpleIcon, PlusCircleIcon } from '@phosphor-icons/react';
-import { useCallback, useMemo } from 'react';
-import { useDispatch } from 'react-redux';
-import { reduxForm } from 'redux-form';
+import { FC, useMemo } from 'react';
+import { Form } from 'react-final-form';
 import {
   CustomerServiceAccount,
-  CustomerServiceAccountRequest,
   marketplaceCustomerServiceAccountsCreate,
   marketplaceCustomerServiceAccountsPartialUpdate,
   marketplaceProjectServiceAccountsCreate,
   marketplaceProjectServiceAccountsPartialUpdate,
   ProjectServiceAccount,
-  ProjectServiceAccountRequest,
 } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import {
-  FormContainer,
-  StringField,
-  SubmitButton,
-  TextField,
-} from '@waldur/form';
-import { EmailField } from '@waldur/form/EmailField';
-import { translate } from '@waldur/i18n';
-import { closeModalDialog, openModalDialog } from '@waldur/modal/actions';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { lazyComponent } from '@/core/lazyComponent';
+import { required, email } from '@/core/validators';
+import { SubmitButton, StringGroup, EmailGroup, TextGroup } from '@/form';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { useNotify } from '@/store/notify';
 
 import { ServiceAccountsProps } from './type';
 
@@ -49,153 +41,159 @@ const ServiceAccountShowInfoDialog = lazyComponent(() =>
   })),
 );
 
-export const ServiceAccountFormDialog = reduxForm<
-  ServiceAccountFormData,
-  OwnProps
->({
-  form: 'SERVICE_ACCOUNT_FORM_ID',
-})(({
+export const ServiceAccountFormDialog: FC<OwnProps> = ({
   resolve: { row, context, scope, refetch },
-  submitting,
-  handleSubmit,
 }) => {
-  const dispatch = useDispatch();
+  const { showErrorResponse, showSuccess } = useNotify();
+  const { openDialog, closeDialog } = useModal();
 
   const isEdit = useMemo(() => !!row?.uuid, [row]);
 
-  const save = useCallback(
-    async (formData: ServiceAccountFormData) => {
-      try {
-        const {
-          preferred_identifier: _,
-          username: __,
-          ...updateData
-        } = formData;
-        const body =
-          context === 'customer'
-            ? ({
-                ...(isEdit ? updateData : formData),
-                customer: scope.uuid,
-              } as CustomerServiceAccountRequest)
-            : ({
-                ...(isEdit ? updateData : formData),
-                project: scope.uuid,
-              } as ProjectServiceAccountRequest);
-
-        let response;
-        if (isEdit) {
-          const api =
-            context === 'customer'
-              ? marketplaceCustomerServiceAccountsPartialUpdate
-              : marketplaceProjectServiceAccountsPartialUpdate;
-          response = await api({
-            path: { uuid: row.uuid },
-            body,
-          });
-          dispatch(closeModalDialog());
-        } else {
-          const api =
-            context === 'customer'
-              ? marketplaceCustomerServiceAccountsCreate
-              : marketplaceProjectServiceAccountsCreate;
-          response = await api({ body } as any);
-          dispatch(closeModalDialog());
-          // Open a dialog to show the API key
-          dispatch(
-            openModalDialog(ServiceAccountShowInfoDialog, {
-              resolve: {
-                username: response.data.username,
-                token: response.data.token,
-                expiresAt: response.data.expires_at,
-              },
-            }),
-          );
-        }
-
-        dispatch(
-          showSuccess(
-            isEdit
-              ? translate('Service account has been updated.')
-              : translate('Service account has been created.'),
-          ),
-        );
-        if (refetch) refetch();
-      } catch (e) {
-        dispatch(
-          showErrorResponse(
-            e,
-            isEdit
-              ? translate('Unable to edit service account.')
-              : translate("'Unable to create service account.'"),
-          ),
-        );
-      }
-    },
-    [dispatch, scope, refetch, isEdit, row],
+  const initialValues = useMemo(
+    () => row || ({} as ServiceAccountFormData),
+    [row],
   );
+
+  const save = async (formData: ServiceAccountFormData) => {
+    try {
+      let response;
+      if (isEdit) {
+        if (context === 'customer') {
+          response = await marketplaceCustomerServiceAccountsPartialUpdate({
+            path: { uuid: row.uuid },
+            body: {
+              email: formData.email,
+              description: formData.description,
+            },
+          });
+        } else {
+          response = await marketplaceProjectServiceAccountsPartialUpdate({
+            path: { uuid: row.uuid },
+            body: {
+              email: formData.email,
+              description: formData.description,
+            },
+          });
+        }
+        closeDialog();
+      } else {
+        if (context === 'customer') {
+          response = await marketplaceCustomerServiceAccountsCreate({
+            body: {
+              ...formData,
+              customer: scope.uuid,
+            },
+          });
+        } else {
+          response = await marketplaceProjectServiceAccountsCreate({
+            body: {
+              ...formData,
+              project: scope.uuid,
+            },
+          });
+        }
+        closeDialog();
+        // Open a dialog to show the API key
+        openDialog(ServiceAccountShowInfoDialog, {
+          resolve: {
+            username: response.data.username,
+            token: response.data.token,
+            expiresAt: response.data.expires_at,
+          },
+        });
+      }
+
+      showSuccess(
+        isEdit
+          ? translate('Service account has been updated.')
+          : translate('Service account has been created.'),
+      );
+      if (refetch) refetch();
+    } catch (e) {
+      showErrorResponse(
+        e,
+        isEdit
+          ? translate('Unable to edit service account.')
+          : translate('Unable to create service account.'),
+      );
+    }
+  };
 
   return (
-    <form onSubmit={handleSubmit(save)}>
-      <ModalDialog
-        title={
-          isEdit
-            ? translate('Edit service account')
-            : translate('Create service account')
-        }
-        iconNode={
-          isEdit ? (
-            <PencilSimpleIcon weight="bold" />
-          ) : (
-            <PlusCircleIcon weight="bold" />
-          )
-        }
-        iconColor="success"
-        closeButton
-        footer={
-          <>
-            <CloseDialogButton className="min-w-125px" />
-            <SubmitButton
-              submitting={submitting}
-              label={isEdit ? translate('Save') : translate('Create')}
-              className="btn btn-primary min-w-125px"
-            />
-          </>
-        }
-      >
-        <FormContainer submitting={submitting}>
-          <StringField
-            name={isEdit ? 'username' : 'preferred_identifier'}
-            label={
-              isEdit ? translate('Username') : translate('Preferred identifier')
-            }
-            placeholder={translate('e.g. backup')}
-            autoFocus
-            disabled={isEdit}
-            description={
+    <Form<ServiceAccountFormData>
+      onSubmit={save}
+      initialValues={initialValues}
+      render={({ handleSubmit, submitting, invalid }) => (
+        <form onSubmit={handleSubmit}>
+          <ModalDialog
+            title={
               isEdit
-                ? translate('Username of the service account.')
-                : translate(
-                    'Suggest an identifier to include into the generated username of the service account.',
-                  )
+                ? translate('Edit service account')
+                : translate('Create service account')
             }
-          />
+            iconNode={
+              isEdit ? (
+                <PencilSimpleIcon weight="bold" />
+              ) : (
+                <PlusCircleIcon weight="bold" />
+              )
+            }
+            iconColor="success"
+            footer={
+              <>
+                <CloseDialogButton className="min-w-125px" />
+                <SubmitButton
+                  submitting={submitting}
+                  label={isEdit ? translate('Save') : translate('Create')}
+                  disabled={invalid}
+                  className="btn btn-primary min-w-125px"
+                />
+              </>
+            }
+          >
+            <div className="size-sm">
+              <StringGroup
+                name={isEdit ? 'username' : 'preferred_identifier'}
+                label={
+                  isEdit
+                    ? translate('Username')
+                    : translate('Preferred identifier')
+                }
+                placeholder={translate('e.g. backup')}
+                autoFocus
+                disabled={submitting || isEdit}
+                validate={isEdit ? undefined : required}
+                required={!isEdit}
+                description={
+                  isEdit
+                    ? translate('Username of the service account.')
+                    : translate(
+                        'Suggest an identifier to include into the generated username of the service account.',
+                      )
+                }
+              />
 
-          <EmailField
-            name="email"
-            label={translate('Notification email')}
-            placeholder={translate('e.g. serviceaccount@example.com')}
-            description={translate(
-              'Email for receiving notifications about events connected with the service account.',
-            )}
-          />
+              <EmailGroup
+                name="email"
+                label={translate('Notification email')}
+                placeholder={translate('e.g. serviceaccount@example.com')}
+                validate={email}
+                description={translate(
+                  'Email for receiving notifications about events connected with the service account.',
+                )}
+                disabled={submitting}
+              />
 
-          <TextField
-            name="description"
-            label={translate('Description')}
-            placeholder={translate('e.g. Used for automated backups')}
-          />
-        </FormContainer>
-      </ModalDialog>
-    </form>
+              <TextGroup
+                name="description"
+                label={translate('Description')}
+                placeholder={translate('e.g. Used for automated backups')}
+                disabled={submitting}
+              />
+            </div>
+          </ModalDialog>
+        </form>
+      )}
+    />
   );
-});
+};

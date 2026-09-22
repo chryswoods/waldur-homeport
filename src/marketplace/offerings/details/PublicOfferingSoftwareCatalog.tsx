@@ -1,7 +1,7 @@
 import { FunctionComponent } from 'react';
+import { Offering } from 'waldur-js-client';
 
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { Offering } from '@waldur/marketplace/types';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
 
 import { PublicOfferingSoftwareCatalogTable } from './PublicOfferingSoftwareCatalogTable';
 
@@ -17,9 +17,5 @@ export const PublicOfferingSoftwareCatalog: FunctionComponent<
     return <LoadingSpinner />;
   }
 
-  return (
-    <div className="container-fluid">
-      <PublicOfferingSoftwareCatalogTable offering={data.offering} />
-    </div>
-  );
+  return <PublicOfferingSoftwareCatalogTable offering={data.offering} />;
 };

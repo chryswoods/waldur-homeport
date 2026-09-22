@@ -1,27 +1,33 @@
 import { useEffect, FunctionComponent } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 
-import { ENV } from '@waldur/core/config';
-import { translate } from '@waldur/i18n';
-import { openIssueCreateDialog } from '@waldur/issues/create/actions';
-import { ISSUE_IDS } from '@waldur/issues/types/constants';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { useModal } from '@waldur/modal/hooks';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { getCustomer, getUser } from '@waldur/workspace/selectors';
+import { ENV } from '@/core/config';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { ISSUE_CREATION_FORM_ID } from '@/issues/create/constants';
+import { ISSUE_IDS } from '@/issues/types/constants';
+import { useModal } from '@/modal/actions';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
+import { useUser, useCustomer } from '@/workspace/hooks';
+
+const IssueCreateDialog = lazyComponent(() =>
+  import('@/issues/create/IssueCreateDialog').then((module) => ({
+    default: module.IssueCreateDialog,
+  })),
+);
 
 export const RequestActionDialog: FunctionComponent<{
   resolve: { offering; offeringRequestMode };
 }> = ({ resolve: { offering, offeringRequestMode } }) => {
-  const dispatch = useDispatch();
-  const { closeDialog } = useModal();
-  const customer = useSelector(getCustomer);
-  const user = useSelector(getUser);
+  const { openDialog, closeDialog } = useModal();
+  const customer = useCustomer();
+  const user = useUser();
   useEffect(() => {
     if (ENV.plugins.WALDUR_SUPPORT.ENABLED) {
       closeDialog();
-      dispatch(
-        openIssueCreateDialog({
+      openDialog(IssueCreateDialog, {
+        resolve: {
           issue: {
             type: ISSUE_IDS.SERVICE_REQUEST,
             summary: translate('Request {mode} of public offering', {
@@ -71,16 +77,24 @@ export const RequestActionDialog: FunctionComponent<{
             descriptionLabel: translate('Description'),
             hideTitle: true,
           },
-        }),
-      );
+        },
+        dialogClassName: 'modal-dialog-centered mw-650px',
+        formId: ISSUE_CREATION_FORM_ID,
+      });
     }
-  });
+  }, [closeDialog, openDialog, offering, offeringRequestMode, customer, user]);
+
   return (
     <ModalDialog
-      title={translate('Request {mode} of {name}', {
-        name: offering.name,
+      title={translate('Request {mode} of offering', {
         mode: offeringRequestMode,
       })}
+      subtitle={
+        <ScopeSubtitle
+          label={translate('Offering name')}
+          name={offering.name}
+        />
+      }
       footer={<CloseDialogButton label={translate('Ok')} />}
     >
       <p>

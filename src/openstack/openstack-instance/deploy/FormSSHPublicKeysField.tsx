@@ -1,45 +1,51 @@
 import { PlusCircleIcon } from '@phosphor-icons/react';
-import { useCallback } from 'react';
-import { Button } from 'react-bootstrap';
-import { useDispatch, useSelector } from 'react-redux';
-import { createSelector } from 'reselect';
+import { useCallback, useMemo } from 'react';
+import { useForm } from 'react-final-form';
 import { keysList, KeysListData } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { FormStepProps } from '@waldur/marketplace/deploy/types';
-import { createFetcher } from '@waldur/table/api';
-import Table from '@waldur/table/Table';
-import { TableProps } from '@waldur/table/types';
-import { useTable } from '@waldur/table/useTable';
-import { keyCreateDialog } from '@waldur/user/keys/actions';
-import { keysListTable } from '@waldur/user/keys/constants';
-import { getUser } from '@waldur/workspace/selectors';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { ActionButton } from '@/table/ActionButton';
+import { createFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { TableProps } from '@/table/types';
+import { useTable } from '@/table/useTable';
+import { keysListTable } from '@/user/keys/constants';
+import { useUser } from '@/workspace/hooks';
 
-const filtersSelector = createSelector(getUser, (user) => {
-  const result: KeysListData['query'] = {};
-  if (user) {
-    result.user_uuid = user.uuid;
-  }
-  return result;
-});
+const KeyCreateDialog = lazyComponent(() =>
+  import('@/user/keys/KeyCreateDialog').then((module) => ({
+    default: module.KeyCreateDialog,
+  })),
+);
 
-interface OwnProps extends Pick<FormStepProps, 'change'>, Partial<TableProps> {}
-
-export const FormSSHPublicKeysField = ({ change, ...props }: OwnProps) => {
-  const filter = useSelector(filtersSelector);
+export const FormSSHPublicKeysField = (props: Partial<TableProps>) => {
+  const form = useForm();
+  const user = useUser();
+  const filter = useMemo(() => {
+    const result: KeysListData['query'] = {};
+    if (user) {
+      result.user_uuid = user.uuid;
+    }
+    return result;
+  }, [user]);
   const tableProps = useTable({
     table: keysListTable,
     fetchData: createFetcher(keysList),
     onFetch: (rows, totalCount, firstFetch) => {
       if (firstFetch && totalCount === 1 && rows.length === 1) {
-        change('attributes.ssh_public_key', rows[0]);
+        form.change('attributes.ssh_public_key', rows[0]);
       }
     },
     filter,
   });
 
-  const dispatch = useDispatch();
-  const openFormDialog = useCallback(() => dispatch(keyCreateDialog()), []);
+  const { openDialog } = useModal();
+  const openFormDialog = useCallback(
+    () => openDialog(KeyCreateDialog, { size: 'lg' }),
+    [openDialog],
+  );
 
   return (
     <Table
@@ -62,16 +68,12 @@ export const FormSSHPublicKeysField = ({ change, ...props }: OwnProps) => {
       title={translate('SSH public keys')}
       verboseName={translate('SSH keys')}
       tableActions={
-        <Button
-          variant="tertiary"
+        <ActionButton
+          action={openFormDialog}
+          title={translate('Create new')}
+          iconNode={<PlusCircleIcon weight="bold" />}
           className="text-nowrap"
-          onClick={openFormDialog}
-        >
-          <span className="svg-icon svg-icon-2">
-            <PlusCircleIcon weight="bold" />
-          </span>
-          {translate('Create new')}
-        </Button>
+        />
       }
       hoverable
       fieldType="radio"

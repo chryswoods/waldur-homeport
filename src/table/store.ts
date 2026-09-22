@@ -2,8 +2,8 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { isEqual } from 'lodash-es';
 import { Reducer } from 'redux';
 
-import { ALL_RESOURCES_TABLE_ID } from '@waldur/marketplace/resources/list/constants';
-import { createByKey } from '@waldur/store/utils';
+import { ALL_RESOURCES_TABLE_ID } from '@/marketplace/resources/list/constants';
+import { createByKey } from '@/store/utils';
 
 import * as actions from './actions';
 import { INITIAL_STATE } from './constants';
@@ -147,7 +147,10 @@ const pagination = (state = INITIAL_STATE, action): TableState => {
         (Array.isArray(item.value) && !item.value.length);
 
       if (index > -1) {
-        if (isEqual(state.filtersStorage[index].value, item.value)) {
+        if (
+          isEqual(state.filtersStorage[index].value, item.value) &&
+          state.filtersStorage[index].component === item.component
+        ) {
           return state;
         }
         const newItems = [...state.filtersStorage];
@@ -177,6 +180,32 @@ const pagination = (state = INITIAL_STATE, action): TableState => {
         applyFilters: action.payload.apply,
       };
 
+    case actions.REGISTER_FILTER_NAME: {
+      const name = action.payload.name;
+      if (!name || state.registeredFilterNames?.includes(name)) {
+        return state;
+      }
+      return {
+        ...state,
+        registeredFilterNames: [...(state.registeredFilterNames || []), name],
+      };
+    }
+
+    case actions.CLEAR_REGISTERED_FILTER_NAMES:
+      if (!state.registeredFilterNames?.length) {
+        return state;
+      }
+      return {
+        ...state,
+        registeredFilterNames: [],
+      };
+
+    case actions.CLEAR_ALL_FILTERS:
+      return {
+        ...state,
+        filtersStorage: [],
+      };
+
     case actions.SET_SAVED_FILTERS:
       return {
         ...state,
@@ -196,6 +225,12 @@ const pagination = (state = INITIAL_STATE, action): TableState => {
           ...state.toggled,
           [action.payload.row]: !state.toggled[action.payload.row],
         },
+      };
+
+    case actions.SET_TOGGLED:
+      return {
+        ...state,
+        toggled: action.payload.toggled,
       };
 
     case actions.SELECT_ROW: {
@@ -276,6 +311,24 @@ const pagination = (state = INITIAL_STATE, action): TableState => {
         columnPositions: arrayMove(state.columnPositions, oldIndex, newIndex),
       };
     }
+
+    case actions.TOGGLE_COLUMN_PIN: {
+      const current = state.pinnedColumnKeys || [];
+      return {
+        ...state,
+        pinnedColumnKeys: current.includes(action.payload.id)
+          ? current.filter((key) => key !== action.payload.id)
+          : [...current, action.payload.id],
+      };
+    }
+
+    case actions.RESET_COLUMNS:
+      return {
+        ...state,
+        activeColumns: {},
+        columnPositions: [],
+        pinnedColumnKeys: [],
+      };
 
     default:
       return state;

@@ -1,4 +1,7 @@
 import { Form, InputGroup } from 'react-bootstrap';
+import { PublicOfferingDetails, Offering } from 'waldur-js-client';
+
+import { getLimitStep } from '@/marketplace/common/utils';
 
 import { Component } from './types';
 
@@ -8,10 +11,13 @@ export const MeasuredUnitInput = ({
 }: {
   input: any;
   component: Component;
+  offering?: PublicOfferingDetails | Offering;
 }) => (
   <InputGroup className="mw-200px">
     <Form.Control
+      name={input.name}
       type="number"
+      step={getLimitStep(component)}
       min={component.min_value || 0}
       max={component.max_value}
       aria-describedby={`basic-addon-${component.type}`}

@@ -1,14 +1,12 @@
 import { FC } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { ProviderOfferingDetails } from 'waldur-js-client';
+import { Offering } from 'waldur-js-client';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { EditButton } from '@waldur/form/EditButton';
-import { openModalDialog } from '@waldur/modal/actions';
-import { PermissionEnum } from '@waldur/permissions/enums';
-import { hasPermission } from '@waldur/permissions/hasPermission';
-import { useUser } from '@waldur/workspace/hooks';
-import { getCustomer } from '@waldur/workspace/selectors';
+import { lazyComponent } from '@/core/lazyComponent';
+import { CompactEditButton } from '@/form/CompactEditButton';
+import { useModal } from '@/modal/actions';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission } from '@/permissions/hasPermission';
+import { useCustomer, useUser } from '@/workspace/hooks';
 
 import { ACTIVE, DRAFT, PAUSED } from '../../store/constants';
 
@@ -21,24 +19,22 @@ const UpdateOfferingMediaDialog = lazyComponent(() =>
 );
 
 export const OfferingMediaButton: FC<{
-  offering: ProviderOfferingDetails;
+  offering: Pick<Offering, 'uuid' | 'thumbnail' | 'image' | 'state'>;
   refetch: () => void;
   mediaType: MediaType;
 }> = (props) => {
   const user = useUser();
-  const customer = useSelector(getCustomer);
-  const dispatch = useDispatch();
+  const customer = useCustomer();
+  const { openDialog } = useModal();
 
   const callback = () =>
-    dispatch(
-      openModalDialog(UpdateOfferingMediaDialog, {
-        resolve: {
-          offering: props.offering,
-          refetch: props.refetch,
-          mediaType: props.mediaType,
-        },
-      }),
-    );
+    openDialog(UpdateOfferingMediaDialog, {
+      resolve: {
+        offering: props.offering,
+        refetch: props.refetch,
+        mediaType: props.mediaType,
+      },
+    });
 
   if (
     user.is_staff ||
@@ -48,6 +44,6 @@ export const OfferingMediaButton: FC<{
         customerId: customer.uuid,
       }))
   )
-    return <EditButton onClick={callback} size="sm" />;
+    return <CompactEditButton onClick={callback} variant="secondary" />;
   return null;
 };

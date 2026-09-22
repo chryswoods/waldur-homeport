@@ -1,12 +1,8 @@
-import { TrashIcon } from '@phosphor-icons/react';
-import { useState, useCallback } from 'react';
-import { useDispatch } from 'react-redux';
 import { AccessSubnet, accessSubnetsDestroy } from 'waldur-js-client';
 
-import { translate, formatJsxTemplate } from '@waldur/i18n';
-import { waitForConfirmation } from '@waldur/modal/actions';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { translate, formatJsxTemplate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { RemovalActionItem } from '@/resource/actions/RemovalActionItem';
 
 interface AccessSubnetDeleteButtonProps {
   row: AccessSubnet;
@@ -16,45 +12,33 @@ interface AccessSubnetDeleteButtonProps {
 export const AccessSubnetDeleteButton = (
   props: AccessSubnetDeleteButtonProps,
 ) => {
-  const dispatch = useDispatch();
-  const [removing, setRemoving] = useState(false);
+  const { mutate, isPending } = useManagedMutation<any, any, void>({
+    mutationFn: () => accessSubnetsDestroy({ path: { uuid: props.row.uuid } }),
+    refetch: props.refetch,
 
-  const openDialog = useCallback(async () => {
-    try {
-      await waitForConfirmation(
-        dispatch,
-        translate('Confirmation'),
-        translate(
-          'Are you sure you want to delete the {inet} access subnet?',
-          { inet: <strong>{props.row.inet}</strong> },
-          formatJsxTemplate,
-        ),
-        { forDeletion: true },
-      );
-    } catch {
-      return;
-    }
-    setRemoving(true);
-    try {
-      await accessSubnetsDestroy({ path: { uuid: props.row.uuid } });
-      props.refetch();
-      dispatch(showSuccess(translate('Access subnet has been removed.')));
-    } catch (e) {
-      dispatch(
-        showErrorResponse(e, translate('Unable to remove access subnet.')),
-      );
-      setRemoving(false);
-    }
-  }, [dispatch, props]);
+    confirmation: {
+      title: translate('Confirmation'),
+
+      body: translate(
+        'Are you sure you want to delete the {inet} access subnet?',
+        { inet: <strong>{props.row.inet}</strong> },
+        formatJsxTemplate,
+      ),
+
+      options: {
+        forDeletion: true,
+      },
+    },
+
+    successMessage: translate('Access subnet has been removed.'),
+    errorMessage: translate('Unable to remove access subnet.'),
+  });
 
   return (
-    <ActionItem
+    <RemovalActionItem
       title={translate('Remove')}
-      action={openDialog}
-      disabled={removing}
-      iconNode={<TrashIcon />}
-      className="text-danger"
-      iconColor="danger"
+      action={mutate}
+      disabled={isPending}
     />
   );
 };

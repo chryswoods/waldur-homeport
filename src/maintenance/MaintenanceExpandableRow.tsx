@@ -4,12 +4,14 @@ import {
   MaintenanceAnnouncementOffering,
 } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { ExpandableContainer } from '@waldur/table/ExpandableContainer';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-import { renderFieldOrDash } from '@waldur/table/utils';
+import { translate } from '@/i18n';
+import { createClientPaginatedFetcher } from '@/table/api';
+import { ExpandableContainer } from '@/table/ExpandableContainer';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
+import { InternalNotes } from './InternalNotesField';
 import { MAINTENANCE_IMPACT_LEVEL } from './types';
 
 export const MaintenanceExpandableRow: FC<{
@@ -17,10 +19,7 @@ export const MaintenanceExpandableRow: FC<{
 }> = ({ row: maintenance }) => {
   const tableProps = useTable({
     table: 'MaintenanceAnnouncement-' + maintenance.uuid,
-    fetchData: () =>
-      Promise.resolve({
-        rows: maintenance.affected_offerings,
-      }),
+    fetchData: createClientPaginatedFetcher(maintenance.affected_offerings),
   });
 
   useEffect(() => {
@@ -29,6 +28,7 @@ export const MaintenanceExpandableRow: FC<{
 
   return (
     <ExpandableContainer>
+      <InternalNotes maintenance={maintenance} space={5} />
       <Table<MaintenanceAnnouncementOffering>
         {...tableProps}
         columns={[
@@ -50,6 +50,7 @@ export const MaintenanceExpandableRow: FC<{
         verboseName={translate('Affected offerings')}
         hasActionBar={false}
         minHeight="auto"
+        equalColWidth
       />
     </ExpandableContainer>
   );

@@ -1,33 +1,41 @@
 import { InfoIcon } from '@phosphor-icons/react';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
+import { useFormState } from 'react-final-form';
 
-import { ENV } from '@waldur/core/config';
-import { Tip } from '@waldur/core/Tooltip';
-import { translate } from '@waldur/i18n';
+import { Tooltip } from 'waldur-ui';
 
-import { ISSUE_CREATION_FORM_ID } from './constants';
+import { ENV } from '@/core/config';
+import { translate } from '@/i18n';
+
 import { IssueFormData } from './types';
 
 export const IssueDetailsStepLabel = () => {
-  const formValues = useSelector(
-    getFormValues(ISSUE_CREATION_FORM_ID),
-  ) as IssueFormData;
+  const { values: formValues } = useFormState<IssueFormData>();
+
+  const hasDetails =
+    Boolean(
+      ENV.plugins.WALDUR_SUPPORT?.DISPLAY_REQUEST_TYPE && formValues?.type,
+    ) ||
+    Boolean(formValues?.customer) ||
+    Boolean(formValues?.project) ||
+    Boolean(formValues?.resource);
 
   return (
     <>
       {translate('Issue details')}
-      {formValues && (
+      {hasDetails && (
         <span className="mx-2">
-          <Tip
+          <Tooltip
             label={
               <>
-                {ENV.plugins.WALDUR_SUPPORT?.DISPLAY_REQUEST_TYPE && (
-                  <div>
-                    <strong>{translate('Request type')}</strong>:{' '}
-                    {formValues.type.label}
-                  </div>
-                )}
+                {ENV.plugins.WALDUR_SUPPORT?.DISPLAY_REQUEST_TYPE &&
+                  formValues.type && (
+                    <div>
+                      <strong>{translate('Request type')}</strong>:{' '}
+                      {typeof formValues.type === 'string'
+                        ? formValues.type
+                        : formValues.type.label}
+                    </div>
+                  )}
                 {formValues.customer && (
                   <div>
                     <strong>{translate('Organization')}</strong>:{' '}
@@ -48,10 +56,9 @@ export const IssueDetailsStepLabel = () => {
                 )}
               </>
             }
-            id="tooltip"
           >
-            <InfoIcon />
-          </Tip>
+            <InfoIcon weight="bold" />
+          </Tooltip>
         </span>
       )}
     </>

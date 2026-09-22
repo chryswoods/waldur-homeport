@@ -1,40 +1,29 @@
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
-import { createSelector } from 'reselect';
-import { emailLogsList, EmailLogsListData } from 'waldur-js-client';
+import { useMemo } from 'react';
+import { emailLogsList } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { FormattedHtml } from '@waldur/core/FormattedHtml';
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import { ExpandableContainer } from '@waldur/table/ExpandableContainer';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
-
-import { SupportEmailLogsFilter } from './SupportEmailLogsFilter';
-
-const mapStateToFilter = createSelector(
-  getFormValues('SupportEmailLogsFilter'),
-  (filterValues: any) => {
-    const result: EmailLogsListData['query'] = {};
-    if (filterValues?.subject) {
-      result.subject = filterValues.subject;
-    }
-    if (filterValues?.emails) {
-      result.emails = filterValues.emails;
-    }
-    if (filterValues?.sent_at) {
-      result.sent_at = filterValues.sent_at;
-    }
-    return result;
-  },
-);
+import { formatDateTime } from '@/core/dateUtils';
+import { FormattedHtml } from '@/core/FormattedHtml';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import { ExpandableContainer } from '@/table/ExpandableContainer';
+import {
+  selectEmailLogsFilter as selectSupportEmailLogsFilter,
+  EmailLogsFilter as SupportEmailLogsFilter,
+  EmailLogsFilterFormId,
+} from '@/table/generated/EmailLogsFilter';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 export const SupportEmailLogsList = () => {
-  const filter = useSelector(mapStateToFilter);
+  const values = useFilterValues(`supportEmailLogs`);
+
+  const filter = useMemo(() => selectSupportEmailLogsFilter(values), [values]);
 
   const tableProps = useTable({
     table: `supportEmailLogs`,
+    syncFiltersToURL: true,
     fetchData: createFetcher(emailLogsList),
     queryField: 'body',
     filter,
@@ -49,7 +38,7 @@ export const SupportEmailLogsList = () => {
           title: translate('Subject'),
           orderField: 'subject',
           render: ({ row }) => <>{row.subject}</>,
-          export: (row) => row.subject || 'N/A',
+          export: (row) => renderFieldOrDash(row.subject),
         },
         {
           title: translate('Sent at'),
@@ -71,6 +60,7 @@ export const SupportEmailLogsList = () => {
           <FormattedHtml html={row.body} />
         </ExpandableContainer>
       )}
+      formId={EmailLogsFilterFormId}
     />
   );
 };

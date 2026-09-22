@@ -6,8 +6,6 @@ export const PAUSED = 'Paused';
 
 export const ARCHIVED = 'Archived';
 
-export const PUBLIC_OFFERINGS_FILTER_FORM_ID = 'OfferingsFilter';
+export const UNAVAILABLE = 'Unavailable';
 
 export const IMAGES_TABLE_NAME = 'marketplace-offering-images';
-
-export const OFFERING_IMAGES_FORM_ID = 'marketplaceOfferingImages';

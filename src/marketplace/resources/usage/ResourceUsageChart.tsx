@@ -1,14 +1,13 @@
 import { FunctionComponent, useCallback, useMemo } from 'react';
-import { useDispatch } from 'react-redux';
+import { OfferingComponent } from 'waldur-js-client';
 
-import { EChart } from '@waldur/core/EChart';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { getEChartOptions } from '@waldur/marketplace/resources/usage/utils';
-import { OfferingComponent } from '@waldur/marketplace/types';
-import { openModalDialog } from '@waldur/modal/actions';
+import { EChart } from '@/core/EChart';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { getEChartOptions } from '@/marketplace/resources/usage/utils';
+import { useModal } from '@/modal/actions';
 
-import { ComponentUsage, ComponentUserUsage } from './types';
+import { ComponentUserUsage } from './types';
 
 const UserUsagesDialog = lazyComponent(() =>
   import('./UserUsagesDialog').then((module) => ({
@@ -19,8 +18,11 @@ const UserUsagesDialog = lazyComponent(() =>
 interface ResourceUsageChartProps {
   resource?: { name?: string };
   offeringComponent: OfferingComponent;
-  usages: ComponentUsage[];
-  userUsages?: ComponentUserUsage[];
+  usages: any[];
+  userUsages?: Pick<
+    ComponentUserUsage,
+    'username' | 'component_type' | 'billing_period'
+  >[];
   months: number;
   chartColor: string;
   hasExport?: boolean;
@@ -35,19 +37,17 @@ export const ResourceUsageChart: FunctionComponent<ResourceUsageChartProps> = ({
   chartColor,
   hasExport,
 }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const openUserUsagesDetailsDialog = useCallback(
     (userUsages: ComponentUserUsage[]) =>
-      dispatch(
-        openModalDialog(UserUsagesDialog, {
-          resolve: {
-            userUsages,
-            component: offeringComponent,
-          },
-          size: 'sm',
-        }),
-      ),
-    [dispatch],
+      openDialog(UserUsagesDialog, {
+        resolve: {
+          userUsages,
+          component: offeringComponent,
+        },
+        size: 'sm',
+      }),
+    [],
   );
 
   const options = useMemo(

@@ -1,7 +1,10 @@
-import { FC, PropsWithChildren } from 'react';
+import { FC, ReactNode } from 'react';
 
-import { ReadOnlyFormControl } from '@waldur/form/ReadOnlyFormControl';
-import { Proposal, ProposalReview } from '@waldur/proposals/types';
+import {
+  ReadOnlyChildProps,
+  ReadOnlyFormControl,
+} from '@/form/ReadOnlyFormControl';
+import { Proposal, ProposalReview } from '@/proposals/types';
 
 import { AddCommentButton } from '../create-review/AddCommentButton';
 import { FieldReviewComments } from '../create-review/FieldReviewComments';
@@ -9,18 +12,22 @@ import { FieldReviewComments } from '../create-review/FieldReviewComments';
 interface CommentSectionProps {
   proposal: Proposal;
   reviews?: ProposalReview[];
-  valueField: string;
+  valueField?: string;
+  /** Shown instead of the proposal's own field, when the value is derived. */
+  value?: any;
   commentField: string;
   label?: string;
   tooltip?: string;
   inline?: boolean;
   spaceless?: boolean;
   onAddCommentClick?;
+  children?: ReactNode | ((props: ReadOnlyChildProps) => ReactNode);
 }
 
-export const CommentSection: FC<PropsWithChildren<CommentSectionProps>> = ({
+export const CommentSection: FC<CommentSectionProps> = ({
   proposal,
   valueField,
+  value,
   commentField,
   label,
   tooltip,
@@ -33,7 +40,7 @@ export const CommentSection: FC<PropsWithChildren<CommentSectionProps>> = ({
   <>
     <ReadOnlyFormControl
       label={label}
-      value={proposal[valueField]}
+      value={value !== undefined ? value : proposal[valueField]}
       inline={inline}
       spaceless={spaceless}
       tooltip={tooltip}

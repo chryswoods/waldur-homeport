@@ -1,12 +1,11 @@
 import { EyeIcon, InfoIcon } from '@phosphor-icons/react';
-import { useDispatch } from 'react-redux';
 import { ProposalReview } from 'waldur-js-client';
 
-import FormTable from '@waldur/form/FormTable';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { ModalDialog } from '@waldur/modal/ModalDialog';
-import { ActionItem } from '@waldur/resource/actions/ActionItem';
+import FormTable from '@/form/FormTable';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { ModalDialog } from '@/modal/ModalDialog';
+import { ActionItem } from '@/resource/actions/ActionItem';
 
 interface ShowReviewCommentsActionProps {
   review: ProposalReview;
@@ -20,7 +19,6 @@ const ShowReviewCommentsDialog = ({
       title={translate('Comments by {reviewer}', {
         reviewer: review.reviewer_full_name,
       })}
-      closeButton
       iconNode={<InfoIcon weight="bold" />}
     >
       <FormTable hideActions alignTop detailsMode>
@@ -60,18 +58,6 @@ const ShowReviewCommentsDialog = ({
             value={review.comment_project_duration}
           />
         )}
-        {review.comment_project_has_civilian_purpose && (
-          <FormTable.Item
-            label={translate('Project has civilian purpose')}
-            value={review.comment_project_has_civilian_purpose}
-          />
-        )}
-        {review.comment_project_is_confidential && (
-          <FormTable.Item
-            label={translate('Project is confidential')}
-            value={review.comment_project_is_confidential}
-          />
-        )}
         {review.comment_project_supporting_documentation && (
           <FormTable.Item
             label={translate('Project supporting documentation')}
@@ -103,24 +89,20 @@ export const ShowReviewCommentsAction = (props) => {
     props.row.comment_project_summary ||
     props.row.comment_project_description ||
     props.row.comment_project_duration ||
-    props.row.comment_project_has_civilian_purpose ||
-    props.row.comment_project_is_confidential ||
     props.row.comment_project_supporting_documentation ||
     props.row.comment_resource_requests ||
     props.row.comment_team;
 
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const handleShowComments = () =>
-    dispatch(
-      openModalDialog(ShowReviewCommentsDialog, {
-        review: props.row,
-        size: 'lg',
-      }),
-    );
+    openDialog(ShowReviewCommentsDialog, {
+      review: props.row,
+      size: 'lg',
+    });
   return (
     <ActionItem
       action={handleShowComments}
-      iconNode={<EyeIcon />}
+      iconNode={<EyeIcon weight="bold" />}
       title={translate('Show reviewer comments')}
       disabled={!showActionItem}
       tooltip={!showActionItem && translate('No comments available')}

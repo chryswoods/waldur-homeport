@@ -1,25 +1,18 @@
 import { FC } from 'react';
-import { Field } from 'redux-form';
 
-import { required } from '@waldur/core/validators';
-import { translate } from '@waldur/i18n';
-import {
-  parseIntField,
-  formatIntField,
-} from '@waldur/marketplace/common/utils';
-import { FormGroup } from '@waldur/marketplace/offerings/FormGroup';
-
-import { IntegerUnitField } from './IntegerUnitField';
+import { required } from '@/core/validators';
+import { NumberGroup } from '@/form';
+import { translate } from '@/i18n';
+import { formatIntField, parseIntField } from '@/marketplace/common/utils';
 
 export const SystemVolumeSizeGroup: FC = () => (
-  <FormGroup label={translate('System volume size')} required={true}>
-    <Field
-      name="system_volume_size"
-      units={translate('GB')}
-      component={IntegerUnitField}
-      parse={parseIntField}
-      format={formatIntField}
-      validate={required}
-    />
-  </FormGroup>
+  <NumberGroup
+    label={translate('System volume size')}
+    required={true}
+    name="system_volume_size"
+    unit={translate('GB')}
+    parse={parseIntField}
+    format={formatIntField}
+    validate={required}
+  />
 );

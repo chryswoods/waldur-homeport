@@ -1,9 +1,8 @@
 import { FunctionComponent } from 'react';
-import { useDispatch } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { EditButton } from '@waldur/form/EditButton';
-import { openModalDialog } from '@waldur/modal/actions';
+import { lazyComponent } from '@/core/lazyComponent';
+import { CompactEditButton } from '@/form/CompactEditButton';
+import { useModal } from '@/modal/actions';
 
 import { EDIT_SCRIPT_FORM_ID } from './constants';
 import { ScriptEditorProps } from './types';
@@ -23,26 +22,22 @@ const EditScriptDialog = lazyComponent(() =>
 export const EditScriptButton: FunctionComponent<ScriptEditorProps> = (
   props,
 ) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const callback = () => {
     if (props.type === 'language') {
-      dispatch(
-        openModalDialog(EditScriptLanguageDialog, {
-          resolve: props,
-          formId: EDIT_SCRIPT_FORM_ID,
-          size: 'sm',
-        }),
-      );
+      openDialog(EditScriptLanguageDialog, {
+        resolve: props,
+        formId: EDIT_SCRIPT_FORM_ID,
+        size: 'sm',
+      });
     } else {
-      dispatch(
-        openModalDialog(EditScriptDialog, {
-          resolve: props,
-          formId: EDIT_SCRIPT_FORM_ID,
-          size: 'xl',
-          onHide: null,
-        }),
-      );
+      openDialog(EditScriptDialog, {
+        resolve: props,
+        formId: EDIT_SCRIPT_FORM_ID,
+        size: 'xl',
+        onHide: null,
+      });
     }
   };
-  return <EditButton onClick={callback} size="sm" />;
+  return <CompactEditButton onClick={callback} />;
 };

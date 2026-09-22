@@ -1,25 +1,36 @@
 import { PencilSimpleIcon, QuestionIcon } from '@phosphor-icons/react';
-import { uniqueId } from 'lodash-es';
-import { useSelector } from 'react-redux';
-import { getFormValues } from 'redux-form';
+import { useMemo } from 'react';
 import { Notification, notificationMessagesList } from 'waldur-js-client';
 
-import { formatDateTime } from '@waldur/core/dateUtils';
-import { Tip } from '@waldur/core/Tooltip';
-import { translate } from '@waldur/i18n';
-import { createFetcher } from '@waldur/table/api';
-import { BooleanField } from '@waldur/table/BooleanField';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { Tooltip } from 'waldur-ui';
+
+import { formatDateTime } from '@/core/dateUtils';
+import { translate } from '@/i18n';
+import { createFetcher } from '@/table/api';
+import { BooleanField } from '@/table/BooleanField';
+import {
+  NotificationMessagesFilter,
+  selectNotificationMessagesFilter,
+  NotificationMessagesFilterFormId,
+} from '@/table/generated/NotificationMessagesFilter';
+import Table from '@/table/Table';
+import { useFilterValues } from '@/table/useFilterValues';
+import { useTable } from '@/table/useTable';
 
 import { NotificationActions } from './NotificationActions';
 import { NotificationExpandableRow } from './NotificationExpandableRow';
-import { NotificationFilter } from './NotificationFilter';
 
 export const NotificationList = () => {
-  const filter = useSelector(getFormValues('notificationFilter'));
+  const values = useFilterValues('notification');
+
+  const filter = useMemo(
+    () => selectNotificationMessagesFilter(values),
+    [values],
+  );
+
   const tableProps = useTable({
     table: 'notification',
+    syncFiltersToURL: true,
     fetchData: createFetcher(notificationMessagesList),
     filter,
     queryField: 'query',
@@ -37,22 +48,17 @@ export const NotificationList = () => {
             <>
               {row.key}
               {hasOverriddenTemplate(row) && (
-                <Tip
-                  id={'tip-notif-overridden-' + row.uuid}
-                  label={translate('Content is overridden')}
-                  className="svg-icon svg-icon-5 ms-3"
-                >
-                  <PencilSimpleIcon weight="bold" />
-                </Tip>
+                <Tooltip label={translate('Content is overridden')}>
+                  <PencilSimpleIcon
+                    weight="bold"
+                    className="svg-icon svg-icon-5 ms-3"
+                  />
+                </Tooltip>
               )}
               {row.description && (
-                <Tip
-                  label={row.description}
-                  className="ms-2"
-                  id={uniqueId('descriptionTip')}
-                >
-                  <QuestionIcon weight="bold" />
-                </Tip>
+                <Tooltip label={row.description}>
+                  <QuestionIcon weight="bold" className="ms-2" />
+                </Tooltip>
               )}
             </>
           ),
@@ -88,7 +94,8 @@ export const NotificationList = () => {
       showPageSizeSelector={true}
       hasQuery={true}
       enableExport={true}
-      filters={<NotificationFilter />}
+      filters={<NotificationMessagesFilter />}
+      formId={NotificationMessagesFilterFormId}
     />
   );
 };

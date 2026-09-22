@@ -4,18 +4,17 @@ import {
   WarningCircleIcon,
 } from '@phosphor-icons/react';
 import { FC } from 'react';
-import { Button } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
 
-import { translate } from '@waldur/i18n';
-import Bg from '@waldur/navigation/header/search/Background.svg';
-import '@waldur/navigation/header/search/NoResult.scss';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import '@/navigation/header/search/NoResult.scss';
+import { useModal } from '@/modal/actions';
 
 import { lazyComponent } from './core/lazyComponent';
-import { openModalDialog } from './modal/actions';
+import { RadialBg } from './navigation/header/search/RadialBg';
 
 const ErrorTraceDialog = lazyComponent(() =>
-  import('@waldur/ErrorTraceDialog').then((module) => ({
+  import('@/ErrorTraceDialog').then((module) => ({
     default: module.ErrorTraceDialog,
   })),
 );
@@ -25,21 +24,21 @@ interface ErrorViewProps {
 }
 
 export const ErrorView: FC<ErrorViewProps> = ({ error }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const openErrorTraceDialog = () =>
-    dispatch(openModalDialog(ErrorTraceDialog, { error } as any));
+    openDialog(ErrorTraceDialog, { error } as any);
 
   return (
     <div className="search-error">
-      <Bg className="background" />
-      <div className="text-center d-flex flex-column align-items-center gap-6 pb-10 position-relative z-index-1">
-        <div className="error-icon">
+      <RadialBg className="background" />
+      <div className="text-center d-flex flex-column align-items-center pb-10 position-relative z-index-1">
+        <div className="icon-square icon-lg error-icon">
           <WarningCircleIcon weight="bold" size={24} />
         </div>
 
         <div>
-          <h4 className="fw-bold mb-2">{translate('Something went wrong')}</h4>
-          <div className="d-flex flex-column align-items-center text-muted fs-6">
+          <h4>{translate('Something went wrong')}</h4>
+          <div className="d-flex flex-column align-items-center text-tertiary fs-6">
             <p className="mb-0 mx-300px">
               {translate('An error occurred.')}
               <br />
@@ -47,19 +46,25 @@ export const ErrorView: FC<ErrorViewProps> = ({ error }) => {
             </p>
           </div>
         </div>
-        <div className="d-flex gap-4 mt-2">
-          <Button variant="tertiary" onClick={openErrorTraceDialog}>
-            <span className="svg-icon svg-icon-2">
-              <EyeIcon weight="bold" />
-            </span>
-            {translate('Show error trace')}
-          </Button>
-          <Button variant="tertiary" onClick={() => location.reload()}>
-            <span className="svg-icon svg-icon-2">
-              <ArrowClockwiseIcon weight="bold" />
-            </span>
-            {translate('Reload')}
-          </Button>
+        <div className="actions d-flex gap-4 mt-2">
+          <SubmitButton
+            submitting={false}
+            type="button"
+            variant="tertiary"
+            onClick={openErrorTraceDialog}
+            label={translate('Show error trace')}
+            iconNode={<EyeIcon weight="bold" />}
+            iconOnLeft
+          />
+          <SubmitButton
+            submitting={false}
+            type="button"
+            variant="tertiary"
+            onClick={() => location.reload()}
+            label={translate('Reload')}
+            iconNode={<ArrowClockwiseIcon weight="bold" />}
+            iconOnLeft
+          />
         </div>
       </div>
     </div>

@@ -4,11 +4,12 @@ import { FC, PropsWithChildren } from 'react';
 import { Col, Row } from 'react-bootstrap';
 import { projectsListUsersList } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { translate } from '@waldur/i18n';
-import { getProjectRoles } from '@waldur/permissions/utils';
+import { getAllPages } from '@/core/api';
+import { UI_STALE_TIME } from '@/core/constants';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { translate } from '@/i18n';
+import { getProjectRoles } from '@/permissions/utils';
 
 import { UserRoleGroup } from './UserRoleGroup';
 
@@ -57,17 +58,27 @@ export const ProjectUsersBadge = (props: OwnProps) => {
         }),
       ),
 
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
     enabled: Boolean(props.projectId),
+    // This badge renders its own error state (and hides on 403), so the
+    // global QueryCache onError must not redirect the whole app to the
+    // no-permission page when a resource-scoped user gets a 403 here.
+    meta: { skipGlobalErrorRedirect: true },
   });
 
   return isPending ? (
     <LoadingSpinner />
   ) : error ? (
-    <LoadingErred
-      loadData={refetch}
-      message={translate('Unable to load users')}
-    />
+    // A 403 is expected for users whose roles are scoped to the
+    // resource or its sub-projects only — they are not allowed to see
+    // the parent project team. That is not an error condition; hide
+    // the badge instead of rendering an error with a retry button.
+    error['response']?.status === 403 ? null : (
+      <LoadingErred
+        loadData={refetch}
+        message={translate('Unable to load users')}
+      />
+    )
   ) : props.compact ? (
     <UserRoleGroup
       altLabel={translate('Team')}

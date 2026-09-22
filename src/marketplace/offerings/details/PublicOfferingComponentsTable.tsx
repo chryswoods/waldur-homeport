@@ -1,9 +1,13 @@
 import { FunctionComponent } from 'react';
+import { Offering } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { Offering } from '@waldur/marketplace/types';
-import Table from '@waldur/table/Table';
-import { useTable } from '@waldur/table/useTable';
+import { translate } from '@/i18n';
+import { BillingTypeBadge } from '@/marketplace/common/billingTypes';
+import { getLimitPeriods } from '@/marketplace/offerings/update/components/ComponentLimitPeriodField';
+import { createClientPaginatedFetcher } from '@/table/api';
+import Table from '@/table/Table';
+import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 
 interface PublicOfferingComponentsTableProps {
   offering: Offering;
@@ -16,7 +20,7 @@ export const PublicOfferingComponentsTable: FunctionComponent<
 > = ({ offering, hideActionBar, fullWidth }) => {
   const tableProps = useTable({
     table: 'OfferingComponents-' + offering.uuid,
-    fetchData: () => Promise.resolve({ rows: offering.components }),
+    fetchData: createClientPaginatedFetcher(offering.components),
   });
 
   return (
@@ -31,19 +35,27 @@ export const PublicOfferingComponentsTable: FunctionComponent<
           title: translate('Unit'),
           render: ({ row }) => <>{row.measured_unit}</>,
         },
+        // Labelled as the provider's own Components list labels them, rather
+        // than the raw values the API stores ("limit", "month").
         {
-          title: translate('Type'),
-          render: ({ row }) => <>{row.billing_type}</>,
+          title: translate('Billing type'),
+          render: ({ row }) => <BillingTypeBadge component={row} />,
         },
         {
-          title: translate('Period'),
+          title: translate('Limit period'),
           render: ({ row }) => (
-            <>{typeof row.limit_period === 'string' ? row.limit_period : '—'}</>
+            <>
+              {renderFieldOrDash(
+                getLimitPeriods().find(
+                  (period) => period.value === row.limit_period,
+                )?.label,
+              )}
+            </>
           ),
         },
         {
           title: translate('Description'),
-          render: ({ row }) => <>{row.description || '—'}</>,
+          render: ({ row }) => <>{renderFieldOrDash(row.description)}</>,
         },
       ]}
       title={translate('Components')}

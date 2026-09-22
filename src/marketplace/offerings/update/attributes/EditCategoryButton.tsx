@@ -1,13 +1,10 @@
 import { PencilSimpleIcon } from '@phosphor-icons/react';
 import { FunctionComponent } from 'react';
-import { useDispatch } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-import { ActionButton } from '@waldur/table/ActionButton';
-
-import { ATTRIBUTE_FORM_ID } from './constants';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { ActionButton } from '@/table/ActionButton';
 
 const EditCategoryDialog = lazyComponent(() =>
   import('./EditCategoryDialog').then((module) => ({
@@ -20,20 +17,17 @@ export const EditCategoryButton: FunctionComponent<{
   category;
   refetch;
 }> = (props) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
   const callback = () => {
-    dispatch(
-      openModalDialog(EditCategoryDialog, {
-        resolve: props,
-        formId: ATTRIBUTE_FORM_ID,
-      }),
-    );
+    openDialog(EditCategoryDialog, {
+      resolve: props,
+    });
   };
   return (
     <ActionButton
       action={callback}
       title={translate('Edit category')}
-      iconNode={<PencilSimpleIcon />}
+      iconNode={<PencilSimpleIcon weight="bold" />}
     />
   );
 };

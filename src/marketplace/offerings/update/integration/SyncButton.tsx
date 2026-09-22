@@ -1,32 +1,21 @@
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
-import { Button, Spinner } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
 import { marketplaceProviderOfferingsSync } from 'waldur-js-client';
 
-import { translate } from '@waldur/i18n';
-import { showErrorResponse, showSuccess } from '@waldur/store/notify';
+import { translate } from '@/i18n';
+import { useManagedMutation } from '@/modal/useManagedMutation';
+import { ActionButton } from '@/table/ActionButton';
 
 import { VALID_OFFERING_TYPES } from './VALID_OFFERING_TYPES';
 
 export const SyncButton = ({ offering, refetch }) => {
-  const dispatch = useDispatch();
-  const callback = async () => {
-    try {
-      await marketplaceProviderOfferingsSync({ path: { uuid: offering.uuid } });
-      dispatch(
-        showSuccess(translate('Service synchronization has been scheduled.')),
-      );
-      await refetch();
-    } catch (e) {
-      dispatch(
-        showErrorResponse(
-          e,
-          translate('Unable to schedule service synchronization.'),
-        ),
-      );
-    }
-  };
+  const { mutate, isPending } = useManagedMutation<any, any, void>({
+    mutationFn: () =>
+      marketplaceProviderOfferingsSync({ path: { uuid: offering.uuid } }),
+    successMessage: translate('Service synchronization has been scheduled.'),
+    errorMessage: translate('Unable to schedule service synchronization.'),
+    refetch,
+  });
 
   useQuery({
     queryKey: ['SyncButton', offering.scope],
@@ -50,15 +39,14 @@ export const SyncButton = ({ offering, refetch }) => {
   const enabled = ['OK', 'ERRED'].includes(offering.scope_state);
 
   return (
-    <Button onClick={callback} variant="tertiary" disabled={!enabled}>
-      <span className="svg-icon svg-icon-2">
-        {enabled ? (
-          <ArrowsClockwiseIcon weight="bold" />
-        ) : (
-          <Spinner className="animation-spin" />
-        )}
-      </span>{' '}
-      {translate('Synchronize')}
-    </Button>
+    <ActionButton
+      action={mutate}
+      variant="tertiary"
+      disabled={!enabled || isPending}
+      disabledReason={translate('Synchronization is in progress')}
+      pending={!enabled}
+      iconNode={<ArrowsClockwiseIcon weight="bold" />}
+      title={translate('Synchronize')}
+    />
   );
 };

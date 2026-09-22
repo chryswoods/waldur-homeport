@@ -1,12 +1,13 @@
 import { FC } from 'react';
-import { Card, Dropdown, DropdownButton } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
+import { Card } from 'react-bootstrap';
 
-import { OIDC_TYPES } from '@waldur/auth/providers/constants';
-import { IdentityProviderLogo } from '@waldur/auth/providers/IdentityProviderLogo';
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
+import { OIDC_TYPES } from '@/auth/providers/constants';
+import { IdentityProviderLogo } from '@/auth/providers/IdentityProviderLogo';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
+import { ActionDropdownButton } from '@/table/ActionDropdownButton';
+import { ActionsDropdownItem } from '@/table/ActionsDropdown';
 
 const CreateProviderDialog = lazyComponent(() =>
   import('./CreateProviderDialog').then((module) => ({
@@ -32,6 +33,12 @@ const ProviderDetailsDialog = lazyComponent(() =>
   })),
 );
 
+const OidcDiscoveryDialog = lazyComponent(() =>
+  import('./oidc-discovery/OidcDiscoveryDialog').then((module) => ({
+    default: module.OidcDiscoveryDialog,
+  })),
+);
+
 interface ProviderCardProps {
   title: string;
   description: string;
@@ -49,41 +56,40 @@ export const ProviderCard: FC<ProviderCardProps> = ({
   refetch,
   editable = true,
 }) => {
-  const dispatch = useDispatch();
+  const { openDialog } = useModal();
 
   const createProvider = () => {
-    dispatch(
-      openModalDialog(CreateProviderDialog, {
-        resolve: { type, refetch },
-      }),
-    );
+    openDialog(CreateProviderDialog, {
+      resolve: { type, refetch },
+    });
   };
 
   const updateProvider = () => {
-    dispatch(
-      openModalDialog(UpdateProviderDialog, {
-        resolve: { provider, type, refetch },
-      }),
-    );
+    openDialog(UpdateProviderDialog, {
+      resolve: { provider, type, refetch },
+    });
   };
 
   const showUsers = () => {
-    dispatch(
-      openModalDialog(ProviderUsersDialog, {
-        resolve: { type, refetch },
-        size: 'lg',
-      }),
-    );
+    openDialog(ProviderUsersDialog, {
+      resolve: { type, refetch },
+      size: 'lg',
+    });
   };
 
   const showDetails = () => {
-    dispatch(
-      openModalDialog(ProviderDetailsDialog, {
-        resolve: { type, refetch },
-        size: 'lg',
-        provider: provider,
-      }),
-    );
+    openDialog(ProviderDetailsDialog, {
+      resolve: { type, refetch },
+      size: 'lg',
+      provider: provider,
+    });
+  };
+
+  const openDiscovery = () => {
+    openDialog(OidcDiscoveryDialog, {
+      resolve: { provider, type, refetch },
+      size: 'xl',
+    });
   };
 
   return (
@@ -102,7 +108,7 @@ export const ProviderCard: FC<ProviderCardProps> = ({
             <div className="flex-grow-1">
               <h1 className="fs-2 text-nowrap fw-boldest">{title}</h1>
               <p className="fs-6 text-dark">{description}</p>
-              <DropdownButton
+              <ActionDropdownButton
                 variant={
                   provider?.is_active === true
                     ? 'primary'
@@ -121,26 +127,38 @@ export const ProviderCard: FC<ProviderCardProps> = ({
                 {provider ? (
                   <>
                     {editable && (
-                      <Dropdown.Item onClick={updateProvider}>
+                      <ActionsDropdownItem onSelect={updateProvider}>
                         {translate('Edit')}
-                      </Dropdown.Item>
+                      </ActionsDropdownItem>
                     )}
-                    <Dropdown.Item onClick={showUsers}>
+                    {editable && OIDC_TYPES.includes(type) && (
+                      <ActionsDropdownItem onSelect={openDiscovery}>
+                        {translate('Re-discover')}
+                      </ActionsDropdownItem>
+                    )}
+                    <ActionsDropdownItem onSelect={showUsers}>
                       {translate('Users')}
-                    </Dropdown.Item>
+                    </ActionsDropdownItem>
                     {provider.is_active &&
                       OIDC_TYPES.includes(provider.provider) && (
-                        <Dropdown.Item onClick={showDetails}>
+                        <ActionsDropdownItem onSelect={showDetails}>
                           {translate('Details')}
-                        </Dropdown.Item>
+                        </ActionsDropdownItem>
                       )}
                   </>
                 ) : (
-                  <Dropdown.Item onClick={createProvider}>
-                    {translate('Add identity provider')}
-                  </Dropdown.Item>
+                  <>
+                    <ActionsDropdownItem onSelect={createProvider}>
+                      {translate('Add identity provider')}
+                    </ActionsDropdownItem>
+                    {OIDC_TYPES.includes(type) && (
+                      <ActionsDropdownItem onSelect={openDiscovery}>
+                        {translate('Discovery wizard')}
+                      </ActionsDropdownItem>
+                    )}
+                  </>
                 )}
-              </DropdownButton>
+              </ActionDropdownButton>
             </div>
           </div>
         </div>

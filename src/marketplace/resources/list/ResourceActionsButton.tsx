@@ -1,10 +1,10 @@
 import { FunctionComponent } from 'react';
 import { Resource } from 'waldur-js-client';
 
-import { ModalActionsRouter } from '@waldur/marketplace/resources/actions/ModalActionsRouter';
-import { ResourceActionsButton as BaseResourceActionsButton } from '@waldur/marketplace/resources/actions/ResourceActionsButton';
-import { ActionButtonResource } from '@waldur/resource/actions/ActionButtonResource';
-import { SUPPORT_OFFERING_TYPE } from '@waldur/support/constants';
+import { ModalActionsRouter } from '@/marketplace/resources/actions/ModalActionsRouter';
+import { ResourceActionsButton as BaseResourceActionsButton } from '@/marketplace/resources/actions/ResourceActionsButton';
+import { ActionButtonResource } from '@/resource/actions/ActionButtonResource';
+import { SUPPORT_OFFERING_TYPE } from '@/support/constants';
 
 import { ActionsLists } from '../actions/ActionsLists';
 
@@ -25,6 +25,7 @@ export const ResourceActionsButton: FunctionComponent<
         } as any
       }
       refetch={refetch}
+      disabled={row.offering_state === 'Unavailable'}
     />
   ) : ActionsLists[row.offering_type] ? (
     <ModalActionsRouter
@@ -32,7 +33,12 @@ export const ResourceActionsButton: FunctionComponent<
       url={row.scope}
       name={row.name}
       refetch={refetch}
+      disabled={row.offering_state === 'Unavailable'}
     />
   ) : (
-    <ActionButtonResource url={row.scope} refetch={refetch} />
+    <ActionButtonResource
+      url={row.scope}
+      refetch={refetch}
+      disabled={row.offering_state === 'Unavailable'}
+    />
   );

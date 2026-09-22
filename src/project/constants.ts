@@ -1,4 +1,4 @@
 export const PROJECTS_LIST = 'ProjectsList';
-export const PROJECT_USERS_LIST_FILTER_FORM_ID =
-  'PROJECT_USERS_LIST_FILTER_FORM_ID';
-export const PROJECT_RESOURCES_LIST_FILTER = 'ProjectResourcesFilter';
+// Separate table key for the customer-scoped list, so its filter state does
+// not leak into the global affiliations projects list (and vice versa).
+export const CUSTOMER_PROJECTS_LIST = 'CustomerProjectsList';

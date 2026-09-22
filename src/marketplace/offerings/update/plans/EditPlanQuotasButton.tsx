@@ -1,13 +1,12 @@
 import { PencilSimpleIcon } from '@phosphor-icons/react';
 import { FunctionComponent } from 'react';
-import { Dropdown } from 'react-bootstrap';
-import { useDispatch } from 'react-redux';
 
-import { lazyComponent } from '@waldur/core/lazyComponent';
-import { translate } from '@waldur/i18n';
-import { openModalDialog } from '@waldur/modal/actions';
-
-import { EDIT_PLAN_FORM_ID } from './constants';
+import { lazyComponent } from '@/core/lazyComponent';
+import { translate } from '@/i18n';
+import { isChargedOnPlanAmount } from '@/marketplace/common/billingTypes';
+import { resolvePlanComponents } from '@/marketplace/details/plan/effectiveComponents';
+import { useModal } from '@/modal/actions';
+import { ActionItem } from '@/resource/actions/ActionItem';
 
 const EditPlanQuotasDialog = lazyComponent(() =>
   import('./EditPlanQuotasDialog').then((module) => ({
@@ -20,25 +19,32 @@ export const EditPlanQuotasButton: FunctionComponent<{
   plan;
   refetch;
 }> = ({ offering, plan, refetch }) => {
-  const dispatch = useDispatch();
-  const components = offering.components.filter(
-    (c) => c.billing_type === 'fixed',
+  const { openDialog } = useModal();
+  // Mirrors what update_quotas accepts: the billing types whose charge is the
+  // plan's amount times its price, and never a prepaid component. Since the
+  // dialog posts every row it shows in one payload, offering one the backend
+  // refuses fails the whole save, taking the other components with it.
+  //
+  // Resolve against the plan first: a billing mode overrides the offering's
+  // billing_type, so the raw value can say `fixed` where the plan actually
+  // bills usage.
+  const components = resolvePlanComponents(offering.components, plan).filter(
+    isChargedOnPlanAmount,
   );
   if (components.length === 0) {
     return null;
   }
   const callback = () => {
-    dispatch(
-      openModalDialog(EditPlanQuotasDialog, {
-        resolve: { offering, plan, refetch, components },
-        formId: EDIT_PLAN_FORM_ID,
-        size: 'lg',
-      }),
-    );
+    openDialog(EditPlanQuotasDialog, {
+      resolve: { offering, plan, refetch, components },
+      size: 'lg',
+    });
   };
   return (
-    <Dropdown.Item onClick={callback}>
-      <PencilSimpleIcon size={18} /> {translate('Edit quotas')}
-    </Dropdown.Item>
+    <ActionItem
+      title={translate('Edit quotas')}
+      action={callback}
+      iconNode={<PencilSimpleIcon weight="bold" />}
+    />
   );
 };

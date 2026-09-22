@@ -1,0 +1,29 @@
+import { FC, useMemo } from 'react';
+
+import { AsyncSelectGroup } from '@/form';
+import { translate } from '@/i18n';
+import { providerOfferingsAutocomplete } from '@/marketplace/common/autocompletes';
+
+export const CustomerCreditOfferingsField: FC = () => {
+  const loadOfferings = useMemo(
+    () => providerOfferingsAutocomplete({ billable: true }),
+    [],
+  );
+
+  return (
+    <AsyncSelectGroup
+      name="offerings"
+      label={translate('Offering(s)')}
+      placeholder={translate('All')}
+      loadOptions={loadOfferings}
+      isMulti
+      getOptionValue={(option) => option.uuid}
+      getOptionLabel={(option) =>
+        option.category_title
+          ? `${option.category_title} / ${option.name}`
+          : option.name
+      }
+      noOptionsMessage={() => translate('No offerings')}
+    />
+  );
+};

@@ -3,18 +3,19 @@ import {
   BuildingsIcon,
   ClipboardTextIcon,
   SquaresFourIcon,
+  UserIcon,
 } from '@phosphor-icons/react';
 
-import { Link } from '@waldur/core/Link';
-import { useModal } from '@waldur/modal/hooks';
-import { useOrganizationAndProjectFiltersForResources } from '@waldur/navigation/sidebar/resources-filter/utils';
+import { Link } from '@/core/Link';
+import { useModal } from '@/modal/actions';
+import { useOrganizationAndProjectAutocompletesForResources } from '@/navigation/sidebar/resources-filter/utils';
 
 import { getResourceFilterFromSearchItem } from './utils';
 
 export const RecentSearchItem = ({ item }) => {
   const { closeDialog } = useModal();
   const { syncResourceFilters } =
-    useOrganizationAndProjectFiltersForResources();
+    useOrganizationAndProjectAutocompletesForResources();
 
   if (!item.to) return null;
 
@@ -36,6 +37,8 @@ export const RecentSearchItem = ({ item }) => {
           weight="bold"
           className="text-gray-700 me-4"
         />
+      ) : item.type === 'user' ? (
+        <UserIcon size={22} weight="bold" className="text-gray-700 me-4" />
       ) : (
         <SquaresFourIcon
           size={22}
@@ -44,7 +47,7 @@ export const RecentSearchItem = ({ item }) => {
         />
       )}
       <span className="fs-6 fw-semibold flex-grow-1">{item.title}</span>
-      <ArrowClockwiseIcon size={20} className="text-dark" />
+      <ArrowClockwiseIcon size={20} className="text-dark" weight="bold" />
     </Link>
   );
 };

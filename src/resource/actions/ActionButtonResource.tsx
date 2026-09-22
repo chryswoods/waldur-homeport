@@ -1,12 +1,13 @@
+import { useQuery } from '@tanstack/react-query';
 import React from 'react';
-import { useAsyncFn, useBoolean } from 'react-use';
+import { useBoolean } from 'react-use';
 import { marketplaceResourcesRetrieve } from 'waldur-js-client';
 
-import { get } from '@waldur/core/api';
+import { get } from '@/core/api';
 import {
   CustomerResourceActions,
   StaffActions,
-} from '@waldur/marketplace/resources/actions/ActionsList';
+} from '@/marketplace/resources/actions/ActionsList';
 
 import { getActions } from './registry';
 import { ResourceActionComponent } from './ResourceActionComponent';
@@ -17,9 +18,18 @@ interface ActionButtonResourceProps {
   disabled?: boolean;
   refetch?(): void;
   extraActions?: ActionItemType[];
+  /**
+   * When true, only the resource-type-specific actions are shown — the
+   * marketplace-resource staff/customer actions (Change plan, Set slug,
+   * Unlink, Terminate, …) are suppressed even if the resource has a
+   * `marketplace_resource_uuid`. Use this for nested resources whose row
+   * actions should never include marketplace-wide operations: routers,
+   * networks, subnets, ports.
+   */
+  nestedResource?: boolean;
 }
 
-async function loadData(url: string) {
+async function loadData(url: string, nestedResource: boolean) {
   const resource = await get<{
     resource_type;
     marketplace_resource_uuid;
@@ -28,7 +38,7 @@ async function loadData(url: string) {
   let staffActions = [];
   let customerResourceActions = [];
   let marketplaceResource;
-  if (resource.marketplace_resource_uuid) {
+  if (!nestedResource && resource.marketplace_resource_uuid) {
     staffActions = StaffActions;
     customerResourceActions = CustomerResourceActions;
     marketplaceResource = await marketplaceResourcesRetrieve({
@@ -47,20 +57,19 @@ async function loadData(url: string) {
 export const ActionButtonResource: React.FC<ActionButtonResourceProps> = (
   props,
 ) => {
-  const { url } = props;
-
-  const [{ loading, error, value }, getActions] = useAsyncFn(
-    () => loadData(url),
-    [url],
-  );
+  const { url, nestedResource = false } = props;
 
   const [open, onToggle] = useBoolean(false);
 
-  const loadActionsIfOpen = React.useCallback(() => {
-    if (open) getActions();
-  }, [open, getActions]);
-
-  React.useEffect(loadActionsIfOpen, [open, loadActionsIfOpen]);
+  const {
+    isLoading: loading,
+    error,
+    data: value,
+  } = useQuery({
+    queryKey: ['ResourceActions', url, nestedResource],
+    queryFn: () => loadData(url, nestedResource),
+    enabled: open,
+  });
 
   return (
     <ResourceActionComponent

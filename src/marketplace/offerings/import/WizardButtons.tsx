@@ -1,10 +1,10 @@
 import { CaretLeftIcon } from '@phosphor-icons/react';
 import { FunctionComponent } from 'react';
 
-import { SubmitButton } from '@waldur/form';
-import { translate } from '@waldur/i18n';
-import { CloseDialogButton } from '@waldur/modal/CloseDialogButton';
-import { ActionButton } from '@waldur/table/ActionButton';
+import { SubmitButton } from '@/form';
+import { translate } from '@/i18n';
+import { CloseDialogButton } from '@/modal/CloseDialogButton';
+import { ActionButton } from '@/table/ActionButton';
 
 interface WizardButtonsProps {
   goBack(): void;
@@ -14,6 +14,7 @@ interface WizardButtonsProps {
   isFirstStep: boolean;
   isLastStep: boolean;
   submitLabel?: string;
+  tooltip?: string;
 }
 
 export const WizardButtons: FunctionComponent<WizardButtonsProps> = ({
@@ -24,14 +25,16 @@ export const WizardButtons: FunctionComponent<WizardButtonsProps> = ({
   submitting,
   invalid,
   submitLabel,
+  tooltip,
 }) => (
   <>
     {!isFirstStep && (
       <ActionButton
         title={translate('Back')}
         action={goBack}
-        iconNode={<CaretLeftIcon />}
+        iconNode={<CaretLeftIcon weight="bold" />}
         disabled={submitting}
+        disabledReason={translate('Submission in progress')}
         className="min-w-125px"
       />
     )}
@@ -42,6 +45,7 @@ export const WizardButtons: FunctionComponent<WizardButtonsProps> = ({
         submitting={submitting}
         label={submitLabel || translate('Confirm')}
         className="btn btn-primary min-w-125px"
+        data-testid="confirm-button"
       />
     ) : (
       <ActionButton
@@ -50,6 +54,8 @@ export const WizardButtons: FunctionComponent<WizardButtonsProps> = ({
         variant="primary"
         className="min-w-125px"
         disabled={invalid}
+        tooltip={tooltip}
+        data-testid={isFirstStep ? 'next-button-step-0' : 'next-button-step-1'}
       />
     )}
   </>

@@ -1,19 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { useSelector } from 'react-redux';
-import { Field } from 'redux-form';
+import { useForm } from 'react-final-form';
 import { openstackTenantsList } from 'waldur-js-client';
 
-import { getAllPages } from '@waldur/core/api';
-import { required } from '@waldur/core/validators';
-import { FormGroup, SelectField } from '@waldur/form';
-import { VStepperFormStepCard } from '@waldur/form/VStepperFormStep';
-import { translate } from '@waldur/i18n';
-import { orderProjectSelector } from '@waldur/marketplace/deploy/selectors';
-import { FormStepProps } from '@waldur/marketplace/deploy/types';
+import { getAllPages, MAX_PAGE_SIZE } from '@/core/api';
+import { UI_STALE_TIME } from '@/core/constants';
+import { required } from '@/core/validators';
+import { SelectGroup } from '@/form';
+import { translate } from '@/i18n';
+import { useOrderFormData } from '@/marketplace/deploy/selectors';
+import { FormStepProps } from '@/marketplace/deploy/types';
+import { VStepperFormStepCard } from '@/wizard';
 
 export const FormTenantStep = (props: FormStepProps) => {
-  const project = useSelector(orderProjectSelector);
+  const { project } = useOrderFormData();
+  const form = useForm();
   const { data, isLoading } = useQuery({
     queryKey: ['tenant-step', project?.uuid],
 
@@ -23,6 +24,7 @@ export const FormTenantStep = (props: FormStepProps) => {
             openstackTenantsList({
               query: {
                 page,
+                page_size: MAX_PAGE_SIZE,
                 project_uuid: project.uuid,
                 field: ['name', 'url', 'uuid'],
               },
@@ -30,14 +32,14 @@ export const FormTenantStep = (props: FormStepProps) => {
           )
         : null,
 
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
 
   useEffect(() => {
     if (data?.length === 1) {
-      props.change('attributes.tenant', data[0]);
+      form.change('attributes.tenant', data[0]);
     }
-  }, [data]);
+  }, [data, form]);
 
   return (
     <VStepperFormStepCard
@@ -47,14 +49,14 @@ export const FormTenantStep = (props: FormStepProps) => {
       disabled={props.disabled}
       disabledTooltip={props.disabledTooltip}
     >
-      <Field name="attributes.tenant" component={FormGroup} validate={required}>
-        <SelectField
-          options={data}
-          getOptionValue={(option) => option.url}
-          getOptionLabel={(option) => option.name}
-          isClearable={true}
-        />
-      </Field>
+      <SelectGroup
+        name="attributes.tenant"
+        validate={required}
+        options={data}
+        getOptionValue={(option) => option.url}
+        getOptionLabel={(option) => option.name}
+        isClearable={true}
+      />
     </VStepperFormStepCard>
   );
 };

@@ -1,28 +1,25 @@
+import { FieldValidator } from 'final-form';
 import React, { ReactNode } from 'react';
-import {
-  WrappedFieldInputProps,
-  Validator,
-  Normalizer,
-  Formatter,
-  Parser,
-  WrappedFieldMetaProps,
-} from 'redux-form';
+import { FieldProps, FieldRenderProps } from 'react-final-form';
+
+type Formatter = NonNullable<FieldProps<any, any>['format']>;
+type Parser = NonNullable<FieldProps<any, any>['parse']>;
 
 export interface FormField {
+  input: FieldRenderProps<any, any>['input'];
+  meta?: FieldRenderProps<any, any>['meta'];
   name?: string;
-  input?: WrappedFieldInputProps;
-  meta?: WrappedFieldMetaProps;
+  id?: string;
   required?: boolean;
   label?: ReactNode;
   description?: ReactNode;
   tooltip?: ReactNode;
-  validate?: Validator | Validator[];
+  validate?: FieldValidator<any>;
+  isInvalid?: boolean;
   disabled?: boolean;
-  hideLabel?: boolean;
-  normalize?: Normalizer;
   format?: Formatter | null;
   parse?: Parser;
-  // See also: https://github.com/erikras/redux-form/issues/2768#issuecomment-292770517
+
   noUpdateOnBlur?: boolean;
   onBlur?(e): void;
   containerClassName?: string;

@@ -1,10 +1,9 @@
-import { CubeIcon, QuestionIcon } from '@phosphor-icons/react';
 import { FunctionComponent } from 'react';
 import { Card } from 'react-bootstrap';
 import { CategoryGroup } from 'waldur-js-client';
 
-import Avatar from '@waldur/core/Avatar';
-import { wrapTooltip } from '@waldur/table/ActionButton';
+import Avatar from '@/core/Avatar';
+import { translate } from '@/i18n';
 
 import { Category } from '../types';
 
@@ -18,31 +17,37 @@ interface CategoryCardProps {
 export const CategoryCard: FunctionComponent<CategoryCardProps> = (props) => (
   <Card as={props.as} item={props.item} className="card-bordered category-card">
     <Card.Body>
-      <div className={'category-thumb' + (!props.item.icon ? ' no-image' : '')}>
-        {props.item.icon ? (
-          <Avatar
-            name={props.item.title}
-            src={props.item.icon}
-            circle
-            size={40}
-          />
-        ) : (
-          <CubeIcon weight="bold" size={20} />
-        )}
+      <div className="category-thumb">
+        <Avatar
+          name={props.item.title}
+          src={props.item.icon}
+          circle
+          size={40}
+        />
       </div>
-      <h3 className="text-dark text-center fw-bold fs-6 mb-0">
-        {props.item.title}
-        {Boolean(props.item.description) &&
-          wrapTooltip(
-            props.item.description,
-            <QuestionIcon
-              size={16}
-              weight="bold"
-              className="ms-2 text-muted mb-1 text-hover-gray-600"
-              data-testid="tooltip"
-            />,
-          )}
+      <h3 className="text-dark text-center fw-bold fs-6 mb-0 category-title">
+        <span className="ellipsis" title={props.item.title}>
+          {props.item.title}
+        </span>
       </h3>
+      {Boolean(props.item.description) && (
+        <p
+          className="category-description text-muted ellipsis-lines-2"
+          title={props.item.description}
+        >
+          {props.item.description}
+        </p>
+      )}
+      {'offering_count' in props.item &&
+        props.item.offering_count !== undefined && (
+          <span className="text-muted small category-count">
+            {props.item.offering_count === 1
+              ? translate('{count} offering', { count: 1 })
+              : translate('{count} offerings', {
+                  count: props.item.offering_count,
+                })}
+          </span>
+        )}
     </Card.Body>
   </Card>
 );

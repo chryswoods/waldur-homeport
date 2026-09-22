@@ -1,19 +1,19 @@
 import { MagnifyingGlassIcon } from '@phosphor-icons/react';
 import classNames from 'classnames';
-import { FC, useEffect, useRef } from 'react';
-import { Form, FormControlProps } from 'react-bootstrap';
+import { FC, ReactNode, useEffect, useRef } from 'react';
+import { Form, FormControlProps, InputGroup } from 'react-bootstrap';
 
 interface FilterBoxProps extends FormControlProps {
   autoFocus?: boolean;
-  solid?: boolean;
   inputClassName?: string;
+  rightAction?: ReactNode;
 }
 
 export const FilterBox: FC<FilterBoxProps> = ({
   className,
   autoFocus,
-  solid,
   inputClassName,
+  rightAction,
   ...props
 }: any) => {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -26,21 +26,41 @@ export const FilterBox: FC<FilterBoxProps> = ({
     }
     inputRef?.current.focus();
   }, [inputRef, autoFocus]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Prevent form submission when Enter is pressed in search input
+    if (e.key === 'Enter') {
+      e.preventDefault();
+    }
+    // Call original onKeyDown if provided
+    if (props.onKeyDown) {
+      props.onKeyDown(e);
+    }
+  };
+
   return (
-    <div className={classNames('position-relative', className)}>
-      <span className="svg-icon svg-icon-2 svg-icon-gray-500 position-absolute top-50 translate-middle-y ms-4">
-        <MagnifyingGlassIcon weight="bold" size={20} />
-      </span>
+    <InputGroup
+      className={classNames(
+        'has-icon',
+        rightAction && 'has-icon-right',
+        className,
+      )}
+    >
+      <div className="input-group-icon">
+        <MagnifyingGlassIcon weight="bold" />
+      </div>
       <Form.Control
         type="text"
-        className={classNames(
-          solid && 'form-control-solid',
-          'ps-13 placeholder-gray-500 fs-4',
-          inputClassName,
-        )}
+        className={inputClassName}
         {...props}
         ref={inputRef}
+        onKeyDown={handleKeyDown}
       />
-    </div>
+      {rightAction && (
+        <div className="input-group-icon input-group-icon-right">
+          {rightAction}
+        </div>
+      )}
+    </InputGroup>
   );
 };

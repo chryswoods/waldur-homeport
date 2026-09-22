@@ -1,16 +1,22 @@
-import { ArrowSquareOutIcon } from '@phosphor-icons/react';
-import { useQuery } from '@tanstack/react-query';
+import classNames from 'classnames';
 import { FC } from 'react';
 import { Col } from 'react-bootstrap';
-import type { ManagedProject, Project } from 'waldur-js-client';
+import { type ManagedProject, type Project } from 'waldur-js-client';
 
-import { formatDate } from '@waldur/core/dateUtils';
-import { Panel } from '@waldur/core/Panel';
-import { translate } from '@waldur/i18n';
+import { AlertItem } from '@/core/AlertItem';
+import { formatDate } from '@/core/dateUtils';
+import { defaultCurrency } from '@/core/formatCurrency';
+import { Panel } from '@/core/Panel';
+import { translate } from '@/i18n';
 
-import type { AwardDetails } from '../bindings/AwardDetails';
-import { fetchUsageReports } from '../reports/api';
-import { ProjectUsageReport } from '../reports/ProjectUsageReport';
+import {
+  ExternalCardLink,
+  percentOf,
+  UsageProgressBar,
+  usageTextClass,
+} from '../allocationUsage';
+import { useProjectAccountingSummary } from '../useProjectAccountingSummary';
+
 import { embargoedUntil } from './utils';
 
 interface Props {
@@ -18,129 +24,108 @@ interface Props {
   project: Project;
 }
 
-// Matches the Usage Report tab's cache TTL expectation: shows a same-day total
-// without re-fetching the full report history on every dashboard load. Manually
-// refetching on the Usage Report tab (project.openportal-reports) updates the
-// same react-query cache entry, so this widget picks up the fresh total too.
-const USAGE_STALE_TIME = 12 * 60 * 60 * 1000;
-
-function allocationUnit(allocationString: string | null | undefined): string | undefined {
-  if (!allocationString) return undefined;
-  const parts = allocationString.trim().split(/\s+/);
-  return parts.length > 1 ? parts.slice(1).join(' ') : undefined;
-}
-
-function usagePercent(used: number, allocationString: string | null | undefined): number {
-  const total = parseFloat(allocationString?.trim().split(/\s+/)[0] ?? '0');
-  if (!total) return 0;
-  return Math.min(100, (used / total) * 100);
-}
-
-function progressVariant(pct: number): string {
-  if (pct >= 95) return 'bg-danger';
-  if (pct >= 80) return 'bg-warning';
-  return 'bg-primary';
-}
-
-function formatUsage(hours: number): string {
-  return parseFloat(hours.toFixed(2)).toString();
-}
-
-interface CardProps {
-  mp: ManagedProject;
-  project: Project;
-}
-
-const ManagedProjectCard: FC<CardProps> = ({ mp, project }) => {
-  const details = mp.details as AwardDetails;
+const ManagedProjectCard: FC<{ mp: ManagedProject; project: Project }> = ({
+  mp,
+  project,
+}) => {
+  const details = mp.details;
   const embargo = embargoedUntil(mp);
-  const unit = allocationUnit(details.allocation);
-  const projectLinkUrl = details.project_link?.url;
+  // The button beside the card reads "Go to award", so it links to the award
+  // on the funder's system, not to project_link — which points at the project
+  // page on the awarding portal and is a different destination.
+  const awardUrl = details.award?.url;
   const breakdown =
     details.breakdown && Object.keys(details.breakdown).length > 0
       ? details.breakdown
       : null;
 
-  const { data: usageReports } = useQuery({
-    queryKey: ['openportal-usage-reports', project.uuid],
-    queryFn: () => fetchUsageReports({ project_uuid: project.uuid }),
-    enabled: Boolean(project.uuid),
-    staleTime: USAGE_STALE_TIME,
-  });
+  const { data: accounting } = useProjectAccountingSummary(project.uuid);
 
-  const usedHours =
-    usageReports === undefined
-      ? undefined
-      : usageReports.length > 0
-        ? ProjectUsageReport.combine(usageReports).totalUsageHours()
-        : 0;
+  // allocation_credits is null when the award has no resolvable project
+  // template or no allocation to convert, in which case there is a usage
+  // figure but nothing to measure it against.
+  const allocationCredits = accounting?.allocation_credits ?? null;
+  const showAccounting = Boolean(accounting?.has_award);
 
   return (
     <Col md={6} sm={12} className="mb-5">
       <Panel cardBordered>
         <div className="d-flex align-items-stretch gap-3">
-          {/* Left: details */}
           <div className="flex-grow-1 d-flex flex-column gap-3">
-            {details.allocation && (
+            {showAccounting && allocationCredits !== null && (
               <div>
                 <div className="fs-6 text-muted fw-bold mb-1">
                   {translate('Allocation')}
                 </div>
                 <div className="display-6 fw-boldest">
-                  {details.allocation}
+                  {defaultCurrency(allocationCredits)}
                 </div>
                 {breakdown && (
                   <div className="mt-1 fs-7 text-muted">
                     {Object.entries(breakdown).map(([k, v]) => (
-                      <span key={k} className="me-3">{k}: {String(v)}</span>
+                      <span key={k} className="me-3">
+                        {k}: {String(v)}
+                      </span>
                     ))}
                   </div>
                 )}
               </div>
             )}
-            {usedHours !== undefined && (
+            {showAccounting && accounting && (
               <div>
                 <div className="fs-6 text-muted fw-bold mb-1">
                   {translate('Used')}
                 </div>
-                <div className="display-6 fw-boldest">
-                  {formatUsage(usedHours)}{unit ? ` ${unit}` : ''}
+                <div
+                  className={classNames(
+                    'display-6 fw-boldest',
+                    // Only once there is an allocation to be a share of: with
+                    // no denominator percentOf answers 0, and an uncoloured
+                    // figure is the honest reading of "we cannot say".
+                    allocationCredits !== null &&
+                      usageTextClass(
+                        percentOf(accounting.usage_credits, allocationCredits),
+                      ),
+                  )}
+                >
+                  {defaultCurrency(accounting.usage_credits)}
                 </div>
-                {(() => {
-                  const pct = usagePercent(usedHours, details.allocation);
-                  return (
-                    <div className="progress mt-2" style={{ height: 6 }}>
-                      <div
-                        className={`progress-bar ${progressVariant(pct)}`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  );
-                })()}
+                {allocationCredits !== null && (
+                  <>
+                    <UsageProgressBar
+                      percent={percentOf(
+                        accounting.usage_credits,
+                        allocationCredits,
+                      )}
+                    />
+                    {accounting.remaining_credits !== null && (
+                      <div className="fs-8 text-muted mt-1">
+                        {translate('{amount} remaining', {
+                          amount: defaultCurrency(accounting.remaining_credits),
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
             {embargo && (
-              <div className="alert alert-warning p-2 mb-0 fs-7">
-                {translate('This allocation is currently on hold until {date}.', {
-                  date: formatDate(embargo),
-                })}
-              </div>
+              <AlertItem
+                variant="warning"
+                title={translate(
+                  'This allocation is currently on hold until {date}.',
+                  { date: formatDate(embargo) },
+                )}
+              />
             )}
           </div>
 
-          {/* Right: full-height award link button */}
-          {projectLinkUrl && (
-            <a
-              href={projectLinkUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-primary d-flex flex-column align-items-center justify-content-center gap-2 px-4"
-            >
-              <ArrowSquareOutIcon size={22} weight="bold" />
-              <span className="fs-7 lh-sm text-center">
-                {translate('Go to')}<br />{translate('award')}
-              </span>
-            </a>
+          {awardUrl && (
+            <ExternalCardLink url={awardUrl}>
+              {translate('Go to')}
+              <br />
+              {translate('award')}
+            </ExternalCardLink>
           )}
         </div>
       </Panel>
@@ -148,7 +133,10 @@ const ManagedProjectCard: FC<CardProps> = ({ mp, project }) => {
   );
 };
 
-export const ManagedProjectDashboardCards: FC<Props> = ({ managedProjects, project }) => (
+export const ManagedProjectDashboardCards: FC<Props> = ({
+  managedProjects,
+  project,
+}) => (
   <>
     {managedProjects
       .filter((mp) => mp.state === 'approved' || mp.state === 'pending')

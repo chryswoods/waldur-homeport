@@ -1,14 +1,16 @@
 import { PlusIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { FC } from 'react';
-import { Button, Col } from 'react-bootstrap';
+import { Col } from 'react-bootstrap';
 
-import { EChart } from '@waldur/core/EChart';
-import { LoadingErred } from '@waldur/core/LoadingErred';
-import { LoadingSpinner } from '@waldur/core/LoadingSpinner';
-import { SymbolsGroup } from '@waldur/customer/dashboard/SymbolsGroup';
-import { formatJsxTemplate, translate } from '@waldur/i18n';
-import { ChangesAmountBadge } from '@waldur/marketplace/service-providers/dashboard/ChangesAmountBadge';
+import { IconButton } from '@/core/buttons/IconButton';
+import { UI_STALE_TIME } from '@/core/constants';
+import { EChart } from '@/core/EChart';
+import { LoadingErred } from '@/core/LoadingErred';
+import { LoadingSpinner } from '@/core/LoadingSpinner';
+import { SymbolsGroup } from '@/customer/dashboard/SymbolsGroup';
+import { formatJsxTemplate, translate } from '@/i18n';
+import { ChangesAmountBadge } from '@/marketplace/service-providers/dashboard/ChangesAmountBadge';
 
 import { Chart } from './types';
 import { WidgetCard } from './WidgetCard';
@@ -48,7 +50,7 @@ export const TeamWidget: FC<TeamWidgetProps> = ({
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['TeamWidget', scope?.uuid],
     queryFn: api,
-    staleTime: 3 * 60 * 1000,
+    staleTime: UI_STALE_TIME,
   });
 
   const count = data?.totalItems ?? 0;
@@ -83,7 +85,7 @@ export const TeamWidget: FC<TeamWidgetProps> = ({
           : null
       }
       right={
-        <Col xs="auto" className="d-flex align-items-center gap-3">
+        <Col xs="auto" className="d-flex align-items-center gap-2">
           {isLoading ? (
             <LoadingSpinner />
           ) : error ? (
@@ -107,15 +109,13 @@ export const TeamWidget: FC<TeamWidgetProps> = ({
             (loadingAdd ? (
               <LoadingSpinner />
             ) : (
-              <div>
-                <Button
-                  variant="tertiary"
-                  className="btn-icon border-dashed border-2 btn-color-gray-400 btn-active-color-muted btn-circle w-40px h-40px"
-                  onClick={onAddClick}
-                >
-                  <PlusIcon size={18} weight="bold" />
-                </Button>
-              </div>
+              <IconButton
+                iconNode={<PlusIcon size={16} weight="bold" />}
+                tooltip={translate('Add user')}
+                variant="tertiary"
+                className="border-dashed btn-avatar btn-circle"
+                onClick={onAddClick}
+              />
             ))}
         </Col>
       }

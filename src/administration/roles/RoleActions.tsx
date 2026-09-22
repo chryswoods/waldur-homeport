@@ -1,5 +1,6 @@
-import { ActionsDropdown } from '@waldur/table/ActionsDropdown';
+import { ActionsDropdown } from '@/table/ActionsDropdown';
 
+import { RoleCompareButton } from './RoleCompareButton';
 import { RoleDeleteButton } from './RoleDeleteButton';
 import { RoleDescriptionEditButton } from './RoleDescriptionEditButton';
 import { RoleEditButton } from './RoleEditButton';
@@ -10,11 +11,11 @@ export const RoleActions = ({ row, refetch }) => (
     row={row}
     refetch={refetch}
     actions={[
+      RoleCompareButton,
       RoleEditButton,
       RoleDescriptionEditButton,
       RoleToggleButton,
       !row.is_system_role ? RoleDeleteButton : null,
     ].filter(Boolean)}
-    data-cy="public-resources-list-actions-dropdown-btn"
   />
 );
