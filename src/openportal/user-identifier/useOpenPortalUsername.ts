@@ -13,22 +13,6 @@ import { useUser } from '@/workspace/hooks';
 export const OPENPORTAL_USERNAME_QUERY_KEY = 'openportal-user-shortname';
 
 /**
- * The one place that works around the `{user}` path parameter's wrong type.
- *
- * The generated client declares `path: { user: number }`, but
- * `UserInfoViewSet` sets `lookup_field = "user"` and resolves it with
- * `User.objects.get(uuid=user)` — the segment is a UUID string. HomePort has
- * no numeric user id at all, so an integer here could never be produced. This
- * is a drf-spectacular misinference rather than a real API contract.
- *
- * Kept as one named, greppable helper rather than casts at the call sites, so
- * that it is obvious what is being worked around and easy to delete. Remove it
- * once the mastermind action annotates its path parameter as a UUID and the
- * SDK is regenerated: the calls below should then typecheck unchanged.
- */
-const userPathParam = (uuid: string) => uuid as unknown as number;
-
-/**
  * The OpenPortal username for a user, and the one-shot call that sets it.
  *
  * Reading uses `openportal-userinfo`, not `user.slug`: mastermind mirrors the
@@ -58,7 +42,7 @@ export const useOpenPortalUsername = (user: User) => {
       const { data } = isSelf
         ? await openportalUserinfoMeRetrieve()
         : await openportalUserinfoRetrieve({
-            path: { user: userPathParam(user.uuid) },
+            path: { user: user.uuid },
           });
       return data;
     },
@@ -67,13 +51,8 @@ export const useOpenPortalUsername = (user: User) => {
   const setShortname = async (shortname: string) => {
     try {
       await openportalUserinfoSetShortnameUpdate({
-        path: { user: userPathParam(user.uuid) },
-        // `user` is required by the generated type only because the request
-        // body was inferred from the model serializer. Mastermind now declares
-        // `SetUserShortnameSerializer`, whose only field is `shortname`, so
-        // this property should be dropped when the SDK is next regenerated —
-        // at which point it becomes a type error and says so.
-        body: { shortname, user: user.url },
+        path: { user: user.uuid },
+        body: { shortname },
       });
       await queryClient.invalidateQueries({
         queryKey: [OPENPORTAL_USERNAME_QUERY_KEY, user.uuid],

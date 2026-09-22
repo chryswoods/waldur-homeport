@@ -118,27 +118,25 @@ anchored; a rejected change no longer leaves the slug moved, because
 `set_shortname` validates before writing and puts the shortname and its copy in
 one transaction; the 400 carries a body; and a user can set their own.
 
+Fixed in the schema, and carried by `waldur-js-client`
+`8.1.3-rc.15-openportal.2`: the `{user}` path parameter is declared a UUID
+string, and `set_shortname` has its own `SetUserShortnameRequest` whose only
+field is `shortname`. Both workarounds this guide used to describe —
+`userPathParam`, and the redundant `user` in the request body — are gone, and
+`useOpenPortalUsername.ts` now holds no casts at all.
+
 What remains:
 
-### 1. The `{user}` path parameter is still typed as an integer
-
-The generated client declares `path: { user: number }`, but `UserInfoViewSet`
-sets `lookup_field = "user"` and `_get()` resolves it with
-`User.objects.get(uuid=user)` — the segment is a UUID string. HomePort has no
-numeric user id at all. `views.py` already imports `OpenApiParameter` and uses
-it on other viewsets, so this is a small addition. The single workaround is
-`userPathParam` in `useOpenPortalUsername.ts`; annotate the parameter,
-regenerate the SDK, and delete it.
-
-### 2. `ProjectInfo` has every gap `UserInfo` just had
+### 1. `ProjectInfo` has every gap `UserInfo` had
 
 `638c11df` says so explicitly and leaves it alone: the project shortname's
 validators are bypassed the same way, and its reserved-name ban is
-`(-admin)|(-root)$`, with the same search-versus-match asymmetry. Not urgent for
-HomePort, which does not yet offer a project shortname row, but it is the same
-bug waiting in the same place.
+`(-admin)|(-root)$`, with the same search-versus-match asymmetry that let
+`rootuser` through on the user side. Not urgent for HomePort, which does not
+offer a project shortname row, but it is the same bug waiting in the same
+place.
 
-### 3. Latent bug in `save()`, now in two models
+### 2. Latent bug in `save()`, in two models
 
 ```python
 kwargs["update_fields"] = set(kwargs["update_fields"]).add("query_field")
@@ -149,37 +147,20 @@ reads as "save every field". It degrades to a full save rather than crashing,
 and `query_field` is not a field on either model. Present on both `UserInfo`
 and `ProjectInfo`.
 
-### 4. `set_shortname` drops the redundant `user` from the request body
-
-Fixed in mastermind — the action now declares
-`request=SetUserShortnameSerializer`, whose only field is `shortname`. The
-frontend still sends `user` because the _currently pinned_ SDK was generated
-before that change and makes it required. Drop it from the `body` in
-`useOpenPortalUsername.ts` when the client is next regenerated; it becomes a
-type error then, which is the intended signal.
-
 ## Prompt for waldur-mastermind
 
-> In `src/waldur_openportal`, three follow-ups to the shortname work in
+> In `src/waldur_openportal`, two follow-ups to the shortname work in
 > `638c11df`.
 >
-> 1. The `{user}` path parameter on `openportal-userinfo` is a UUID
->    (`lookup_field = "user"`, resolved with `User.objects.get(uuid=user)`), but
->    drf-spectacular infers an integer, so the generated TypeScript client
->    declares `path: { user: number }` and no caller can satisfy it honestly.
->    Annotate it with an `OpenApiParameter` of type UUID — `views.py` already
->    imports and uses `OpenApiParameter` on other viewsets. The same applies to
->    `{project}` on `openportal-projectinfo`.
->
-> 2. `ProjectInfo.shortname` has the gaps `UserInfo.shortname` just had, as
->    `638c11df` notes: its validators are bypassed because the action reads
+> 1. `ProjectInfo.shortname` has the gaps `UserInfo.shortname` had: its
+>    validators are bypassed because the `set_shortname` action reads
 >    `request.data` directly, and its reserved-name ban is `(-admin)|(-root)$`,
 >    which `RegexValidator` searches rather than matches. Give the action a
 >    request serializer so the declared rules are enforced and a violation
 >    returns a 400 naming the rule, and anchor the ban the way the user one now
 >    is. Mirror the tests in `tests/test_user_shortname.py`.
 >
-> 3. In both `UserInfo.save` and `ProjectInfo.save`,
+> 2. In both `UserInfo.save` and `ProjectInfo.save`,
 >    `set(kwargs["update_fields"]).add("query_field")` evaluates to `None`
 >    because `set.add` returns `None`, and `query_field` is not a field on
 >    either model. Work out what was intended and fix or remove it.
