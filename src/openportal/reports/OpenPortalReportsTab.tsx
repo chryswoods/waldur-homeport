@@ -7,7 +7,7 @@
 
 import { ArrowsClockwiseIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
-import { FC, useState } from 'react';
+import { FC, useMemo, useState } from 'react';
 import { Card, Form } from 'react-bootstrap';
 import {
   CachedProjectStorageReport as StorageReportApiItem,
@@ -39,6 +39,7 @@ import {
 } from './localStorageCache';
 import { ProjectStorageReport } from './ProjectStorageReport';
 import { ProjectUsageReport } from './ProjectUsageReport';
+import { resourceIdsOf, sortResourcesByUsage } from './resourceOrder';
 import { StorageReportVis } from './StorageReportVis';
 import { NameMaps } from './usageChartOptions';
 import { UsageReportVis } from './UsageReportVis';
@@ -178,13 +179,30 @@ export const OpenPortalReportsTab: FC = () => {
     enabled: hasReports,
   });
 
-  // Collect distinct resources across both report types
-  const allResources = [
-    ...new Set([
-      ...(usageReports ?? []).map((r) => r.resource),
-      ...(storageReports ?? []).map((r) => r.resource),
-    ]),
-  ].sort();
+  // Identifier names are decoration; the charts read fine against raw
+  // identifiers. So a failed lookup falls back to empty maps instead of
+  // withholding the report, while a lookup still in flight keeps the charts
+  // back for the moment it takes, to avoid a flash of raw identifiers.
+  const effectiveNameMaps: NameMaps | undefined = mappingsError
+    ? EMPTY_NAME_MAPS
+    : nameMaps;
+
+  // Collect distinct resources across both report types, busiest first, so the
+  // tab that opens is the one the project actually uses.
+  const allResources = useMemo(
+    () =>
+      sortResourcesByUsage(
+        [
+          ...new Set([
+            ...resourceIdsOf(usageReports),
+            ...resourceIdsOf(storageReports),
+          ]),
+        ],
+        usageReports ?? [],
+        effectiveNameMaps?.offering,
+      ),
+    [usageReports, storageReports, effectiveNameMaps?.offering],
+  );
 
   const [selectedResource, setSelectedResource] = useState<string>('');
   const activeResource = allResources.includes(selectedResource)
@@ -217,14 +235,6 @@ export const OpenPortalReportsTab: FC = () => {
     activeMonth === 'all'
       ? storageForResource
       : (storageByMonth[activeMonth] ?? []);
-
-  // Identifier names are decoration; the charts read fine against raw
-  // identifiers. So a failed lookup falls back to empty maps instead of
-  // withholding the report, while a lookup still in flight keeps the charts
-  // back for the moment it takes, to avoid a flash of raw identifiers.
-  const effectiveNameMaps: NameMaps | undefined = mappingsError
-    ? EMPTY_NAME_MAPS
-    : nameMaps;
 
   const isLoading =
     usageLoading ||
