@@ -54,12 +54,37 @@ export const formatUsage = (hours: number): string =>
   parseFloat(hours.toFixed(2)).toString();
 
 /**
- * A thin progress bar that turns amber past 80% of the allocation and red
- * past 95%.
+ * Where an allocation stops being comfortable.
+ *
+ * One pair of thresholds for the bar and for the figure above it, so a card
+ * cannot show an amber bar under a red number. The bar previously turned red
+ * at 95%, which left a band where the two disagreed.
+ */
+export const USAGE_WARNING_PERCENT = 80;
+export const USAGE_DANGER_PERCENT = 90;
+
+/**
+ * The text colour for a usage figure, or undefined below the warning
+ * threshold — most allocations are healthy, and colouring those too would
+ * spend the reader's attention on the normal case.
+ */
+export const usageTextClass = (percent: number): string | undefined => {
+  if (percent >= USAGE_DANGER_PERCENT) return 'text-danger';
+  if (percent >= USAGE_WARNING_PERCENT) return 'text-warning';
+  return undefined;
+};
+
+/**
+ * A thin progress bar that turns amber past the warning threshold and red past
+ * the danger one.
  */
 export const UsageProgressBar: FC<{ percent: number }> = ({ percent }) => {
   const variant =
-    percent >= 95 ? 'bg-danger' : percent >= 80 ? 'bg-warning' : 'bg-primary';
+    percent >= USAGE_DANGER_PERCENT
+      ? 'bg-danger'
+      : percent >= USAGE_WARNING_PERCENT
+        ? 'bg-warning'
+        : 'bg-primary';
   return (
     <div className="progress mt-2" style={{ height: 6 }}>
       <div

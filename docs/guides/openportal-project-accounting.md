@@ -122,6 +122,22 @@ month alone, so neither field is the total and the two have to be added.
 `total_credits` is the balance at the **start** of the current month, because
 credit is drawn down when a month is invoiced rather than as usage accrues.
 
+## Colouring the usage figure
+
+`usageTextClass` in `@/openportal/allocationUsage` turns the "Used" figure
+amber at `USAGE_WARNING_PERCENT` (80) and red at `USAGE_DANGER_PERCENT` (90),
+on both this card and the ManagedProject one. Below the warning threshold it
+returns nothing: most allocations are healthy, and colouring those would spend
+the reader's attention on the normal case.
+
+The bar underneath shares those constants. It used to turn red at 95%, which
+left a 90–95% band where an amber bar sat under a red number; one pair of
+thresholds removes that.
+
+The award card colours its figure only when the allocation resolves. Without
+one `percentOf` answers 0, and an uncoloured figure is the honest reading of
+"we cannot say" rather than an accidental claim that the allocation is healthy.
+
 ## Shared pieces
 
 `MonthlyUsageChart` (`@/openportal/consumption`) serves both OpenPortal modes.

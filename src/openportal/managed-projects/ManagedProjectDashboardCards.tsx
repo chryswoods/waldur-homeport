@@ -1,3 +1,4 @@
+import classNames from 'classnames';
 import { FC } from 'react';
 import { Col } from 'react-bootstrap';
 import { type ManagedProject, type Project } from 'waldur-js-client';
@@ -12,6 +13,7 @@ import {
   ExternalCardLink,
   percentOf,
   UsageProgressBar,
+  usageTextClass,
 } from '../allocationUsage';
 import { useProjectAccountingSummary } from '../useProjectAccountingSummary';
 
@@ -74,7 +76,18 @@ const ManagedProjectCard: FC<{ mp: ManagedProject; project: Project }> = ({
                 <div className="fs-6 text-muted fw-bold mb-1">
                   {translate('Used')}
                 </div>
-                <div className="display-6 fw-boldest">
+                <div
+                  className={classNames(
+                    'display-6 fw-boldest',
+                    // Only once there is an allocation to be a share of: with
+                    // no denominator percentOf answers 0, and an uncoloured
+                    // figure is the honest reading of "we cannot say".
+                    allocationCredits !== null &&
+                      usageTextClass(
+                        percentOf(accounting.usage_credits, allocationCredits),
+                      ),
+                  )}
+                >
                   {defaultCurrency(accounting.usage_credits)}
                 </div>
                 {allocationCredits !== null && (

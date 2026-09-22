@@ -1,4 +1,5 @@
 import { InfoIcon } from '@phosphor-icons/react';
+import classNames from 'classnames';
 import { FC } from 'react';
 
 import { Tooltip } from 'waldur-ui';
@@ -7,7 +8,11 @@ import { defaultCurrency } from '@/core/formatCurrency';
 import { Panel } from '@/core/Panel';
 import { translate } from '@/i18n';
 
-import { percentOf, UsageProgressBar } from '../allocationUsage';
+import {
+  percentOf,
+  UsageProgressBar,
+  usageTextClass,
+} from '../allocationUsage';
 
 import { type ProjectSpend } from './projectSpend';
 
@@ -28,46 +33,52 @@ interface Props {
  * What it does not carry is the pace: a pace needs an award window to measure
  * against, and the project's own dates are not one.
  */
-export const ProjectSpendCard: FC<Props> = ({ spend, className }) => (
-  // No heading and no date range: the award card it stands in for has none
-  // either, and stripping them lets this line up with the monthly usage chart
-  // beside it instead of standing a header taller than everything else.
-  <Panel cardBordered className={className}>
-    <div className="d-flex align-items-start gap-3">
-      <div className="flex-grow-1 d-flex flex-column gap-3">
-        <div>
-          <div className="fs-6 text-muted fw-bold mb-1">
-            {translate('Allocation')}
+export const ProjectSpendCard: FC<Props> = ({ spend, className }) => {
+  const percent = percentOf(spend.usedTotal, spend.allocation);
+  return (
+    // No heading and no date range: the award card it stands in for has none
+    // either, and stripping them lets this line up with the monthly usage chart
+    // beside it instead of standing a header taller than everything else.
+    <Panel cardBordered className={className}>
+      <div className="d-flex align-items-start gap-3">
+        <div className="flex-grow-1 d-flex flex-column gap-3">
+          <div>
+            <div className="fs-6 text-muted fw-bold mb-1">
+              {translate('Allocation')}
+            </div>
+            <div className="display-6 fw-boldest">
+              {defaultCurrency(spend.allocation)}
+            </div>
           </div>
-          <div className="display-6 fw-boldest">
-            {defaultCurrency(spend.allocation)}
+          <div>
+            <div className="fs-6 text-muted fw-bold mb-1">
+              {translate('Used')}
+            </div>
+            <div
+              className={classNames(
+                'display-6 fw-boldest',
+                usageTextClass(percent),
+              )}
+            >
+              {defaultCurrency(spend.usedTotal)}
+            </div>
+            <UsageProgressBar percent={percent} />
+            <div className="fs-8 text-muted mt-1">
+              {translate('{amount} remaining', {
+                amount: defaultCurrency(spend.remaining),
+              })}
+            </div>
           </div>
         </div>
-        <div>
-          <div className="fs-6 text-muted fw-bold mb-1">
-            {translate('Used')}
-          </div>
-          <div className="display-6 fw-boldest">
-            {defaultCurrency(spend.usedTotal)}
-          </div>
-          <UsageProgressBar
-            percent={percentOf(spend.usedTotal, spend.allocation)}
-          />
-          <div className="fs-8 text-muted mt-1">
-            {translate('{amount} remaining', {
-              amount: defaultCurrency(spend.remaining),
-            })}
-          </div>
-        </div>
+        <Tooltip
+          label={translate(
+            'The credit granted to this project over its life, and everything booked against it including the current month. {thisMonth} of the usage is this month, which has not yet been drawn from the credit balance.',
+            { thisMonth: defaultCurrency(spend.currentMonth) },
+          )}
+        >
+          <InfoIcon weight="bold" className="text-muted" />
+        </Tooltip>
       </div>
-      <Tooltip
-        label={translate(
-          'The credit granted to this project over its life, and everything booked against it including the current month. {thisMonth} of the usage is this month, which has not yet been drawn from the credit balance.',
-          { thisMonth: defaultCurrency(spend.currentMonth) },
-        )}
-      >
-        <InfoIcon weight="bold" className="text-muted" />
-      </Tooltip>
-    </div>
-  </Panel>
-);
+    </Panel>
+  );
+};
