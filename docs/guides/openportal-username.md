@@ -147,7 +147,51 @@ reads as "save every field". It degrades to a full save rather than crashing,
 and `query_field` is not a field on either model. Present on both `UserInfo`
 and `ProjectInfo`.
 
-## Prompt for waldur-mastermind
+## Prompt for waldur-mastermind: the feature flag
+
+`user.show_openportal_identifier` is carried by hand in HomePort's generated
+`FeaturesEnums.ts` and `FeaturesDescription.ts`. Until mastermind declares it,
+those two files disagree with their generator and the next
+`./docs/update-local-sdk.sh` run silently drops the entry.
+
+> In `src/waldur_core/core/features.py`, add a feature to `UserSection`:
+>
+> ```python
+> show_openportal_identifier = Feature(
+>     "Show the OpenPortal username on the user profile, and let a user choose it once if it has not been set."
+> )
+> ```
+>
+> Reproduce the description string exactly as given. HomePort's
+> `src/FeaturesEnums.ts` and `src/features/FeaturesDescription.ts` are generated
+> from this file by `waldur print_features_enums` and
+> `waldur print_features_description`, and both already carry this entry by
+> hand; the strings must match or the next regeneration will change them.
+>
+> Declaration order within the section does not matter — both generators sort
+> alphabetically, so the entry lands between `show_identity_bridge` and
+> `show_slug` in the output either way. Put it next to `minimal_user_profile`,
+> which it composes with.
+>
+> Verify by running both generators and diffing against HomePort's checked-in
+> files: the only new lines should be
+>
+> ```
+> show_openportal_identifier = 'user.show_openportal_identifier',
+> ```
+>
+> and the description entry, both verbatim. Check that ruff leaves the long
+> string alone, as it did for `show_openportal_accounting_only`.
+>
+> This is presentational only and needs no backend reader. It gates a profile
+> row whose data — the `shortname` on `openportal-userinfo`, and its copy on
+> `user.slug` — stays readable through the API either way, so it is not an
+> access control. The precedent is `show_openportal_accounting_only`
+> (`d6499945`), which confirmed that the only backend reader of a core feature
+> is `invoices.utils.affiliates_feature_enabled()`, and that it reads the
+> Constance setting rather than the feature entry.
+
+## Prompt for waldur-mastermind: the remaining bugs
 
 > In `src/waldur_openportal`, two follow-ups to the shortname work in
 > `638c11df`.
