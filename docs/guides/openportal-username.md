@@ -58,84 +58,87 @@ The row nests its own `EditFieldProvider`, overriding the panel's for that
 subtree only, so it looks and behaves like every other field while writing to a
 different endpoint entirely.
 
-## Validation lives in the frontend, of necessity
+## Validation
 
-`src/openportal/user-identifier/shortname.ts` is the real gate. The backend's
-is not, for three reasons.
+The backend is the authority, as of `638c11df` on
+`claude/waldur-mastermind-resync-analysis-w824hs`. Before that commit the
+validators declared on `UserInfo.shortname` never ran — the action read
+`request.data["shortname"]` directly and called `save()`, which does not run
+them — so `admin`, `UPPER`, `1leading` and even `ok name` were all accepted.
+Now `set_shortname()` calls `full_clean()` and the action validates through
+`SetUserShortnameSerializer`, so a violation comes back as a 400 naming the
+rule.
 
-**The model validators never run.** `UserInfo.shortname` declares
-`RegexValidator`, `MinLengthValidator(4)` and `MaxLengthValidator(32)`, but the
-`set_shortname` action reads `request.data["shortname"]` directly and calls
-`set_shortname()` then `save()`. Neither runs `full_clean()`, and `full_clean`
-appears nowhere in `waldur_openportal`, so Django never executes them. What is
-actually enforced is: non-empty (a `ValueError` in `set_shortname`), no second
-change (`ValueError`, plus the `FieldTracker` guard in `save`), and uniqueness
-and length at the database.
+`src/openportal/user-identifier/shortname.ts` restates the rules so a user is
+told what is wrong before submitting a choice that cannot be undone. It must
+never be _laxer_ than the backend: a value the frontend accepts and the server
+refuses is a confusing failure on a one-shot field.
 
-`admin` is therefore accepted today.
+| Rule       | Backend                                   | Frontend                               |
+| ---------- | ----------------------------------------- | -------------------------------------- |
+| Characters | `^[a-z][a-z0-9]+$`                        | same                                   |
+| Length     | 4 to `MAX_USER_SHORTNAME_LENGTH` (32)     | same                                   |
+| Reserved   | `admin\|root`, searched, case-insensitive | same, as a regex `test`                |
+| Whitespace | stripped before validating                | trimmed before validating              |
+| Uniqueness | database                                  | server only — reported through the 400 |
 
-**The reserved-name regex would not do what it looks like.** It is
-`RegexValidator(r"(admin)|(root)$", inverse_match=True)`. `|` binds loosest and
-`RegexValidator` uses `re.search`, so it reads as "contains `admin`, or ends
-with `root`":
+### The reserved-name rule rejects more than the two words
 
-| Value       | Rejected?                           |
-| ----------- | ----------------------------------- |
-| `admin`     | yes                                 |
-| `root`      | yes                                 |
-| `badminton` | yes — almost certainly not intended |
-| `rootkit`   | **no** — slips through              |
-| `myroot`    | yes                                 |
+It is a search, not a match, so a reserved word **anywhere** in the shortname is
+refused: `myadmin`, `adminuser`, `rootuser`, `myroot` and `xadminx` are all
+rejected, and so is an innocent word like `badminton`. That is deliberate — the
+shortname becomes a local account name, and a privileged-looking one is worth
+refusing wherever it appears.
 
-It also carries no `message=`, so it would emit Django's default "Enter a valid
-value."
+The frontend previously implemented the two words exactly, because the old
+backend regex `(admin)|(root)$` read as "contains `admin`, or ends with `root`"
+and so admitted `rootkit` while rejecting `badminton` — an asymmetry that could
+not have been intended. The fix anchored it to `admin|root`, and the frontend
+now matches. `shortname.test.ts` mirrors
+`test_reserved_names_are_rejected_anywhere_in_the_shortname`.
 
-The frontend implements the evident intent — those two names exactly — rather
-than reproducing the asymmetry. If mastermind's regex is fixed to
-`^(admin|root)$` the two agree exactly; until then a name like `badminton`
-would pass here and, once `full_clean` is wired up, fail there.
+### Errors carry a reason
 
-**Failures carry no message.** The view answers every exception with a bare
-`Response(status=HTTP_400_BAD_REQUEST)`; the reason is only logged server-side.
-There is nothing for the client to unpack, which is why the error notification
-has to name the likely causes itself.
+A rejection returns `{"shortname": [...]}`, which `showErrorResponse` appends to
+the notification. The message in `useOpenPortalUsername` therefore says only
+that the username could not be set and lets the server say why.
+
+### Users can set their own
+
+The viewset is staff-write (`IsAdminOrReadOnly`), which used to reject the owner
+with a 403 before the action's own owner-or-staff check could run — so the one
+person the endpoint exists for could not use it. The action now requires only
+authentication and leaves authorisation to that check. Without this the Username
+row would be unusable for everyone but staff.
 
 ## Open mastermind issues
 
-### 1. A rejected second change still overwrites the slug
+Fixed in `638c11df`: the validators now run; the reserved-name regex is
+anchored; a rejected change no longer leaves the slug moved, because
+`set_shortname` validates before writing and puts the shortname and its copy in
+one transaction; the 400 carries a body; and a user can set their own.
 
-In `UserInfo.set_shortname`, the slug is written and the user saved _before_
-the "cannot change" check:
+What remains:
 
-```python
-self.user.slug = shortname
-self.user.save(update_fields=["slug"])
-
-if self.shortname and self.shortname != shortname:
-    raise ValueError(f"Cannot change shortname ... ")
-```
-
-So a second attempt is refused — the caller gets a 400 and `shortname` is
-unchanged — but the user's slug has already been overwritten with the rejected
-value. Slug and shortname then disagree, which is exactly the drift the
-mirroring exists to prevent. The guard needs to run first.
-
-### 2. The `{user}` path parameter is typed as an integer
+### 1. The `{user}` path parameter is still typed as an integer
 
 The generated client declares `path: { user: number }`, but `UserInfoViewSet`
 sets `lookup_field = "user"` and `_get()` resolves it with
 `User.objects.get(uuid=user)` — the segment is a UUID string. HomePort has no
-numeric user id at all. The single workaround is `userPathParam` in
-`useOpenPortalUsername.ts`; annotate the path parameter in mastermind,
+numeric user id at all. `views.py` already imports `OpenApiParameter` and uses
+it on other viewsets, so this is a small addition. The single workaround is
+`userPathParam` in `useOpenPortalUsername.ts`; annotate the parameter,
 regenerate the SDK, and delete it.
 
-### 3. `set_shortname`'s request body demands a redundant `user`
+### 2. `ProjectInfo` has every gap `UserInfo` just had
 
-The action reads only `shortname`, but `UserInfoSerializer` is reused as the
-request body, so the generated type makes `user` required. A dedicated request
-serializer would make the signature honest.
+`638c11df` says so explicitly and leaves it alone: the project shortname's
+validators are bypassed the same way, and its reserved-name ban is
+`(-admin)|(-root)$`, with the same search-versus-match asymmetry. Not urgent for
+HomePort, which does not yet offer a project shortname row, but it is the same
+bug waiting in the same place.
 
-### 4. Latent bug in `UserInfo.save`
+### 3. Latent bug in `save()`, now in two models
 
 ```python
 kwargs["update_fields"] = set(kwargs["update_fields"]).add("query_field")
@@ -143,48 +146,40 @@ kwargs["update_fields"] = set(kwargs["update_fields"]).add("query_field")
 
 `set.add()` returns `None`, so `update_fields` becomes `None` — which Django
 reads as "save every field". It degrades to a full save rather than crashing,
-and `query_field` is not a field on the model in any case.
+and `query_field` is not a field on either model. Present on both `UserInfo`
+and `ProjectInfo`.
+
+### 4. `set_shortname` drops the redundant `user` from the request body
+
+Fixed in mastermind — the action now declares
+`request=SetUserShortnameSerializer`, whose only field is `shortname`. The
+frontend still sends `user` because the _currently pinned_ SDK was generated
+before that change and makes it required. Drop it from the `body` in
+`useOpenPortalUsername.ts` when the client is next regenerated; it becomes a
+type error then, which is the intended signal.
 
 ## Prompt for waldur-mastermind
 
-> In `src/waldur_openportal`, fix four issues with the user shortname.
+> In `src/waldur_openportal`, three follow-ups to the shortname work in
+> `638c11df`.
 >
-> 1. `UserInfo.set_shortname` writes `self.user.slug` and saves the user before
->    checking whether the shortname may be changed, so a rejected second change
->    still overwrites the slug and leaves it disagreeing with the shortname.
->    Move the "cannot change" guard ahead of the slug write. Add a test that a
->    second `set_shortname` leaves both `shortname` and `user.slug` untouched.
+> 1. The `{user}` path parameter on `openportal-userinfo` is a UUID
+>    (`lookup_field = "user"`, resolved with `User.objects.get(uuid=user)`), but
+>    drf-spectacular infers an integer, so the generated TypeScript client
+>    declares `path: { user: number }` and no caller can satisfy it honestly.
+>    Annotate it with an `OpenApiParameter` of type UUID — `views.py` already
+>    imports and uses `OpenApiParameter` on other viewsets. The same applies to
+>    `{project}` on `openportal-projectinfo`.
 >
-> 2. The model's validators never run on the `set_shortname` action, because the
->    view reads `request.data["shortname"]` directly and calls `set_shortname()`
->    and `save()`, neither of which calls `full_clean()`. Validate the input —
->    either by calling `full_clean(exclude=...)` before saving, or by giving the
->    action a small request serializer that carries the same validators. Add
->    tests that `admin`, `abc` (too short), `1abc` and a 33-character name are
->    all refused.
+> 2. `ProjectInfo.shortname` has the gaps `UserInfo.shortname` just had, as
+>    `638c11df` notes: its validators are bypassed because the action reads
+>    `request.data` directly, and its reserved-name ban is `(-admin)|(-root)$`,
+>    which `RegexValidator` searches rather than matches. Give the action a
+>    request serializer so the declared rules are enforced and a violation
+>    returns a 400 naming the rule, and anchor the ban the way the user one now
+>    is. Mirror the tests in `tests/test_user_shortname.py`.
 >
-> 3. The reserved-name validator is
->    `RegexValidator(r"(admin)|(root)$", inverse_match=True)`. Because `|` binds
->    loosest and `RegexValidator` uses `re.search`, this means "contains admin,
->    or ends with root": it rejects `badminton` and accepts `rootkit`. Change it
->    to `^(admin|root)$` and give it a `message=` so the reason reaches the
->    client. If the reserved list is expected to grow, put it in a module-level
->    constant.
->
-> 4. `UserInfoViewSet.set_shortname` answers every failure with a bare
->    `Response(status=HTTP_400_BAD_REQUEST)`, so the client gets no reason at
->    all. Return the validation message in the body, in DRF's usual shape.
->
-> Also two schema fixes so the generated TypeScript client matches reality:
->
-> - The `{user}` path parameter on `openportal-userinfo` is a UUID
->   (`lookup_field = "user"`, resolved with `User.objects.get(uuid=user)`), but
->   drf-spectacular infers an integer. Annotate it with an `OpenApiParameter` of
->   type UUID. The same applies to `{project}` on `openportal-projectinfo`.
-> - `set_shortname` reuses `UserInfoSerializer` as its request body, which makes
->   `user` a required field even though the action ignores it. Give it a request
->   serializer carrying only `shortname`.
->
-> Finally, in `UserInfo.save`, `set(kwargs["update_fields"]).add("query_field")`
-> evaluates to `None` because `set.add` returns `None`, and `query_field` is not
-> a field on the model. Work out what was intended and fix or remove it.
+> 3. In both `UserInfo.save` and `ProjectInfo.save`,
+>    `set(kwargs["update_fields"]).add("query_field")` evaluates to `None`
+>    because `set.add` returns `None`, and `query_field` is not a field on
+>    either model. Work out what was intended and fix or remove it.

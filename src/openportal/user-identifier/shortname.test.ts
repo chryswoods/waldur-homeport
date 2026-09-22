@@ -35,18 +35,29 @@ describe('validateShortname', () => {
     expect(validateShortname('ab cd')).toBeTruthy();
   });
 
-  it('rejects the reserved names', () => {
-    expect(validateShortname('admin')).toBeTruthy();
-    expect(validateShortname('root')).toBeTruthy();
+  // Mirrors test_reserved_names_are_rejected_anywhere_in_the_shortname in
+  // waldur_openportal/tests/test_user_shortname.py. The backend validator
+  // searches rather than matches, so a reserved word anywhere is refused —
+  // including in an innocent word that happens to contain one.
+  it('rejects a reserved word anywhere in the name', () => {
+    for (const name of [
+      'admin',
+      'root',
+      'myadmin',
+      'adminuser',
+      'rootuser',
+      'myroot',
+      'xadminx',
+      'badminton',
+    ]) {
+      expect(validateShortname(name), name).toBeTruthy();
+    }
   });
 
-  // The backend validator reads as "contains admin, or ends with root", which
-  // rejects ordinary words and admits root-prefixed ones. We implement the
-  // intent instead; these cases pin the difference so it is a decision on the
-  // record rather than an accident.
-  it('does not reject ordinary names that merely contain a reserved word', () => {
-    expect(validateShortname('badminton')).toBeUndefined();
-    expect(validateShortname('rootkit')).toBeUndefined();
-    expect(validateShortname('myroot')).toBeUndefined();
+  // The backend strips before validating, so we must not refuse a value it
+  // would have accepted.
+  it('trims before validating', () => {
+    expect(validateShortname('  chris  ')).toBeUndefined();
+    expect(validateShortname('   ')).toBeTruthy();
   });
 });

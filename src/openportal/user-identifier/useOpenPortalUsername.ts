@@ -68,9 +68,11 @@ export const useOpenPortalUsername = (user: User) => {
     try {
       await openportalUserinfoSetShortnameUpdate({
         path: { user: userPathParam(user.uuid) },
-        // The action reads `request.data["shortname"]` directly and ignores
-        // everything else; `user` is required by the generated type only
-        // because the model serializer is reused as the request body.
+        // `user` is required by the generated type only because the request
+        // body was inferred from the model serializer. Mastermind now declares
+        // `SetUserShortnameSerializer`, whose only field is `shortname`, so
+        // this property should be dropped when the SDK is next regenerated —
+        // at which point it becomes a type error and says so.
         body: { shortname, user: user.url },
       });
       await queryClient.invalidateQueries({
@@ -78,15 +80,12 @@ export const useOpenPortalUsername = (user: User) => {
       });
       showSuccess(translate('Username has been set.'));
     } catch (e) {
-      // The endpoint answers every failure with an empty 400 — no field
-      // errors, no detail — so there is nothing to unpack and the message has
-      // to carry the likely causes itself.
-      showErrorResponse(
-        e,
-        translate(
-          'Username could not be set. It may already be taken, or it may already have been set for this account.',
-        ),
-      );
+      // The endpoint now answers a rejection with `{"shortname": [...]}`
+      // naming the rule that failed — the character rules, the length bounds,
+      // the reserved words, uniqueness, or an attempt to change one already
+      // set. `showErrorResponse` appends that to the message below, so this
+      // only has to say what failed, not guess why.
+      showErrorResponse(e, translate('Username could not be set.'));
       throw e;
     }
   };

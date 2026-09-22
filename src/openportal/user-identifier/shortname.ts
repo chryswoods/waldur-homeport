@@ -4,40 +4,43 @@ import { translate } from '@/i18n';
  * Client-side rules for the OpenPortal username (the `shortname` field of
  * `openportal-userinfo`).
  *
- * These mirror the validators declared on `waldur_openportal.models.UserInfo`.
- * They are duplicated here deliberately rather than derived from the API,
- * because the write path — `PUT /api/openportal-userinfo/<user>/set_shortname/`
- * — reads `request.data["shortname"]` directly and calls `set_shortname()`
- * followed by `save()`. Neither runs `full_clean()`, and `full_clean` appears
- * nowhere in the module, so Django never executes the field validators on that
- * endpoint. The view also answers every failure with a bare 400 carrying no
- * body. This module is therefore the only thing standing between a user and an
- * unusable username, for a choice that cannot be undone.
+ * These mirror the validators declared on `waldur_openportal.models.UserInfo`,
+ * which the backend now enforces: `set_shortname()` calls `full_clean()`, and
+ * the `set_shortname` action validates through `SetUserShortnameSerializer`
+ * and returns a 400 naming the rule. The rules are restated here so the user
+ * is told what is wrong before submitting a choice that cannot be undone, not
+ * because the server would let a bad one through.
  *
- * Keep in step with `MAX_USER_SHORTNAME_LENGTH` and the validator list in
- * `src/waldur_openportal/models.py`.
+ * Because the server is now the authority, these must not be *laxer* than it:
+ * a value this module accepts and the backend refuses is a confusing failure
+ * on a one-shot field. Keep in step with `MAX_USER_SHORTNAME_LENGTH` and the
+ * validator list in `src/waldur_openportal/models.py`.
  */
 export const SHORTNAME_MIN_LENGTH = 4;
 export const SHORTNAME_MAX_LENGTH = 32;
 export const SHORTNAME_PATTERN = /^[a-z][a-z0-9]+$/;
 
 /**
- * Names the backend means to refuse.
+ * Words the backend refuses anywhere in the shortname.
  *
- * The model's validator is `RegexValidator(r"(admin)|(root)$", inverse_match=True)`,
- * which — because `|` binds loosest and `RegexValidator` uses `re.search` — reads
- * as "contains `admin`, or ends with `root`". That rejects `badminton` while
- * admitting `rootkit`, which cannot be what was meant. We implement the evident
- * intent (these two names exactly) rather than reproducing the asymmetry; see
- * docs/guides/openportal-username.md.
+ * The model's validator is
+ * `RegexValidator(r"admin|root", flags=re.IGNORECASE, inverse_match=True)`, and
+ * `RegexValidator` searches rather than matches — so this rejects `myadmin`,
+ * `rootuser` and `xadminx` as well as the bare words. A shortname becomes a
+ * local account name, and a privileged-looking one is refused wherever it
+ * appears. Matched case-insensitively here for the same belt-and-braces reason
+ * the backend does it, though the character rule already forces lower case.
  */
-export const SHORTNAME_RESERVED = ['admin', 'root'];
+export const SHORTNAME_RESERVED = /admin|root/i;
 
 /**
  * Returns an error message, or undefined when `value` is acceptable.
  * Shaped for use as a React Final Form field validator.
  */
-export const validateShortname = (value: string): string | undefined => {
+export const validateShortname = (rawValue: string): string | undefined => {
+  // The backend strips before validating, so a stray space must not produce a
+  // client-side error for a value the server would have accepted.
+  const value = rawValue?.trim();
   if (!value) {
     return translate('Enter a username.');
   }
@@ -56,10 +59,8 @@ export const validateShortname = (value: string): string | undefined => {
       'Must start with a lower-case letter and contain only lower-case letters and digits.',
     );
   }
-  if (SHORTNAME_RESERVED.includes(value)) {
-    return translate('"{value}" is reserved. Choose another username.', {
-      value,
-    });
+  if (SHORTNAME_RESERVED.test(value)) {
+    return translate("Cannot contain 'admin' or 'root'.");
   }
   return undefined;
 };
