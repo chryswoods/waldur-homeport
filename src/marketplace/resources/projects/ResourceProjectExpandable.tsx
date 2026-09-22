@@ -16,6 +16,10 @@ import { renderRoleExpirationDate } from '@/customer/team/TeamTableComponent';
 import { isFeatureVisible } from '@/features/connect';
 import { UserFeatures } from '@/FeaturesEnums';
 import { translate } from '@/i18n';
+import {
+  getDisplayUsername,
+  usesOpenPortalUsername,
+} from '@/openportal/user-identifier/displayUsername';
 import { PermissionEnum } from '@/permissions/enums';
 import { hasPermission } from '@/permissions/hasPermission';
 import {
@@ -27,6 +31,7 @@ import { DASH_ESCAPE_CODE } from '@/table/constants';
 import { ExpandableContainer } from '@/table/ExpandableContainer';
 import Table from '@/table/Table';
 import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 import { NavItem } from '@/user/affiliations/OrganizationExpandableRow';
 import { RoleField } from '@/user/affiliations/RoleField';
 import { useUser } from '@/workspace/hooks';
@@ -153,10 +158,21 @@ export const ResourceProjectExpandable: FC<ResourceProjectExpandableProps> = ({
                   ),
                   copyField: (row) => row.user_full_name,
                 },
-                isFeatureVisible(UserFeatures.show_username) && {
+                (isFeatureVisible(UserFeatures.show_username) ||
+                  usesOpenPortalUsername()) && {
                   title: translate('Username'),
-                  render: ({ row }) => row.user_username,
-                  copyField: (row) => row.user_username,
+                  render: ({ row }) =>
+                    renderFieldOrDash(
+                      getDisplayUsername({
+                        username: row.user_username,
+                        slug: row.user_slug,
+                      }),
+                    ),
+                  copyField: (row) =>
+                    getDisplayUsername({
+                      username: row.user_username,
+                      slug: row.user_slug,
+                    }) ?? '',
                   className: 'w-25',
                 },
                 {

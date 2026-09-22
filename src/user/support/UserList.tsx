@@ -12,6 +12,10 @@ import { formatPhoneNumber } from '@/core/utils';
 import { isFeatureVisible } from '@/features/connect';
 import { SupportFeatures, UserFeatures } from '@/FeaturesEnums';
 import { translate } from '@/i18n';
+import {
+  getDisplayUsername,
+  usesOpenPortalUsername,
+} from '@/openportal/user-identifier/displayUsername';
 import { RoleEnum } from '@/permissions/enums';
 import { formatRole } from '@/permissions/utils';
 import { ActionsDropdown } from '@/table/ActionsDropdown';
@@ -253,11 +257,19 @@ export const UserList: FunctionComponent = () => {
     },
     {
       title: translate('Username'),
-      render: ({ row }) => renderFieldOrDash(row.username),
-      copyField: (row) => row.username,
-      keys: ['username'],
+      // Where the deployment identifies users by their OpenPortal username,
+      // this column shows that rather than `user.username`.
+      render: ({ row }) =>
+        renderFieldOrDash(
+          getDisplayUsername({ username: row.username, slug: row.slug }),
+        ),
+      copyField: (row) =>
+        getDisplayUsername({ username: row.username, slug: row.slug }) ?? '',
+      keys: ['username', 'slug'],
       id: 'username',
-      optional: !isFeatureVisible(UserFeatures.show_username),
+      optional:
+        !isFeatureVisible(UserFeatures.show_username) &&
+        !usesOpenPortalUsername(),
     },
     {
       title: translate('Email'),
@@ -420,7 +432,8 @@ export const UserList: FunctionComponent = () => {
     },
   ];
 
-  if (isFeatureVisible(UserFeatures.show_slug)) {
+  // Redundant once the Username column is showing the slug.
+  if (isFeatureVisible(UserFeatures.show_slug) && !usesOpenPortalUsername()) {
     columns.push({
       title: translate('Shortname'),
       render: ({ row }) => row.slug,

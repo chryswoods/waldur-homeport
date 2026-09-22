@@ -6,11 +6,16 @@ import { formatDate } from '@/core/dateUtils';
 import { isFeatureVisible } from '@/features/connect';
 import { UserFeatures } from '@/FeaturesEnums';
 import { translate } from '@/i18n';
+import {
+  getDisplayUsername,
+  usesOpenPortalUsername,
+} from '@/openportal/user-identifier/displayUsername';
 import { GenericPermission } from '@/permissions/types';
 import { SramTeamMarker } from '@/sram/SramBadge';
 import { DASH_ESCAPE_CODE } from '@/table/constants';
 import Table, { TableColumns } from '@/table/Table';
 import { Column, TableProps } from '@/table/types';
+import { renderFieldOrDash } from '@/table/utils';
 import { MemberSyncStateIndicator } from '@/user/affiliations/MemberSyncStateIndicator';
 import { RoleField } from '@/user/affiliations/RoleField';
 import { exportRoleField } from '@/user/affiliations/RolePopover';
@@ -110,14 +115,31 @@ export const TeamTableComponent = <
       },
       {
         title: translate('Username'),
-        render: ({ row }) => getField(row, 'username'),
-        export: getKey('username'),
+        // Where the deployment identifies users by their OpenPortal username,
+        // this column shows that rather than `user.username` — which may be
+        // the email address, or whatever the identity provider supplied.
+        render: ({ row }) =>
+          renderFieldOrDash(
+            getDisplayUsername({
+              username: getField(row, 'username'),
+              slug: getField(row, 'slug'),
+            }),
+          ),
+        export: usesOpenPortalUsername() ? getKey('slug') : getKey('username'),
         id: 'username',
-        keys: [getKey('username')],
-        optional: !isFeatureVisible(UserFeatures.show_username),
-        copyField: (row) => getField(row, 'username'),
+        keys: [getKey('username'), getKey('slug')],
+        optional:
+          !isFeatureVisible(UserFeatures.show_username) &&
+          !usesOpenPortalUsername(),
+        copyField: (row) =>
+          getDisplayUsername({
+            username: getField(row, 'username'),
+            slug: getField(row, 'slug'),
+          }) ?? '',
       },
-      isFeatureVisible(UserFeatures.show_slug) &&
+      // Redundant once the Username column above is showing the slug.
+      !usesOpenPortalUsername() &&
+        isFeatureVisible(UserFeatures.show_slug) &&
         isFeatureVisible(UserFeatures.show_slug_as_id) && {
           title: translate('ID'),
           render: ({ row }) => {

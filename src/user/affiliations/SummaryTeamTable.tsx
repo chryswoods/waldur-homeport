@@ -10,11 +10,16 @@ import { renderRoleExpirationDate } from '@/customer/team/TeamTableComponent';
 import { isFeatureVisible } from '@/features/connect';
 import { UserFeatures } from '@/FeaturesEnums';
 import { translate } from '@/i18n';
+import {
+  getDisplayUsername,
+  usesOpenPortalUsername,
+} from '@/openportal/user-identifier/displayUsername';
 import { ActionsDropdownComponent } from '@/table/ActionsDropdown';
 import { createFetcher } from '@/table/api';
 import { DASH_ESCAPE_CODE } from '@/table/constants';
 import Table from '@/table/Table';
 import { useTable } from '@/table/useTable';
+import { renderFieldOrDash } from '@/table/utils';
 import { RoleField } from '@/user/affiliations/RoleField';
 import { UserDetailsButton } from '@/user/UserDetailsButton';
 import { Customer } from '@/workspace/types';
@@ -23,6 +28,9 @@ const organizationUserMandatoryFields = [
   'uuid',
   'email',
   'username',
+  // Shown in place of the username where the deployment uses OpenPortal
+  // usernames; see @/openportal/user-identifier/displayUsername.
+  'slug',
   'image',
   'full_name',
   'expiration_time',
@@ -34,6 +42,7 @@ const projectUserMandatoryFields = [
   'user_uuid',
   'user_email',
   'user_username',
+  'user_slug',
   'user_image',
   'user_full_name',
   'expiration_time',
@@ -111,10 +120,21 @@ export const SummaryTeamTable: FC<OwnProps> = ({
             (context === 'organization' && 'concatenated_name') ||
             (context === 'project' && 'full_name'),
         },
-        isFeatureVisible(UserFeatures.show_username) && {
+        (isFeatureVisible(UserFeatures.show_username) ||
+          usesOpenPortalUsername()) && {
           title: translate('Username'),
-          render: ({ row }) => getValue(row, 'username'),
-          copyField: (row) => getValue(row, 'username'),
+          render: ({ row }) =>
+            renderFieldOrDash(
+              getDisplayUsername({
+                username: getValue(row, 'username'),
+                slug: getValue(row, 'slug'),
+              }),
+            ),
+          copyField: (row) =>
+            getDisplayUsername({
+              username: getValue(row, 'username'),
+              slug: getValue(row, 'slug'),
+            }) ?? '',
           className: 'w-25',
         },
         {

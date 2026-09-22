@@ -424,7 +424,7 @@ export const FeaturesDescription: FeatureSection[] = [
       },
       {
         key: 'show_openportal_identifier',
-        description: translate('Show the OpenPortal username on the user profile, and let a user choose it once if it has not been set.'),
+        description: translate('Identify users by their OpenPortal username: show it in place of the username in user lists, show it on the user profile, and let a user choose it once if it has not been set.'),
       },
       {
         key: 'show_slug',

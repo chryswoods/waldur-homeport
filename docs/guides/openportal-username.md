@@ -41,22 +41,54 @@ including the Username row, so nobody could ever choose one.
 
 Writes go through `PUT /api/openportal-userinfo/<user>/set_shortname/`, which
 is the only way in: mastermind mirrors the shortname onto `user.slug` and keeps
-them in step, and the slug is immutable everywhere else.
+them in step, and the slug is set-once everywhere else.
 
 Reads split by purpose:
 
-- **The profile** reads `openportal-userinfo`, because only `shortname`
-  distinguishes "never chosen" from "chosen", and that is what decides whether
-  the row is editable. An empty `slug` does not mean the same thing — Waldur
-  auto-populates slugs.
-- **Lists of other users** should keep using the mirrored `user_slug` already
-  carried on those serializers. It is the same value, needs no extra request,
-  and is already rendered in `RoleUsersExpandableRow`, `ProviderOfferingUsersList`
-  and others.
+- **The profile** reads `openportal-userinfo`. It needs the set-once state, not
+  just the value, to decide whether the row is editable.
+- **Lists of other users** read the mirrored `user_slug` already carried on
+  those serializers — same value, no extra request.
 
-The row nests its own `EditFieldProvider`, overriding the panel's for that
-subtree only, so it looks and behaves like every other field while writing to a
-different endpoint entirely.
+### The Username column
+
+Where `user.show_openportal_identifier` is on, the Username column in user
+lists shows the slug rather than `user.username`. A deployment may set
+`user.username` to the email address, or take it from whatever the identity
+provider supplies, and neither is the name a user types at a shell prompt.
+
+`getDisplayUsername` in `@/openportal/user-identifier/displayUsername` makes
+that choice once for all four lists: `TeamTableComponent` (the project and
+organization team tables), `SummaryTeamTable`, `ResourceProjectExpandable` and
+`UserList`. The separate slug columns — the "ID" column in `TeamTableComponent`
+and the "Shortname" column in `UserList` — are suppressed when it is on, since
+they would then duplicate the Username column.
+
+**An absent slug renders as a dash, never as `user.username`.** Falling back
+would put an email under a "Username" heading, which is the confusion the
+column exists to remove. Empty counts as absent as well as null: `User.slug` is
+a non-null `SlugField`, so a slug mastermind has cleared arrives as `''`.
+
+### Why an absent slug means "not chosen"
+
+`User.get_slug_source_field()` returns `"username"`, and `SlugMixin.save()`
+fills the slug whenever it is empty:
+
+```python
+def save(self, *args, **kwargs):
+    if not self.slug:
+        self.slug = self.generate_slug()
+```
+
+So historically every user got a slugified `username` — an email, in a
+deployment that identifies users that way — long before choosing a shortname,
+and nothing reading `user_slug` could tell that value from one `set_shortname`
+had written. That is what made a slug look like a chosen OpenPortal username
+when none had been set.
+
+The fix is in mastermind, not here: stop auto-generating the user slug where
+OpenPortal owns it, and clear the ones already generated. The frontend then
+needs no heuristic — a slug is present or it is not. See the prompt below.
 
 ## Validation
 
@@ -158,7 +190,7 @@ those two files disagree with their generator and the next
 >
 > ```python
 > show_openportal_identifier = Feature(
->     "Show the OpenPortal username on the user profile, and let a user choose it once if it has not been set."
+>     "Identify users by their OpenPortal username: show it in place of the username in user lists, show it on the user profile, and let a user choose it once if it has not been set."
 > )
 > ```
 >
@@ -193,10 +225,36 @@ those two files disagree with their generator and the next
 
 ## Prompt for waldur-mastermind: the remaining bugs
 
-> In `src/waldur_openportal`, two follow-ups to the shortname work in
+> In `src/waldur_openportal`, three follow-ups to the shortname work in
 > `638c11df`.
 >
-> 1. `ProjectInfo.shortname` has the gaps `UserInfo.shortname` had: its
+> 1. Make an absent user slug mean "no OpenPortal username has been chosen".
+>    Today `User.get_slug_source_field()` returns `"username"` and
+>    `SlugMixin.save()` fills the slug whenever it is empty, so every user gets
+>    a slugified username — an email, in a deployment that identifies users
+>    that way — before they ever choose a shortname. Nothing reading
+>    `user.slug` can then tell that value from one `set_shortname` wrote, and
+>    HomePort shows it as though it were a chosen username.
+>
+>    Stop auto-generating the user slug where the OpenPortal plugin owns it,
+>    and clear the ones already generated. Two things to watch:
+>
+>    - Clearing alone is not enough: `SlugMixin.save()` regenerates the moment
+>      the user record is saved again for any reason, so the auto-generation
+>      has to be suppressed too.
+>    - The backfill will trip the guard added in `1bc8dd35`, which raises
+>      `ValidationError` when the slug changes and a previous value was set —
+>      exactly what clearing does. It has to set `_syncing_to_userinfo`, the
+>      way the existing bulk reconciliation in `waldur_openportal.utils` does.
+>
+>    `UserInfo.shortname` is the authority for the backfill: clear the slug of
+>    any user whose `UserInfo` has no shortname. Nothing looks a user up by
+>    slug — there is no `lookup_field = "slug"` in `waldur_core`, and HomePort
+>    does not route on it — and `slug = models.SlugField()` carries no
+>    `unique=True`, so empty values are fine. Add a test that a user with no
+>    shortname has an empty slug, and that it stays empty across a later save.
+>
+> 2. `ProjectInfo.shortname` has the gaps `UserInfo.shortname` had: its
 >    validators are bypassed because the `set_shortname` action reads
 >    `request.data` directly, and its reserved-name ban is `(-admin)|(-root)$`,
 >    which `RegexValidator` searches rather than matches. Give the action a
@@ -204,7 +262,7 @@ those two files disagree with their generator and the next
 >    returns a 400 naming the rule, and anchor the ban the way the user one now
 >    is. Mirror the tests in `tests/test_user_shortname.py`.
 >
-> 2. In both `UserInfo.save` and `ProjectInfo.save`,
+> 3. In both `UserInfo.save` and `ProjectInfo.save`,
 >    `set(kwargs["update_fields"]).add("query_field")` evaluates to `None`
 >    because `set.add` returns `None`, and `query_field` is not a field on
 >    either model. Work out what was intended and fix or remove it.

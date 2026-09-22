@@ -5,10 +5,13 @@ import configureStore from 'redux-mock-store';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DrawerProvider } from '@/drawer/DrawerContext';
+import { isFeatureVisible } from '@/features/connect';
 import { useTable } from '@/table/useTable';
 import { renderWithProviders } from '@/test/harness';
 
 import { TeamTableComponent } from './TeamTableComponent';
+
+vi.mock('@/features/connect');
 
 // Avoid real API calls; rows are supplied through the mocked redux table state.
 vi.mock('@/table/useTableQuery', () => ({
@@ -27,7 +30,8 @@ const row = {
   uuid: rowId,
   full_name: 'John Doe',
   email: 'john.doe@example.com',
-  username: 'johndoe',
+  username: 'john.doe@example.com',
+  slug: 'johndoe',
   role_name: 'owner',
   expiration_time: '2025-12-31T23:59:59Z',
 };
@@ -97,5 +101,47 @@ describe('TeamTableComponent falsy column guard', () => {
 
     expect(await screen.findByText('Role expiration')).toBeInTheDocument();
     await assertHeaderBodyAligned();
+  });
+});
+
+describe('TeamTableComponent username column', () => {
+  const enableFlags = (...flags: string[]) =>
+    vi
+      .mocked(isFeatureVisible)
+      .mockImplementation((flag: any) => flags.includes(flag));
+
+  /** The text of the body cell under the "Username" header. */
+  const usernameCell = async () => {
+    await screen.findByText('John Doe');
+    const index = screen
+      .getAllByRole('columnheader')
+      .findIndex((th) => th.textContent?.includes('Username'));
+    expect(index).toBeGreaterThanOrEqual(0);
+    return screen.getAllByRole('cell')[index].textContent;
+  };
+
+  it('shows user.username by default', async () => {
+    enableFlags('user.show_username');
+    renderTable(true);
+
+    expect(await usernameCell()).toContain('john.doe@example.com');
+  });
+
+  // Where the deployment identifies users by their OpenPortal username,
+  // user.username may be the email address, which is what this replaces.
+  it('shows the slug instead when the OpenPortal identifier is enabled', async () => {
+    enableFlags('user.show_openportal_identifier');
+    renderTable(true);
+
+    const text = await usernameCell();
+    expect(text).toContain('johndoe');
+    expect(text).not.toContain('john.doe@example.com');
+  });
+
+  it('shows the column without needing show_username as well', async () => {
+    enableFlags('user.show_openportal_identifier');
+    renderTable(true);
+
+    await expect(usernameCell()).resolves.toBeTruthy();
   });
 });
