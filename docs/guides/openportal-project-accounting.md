@@ -32,40 +32,72 @@ the organisation had set `show_openportal_accounting_only`, it got them anyway,
 because that feature was only honoured on `CustomerDashboard` and the project
 dashboard ignored it entirely.
 
-## What the `project` mode deliberately does not show
+## Recovering the allocation
 
-**No pace card, and no allocation.** Pacing needs an allocation, and without an
-award there is no stated one.
+The card shows allocation, usage and a bar — the same shape as the award card,
+because it is the same absolute accounting. The allocation is not stated by an
+award here, so it is recovered:
 
-It is tempting to derive it. For a project whose credits OpenPortal sets,
-`set_project_credits` writes `ProjectCredit.value = allocation − spend
-excluding the current month` — and it is called from the RemoteAllocation
-handler, not only from the award path — so `allocation = total_credits +
-total_spend` exactly. But the same arithmetic on an ordinary Waldur project,
-whose balance is a real ledger that is drawn down monthly and can be topped up,
-gives a number that is simply wrong, and nothing in the response distinguishes
-the two. A figure that is right for some projects and quietly wrong for others
-is worse than no figure.
+```
+allocation = total_credits + total_spend
+```
 
-If the pace card is ever wanted here, the fix is for
-`ProjectAccountingSummarySerializer` to report the allocation directly — it
-computes both halves already — rather than for HomePort to infer it. The gate
-that separates the two cases is `RemoteAllocation`, which only the backend can
-see.
+This is not a guess. It is what `waldur_openportal.utils.get_project_credits()`
+computes, under the name "the total lifetime credits awarded to the project",
+and it holds because `set_project_credits` writes
+
+```python
+ProjectCredit.value = allocation − spend-excluding-the-current-month
+```
+
+so adding that spend back recovers the allocation exactly. That writer runs for
+any project with active `RemoteAllocation`s, not only for award-backed ones.
+
+`remaining` is then `allocation − usedTotal`, which reduces to
+`total_credits − current_month_spend` — the start-of-month balance less what
+this month has booked against it, and so the same figure Waldur's own
+accounting reports.
+
+### Why this is safe here and not in general
+
+The identity does **not** hold for an ordinary Waldur project. There the
+balance is a genuine ledger: credit is drawn down by compensation items, which
+arrive as negative invoice items, and `get_project_spend_info` already nets
+those back into `total_credits`. Adding the spend as well would double-count
+it.
+
+Nothing in the endpoint's response distinguishes the two cases. What does is
+the gate: none of this renders unless
+`customer.show_openportal_accounting_only` is set, and an organisation
+declaring that its accounting is OpenPortal's absolute model is exactly the
+condition under which the identity is sound.
+
+If the derivation is ever wanted outside that gate, the clean fix is for
+`ProjectAccountingSummarySerializer` to report the allocation directly — it can
+call the `get_project_credits()` it already has — rather than for HomePort to
+infer it.
+
+## No pace card
+
+Pacing needs a window to measure against, and a project's own start and end
+dates are not an award's. That was the request, and it is right on the merits:
+a project may run across several awards, so its own dates say nothing about
+when the current budget was meant to be spent.
+
+The credit health block goes for the same reason and one more: it is the
+relative model throughout — this month's drawdown, its pacing, the credit
+lifecycle. With an award it shows the award pace instead, so it stays; without
+one it is exactly what the feature is meant to suppress, and its "Overall
+credit" figures disagreed on screen with the absolute ones beside them.
 
 ## The arithmetic the endpoint needs
 
-`/api/openportal-accounting-summary/` names its fields in a way that invites
-two mistakes, so `buildProjectSpend` does the arithmetic in one place:
-
-- `total_spend` **excludes** the current month. It is not the total.
-- `current_month_spend` is that month alone.
-- `total_credits` is `ProjectCredit.value`: the balance at the **start** of the
-  current month, because credit is drawn down when a month is invoiced rather
-  than as usage accrues.
-
-So used to date is `total_spend + current_month_spend`, and the credit left now
-is `total_credits − current_month_spend`.
+`/api/openportal-accounting-summary/` names its fields in a way that invites a
+mistake, so `buildProjectSpend` does the arithmetic in one place:
+`total_spend` **excludes** the current month and `current_month_spend` is that
+month alone, so neither field is the total and the two have to be added.
+`total_credits` is the balance at the **start** of the current month, because
+credit is drawn down when a month is invoiced rather than as usage accrues.
 
 ## Shared pieces
 

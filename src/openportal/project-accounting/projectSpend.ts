@@ -1,11 +1,13 @@
 import { type ProjectAccountingSummary } from 'waldur-js-client';
 
 export interface ProjectSpend {
-  /** Everything booked against the project, including this month. */
+  /** Total credit granted to the project over its life. */
+  allocation: number;
+  /** Everything booked against it, including the current month. */
   usedTotal: number;
-  /** Booked this month, not yet drawn from the credit balance. */
+  /** Booked this month. */
   currentMonth: number;
-  /** Credit left now: the balance the endpoint reports, less this month. */
+  /** Allocation less what has been used. */
   remaining: number;
   /** First day of the window the figures cover. */
   startDate: string;
@@ -18,28 +20,40 @@ const toNumber = (value: string | number | null | undefined): number => {
 };
 
 /**
- * The absolute spend figures for a project, from
+ * The absolute accounting for a project, from
  * `/api/openportal-accounting-summary/`.
  *
- * The endpoint reports three things, and the arithmetic between them is worth
- * stating because the names do not say it: `total_spend` **excludes** the
- * current month, `current_month_spend` is that month on its own, and
- * `total_credits` is `ProjectCredit.value` — the balance at the start of the
- * current month, since credit is drawn down when the month is invoiced rather
- * than continuously.
+ * The endpoint's field names invite two mistakes, so the arithmetic lives here:
  *
- * So the total used is the two spend figures added, and the credit left right
- * now is the balance less what this month has already booked against it.
+ * - `total_spend` **excludes** the current month; `current_month_spend` is that
+ *   month alone. Neither is the total, so they have to be added.
+ * - `total_credits` is the credit balance at the **start** of the current
+ *   month — `ProjectCredit.value`, plus any credit that arrived as a negative
+ *   invoice item. Credit is drawn down when a month is invoiced rather than as
+ *   usage accrues, so this month's spend has not come off it yet.
  *
- * Deliberately absent: the allocation. For a project whose credits OpenPortal
- * sets — `set_project_credits` writes `allocation − spend-excluding-current-
- * month` — it could be recovered as `total_credits + total_spend`. But the same
- * arithmetic on an ordinary Waldur project, whose balance is a genuine ledger
- * drawn down month by month and can be topped up, yields a number that is
- * simply wrong, and nothing in this response distinguishes the two cases. A
- * figure that is right for some projects and quietly wrong for others is worse
- * than no figure, so the cards state what was used and what is left, and leave
- * pacing to projects that carry an award and can state their allocation.
+ * ## Recovering the allocation
+ *
+ * `allocation = total_credits + total_spend`. This is not a guess: it is what
+ * `waldur_openportal.utils.get_project_credits()` computes, under the name
+ * "the total lifetime credits awarded to the project". It holds because
+ * `set_project_credits` writes
+ * `ProjectCredit.value = allocation − spend-excluding-the-current-month`, so
+ * adding that spend back recovers the allocation exactly. That writer runs for
+ * any project with active `RemoteAllocation`s, not only for award-backed ones.
+ *
+ * The identity does **not** hold for an ordinary Waldur project, whose balance
+ * is a genuine ledger: there, credit is drawn down by compensation items and
+ * `total_credits` already nets them back out, so adding the spend as well
+ * double-counts it. That is why nothing here is shown unless
+ * `customer.show_openportal_accounting_only` is set — the organisation
+ * declaring that its accounting is OpenPortal's absolute model is exactly the
+ * condition under which the identity is sound.
+ *
+ * `remaining` is stated as `allocation − usedTotal`, which reduces to
+ * `total_credits − current_month_spend`: the start-of-month balance less what
+ * this month has booked against it, and so the same figure Waldur's own
+ * accounting reports.
  */
 export const buildProjectSpend = (
   summary: ProjectAccountingSummary | null | undefined,
@@ -51,10 +65,14 @@ export const buildProjectSpend = (
   const currentMonth = toNumber(summary.current_month_spend);
   const balanceAtStartOfMonth = toNumber(summary.total_credits);
 
+  const allocation = balanceAtStartOfMonth + previousMonths;
+  const usedTotal = previousMonths + currentMonth;
+
   return {
-    usedTotal: previousMonths + currentMonth,
+    allocation,
+    usedTotal,
     currentMonth,
-    remaining: balanceAtStartOfMonth - currentMonth,
+    remaining: allocation - usedTotal,
     startDate: summary.start_date,
     endDate: summary.end_date,
   };

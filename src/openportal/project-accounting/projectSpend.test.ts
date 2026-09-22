@@ -17,10 +17,19 @@ describe('buildProjectSpend', () => {
     expect(buildProjectSpend(summary())?.usedTotal).toBe(550);
   });
 
-  it('takes the current month off the balance for what is left', () => {
-    // total_credits is the balance at the start of the month: credit is drawn
-    // down when the month is invoiced, not as usage accrues.
-    expect(buildProjectSpend(summary())?.remaining).toBe(850);
+  // Mirrors waldur_openportal.utils.get_project_credits: the start-of-month
+  // balance plus the spend already taken off it is the allocation, because
+  // set_project_credits wrote value = allocation - that spend.
+  it('recovers the allocation from the balance and the spend taken off it', () => {
+    expect(buildProjectSpend(summary())?.allocation).toBe(1400);
+  });
+
+  it('keeps remaining consistent with allocation less usage', () => {
+    const spend = buildProjectSpend(summary())!;
+    expect(spend.remaining).toBe(spend.allocation - spend.usedTotal);
+    // Which is also the start-of-month balance less this month's spend, the
+    // figure Waldur's own accounting reports.
+    expect(spend.remaining).toBe(1000 - 150);
   });
 
   it('carries the window through', () => {
@@ -44,6 +53,7 @@ describe('buildProjectSpend', () => {
       summary({ total_spend: '', current_month_spend: null }),
     );
     expect(spend?.usedTotal).toBe(0);
-    expect(spend?.remaining).toBe(1000);
+    expect(spend?.currentMonth).toBe(0);
+    expect(spend?.allocation).toBe(1000);
   });
 });

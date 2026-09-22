@@ -319,10 +319,22 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
           />
         )}
         {/* The award card's counterpart for a project with no award: the same
-            absolute figures, minus everything that needs an allocation. */}
+            absolute figures, minus everything that needs an allocation. Paired
+            with the monthly usage beside it, the way the award card and its
+            chart pair up. */}
         {showProjectSpend && projectSpend && (
-          <Col sm={12} className="mb-5">
-            <ProjectSpendCard spend={projectSpend} />
+          <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
+            <ProjectSpendCard spend={projectSpend} className="h-100" />
+          </Col>
+        )}
+        {showBillingInfo && showProjectSpend && projectSpend?.endDate && (
+          <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
+            <MonthlyUsageChart
+              projectUuid={project.uuid}
+              startDate={projectSpend.startDate}
+              endDate={projectSpend.endDate}
+              className="h-100"
+            />
           </Col>
         )}
         {!hasManyRemoteProjects &&
@@ -332,39 +344,42 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
               <ProjectDashboardBalance project={project} />
             </Col>
           )}
-        {showTeam && !hasAnyRemoteProjects && !hasAnyManagedProjects && (
-          <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
-            <TeamWidget
-              api={() =>
-                projectsListUsersList({
-                  path: { uuid: project.uuid },
-                  query: {
-                    field: [
-                      'user_uuid',
-                      'user_full_name',
-                      'user_email',
-                      'user_image',
-                      'role_name',
-                    ],
+        {showTeam &&
+          !hasAnyRemoteProjects &&
+          !hasAnyManagedProjects &&
+          !showProjectSpend && (
+            <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
+              <TeamWidget
+                api={() =>
+                  projectsListUsersList({
+                    path: { uuid: project.uuid },
+                    query: {
+                      field: [
+                        'user_uuid',
+                        'user_full_name',
+                        'user_email',
+                        'user_image',
+                        'role_name',
+                      ],
 
-                    page_size: 5,
-                  },
-                }).then(parseSelectData)
-              }
-              scope={project}
-              chartData={teamData}
-              showChart
-              onBadgeClick={isProjectRemoved ? undefined : goToUsers}
-              onAddClick={isProjectRemoved ? undefined : handleAddClick}
-              showAdd={(canInvite || membershipLocked) && !isProjectRemoved}
-              loadingAdd={loadingProjects}
-              className="h-100"
-              nameKey="user_full_name"
-              emailKey="user_email"
-              imageKey="user_image"
-            />
-          </Col>
-        )}
+                      page_size: 5,
+                    },
+                  }).then(parseSelectData)
+                }
+                scope={project}
+                chartData={teamData}
+                showChart
+                onBadgeClick={isProjectRemoved ? undefined : goToUsers}
+                onAddClick={isProjectRemoved ? undefined : handleAddClick}
+                showAdd={(canInvite || membershipLocked) && !isProjectRemoved}
+                loadingAdd={loadingProjects}
+                className="h-100"
+                nameKey="user_full_name"
+                emailKey="user_email"
+                imageKey="user_image"
+              />
+            </Col>
+          )}
         {shouldShowCurrentMonthWidget && (
           <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
             <AggregateLimitWidget
@@ -407,26 +422,18 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
             />
           </Col>
         )}
-        {/* No award, but the organisation accounts absolutely: the same
-            monthly usage over the project's own window, beside the spend
-            figures rather than a pace bar there is no allocation to draw. */}
-        {showBillingInfo && showProjectSpend && projectSpend?.endDate && (
-          <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
-            <MonthlyUsageChart
-              projectUuid={project.uuid}
-              startDate={projectSpend.startDate}
-              endDate={projectSpend.endDate}
-              className="h-100"
-            />
-          </Col>
-        )}
       </Row>
       {/* The Health block is for projects with a credit allocation and gates
           itself on one — it renders nothing without. The usage views are about
           quota rather than credit, so they are not tied to an allocation; each
           view ships behind its own dashboard.usage_* feature flag and the
           section renders nothing until an operator enables one. */}
-      {showBillingInfo && (
+      {/* The credit health block is the relative model throughout — this
+          month's drawdown, its pacing, the credit lifecycle. With an award it
+          shows the award pace instead, so it stays; without one, under
+          OpenPortal-only accounting, it is exactly what the feature is meant
+          to suppress. */}
+      {showBillingInfo && !showProjectSpend && (
         <ProjectCreditHealthBlock
           project={project}
           hasAward={hasAnyManagedProjects}

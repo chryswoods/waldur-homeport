@@ -1,22 +1,16 @@
 import { InfoIcon } from '@phosphor-icons/react';
-import { FC, ReactNode } from 'react';
-import { Col, Row } from 'react-bootstrap';
+import { FC } from 'react';
 
 import { Tooltip } from 'waldur-ui';
 
 import { formatDate } from '@/core/dateUtils';
 import { defaultCurrency } from '@/core/formatCurrency';
-import { StatsCard } from '@/core/StatsCard';
 import { WidgetCard } from '@/dashboard/WidgetCard';
 import { translate } from '@/i18n';
 
-import { type ProjectSpend } from './projectSpend';
+import { percentOf, UsageProgressBar } from '../allocationUsage';
 
-const MetricTip: FC<{ label: ReactNode }> = ({ label }) => (
-  <Tooltip label={label}>
-    <InfoIcon weight="bold" className="text-muted" />
-  </Tooltip>
-);
+import { type ProjectSpend } from './projectSpend';
 
 interface Props {
   spend: ProjectSpend;
@@ -24,13 +18,16 @@ interface Props {
 }
 
 /**
- * A project's OpenPortal spend, for a project with no award behind it.
+ * A project's OpenPortal accounting where no award is attached.
  *
- * The award card's counterpart, minus everything that needs an allocation:
- * there is no bar, no pace and no run-out date, because without an award there
- * is no stated figure to measure against. What is left is still the absolute
- * accounting — what has been used, and what credit is left — rather than the
- * marketplace widgets' monthly ledger view.
+ * Deliberately the same shape as the award card — allocation, usage, a bar —
+ * because it is the same absolute accounting; the allocation simply has to be
+ * recovered from the credit balance rather than stated by an award. See
+ * `buildProjectSpend` for why that recovery is exact here and would not be on
+ * an ordinary Waldur project.
+ *
+ * What it does not carry is the pace: a pace needs an award window to measure
+ * against, and the project's own dates are not one.
  */
 export const ProjectSpendCard: FC<Props> = ({ spend, className }) => (
   <WidgetCard
@@ -44,48 +41,41 @@ export const ProjectSpendCard: FC<Props> = ({ spend, className }) => (
         : translate('From {start}', { start: formatDate(spend.startDate) })
     }
     className={className}
+    cardAction={
+      <Tooltip
+        label={translate(
+          'The credit granted to this project over its life, and everything booked against it including the current month. {thisMonth} of the usage is this month, which has not yet been drawn from the credit balance.',
+          { thisMonth: defaultCurrency(spend.currentMonth) },
+        )}
+      >
+        <InfoIcon weight="bold" className="text-muted" />
+      </Tooltip>
+    }
   >
     <div className="separator mt-4 mb-4" />
-    <Row className="g-3">
-      <Col md={4} sm={12}>
-        <StatsCard
-          label={translate('Used to date')}
-          value={defaultCurrency(spend.usedTotal)}
-          icon={
-            <MetricTip
-              label={translate(
-                'Everything booked against this project, including the current month.',
-              )}
-            />
-          }
+    <div className="d-flex flex-column gap-3">
+      <div>
+        <div className="fs-6 text-muted fw-bold mb-1">
+          {translate('Allocation')}
+        </div>
+        <div className="display-6 fw-boldest">
+          {defaultCurrency(spend.allocation)}
+        </div>
+      </div>
+      <div>
+        <div className="fs-6 text-muted fw-bold mb-1">{translate('Used')}</div>
+        <div className="display-6 fw-boldest">
+          {defaultCurrency(spend.usedTotal)}
+        </div>
+        <UsageProgressBar
+          percent={percentOf(spend.usedTotal, spend.allocation)}
         />
-      </Col>
-      <Col md={4} sm={12}>
-        <StatsCard
-          label={translate('This month')}
-          value={defaultCurrency(spend.currentMonth)}
-          icon={
-            <MetricTip
-              label={translate(
-                'Booked so far this month. It is drawn from the credit balance when the month is invoiced, not as it accrues.',
-              )}
-            />
-          }
-        />
-      </Col>
-      <Col md={4} sm={12}>
-        <StatsCard
-          label={translate('Credit remaining')}
-          value={defaultCurrency(spend.remaining)}
-          icon={
-            <MetricTip
-              label={translate(
-                'The credit balance less what this month has booked against it.',
-              )}
-            />
-          }
-        />
-      </Col>
-    </Row>
+        <div className="fs-8 text-muted mt-1">
+          {translate('{amount} remaining', {
+            amount: defaultCurrency(spend.remaining),
+          })}
+        </div>
+      </div>
+    </div>
   </WidgetCard>
 );
