@@ -39,7 +39,7 @@ because it is the same absolute accounting. The allocation is not stated by an
 award here, so it is recovered:
 
 ```
-allocation = total_credits + total_spend
+allocation = ProjectCredit.value + total_spend
 ```
 
 This is not a guess. It is what `waldur_openportal.utils.get_project_credits()`
@@ -54,9 +54,32 @@ so adding that spend back recovers the allocation exactly. That writer runs for
 any project with active `RemoteAllocation`s, not only for award-backed ones.
 
 `remaining` is then `allocation − usedTotal`, which reduces to
-`total_credits − current_month_spend` — the start-of-month balance less what
-this month has booked against it, and so the same figure Waldur's own
-accounting reports.
+`ProjectCredit.value − current_month_spend` — the start-of-month balance less
+what this month has booked against it, which is exactly the "estimated balance
+at the end of this month" the stock Accounting widget reports.
+
+### Not the summary's `total_credits`
+
+The balance comes from `/api/project-credits/`, **not** from the summary
+endpoint's `total_credits`. That field starts at `ProjectCredit.value` and then
+adds back every credit that ever arrived as a negative invoice item:
+
+```python
+total_credits = project_credit.value
+for invoice_item in invoice_items:
+    if usage < 0:
+        total_credits += abs(usage)
+```
+
+On a project with any compensation history that is not the start-of-month
+balance at all. Using it inflated one real project's allocation from about
+289,000 to 432,000 — the gap being its whole accrued compensation. It also
+means the earlier assumption that OpenPortal projects carry no compensation
+items was wrong: it holds for award-backed projects, not for these.
+
+`useProjectSpend` therefore makes two requests, the credit one under the same
+query key `useProjectCreditChart` uses, so the figures agree with the stock
+widget and no duplicate call is made.
 
 ### Why this is safe here and not in general
 
