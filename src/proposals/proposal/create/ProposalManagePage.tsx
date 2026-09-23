@@ -16,6 +16,8 @@ import { translate } from '@/i18n';
 import { PageBarProvider } from '@/marketplace/context';
 import { useBreadcrumbs } from '@/navigation/context';
 import { useTitle } from '@/navigation/title';
+import { ArchivedProposalRedirect } from '@/proposals/archive/ArchivedProposalRedirect';
+import { isNotFound } from '@/proposals/archive/resolveArchived';
 import {
   useCallManagedProposalBreadcrumbItems,
   useProposalBreadcrumbItems,
@@ -180,6 +182,13 @@ export const ProposalManagePage = () => {
   if (isLoading || isLoadingReviews) {
     return <LoadingSpinner />;
   } else if (error) {
+    // A proposal that is not here may still be in the archive: the upgrade
+    // archived the old proposals rather than migrating them, keeping their
+    // UUIDs, so an old link identifies a real record that is no longer live.
+    // Only a 404 is worth following up — a 403 or a 500 must surface as itself.
+    if (isNotFound(error)) {
+      return <ArchivedProposalRedirect uuid={proposal_uuid} />;
+    }
     return <LoadingErred loadData={refetch} />;
   }
 

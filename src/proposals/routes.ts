@@ -223,6 +223,99 @@ export const states: StateDeclaration[] = [
     },
   },
 
+  // The proposal archive: a read-only record of the calls and proposals that
+  // ran before the upgrade, kept apart from the live proposal app so that
+  // nothing in it can be mistaken for something still in flight.
+  {
+    name: 'proposal-archive',
+    url: '/proposal-archive/',
+    abstract: true,
+    parent: 'layout',
+    component: UIView,
+    data: {
+      title: () => translate('Proposal archive'),
+    },
+  },
+  {
+    name: 'proposal-archive-calls',
+    url: '',
+    parent: 'proposal-archive',
+    component: lazyComponent(() =>
+      import('./archive/ArchivedCallsList').then((module) => ({
+        default: module.ArchivedCallsList,
+      })),
+    ),
+    data: {
+      breadcrumb: () => translate('Archived calls'),
+      priority: 100,
+    },
+  },
+  {
+    name: 'proposal-archive-call',
+    url: 'calls/:uuid/',
+    parent: 'proposal-archive',
+    component: lazyComponent(() =>
+      import('./archive/ArchivedCallDetails').then((module) => ({
+        default: module.ArchivedCallDetails,
+      })),
+    ),
+    data: {
+      breadcrumb: () => translate('Archived call'),
+    },
+  },
+  {
+    name: 'proposal-archive-proposals',
+    url: 'proposals/?{call}&{round}',
+    parent: 'proposal-archive',
+    component: lazyComponent(() =>
+      import('./archive/ArchivedProposalsList').then((module) => ({
+        default: module.ArchivedProposalsList,
+      })),
+    ),
+    data: {
+      breadcrumb: () => translate('Archived proposals'),
+    },
+  },
+  {
+    name: 'proposal-archive-proposal',
+    url: 'proposals/:uuid/',
+    parent: 'proposal-archive',
+    component: lazyComponent(() =>
+      import('./archive/ArchivedProposalDetails').then((module) => ({
+        default: module.ArchivedProposalDetails,
+      })),
+    ),
+    data: {
+      breadcrumb: () => translate('Archived proposal'),
+    },
+  },
+  {
+    name: 'proposal-archive-reviews',
+    url: 'reviews/',
+    parent: 'proposal-archive',
+    component: lazyComponent(() =>
+      import('./archive/ArchivedReviewsList').then((module) => ({
+        default: module.ArchivedReviewsList,
+      })),
+    ),
+    data: {
+      breadcrumb: () => translate('Archived reviews'),
+    },
+  },
+  {
+    name: 'proposal-archive-memberships',
+    url: 'memberships/',
+    parent: 'proposal-archive',
+    component: lazyComponent(() =>
+      import('./archive/ArchivedMembershipsList').then((module) => ({
+        default: module.ArchivedMembershipsList,
+      })),
+    ),
+    data: {
+      breadcrumb: () => translate('Archived access'),
+    },
+  },
+
   {
     name: 'calls-for-proposals-dashboard',
     url: '',

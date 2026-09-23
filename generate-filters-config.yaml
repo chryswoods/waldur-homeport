@@ -1226,3 +1226,102 @@ overrides:
         'false': Scoped
     user_uuid:
       label: Owner
+
+  proposal_archive_calls:
+    filters:
+      - state
+      - customer_uuid
+    state:
+      label: State
+      enumOverrides:
+        draft: Draft
+        active: Active
+        archived: Archived
+    customer_uuid:
+      label: Managing organisation
+      operationId: customers_list
+
+  proposal_archive_proposals:
+    filters:
+      - state
+      - call_uuid
+      - created_by_uuid
+      - submitted_after
+      - submitted_before
+    state:
+      label: State
+      enumOverrides:
+        draft: Draft
+        submitted: Submitted
+        in_review: In review
+        accepted: Accepted
+        rejected: Rejected
+        canceled: Canceled
+    call_uuid:
+      label: Call
+      operationId: proposal_archive_calls_list
+    # No round selector: proposal-archive-rounds has no text filter, so the
+    # generator can only emit createLoadOptions(..., 'name'), which that
+    # endpoint rejects. Rounds are reachable from their call, and an old link
+    # to a round still lands on its proposals via the ?round= parameter the
+    # resolver sets. Reinstate this once the endpoint filters on slug.
+    created_by_uuid:
+      label: Author
+      operationId: users_list
+    submitted_after:
+      label: Submitted after
+    submitted_before:
+      label: Submitted before
+
+  proposal_archive_reviews:
+    filters:
+      - state
+      - call_uuid
+      - proposal_uuid
+      - reviewer_uuid
+    state:
+      label: State
+      enumOverrides:
+        in_review: In review
+        submitted: Submitted
+        rejected: Rejected
+    call_uuid:
+      label: Call
+      operationId: proposal_archive_calls_list
+    proposal_uuid:
+      label: Proposal
+      operationId: proposal_archive_proposals_list
+    reviewer_uuid:
+      label: Reviewer
+      operationId: users_list
+
+  proposal_archive_memberships:
+    filters:
+      - scope_kind
+      - role_name
+      - is_active
+      - call_uuid
+      - proposal_uuid
+      - user_uuid
+    scope_kind:
+      label: Scope
+      enumOverrides:
+        call: Call
+        proposal: Proposal
+        organisation: Organisation
+    role_name:
+      label: Role
+    is_active:
+      label: Status
+      enumOverrides:
+        'true': Held at archive time
+        'false': Revoked before archiving
+    call_uuid:
+      label: Call
+      operationId: proposal_archive_calls_list
+    proposal_uuid:
+      label: Proposal
+      operationId: proposal_archive_proposals_list
+    user_uuid:
+      label: Person
+      operationId: users_list

@@ -10,6 +10,7 @@ import { translate } from '@/i18n';
 import { getServiceAccessMode } from '@/marketplace/serviceAccessMode';
 import { MenuItem } from '@/navigation/sidebar/MenuItem';
 import { RoleEnum } from '@/permissions/enums';
+import { useHasProposalArchive } from '@/proposals/archive/useHasProposalArchive';
 import { useUser } from '@/workspace/hooks';
 
 import { isDescendantOf } from '../useTabs';
@@ -98,6 +99,9 @@ export const CallPublicMenu: FC<CallPublicMenuProps> = ({
 }) => {
   const { state } = useCurrentStateAndParams();
   const user = useUser();
+  // Called unconditionally, ahead of every early return below: the menu takes
+  // several of them, and a hook may not sit behind one.
+  const hasArchive = useHasProposalArchive();
 
   const mode = getServiceAccessMode();
 
@@ -214,9 +218,14 @@ export const CallPublicMenu: FC<CallPublicMenuProps> = ({
   // this branch used to answer the same state with a smaller menu instead,
   // leaving a portal that runs no calls with a Proposals section it could not
   // switch off. See docs/guides/upstream-bug-reports.md, finding 9.
-  if (
-    !isFeatureVisible(MarketplaceFeatures.show_call_management_functionality)
-  ) {
+  const callsEnabled = isFeatureVisible(
+    MarketplaceFeatures.show_call_management_functionality,
+  );
+
+  // A deployment that runs no calls may still hold an archive of ones it ran
+  // before, and those records have to stay reachable — the section is then
+  // just the archive.
+  if (!callsEnabled && !hasArchive) {
     return null;
   }
 
@@ -232,24 +241,30 @@ export const CallPublicMenu: FC<CallPublicMenuProps> = ({
       open={open}
       onOpenChange={onOpenChange}
     >
-      {manageCallsItem}
-      {browseCallsItem}
+      {callsEnabled && manageCallsItem}
+      {callsEnabled && browseCallsItem}
 
-      <MenuItem
-        title={translate('My proposals')}
-        state="proposals-all-proposals"
-        activeState={
-          isDescendantOf('proposals', state) ? state.name : undefined
-        }
-      />
+      {callsEnabled && (
+        <MenuItem
+          title={translate('My proposals')}
+          state="proposals-all-proposals"
+          activeState={
+            isDescendantOf('proposals', state) ? state.name : undefined
+          }
+        />
+      )}
 
-      <MenuItem
-        title={translate('My reviews')}
-        state="reviews-all-reviews"
-        activeState={isDescendantOf('reviews', state) ? state.name : undefined}
-      />
+      {callsEnabled && (
+        <MenuItem
+          title={translate('My reviews')}
+          state="reviews-all-reviews"
+          activeState={
+            isDescendantOf('reviews', state) ? state.name : undefined
+          }
+        />
+      )}
 
-      {showAdminItems && (
+      {callsEnabled && showAdminItems && (
         <>
           <SidebarMenuSeparator />
           <MenuItem
@@ -257,6 +272,35 @@ export const CallPublicMenu: FC<CallPublicMenuProps> = ({
             state="admin-proposals"
           />
           <MenuItem title={translate('All reviews')} state="admin-reviews" />
+        </>
+      )}
+
+      {hasArchive && (
+        <>
+          <SidebarMenuSeparator />
+          <MenuItem
+            title={translate('Archived calls')}
+            state="proposal-archive-calls"
+            activeState={
+              isDescendantOf('proposal-archive', state) ? state.name : undefined
+            }
+          />
+          <MenuItem
+            title={translate('Archived proposals')}
+            state="proposal-archive-proposals"
+          />
+          {showAdminItems && (
+            <>
+              <MenuItem
+                title={translate('Archived reviews')}
+                state="proposal-archive-reviews"
+              />
+              <MenuItem
+                title={translate('Archived access')}
+                state="proposal-archive-memberships"
+              />
+            </>
+          )}
         </>
       )}
     </SidebarMenuAccordion>
