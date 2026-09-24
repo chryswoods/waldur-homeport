@@ -31,6 +31,29 @@ The generation process is driven by:
 2. **`generate-filters-config.yaml`**: A configuration file for customization (overrides, ordering, labels).
 3. **`waldur-js-client`**: Provides the TypeScript types and API client functions used by the generated code.
 
+### Where the schema comes from
+
+The generator reads the OpenAPI schema from the first of these that exists, and
+prints which one it used:
+
+1. **`waldur_api.yaml`** in the repo root. Gitignored — a build artefact, written
+   by `docs/update-local-sdk.sh`. Its presence means someone generated it
+   deliberately against the mastermind they are working on, so it wins even when
+   it is ahead of the pinned SDK.
+2. **`node_modules/waldur-js-client/waldur-typescript-schema.yaml`**, shipped with
+   the client. In step with the pinned SDK by definition, and the reason a fresh
+   checkout can regenerate filters without a mastermind checkout at the right
+   commit. Client tags before `8.1.3-rc.15-openportal.5` do not ship it.
+
+If neither exists the script says so and stops, rather than generating from a
+stale file.
+
+This is a second consumer of the same schema, and it used to be easy to miss:
+regenerating the SDK gave you current types while leaving the filter schema
+stale or absent, silently. The SDK carries types but not the paths and query
+parameters the generator needs, so a new endpoint can typecheck perfectly and
+still be invisible here.
+
 ### Generated Output
 
 The script produces `src/table/generated/{OperationId}Filter.tsx` files. Each file exports:
@@ -135,15 +158,15 @@ You can customize almost every aspect of the generated filters.
 
 ### Key Configuration Options
 
-| Option | Description | Example |
-| :--- | :--- | :--- |
-| `label` | Custom label for the filter. | `label: "Organization"` |
-| `component` | React component to use. | `component: "Autocomplete"` |
-| `loadOptions` | API method for async loading. | `loadOptions: "customersList"` |
-| `valueField` | Field to use as value. | `valueField: "uuid"` |
-| `labelField` | Field to show in UI. | `labelField: "name"` |
-| `mapTo` | Map a renamed filter back to a specific API param. | `mapTo: "organization_group_uuid"` |
-| `options` | Hardcoded options for Select. | `options: [{ label: "Yes", value: true }]` |
+| Option        | Description                                        | Example                                    |
+| :------------ | :------------------------------------------------- | :----------------------------------------- |
+| `label`       | Custom label for the filter.                       | `label: "Organization"`                    |
+| `component`   | React component to use.                            | `component: "Autocomplete"`                |
+| `loadOptions` | API method for async loading.                      | `loadOptions: "customersList"`             |
+| `valueField`  | Field to use as value.                             | `valueField: "uuid"`                       |
+| `labelField`  | Field to show in UI.                               | `labelField: "name"`                       |
+| `mapTo`       | Map a renamed filter back to a specific API param. | `mapTo: "organization_group_uuid"`         |
+| `options`     | Hardcoded options for Select.                      | `options: [{ label: "Yes", value: true }]` |
 
 ### Example Configuration
 
@@ -156,13 +179,13 @@ overrides:
   # Override specific parameters across ALL operations
   parameters:
     organization_group:
-      label: "Organization group"
-      component: "Autocomplete"
-      loadOptions: "organizationGroupsList"
-      valueField: "uuid"
-      labelField: "name"
+      label: 'Organization group'
+      component: 'Autocomplete'
+      loadOptions: 'organizationGroupsList'
+      valueField: 'uuid'
+      labelField: 'name'
       # The API expects 'organization_group_uuid', but we call the filter 'organization_group'
-      mapTo: "organization_group_uuid"
+      mapTo: 'organization_group_uuid'
 ```
 
 ---
@@ -196,7 +219,7 @@ If a filter's options come from parent props (not an API call), use the `props.`
 ```yaml
 parameters:
   project_role:
-    options: "props.projectRoles" # Will generate props.projectRoles in component
+    options: 'props.projectRoles' # Will generate props.projectRoles in component
 ```
 
 The generator will:

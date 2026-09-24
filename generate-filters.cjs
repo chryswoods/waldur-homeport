@@ -4,8 +4,36 @@ const yaml = require('js-yaml');
 const { execSync } = require('child_process');
 
 // --- Constants & Config ---
-const SCHEMA_PATH = path.resolve(__dirname, './waldur_api.yaml');
+
+// Where the OpenAPI schema comes from, in order of preference.
+//
+// `waldur_api.yaml` is a local build artefact -- gitignored, written by
+// docs/update-local-sdk.sh -- so its presence means a developer generated it
+// deliberately against the mastermind they are working on. That is the schema
+// they want, even when it is ahead of the pinned SDK.
+//
+// The copy inside waldur-js-client is the fallback, and the one that matters
+// most: it ships with the package, so a fresh checkout can regenerate filters
+// without a mastermind checkout at the right commit. It is by definition in
+// step with the pinned client. Older client tags do not ship it, in which case
+// neither path exists and the error below says what to do.
+const LOCAL_SCHEMA_PATH = path.resolve(__dirname, './waldur_api.yaml');
+const SDK_SCHEMA_PATH = path.resolve(
+  __dirname,
+  './node_modules/waldur-js-client/waldur-typescript-schema.yaml',
+);
 const CONFIG_PATH = path.resolve(__dirname, './generate-filters-config.yaml');
+
+/** The schema to read, and where it came from, or null when there is none. */
+function resolveSchemaPath() {
+  if (fs.existsSync(LOCAL_SCHEMA_PATH)) {
+    return { path: LOCAL_SCHEMA_PATH, source: 'local waldur_api.yaml' };
+  }
+  if (fs.existsSync(SDK_SCHEMA_PATH)) {
+    return { path: SDK_SCHEMA_PATH, source: 'waldur-js-client' };
+  }
+  return null;
+}
 
 const ABBREVIATIONS = [
   'IP',
@@ -626,7 +654,10 @@ ${jsx}    )}\n`
     if (f.mapTo === false) {
       return '';
     }
-    if (f.component === 'RangeNumberField' || f.component === 'RangeDateField') {
+    if (
+      f.component === 'RangeNumberField' ||
+      f.component === 'RangeDateField'
+    ) {
       return (
         `      if (values.${f.name}?.min != null) {\n` +
         `        filter.${f.rangeMinParam} = values.${f.name}.min;\n` +
@@ -900,7 +931,23 @@ ${filters.map(Generator.selector).join('')}  }
 // --- Runner ---
 
 function run() {
-  const schema = yaml.load(fs.readFileSync(SCHEMA_PATH, 'utf8'));
+  const resolved = resolveSchemaPath();
+  if (!resolved) {
+    console.error(
+      'No OpenAPI schema found.\n' +
+        '  Expected either:\n' +
+        `    ${LOCAL_SCHEMA_PATH}\n` +
+        `    ${SDK_SCHEMA_PATH}\n` +
+        '  Run ./docs/update-local-sdk.sh to produce the first, or install a\n' +
+        '  waldur-js-client that ships the second.',
+    );
+    process.exitCode = 1;
+    return;
+  }
+  // Printed rather than silent: which schema was read decides what gets
+  // generated, and a stale one is otherwise indistinguishable from a fresh one.
+  console.log(`Reading schema from ${resolved.source} (${resolved.path})`);
+  const schema = yaml.load(fs.readFileSync(resolved.path, 'utf8'));
   const config = fs.existsSync(CONFIG_PATH)
     ? yaml.load(fs.readFileSync(CONFIG_PATH, 'utf8'))
     : { overrides: {} };

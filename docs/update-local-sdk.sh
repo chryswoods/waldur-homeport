@@ -135,6 +135,16 @@ mv /tmp/FeaturesDescription.ts "$WH2_PATH/src/features/FeaturesDescription.ts"
 mv /tmp/SettingsDescription.ts "$WH2_PATH/src/SettingsDescription.ts"
 mv /tmp/PermissionOptions.tsx "$WH2_PATH/src/administration/roles/PermissionOptions.tsx"
 
+# The schema itself, for generate-filters.cjs.
+#
+# It is a second consumer of the same schema and was previously left out, so a
+# regeneration produced a current SDK beside a stale (or missing) filter
+# schema, silently: the SDK carries types but not the paths and query
+# parameters the filter generator reads. The file is gitignored — a build
+# artefact, not a checked-in copy.
+cp "$SCHEMA_FILE" "$WH2_PATH/waldur_api.yaml"
+echo "      Copied schema for generate-filters.cjs: $WH2_PATH/waldur_api.yaml"
+
 # No formatting pass here: all six generated files are listed in
 # .prettierignore, so `prettier --write` on them is silently a no-op (it
 # honours the ignore file even for explicitly named paths) and the repo's
@@ -145,6 +155,8 @@ echo ""
 echo "=== Done! ==="
 echo "SDK and enums have been regenerated and linked to HomePort."
 echo "Run 'yarn tsgo --noEmit' to verify TypeScript compilation."
+echo "If the schema gained endpoints you want table filters for, add them to"
+echo "generate-filters-config.yaml and run 'node generate-filters.cjs'."
 echo ""
 echo "The link added a local 'waldur-js-client: portal:...' resolution to"
 echo "package.json — do not commit it. Once the SDK is published, bump the"
