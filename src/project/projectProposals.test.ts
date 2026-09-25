@@ -5,6 +5,7 @@ import { isFeatureVisible } from '@/features/connect';
 import {
   isProjectProposalLookupEnabled,
   pickProjectProposals,
+  sameUuid,
 } from './projectProposals';
 
 vi.mock('@/features/connect');
@@ -89,6 +90,25 @@ describe('pickProjectProposals', () => {
     ).toEqual([]);
   });
 
+  // The archive renders UUIDs hyphenated where the rest of Waldur uses bare
+  // hex, so the exact-string comparison this replaced rejected the correct row
+  // for every existing award, and the line never appeared.
+  it('matches an archived row whose project_uuid is hyphenated', () => {
+    expect(
+      pickProjectProposals(
+        { uuid: '6f1a2b3c4d5e6f708192a3b4c5d6e7f8', slug: '0261-7825-6844-1' },
+        [],
+        [
+          {
+            uuid: 'arch-1',
+            slug: '0261-7825-6844-1',
+            project_uuid: '6f1a2b3c-4d5e-6f70-8192-a3b4c5d6e7f8',
+          },
+        ],
+      ),
+    ).toEqual([{ uuid: 'arch-1', slug: '0261-7825-6844-1', archived: true }]);
+  });
+
   it("uses the project's slug for an archived record missing its own", () => {
     expect(
       pickProjectProposals(
@@ -97,6 +117,32 @@ describe('pickProjectProposals', () => {
         [{ uuid: 'arch-1', slug: '', project_uuid: 'proj-1' }],
       )[0].slug,
     ).toBe('0261-7825-6844-1');
+  });
+});
+
+describe('sameUuid', () => {
+  it('treats the hex and hyphenated spellings as equal', () => {
+    expect(
+      sameUuid(
+        '6f1a2b3c4d5e6f708192a3b4c5d6e7f8',
+        '6F1A2B3C-4D5E-6F70-8192-A3B4C5D6E7F8',
+      ),
+    ).toBe(true);
+  });
+
+  it('still tells different UUIDs apart', () => {
+    expect(
+      sameUuid(
+        '6f1a2b3c4d5e6f708192a3b4c5d6e7f8',
+        '6f1a2b3c4d5e6f708192a3b4c5d6e7f9',
+      ),
+    ).toBe(false);
+  });
+
+  it('never matches a missing value', () => {
+    expect(sameUuid(null, null)).toBe(false);
+    expect(sameUuid('', '')).toBe(false);
+    expect(sameUuid(undefined, 'x')).toBe(false);
   });
 });
 

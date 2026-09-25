@@ -34,6 +34,24 @@ export const isProjectProposalLookupEnabled = (): boolean =>
   isFeatureVisible(ProposalFeatures.auto_assign_award_id);
 
 /**
+ * Whether two UUIDs name the same thing, whatever their spelling.
+ *
+ * Waldur's own UUID field serialises as bare hex (`6f1a…e7f8`), but the
+ * archive's are plain Django `UUIDField`s, which DRF renders hyphenated
+ * (`6f1a2b3c-4d5e-…`). Compared as strings the two never match, which made the
+ * fail-closed check below discard the one correct archived row for every
+ * existing award.
+ */
+export const sameUuid = (
+  a: string | null | undefined,
+  b: string | null | undefined,
+): boolean => {
+  if (!a || !b) return false;
+  const normalise = (value: string) => value.replace(/-/g, '').toLowerCase();
+  return normalise(a) === normalise(b);
+};
+
+/**
  * The proposals to link from a project, live ones first.
  *
  * A project has one or the other, never both: the archive holds the proposals
@@ -63,7 +81,7 @@ export const pickProjectProposals = (
   }
 
   return archived
-    .filter((proposal) => proposal.project_uuid === project.uuid)
+    .filter((proposal) => sameUuid(proposal.project_uuid, project.uuid))
     .map((proposal) => ({
       uuid: proposal.uuid,
       // Archived proposals carry the award ID as their slug too; fall back to
