@@ -79,14 +79,25 @@ describe('RemoteProjectPaceBlock', () => {
     expect(screen.queryByText('30,000 CPUHR')).toBeNull();
   });
 
-  it('leaves out connections that are not active', async () => {
+  it('keeps a pending connection, saying which state it is in', async () => {
+    renderBlock([remote('gpu', 'Isambard-AI', '15000 GPUHR', 'pending')]);
+
+    expect(await screen.findByText('Isambard-AI')).toBeInTheDocument();
+    expect(screen.getByTestId('remote-project-state-field')).toHaveTextContent(
+      'pending',
+    );
+    expect(screen.getByText(/not active at the moment/)).toBeInTheDocument();
+  });
+
+  it('leaves out errored connections', async () => {
     renderBlock([
       remote('gpu', 'Isambard-AI', '15000 GPUHR'),
-      remote('idle', 'Pending one', '100 NHR', 'pending'),
+      remote('idle', 'Broken one', '100 NHR', 'error'),
     ]);
 
     expect(await screen.findByText('Isambard-AI')).toBeInTheDocument();
     expect(screen.queryByRole('tab')).toBeNull();
+    expect(screen.queryByText(/not active at the moment/)).toBeNull();
     expect(
       vi.mocked(openportalRemoteProjectsTotalUsageRetrieve),
     ).toHaveBeenCalledTimes(1);
@@ -94,7 +105,7 @@ describe('RemoteProjectPaceBlock', () => {
 
   it('renders nothing when no connection can be paced', () => {
     const { container } = renderBlock([
-      remote('idle', 'Pending one', '100 NHR', 'pending'),
+      remote('idle', 'Broken one', '100 NHR', 'error'),
     ]);
 
     expect(container).toBeEmptyDOMElement();

@@ -3,15 +3,30 @@ import { FC, useMemo, useState } from 'react';
 import { Col, Nav, Row } from 'react-bootstrap';
 import { type RemoteProject } from 'waldur-js-client';
 
+import { translate } from '@/i18n';
 import { AwardPaceCard } from '@/openportal/award-pace/AwardPaceCard';
 
 import {
   buildRemoteProjectPace,
+  isPaced,
   orderByUsage,
   remotePaceUnits,
   remoteProjectLabel,
 } from './remotePace';
+import { RemoteProjectStateField } from './RemoteProjectStateField';
 import { remoteProjectUsageQuery } from './remoteProjectUsage';
+
+/** The connection's name, with its state beside it unless it is active. */
+const ConnectionLabel: FC<{ remoteProject: RemoteProject }> = ({
+  remoteProject,
+}) => (
+  <span className="d-inline-flex align-items-center gap-2">
+    {remoteProjectLabel(remoteProject)}
+    {remoteProject.state !== 'active' && (
+      <RemoteProjectStateField project={remoteProject} />
+    )}
+  </span>
+);
 
 interface Props {
   remoteProjects: RemoteProject[];
@@ -20,6 +35,8 @@ interface Props {
 
 /**
  * Award pace for each remote project connection, one at a time.
+ *
+ * Active, pending and stale connections are shown; see PACED_STATES.
  *
  * Each connection is its own allocation, in its own unit, over its own window,
  * so they are never added together: "3,000 GPUHR and 40,000 CPUHR" has no
@@ -34,18 +51,15 @@ export const RemoteProjectPaceBlock: FC<Props> = ({
   remoteProjects,
   projectEndDate,
 }) => {
-  const active = useMemo(
-    () => remoteProjects.filter((rp) => rp.state === 'active'),
-    [remoteProjects],
-  );
+  const paced = useMemo(() => remoteProjects.filter(isPaced), [remoteProjects]);
   const usage = useQueries({
-    queries: active.map((rp) => remoteProjectUsageQuery(rp.uuid)),
+    queries: paced.map((rp) => remoteProjectUsageQuery(rp.uuid)),
   });
   const loading = usage.some((query) => query.isLoading);
   const paces = loading
     ? []
     : orderByUsage(
-        active
+        paced
           .map((rp, i) =>
             buildRemoteProjectPace(rp, usage[i]?.data, projectEndDate),
           )
@@ -72,14 +86,14 @@ export const RemoteProjectPaceBlock: FC<Props> = ({
         {paces.map(({ remoteProject }) => (
           <Nav.Item key={remoteProject.uuid}>
             <Nav.Link as="button" eventKey={remoteProject.uuid}>
-              {remoteProjectLabel(remoteProject)}
+              <ConnectionLabel remoteProject={remoteProject} />
             </Nav.Link>
           </Nav.Item>
         ))}
       </Nav>
     ) : (
       <div className="fw-semibold mb-4">
-        {remoteProjectLabel(current.remoteProject)}
+        <ConnectionLabel remoteProject={current.remoteProject} />
       </div>
     );
 
@@ -89,7 +103,18 @@ export const RemoteProjectPaceBlock: FC<Props> = ({
         <AwardPaceCard
           pace={current.pace}
           units={remotePaceUnits(current.unit)}
-          toolbar={toolbar}
+          toolbar={
+            <>
+              {toolbar}
+              {current.remoteProject.state !== 'active' && (
+                <p className="text-muted mb-5">
+                  {translate(
+                    'This connection is not active at the moment, so these figures are the last the remote portal reported and may be out of date.',
+                  )}
+                </p>
+              )}
+            </>
+          }
         />
       </Col>
     </Row>

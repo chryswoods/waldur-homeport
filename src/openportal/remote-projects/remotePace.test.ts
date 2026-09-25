@@ -49,9 +49,15 @@ describe('buildRemoteProjectPace', () => {
     expect(result.pace.endDate).toBe('2026-12-31');
   });
 
-  // A pending connection has nothing to spend against yet; pacing it would
-  // call the team behind for the remote portal's delay.
-  it.each(['pending', 'stale', 'error', 'deleted'] as const)(
+  // A delay in approval or a portal that has gone quiet should not hide the
+  // award's history — it is what is needed to debug the delay.
+  it.each(['pending', 'stale'] as const)('paces a %s connection', (state) => {
+    expect(
+      buildRemoteProjectPace(remote({ state }), 10, null, on(2026, 7, 1)),
+    ).not.toBeNull();
+  });
+
+  it.each(['error', 'deleted'] as const)(
     'does not pace a %s connection',
     (state) => {
       expect(

@@ -31,11 +31,27 @@ const allocationText = (rp: RemoteProject): string | null =>
   ].find((text) => allocationTotal(text) > 0) ?? null;
 
 /**
- * How one remote project connection is tracking against its award window.
+ * Connections a pace is shown for.
  *
- * Only an active connection is paced. Until the remote portal has set the
- * project up there is nothing to spend against, and a pending or errored one
- * would read as "behind" for a delay that is not the team's.
+ * Not only active ones: a connection waiting on the team's approval of a
+ * change, or one whose portal has gone quiet for a while, still has an award
+ * with a window, an allocation and the usage reported so far. That history
+ * should not vanish because of a delay, and it is exactly what is needed to
+ * debug one. The card says which state it is in, so the verdict is read with
+ * that in mind. An errored connection is left out — its figures are not to be
+ * trusted — and a deleted one is gone.
+ */
+export const PACED_STATES: ReadonlyArray<RemoteProject['state']> = [
+  'active',
+  'pending',
+  'stale',
+];
+
+export const isPaced = (rp: RemoteProject): boolean =>
+  PACED_STATES.includes(rp.state);
+
+/**
+ * How one remote project connection is tracking against its award window.
  *
  * The window is the award's own dates. Where one is missing the start falls
  * back to when the connection was made — usage is only counted from then — and
@@ -47,7 +63,7 @@ export const buildRemoteProjectPace = (
   projectEndDate: string | null | undefined,
   today: Date = new Date(),
 ): RemoteProjectPace | null => {
-  if (rp.state !== 'active' || usage === undefined) {
+  if (!isPaced(rp) || usage === undefined) {
     return null;
   }
   const text = allocationText(rp);
