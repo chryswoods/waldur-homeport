@@ -1,7 +1,7 @@
 import { type ArchivedProposal, type Proposal } from 'waldur-js-client';
 
 import { isFeatureVisible } from '@/features/connect';
-import { DeploymentFeatures } from '@/FeaturesEnums';
+import { DeploymentFeatures, ProposalFeatures } from '@/FeaturesEnums';
 
 export interface ProjectProposalLink {
   uuid: string;
@@ -15,7 +15,8 @@ export interface ProjectProposalLink {
  *
  * Upstream has no route from a project back to its proposal: `Proposal.project`
  * is a URL with nothing on the other side, and no proposal endpoint accepts
- * `project_uuid`. The award ID bridges the gap — with `auto_assign_award_id`
+ * `project_uuid`. The award ID bridges the gap — with
+ * `proposal.auto_assign_award_id`
  * on, an accepted proposal and the project it creates share it as their slug.
  *
  * Without the flag the slug is only `slugify(name)` on each side, and equal
@@ -30,7 +31,7 @@ export interface ProjectProposalLink {
  */
 export const isProjectProposalLookupEnabled = (): boolean =>
   isFeatureVisible(DeploymentFeatures.application_portal_only) &&
-  isFeatureVisible(DeploymentFeatures.auto_assign_award_id);
+  isFeatureVisible(ProposalFeatures.auto_assign_award_id);
 
 /**
  * The proposals to link from a project, live ones first.

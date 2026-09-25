@@ -133,7 +133,7 @@ A project has one or the other, never both: the archive holds the proposals
 that created projects before the upgrade, the live app everything since.
 
 **Gated on both `deployment.application_portal_only` and
-`deployment.auto_assign_award_id`.** Without award IDs a slug is only
+`proposal.auto_assign_award_id`.** Without award IDs a slug is only
 `slugify(name)` on each side, and equal slugs mean nothing — a project named
 "Priority Aware" would link to any unrelated proposal that slugified the same
 way. Without `application_portal_only`, `ProjectInfo.set_shortname()` can
@@ -151,7 +151,13 @@ to link into `call-management` under the project's customer, which on the
 awards site is the call's _managing_ organisation — a workspace an award holder
 may have no access to.
 
-`deployment.auto_assign_award_id` is carried by hand in `FeaturesEnums.ts` and
-`FeaturesDescription.ts` until mastermind declares it, and its final name is
-not settled. If it lands under another name, both files and
-`isProjectProposalLookupEnabled` change with it.
+`proposal.auto_assign_award_id` is declared in mastermind's own `proposal`
+feature section ("Proposals and calls"), and mastermind's description says the
+same thing this gate does: it only takes effect together with
+`application_portal_only`.
+
+It is deployment-wide rather than per-call because this is the only level
+HomePort can read here: a per-call setting would need the proposal to find the
+call, and finding the proposal is the problem. Per-call configuration — an ID
+prefix or format for a particular funder — can still become a field on `Call`
+later without changing this gate.

@@ -25,12 +25,12 @@ export const FeaturesDescription: FeatureSection[] = [
         description: translate('Enable onboarding functionality.'),
       },
       {
-        key: 'show_openportal_remote_projects',
-        description: translate('Allows to show OpenPortal Remote Projects (remotes) in an organization.'),
-      },
-      {
         key: 'show_openportal_accounting_only',
         description: translate('Show only OpenPortal award accounting for this organization, hiding the marketplace usage, limit and credit widgets that describe a different accounting model.'),
+      },
+      {
+        key: 'show_openportal_remote_projects',
+        description: translate('Allows to show OpenPortal Remote Projects (remotes) in an organization.'),
       },
       {
         key: 'show_permission_reviews',
@@ -75,10 +75,6 @@ export const FeaturesDescription: FeatureSection[] = [
       {
         key: 'application_portal_only',
         description: translate('Configure Waldur to function as an application and awards portal only.'),
-      },
-      {
-        key: 'auto_assign_award_id',
-        description: translate('Assign each accepted proposal an award ID, and give the proposal and the project it creates that same ID as their slug.'),
       },
       {
         key: 'enable_cookie_notice',
@@ -303,6 +299,16 @@ export const FeaturesDescription: FeatureSection[] = [
       {
         key: 'show_type_in_create_dialog',
         description: translate('Show type field in project create dialog.'),
+      },
+    ],
+  },
+  {
+    key: 'proposal',
+    description: translate('Proposals and calls'),
+    items: [
+      {
+        key: 'auto_assign_award_id',
+        description: translate('Give each new proposal an award ID (for example 0261-4064-4676-1) as its slug, and carry it onto the project created when the proposal is accepted. Only takes effect together with application_portal_only, which stops the OpenPortal shortname from overwriting the project slug.'),
       },
     ],
   },

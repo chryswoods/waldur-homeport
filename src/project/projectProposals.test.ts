@@ -111,7 +111,7 @@ describe('isProjectProposalLookupEnabled', () => {
   it('needs both flags', () => {
     enable(
       'deployment.application_portal_only',
-      'deployment.auto_assign_award_id',
+      'proposal.auto_assign_award_id',
     );
     expect(isProjectProposalLookupEnabled()).toBe(true);
   });
@@ -125,7 +125,7 @@ describe('isProjectProposalLookupEnabled', () => {
 
   // Without it, an OpenPortal shortname can overwrite the project slug.
   it('is off outside an application portal', () => {
-    enable('deployment.auto_assign_award_id');
+    enable('proposal.auto_assign_award_id');
     expect(isProjectProposalLookupEnabled()).toBe(false);
   });
 });

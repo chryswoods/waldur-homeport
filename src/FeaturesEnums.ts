@@ -6,8 +6,8 @@ export enum CustomerFeatures {
   show_banking_data = 'customer.show_banking_data',
   show_domain = 'customer.show_domain',
   show_onboarding = 'customer.show_onboarding',
-  show_openportal_remote_projects = 'customer.show_openportal_remote_projects',
   show_openportal_accounting_only = 'customer.show_openportal_accounting_only',
+  show_openportal_remote_projects = 'customer.show_openportal_remote_projects',
   show_permission_reviews = 'customer.show_permission_reviews',
   show_project_digest = 'customer.show_project_digest',
 }
@@ -22,7 +22,6 @@ export enum DashboardFeatures {
 
 export enum DeploymentFeatures {
   application_portal_only = 'deployment.application_portal_only',
-  auto_assign_award_id = 'deployment.auto_assign_award_id',
   enable_cookie_notice = 'deployment.enable_cookie_notice',
   enable_disclaimer_area = 'deployment.enable_disclaimer_area',
   make_slugs_immutable = 'deployment.make_slugs_immutable',
@@ -87,6 +86,10 @@ export enum ProjectFeatures {
   show_type_in_create_dialog = 'project.show_type_in_create_dialog',
 }
 
+export enum ProposalFeatures {
+  auto_assign_award_id = 'proposal.auto_assign_award_id',
+}
+
 export enum RancherFeatures {
   apps = 'rancher.apps',
   volume_mount_point = 'rancher.volume_mount_point',
@@ -138,6 +141,7 @@ export type FeaturesEnum =
   | MarketplaceFeatures
   | OpenstackFeatures
   | ProjectFeatures
+  | ProposalFeatures
   | RancherFeatures
   | ResellerFeatures
   | SramFeatures
