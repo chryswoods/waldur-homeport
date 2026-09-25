@@ -19,8 +19,9 @@ export const allocationUnit = (
 };
 
 /** The numeric part of an allocation string, or 0 if there isn't one. */
-const allocationTotal = (allocationString: string | null | undefined): number =>
-  parseFloat(allocationString?.trim().split(/\s+/)[0] ?? '0') || 0;
+export const allocationTotal = (
+  allocationString: string | null | undefined,
+): number => parseFloat(allocationString?.trim().split(/\s+/)[0] ?? '0') || 0;
 
 /**
  * Usage as a percentage of a total, capped at 100. Zero when there is no

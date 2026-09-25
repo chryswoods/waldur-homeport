@@ -38,6 +38,7 @@ import { getAccountingMode } from '@/openportal/project-accounting/accountingMod
 import { ProjectSpendCard } from '@/openportal/project-accounting/ProjectSpendCard';
 import { useProjectSpend } from '@/openportal/project-accounting/useProjectSpend';
 import { RemoteProjectDashboardCards } from '@/openportal/remote-projects/RemoteProjectDashboardCards';
+import { RemoteProjectPaceBlock } from '@/openportal/remote-projects/RemoteProjectPaceBlock';
 import { useProjectAccountingSummary } from '@/openportal/useProjectAccountingSummary';
 import { PermissionEnum } from '@/permissions/enums';
 import { hasPermission } from '@/permissions/hasPermission';
@@ -448,6 +449,15 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
           </Col>
         )}
       </Row>
+      {/* Pace for each connected award, from what the remote portal reports.
+          Not behind the billing flag: these are the award's own units, not
+          prices, and the connection cards above show the same figures. */}
+      {hasAnyRemoteProjects && remoteProjects && (
+        <RemoteProjectPaceBlock
+          remoteProjects={remoteProjects}
+          projectEndDate={project.end_date}
+        />
+      )}
       {/* The Health block is for projects with a credit allocation and gates
           itself on one — it renders nothing without. The usage views are about
           quota rather than credit, so they are not tied to an allocation; each

@@ -142,8 +142,34 @@ const MetricTip: FC<{ label: ReactNode }> = ({ label }) => (
   </Tooltip>
 );
 
+/**
+ * How the card writes an amount. An award held here is priced in credits; one
+ * held on a remote portal is an allocation in that portal's own unit — "15000
+ * GPUHR" — and converting it to credits would invent a price nobody set.
+ */
+export interface PaceUnits {
+  amount: (value: number) => string;
+  /** Rates per day, which need more precision than the totals. */
+  rate: (value: number) => string;
+  /** What "Used so far" counts, for its info tip. */
+  usedTip: string;
+}
+
+export const CREDIT_PACE_UNITS: PaceUnits = {
+  amount: (value) => defaultCurrency(value),
+  rate: (value) => defaultCurrency(value.toFixed(2)),
+  get usedTip() {
+    return translate(
+      "Usage recorded against this award, converted to credits, over the whole time it has been attached. It is the award's total, so an award that has moved between projects shows the same figure on each.",
+    );
+  },
+};
+
 interface Props {
   pace: AwardPace;
+  units?: PaceUnits;
+  /** Shown under the title, above the figures — e.g. a picker between awards. */
+  toolbar?: ReactNode;
 }
 
 /**
@@ -155,7 +181,11 @@ interface Props {
  * has none of those: it is an allocation and a window, and the only question is
  * whether the allocation will be used by the end of it.
  */
-export const AwardPaceCard: FC<Props> = ({ pace }) => {
+export const AwardPaceCard: FC<Props> = ({
+  pace,
+  units = CREDIT_PACE_UNITS,
+  toolbar,
+}) => {
   const c = getChartThemeColors();
   const underspending = pace.projectedDifference < 0;
   // A loss worth raising your voice about. Under a quarter of the allocation is
@@ -172,22 +202,18 @@ export const AwardPaceCard: FC<Props> = ({ pace }) => {
     <WidgetCard cardTitle={translate('Award pace')} className="mb-5">
       <div className="separator mt-4 mb-5" />
 
+      {toolbar}
+
       <Row className="g-4 mb-5">
         <Col md={4}>
           <StatsCard
             label={translate('Used so far')}
-            icon={
-              <MetricTip
-                label={translate(
-                  "Usage recorded against this award, converted to credits, over the whole time it has been attached. It is the award's total, so an award that has moved between projects shows the same figure on each.",
-                )}
-              />
-            }
-            value={defaultCurrency(pace.used)}
+            icon={<MetricTip label={units.usedTip} />}
+            value={units.amount(pace.used)}
             footer={
               <span className="text-muted fs-7">
                 {translate('of {allocation} · {pct} of the allocation', {
-                  allocation: defaultCurrency(pace.allocation),
+                  allocation: units.amount(pace.allocation),
                   pct: pct0(pace.usedFraction),
                 })}
               </span>
@@ -206,7 +232,7 @@ export const AwardPaceCard: FC<Props> = ({ pace }) => {
             }
             value={
               <>
-                {defaultCurrency(pace.actualPerDay.toFixed(2))}
+                {units.rate(pace.actualPerDay)}
                 <span className="fs-4"> {translate('per day')}</span>
               </>
             }
@@ -215,7 +241,7 @@ export const AwardPaceCard: FC<Props> = ({ pace }) => {
                 {pace.requiredPerDay === null
                   ? translate('Last day of the award')
                   : translate('{required} per day from today uses the rest', {
-                      required: defaultCurrency(pace.requiredPerDay.toFixed(2)),
+                      required: units.rate(pace.requiredPerDay),
                     })}
               </span>
             }
@@ -248,14 +274,14 @@ export const AwardPaceCard: FC<Props> = ({ pace }) => {
               <span
                 className={lossTone ? `text-${lossTone} fw-boldest` : undefined}
               >
-                {defaultCurrency(Math.abs(pace.projectedDifference))}
+                {units.amount(Math.abs(pace.projectedDifference))}
               </span>
             }
             footer={
               <span className="text-muted fs-7">
                 {translate('{total} of {allocation} used by {date}', {
-                  total: defaultCurrency(pace.projectedTotal),
-                  allocation: defaultCurrency(pace.allocation),
+                  total: units.amount(pace.projectedTotal),
+                  allocation: units.amount(pace.allocation),
                   date: formatDate(pace.endDate),
                 })}
               </span>

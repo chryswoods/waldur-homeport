@@ -2,13 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { FC, ReactNode } from 'react';
 import { Col } from 'react-bootstrap';
-import {
-  openportalRemoteProjectsTotalUsageRetrieve,
-  type RemoteProject,
-} from 'waldur-js-client';
+import { type RemoteProject } from 'waldur-js-client';
 
 import { AlertItem } from '@/core/AlertItem';
-import { STALE_TIME } from '@/core/constants';
 import { formatDate } from '@/core/dateUtils';
 import { Link } from '@/core/Link';
 import { Panel } from '@/core/Panel';
@@ -23,6 +19,7 @@ import {
 } from '../allocationUsage';
 
 import { RemoteProjectStateField } from './RemoteProjectStateField';
+import { remoteProjectUsageQuery } from './remoteProjectUsage';
 
 interface Props {
   remoteProjects: RemoteProject[];
@@ -72,14 +69,7 @@ const RemoteProjectCard: FC<{
     rp.breakdown && Object.keys(rp.breakdown).length > 0 ? rp.breakdown : null;
   const unit = allocationUnit(rp.allocation_string);
 
-  const { data: usageData } = useQuery({
-    queryKey: ['remote-project-total-usage', rp.uuid],
-    queryFn: () =>
-      openportalRemoteProjectsTotalUsageRetrieve({
-        path: { uuid: rp.uuid },
-      }).then((r) => r.data?.total_hours as number | undefined),
-    staleTime: STALE_TIME,
-  });
+  const { data: usageData } = useQuery(remoteProjectUsageQuery(rp.uuid));
 
   const mailtoHref = customerEmail
     ? `mailto:${customerEmail}?subject=${encodeURIComponent(
