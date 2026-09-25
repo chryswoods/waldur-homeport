@@ -62,6 +62,21 @@ const EditFieldDialog = lazyComponent(() =>
   })),
 );
 
+/**
+ * The monthly usage chart spans the row when it ends up on one by itself.
+ *
+ * How many half-width cards come before it is not fixed — one per connected
+ * remote project, plus whichever accounting card this mode shows — so the
+ * chart can land beside a card or alone on the next line. Rather than counting
+ * those cards, which would repeat every one of their visibility conditions and
+ * silently go wrong the day one changes, the column is allowed to grow:
+ * `col-md-6` still gives it a half-width basis, so it wraps exactly as before,
+ * and `flex-md-grow-1` lets it take up whatever the line leaves. Beside another
+ * card that is nothing; alone, it is the whole row. Below `md` every card is
+ * full width already.
+ */
+const MONTHLY_USAGE_COL_CLASS = 'mb-5 flex-md-grow-1';
+
 export const ProjectDashboard: FunctionComponent<{}> = () => {
   const shouldConcealPrices = isFeatureVisible(
     MarketplaceFeatures.conceal_prices,
@@ -328,7 +343,12 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
           </Col>
         )}
         {showBillingInfo && showProjectSpend && projectSpend?.endDate && (
-          <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
+          <Col
+            md={6}
+            sm={12}
+            className={MONTHLY_USAGE_COL_CLASS}
+            style={COMMON_WIDGET_HEIGHT}
+          >
             <MonthlyUsageChart
               projectUuid={project.uuid}
               startDate={projectSpend.startDate}
@@ -413,7 +433,12 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
             <ProjectDashboardCredit project={project} className="mb-5" />
           )}
         {showBillingInfo && hasAnyManagedProjects && awardPace && (
-          <Col md={6} sm={12} className="mb-5" style={COMMON_WIDGET_HEIGHT}>
+          <Col
+            md={6}
+            sm={12}
+            className={MONTHLY_USAGE_COL_CLASS}
+            style={COMMON_WIDGET_HEIGHT}
+          >
             <MonthlyUsageChart
               projectUuid={project.uuid}
               startDate={awardPace.startDate}
