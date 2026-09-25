@@ -2,9 +2,12 @@ import { screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   openportalOfferingMappingRetrieve,
+  openportalRemoteProjectsList,
+  openportalRemoteProjectsUsageReportRetrieve,
   openportalUserMappingRetrieve,
 } from 'waldur-js-client';
 
+import { isFeatureVisible } from '@/features/connect';
 import { renderWithProviders } from '@/test/harness';
 import { useProject } from '@/workspace/hooks';
 
@@ -20,6 +23,11 @@ vi.mock('./api', async (importOriginal) => ({
   ...(await importOriginal<typeof api>()),
   fetchUsageReports: vi.fn(),
   fetchStorageReports: vi.fn(),
+}));
+
+vi.mock('@/features/connect', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/connect')>()),
+  isFeatureVisible: vi.fn(() => false),
 }));
 
 const RESOURCE = 'brics.aip1.clusters.shared';
@@ -65,6 +73,7 @@ describe('OpenPortalReportsTab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    vi.mocked(isFeatureVisible).mockReturnValue(false);
     vi.mocked(useProject).mockReturnValue({ uuid: 'proj-uuid' } as any);
     vi.mocked(api.fetchUsageReports).mockResolvedValue([
       ProjectUsageReport.fromApiResponse(usageItem),
@@ -120,5 +129,83 @@ describe('OpenPortalReportsTab', () => {
 
     await waitFor(() => expect(screen.getByText('Usage')).toBeInTheDocument());
     expect(screen.getByText('Storage')).toBeInTheDocument();
+  });
+});
+
+describe('OpenPortalReportsTab for a project with awards', () => {
+  const window = (overrides = {}) => ({
+    project_uuid: 'proj-uuid',
+    project_name: 'Here',
+    start: '2026-08-01',
+    end: null,
+    project_identifier: 'here.brics',
+    ...overrides,
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    vi.mocked(isFeatureVisible).mockReturnValue(true);
+    vi.mocked(useProject).mockReturnValue({ uuid: 'proj-uuid' } as any);
+    vi.mocked(api.fetchStorageReports).mockResolvedValue([]);
+    vi.mocked(openportalOfferingMappingRetrieve).mockResolvedValue({
+      data: {},
+    } as any);
+    vi.mocked(openportalUserMappingRetrieve).mockResolvedValue({
+      data: {},
+    } as any);
+    vi.mocked(openportalRemoteProjectsList).mockResolvedValue({
+      data: [
+        {
+          uuid: 'rp1',
+          destination: 'airr.brics',
+          resource_name: 'Isambard-AI',
+          state: 'active',
+        },
+      ],
+    } as any);
+  });
+
+  // The project's raw rows are keyed by project and split an award that has
+  // moved, so they are never read for an award-backed project.
+  it("reads the award's stitched report, not the project rows", async () => {
+    vi.mocked(openportalRemoteProjectsUsageReportRetrieve).mockResolvedValue({
+      data: {
+        total_hours: 1,
+        report: usageItem.report,
+        windows: [
+          window({
+            project_uuid: 'other',
+            project_name: 'Before',
+            start: '2026-07-01',
+            end: '2026-07-31',
+          }),
+          window(),
+        ],
+      },
+    } as any);
+
+    renderWithProviders(<OpenPortalReportsTab />);
+
+    await waitFor(() => expect(screen.getByText('Usage')).toBeInTheDocument());
+    expect(api.fetchUsageReports).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(/attached to more than one project/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/^Before:/)).toBeInTheDocument();
+    expect(screen.getByText(/^This project:/)).toBeInTheDocument();
+  });
+
+  it('says there is no usage yet for a pending award', async () => {
+    vi.mocked(openportalRemoteProjectsUsageReportRetrieve).mockResolvedValue({
+      data: { total_hours: 0, report: null, windows: [] },
+    } as any);
+
+    renderWithProviders(<OpenPortalReportsTab />);
+
+    expect(
+      await screen.findByText(/No usage has been reported for the awards/),
+    ).toBeInTheDocument();
+    expect(api.fetchUsageReports).not.toHaveBeenCalled();
   });
 });
