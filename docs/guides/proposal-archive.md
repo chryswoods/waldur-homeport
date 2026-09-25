@@ -112,3 +112,46 @@ link to a round still lands on its proposals through the `?round=` parameter
 the resolver sets. Adding a `slug` filter to that endpoint would let the
 selector be generated — worth doing if anyone asks to filter proposals by round
 from the UI.
+
+## From a project to its proposal
+
+The project hero shows a "Proposal:" line linking to the proposal the project
+came from. Upstream offers no route for this — `Proposal.project` is a URL with
+nothing on the other side, and no proposal endpoint accepts `project_uuid` — so
+the link is found by the **award ID**, which an accepted proposal and the
+project it creates share as their slug.
+
+`useProjectProposals` looks in two places, in order:
+
+1. **Live proposals, by `slug`.** The filter is `lookup_expr="exact"`, so
+   `0261-7825-6844-1` does not catch the follow-on `0261-7825-6844-10`.
+2. **Archived proposals, by `project_uuid`**, only when nothing live matched.
+   The archive has no slug filter, and it holds the recorded project link
+   anyway, which is the more exact of the two.
+
+A project has one or the other, never both: the archive holds the proposals
+that created projects before the upgrade, the live app everything since.
+
+**Gated on both `deployment.application_portal_only` and
+`deployment.auto_assign_award_id`.** Without award IDs a slug is only
+`slugify(name)` on each side, and equal slugs mean nothing — a project named
+"Priority Aware" would link to any unrelated proposal that slugified the same
+way. Without `application_portal_only`, `ProjectInfo.set_shortname()` can
+overwrite the project slug with an OpenPortal shortname, and the award ID is
+gone.
+
+`pickProjectProposals` re-checks every row rather than trusting the filters.
+This replaces a lookup whose `project_uuid` filter the backend dropped while
+the frontend kept sending it, and an unrecognised filter reads as no filter —
+which is how the line once listed every proposal in the deployment. If either
+parameter is ever dropped again, it fails closed.
+
+Live proposals link to `/proposals/{uuid}`, the applicant route. The line used
+to link into `call-management` under the project's customer, which on the
+awards site is the call's _managing_ organisation — a workspace an award holder
+may have no access to.
+
+`deployment.auto_assign_award_id` is carried by hand in `FeaturesEnums.ts` and
+`FeaturesDescription.ts` until mastermind declares it, and its final name is
+not settled. If it lands under another name, both files and
+`isProjectProposalLookupEnabled` change with it.

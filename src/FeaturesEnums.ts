@@ -22,6 +22,7 @@ export enum DashboardFeatures {
 
 export enum DeploymentFeatures {
   application_portal_only = 'deployment.application_portal_only',
+  auto_assign_award_id = 'deployment.auto_assign_award_id',
   enable_cookie_notice = 'deployment.enable_cookie_notice',
   enable_disclaimer_area = 'deployment.enable_disclaimer_area',
   make_slugs_immutable = 'deployment.make_slugs_immutable',

@@ -23,6 +23,7 @@ import { checkIsOwnerOrStaff } from '@/workspace/selectors';
 
 import { ProjectActions } from './dashboard/ProjectActions';
 import { useProjectAwardDetails } from './useProjectAwardDetails';
+import { useProjectProposals } from './useProjectProposals';
 
 /** An award or call reference: a link when it carries a URL, plain text otherwise. */
 const AwardReference = ({
@@ -192,6 +193,7 @@ export const ProjectProfile = ({ project }: ProjectProfileProps) => {
   // The OpenPortal award backing this project, giving the user a way back to
   // where it was granted.
   const { data: awardDetails } = useProjectAwardDetails(project.uuid);
+  const proposals = useProjectProposals(project);
 
   return (
     <PublicDashboardHero
@@ -230,6 +232,39 @@ export const ProjectProfile = ({ project }: ProjectProfileProps) => {
         )}
         {project.end_date && <ProjectEndDate project={project} />}
       </Stack>
+      {proposals.length > 0 && (
+        <Stack direction="horizontal" className="gap-3 mt-2">
+          <span className="fw-semibold text-dark">
+            {proposals.length === 1
+              ? translate('Proposal:')
+              : translate('Proposals:')}
+          </span>
+          {proposals.map((proposal, index) => (
+            <span key={proposal.uuid}>
+              {/* Archived proposals go straight to the archive rather than
+                  through /proposals/{uuid}, which would reach it too but only
+                  after a failed live lookup. Live ones use the applicant
+                  route: the call-management view this used to link to sits
+                  under the managing organisation, which an award holder may
+                  have no access to. */}
+              <Link
+                state={
+                  proposal.archived
+                    ? 'proposal-archive-proposal'
+                    : 'proposals.manage-proposal'
+                }
+                params={
+                  proposal.archived
+                    ? { uuid: proposal.uuid }
+                    : { proposal_uuid: proposal.uuid }
+                }
+                label={proposal.slug}
+              />
+              {index < proposals.length - 1 && ', '}
+            </span>
+          ))}
+        </Stack>
+      )}
       {awardDetails && (awardDetails.award || awardDetails.call) && (
         <Stack direction="horizontal" className="gap-6 mt-2">
           {awardDetails.award && (

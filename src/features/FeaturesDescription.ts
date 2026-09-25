@@ -77,6 +77,10 @@ export const FeaturesDescription: FeatureSection[] = [
         description: translate('Configure Waldur to function as an application and awards portal only.'),
       },
       {
+        key: 'auto_assign_award_id',
+        description: translate('Assign each accepted proposal an award ID, and give the proposal and the project it creates that same ID as their slug.'),
+      },
+      {
         key: 'enable_cookie_notice',
         description: translate('Enable cookie notice in marketplace.'),
       },
