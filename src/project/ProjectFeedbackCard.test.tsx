@@ -80,7 +80,7 @@ describe('ProjectFeedbackCard', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('goes once every form is answered', async () => {
+  it('stays once every form is answered, to read and change them', async () => {
     vi.mocked(useUser).mockReturnValue({ is_staff: true } as any);
     vi.mocked(projectFormsRetrieve).mockResolvedValue({
       data: form({
@@ -94,13 +94,27 @@ describe('ProjectFeedbackCard', () => {
             in_progress: false,
           },
         ],
+        responses: [
+          {
+            step_key: 'feedback',
+            step_label: 'Feedback',
+            submitted_at: '2027-01-30T10:00:00Z',
+            questions: [
+              { question_id: 'q1', label: 'How did it go?', answer: 'Well' },
+            ],
+          },
+        ],
       }),
     } as any);
-    const { container } = renderWithProviders(
-      <ProjectFeedbackCard project={project} />,
-    );
-    await waitFor(() => expect(projectFormsRetrieve).toHaveBeenCalled());
-    expect(container).toBeEmptyDOMElement();
+    renderWithProviders(<ProjectFeedbackCard project={project} />);
+
+    expect(
+      await screen.findByText(/Thank you for your feedback/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Edit Feedback' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Well')).toBeInTheDocument();
   });
 
   it('shows nothing for a project without end-of-project forms', async () => {

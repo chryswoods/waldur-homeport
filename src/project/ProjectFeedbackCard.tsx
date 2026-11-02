@@ -23,10 +23,9 @@ interface ProjectFeedbackCardProps {
 /**
  * The project's end-of-project forms, for its PI and the owners of its
  * organisation: from its call's closing flow, or the site's for projects
- * without one. Shown only while they need filling in: open, near or after
- * the project's end date, with some still unanswered. Once every form is
- * answered the card goes; the call's managers read the answers on the
- * proposal.
+ * without one. Shown once they open, near or after the project's end date,
+ * and kept after they are answered so the answers can be read and edited
+ * until the project closes. The call's managers read them on the proposal.
  */
 export const ProjectFeedbackCard: FC<ProjectFeedbackCardProps> = ({
   project,
@@ -54,19 +53,27 @@ export const ProjectFeedbackCard: FC<ProjectFeedbackCardProps> = ({
       customerId: project.customer_uuid,
     });
 
-  // Only while there is something to do: the forms are open and some are
-  // still unanswered. Not before they open, and gone once all are answered.
-  if (!mayFillIn || !form.is_open || !form.missing.length) {
+  // Only once the forms are open: not before. It stays after every form is
+  // answered, so the answers can be read and changed until the project is
+  // removed at the end of its grace period, when its team loses access.
+  if (!mayFillIn || !form.is_open) {
     return null;
   }
+  const allAnswered = form.missing.length === 0;
 
   return (
     <>
       <FormsCard
         title={translate('Project feedback')}
-        subtitle={translate(
-          'Please tell us how the project went. Your answers help us run future calls.',
-        )}
+        subtitle={
+          allAnswered
+            ? translate(
+                'Thank you for your feedback. You can review or change your answers until the project closes.',
+              )
+            : translate(
+                'Please tell us how the project went. Your answers help us run future calls.',
+              )
+        }
         form={form}
         notice={
           !form.available && (
