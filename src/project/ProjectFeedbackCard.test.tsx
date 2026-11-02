@@ -47,6 +47,7 @@ describe('ProjectFeedbackCard', () => {
   });
 
   it('opens a single-use link to the form in this tab', async () => {
+    vi.mocked(useUser).mockReturnValue({ is_staff: true } as any);
     vi.mocked(projectFormsRetrieve).mockResolvedValue({ data: form() } as any);
     vi.mocked(projectFormsLink).mockResolvedValue({
       data: { survey_url: 'https://forms.example.org/s/x?project_uuid=1' },
@@ -67,16 +68,39 @@ describe('ProjectFeedbackCard', () => {
     });
   });
 
-  it('tells the PI when the forms open', async () => {
+  it('shows nothing before the forms open', async () => {
     vi.mocked(useUser).mockReturnValue({ is_staff: true } as any);
     vi.mocked(projectFormsRetrieve).mockResolvedValue({
       data: form({ is_open: false, can_fill_in: false }),
     } as any);
-    renderWithProviders(<ProjectFeedbackCard project={project} />);
-    expect(
-      await screen.findByText(/These forms open on 18 Dec 2026/),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Fill in/ })).toBeNull();
+    const { container } = renderWithProviders(
+      <ProjectFeedbackCard project={project} />,
+    );
+    await waitFor(() => expect(projectFormsRetrieve).toHaveBeenCalled());
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('goes once every form is answered', async () => {
+    vi.mocked(useUser).mockReturnValue({ is_staff: true } as any);
+    vi.mocked(projectFormsRetrieve).mockResolvedValue({
+      data: form({
+        missing: [],
+        steps: [
+          {
+            key: 'feedback',
+            label: 'Feedback',
+            completed: true,
+            submitted_at: '2027-01-30T10:00:00Z',
+            in_progress: false,
+          },
+        ],
+      }),
+    } as any);
+    const { container } = renderWithProviders(
+      <ProjectFeedbackCard project={project} />,
+    );
+    await waitFor(() => expect(projectFormsRetrieve).toHaveBeenCalled());
+    expect(container).toBeEmptyDOMElement();
   });
 
   it('shows nothing for a project without end-of-project forms', async () => {
@@ -91,9 +115,9 @@ describe('ProjectFeedbackCard', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('shows nothing to someone else before the forms open', async () => {
+  it('shows nothing to someone who may not fill them in', async () => {
     vi.mocked(projectFormsRetrieve).mockResolvedValue({
-      data: form({ is_open: false, can_fill_in: false }),
+      data: form({ can_fill_in: false }),
     } as any);
     const { container } = renderWithProviders(
       <ProjectFeedbackCard project={project} />,

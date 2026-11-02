@@ -4,7 +4,6 @@ import { projectFormsLink } from 'waldur-js-client';
 
 import { AlertItem } from 'waldur-ui';
 
-import { formatDate } from '@/core/dateUtils';
 import { translate } from '@/i18n';
 import { PermissionEnum } from '@/permissions/enums';
 import { hasPermission } from '@/permissions/hasPermission';
@@ -24,9 +23,10 @@ interface ProjectFeedbackCardProps {
 /**
  * The project's end-of-project forms, for its PI and the owners of its
  * organisation: from its call's closing flow, or the site's for projects
- * without one. They open near the project's end date; before then the PI is
- * told when. Answers stay readable afterwards. Nothing at all for a project
- * with no such forms.
+ * without one. Shown only while they need filling in: open, near or after
+ * the project's end date, with some still unanswered. Once every form is
+ * answered the card goes; the call's managers read the answers on the
+ * proposal.
  */
 export const ProjectFeedbackCard: FC<ProjectFeedbackCardProps> = ({
   project,
@@ -41,8 +41,8 @@ export const ProjectFeedbackCard: FC<ProjectFeedbackCardProps> = ({
     return null;
   }
 
-  // Those the backend lets fill in once the forms open, so they can be
-  // told when that is.
+  // Those the backend lets fill in: the project's PI and the owners of its
+  // organisation.
   const mayFillIn =
     user?.is_staff ||
     hasPermission(user, {
@@ -53,9 +53,10 @@ export const ProjectFeedbackCard: FC<ProjectFeedbackCardProps> = ({
       permission: PermissionEnum.CREATE_PROJECT_PERMISSION,
       customerId: project.customer_uuid,
     });
-  const waiting = !form.is_open && Boolean(form.opens_on) && mayFillIn;
 
-  if (!form.can_fill_in && !form.responses.length && !waiting) {
+  // Only while there is something to do: the forms are open and some are
+  // still unanswered. Not before they open, and gone once all are answered.
+  if (!mayFillIn || !form.is_open || !form.missing.length) {
     return null;
   }
 
@@ -68,15 +69,7 @@ export const ProjectFeedbackCard: FC<ProjectFeedbackCardProps> = ({
         )}
         form={form}
         notice={
-          waiting ? (
-            <AlertItem
-              variant="info"
-              className="mb-5"
-              title={translate('These forms open on {date}.', {
-                date: formatDate(form.opens_on),
-              })}
-            />
-          ) : form.is_open && !form.available ? (
+          !form.available && (
             <AlertItem
               variant="warning"
               className="mb-5"
@@ -85,7 +78,7 @@ export const ProjectFeedbackCard: FC<ProjectFeedbackCardProps> = ({
                 'Your answers so far are kept. Please try again later.',
               )}
             />
-          ) : null
+          )
         }
         openLink={(step) =>
           projectFormsLink({
