@@ -1,5 +1,6 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { DateTime } from 'luxon';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { projectFormsLink, projectFormsRetrieve } from 'waldur-js-client';
 
@@ -7,7 +8,7 @@ import { isFeatureVisible } from '@/features/connect';
 import { renderWithProviders } from '@/test/harness';
 import { useUser } from '@/workspace/hooks';
 
-import { ProjectFeedbackCard } from './ProjectFeedbackCard';
+import { isNoticeDue, ProjectFeedbackCard } from './ProjectFeedbackCard';
 
 vi.mock('@/features/connect', () => ({ isFeatureVisible: vi.fn() }));
 
@@ -68,10 +69,26 @@ describe('ProjectFeedbackCard', () => {
     });
   });
 
-  it('shows nothing before the forms open', async () => {
+  it('gives a one-line heads-up in the weeks before the forms open', async () => {
     vi.mocked(useUser).mockReturnValue({ is_staff: true } as any);
+    const opensOn = DateTime.now().plus({ days: 10 }).toISODate();
     vi.mocked(projectFormsRetrieve).mockResolvedValue({
-      data: form({ is_open: false, can_fill_in: false }),
+      data: form({ is_open: false, can_fill_in: false, opens_on: opensOn }),
+    } as any);
+    renderWithProviders(<ProjectFeedbackCard project={project} />);
+
+    expect(
+      await screen.findByTestId('project-feedback-notice'),
+    ).toHaveTextContent(/we'll ask you a few short questions/);
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByText('Feedback')).toBeNull();
+  });
+
+  it('shows nothing earlier than that', async () => {
+    vi.mocked(useUser).mockReturnValue({ is_staff: true } as any);
+    const opensOn = DateTime.now().plus({ days: 60 }).toISODate();
+    vi.mocked(projectFormsRetrieve).mockResolvedValue({
+      data: form({ is_open: false, can_fill_in: false, opens_on: opensOn }),
     } as any);
     const { container } = renderWithProviders(
       <ProjectFeedbackCard project={project} />,
@@ -138,5 +155,18 @@ describe('ProjectFeedbackCard', () => {
     );
     await waitFor(() => expect(projectFormsRetrieve).toHaveBeenCalled());
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('isNoticeDue', () => {
+  const today = DateTime.fromISO('2027-01-01');
+
+  it('is due from 28 days before the forms open', () => {
+    expect(isNoticeDue('2027-01-29', today)).toBe(true);
+    expect(isNoticeDue('2027-01-30', today)).toBe(false);
+  });
+
+  it('is never due without an opening date', () => {
+    expect(isNoticeDue(null, today)).toBe(false);
   });
 });

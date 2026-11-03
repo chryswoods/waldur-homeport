@@ -1,9 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { DateTime } from 'luxon';
 import { FC } from 'react';
 import { projectFormsLink } from 'waldur-js-client';
 
 import { AlertItem } from 'waldur-ui';
 
+import { formatDate } from '@/core/dateUtils';
 import { translate } from '@/i18n';
 import { PermissionEnum } from '@/permissions/enums';
 import { hasPermission } from '@/permissions/hasPermission';
@@ -16,6 +18,20 @@ import {
 import { useFetchOnFormReturn } from '@/proposals/forms/proposalForms';
 import { useUser } from '@/workspace/hooks';
 
+/** How long before the forms open the PI is told they are coming. */
+export const NOTICE_DAYS = 28;
+
+/** Whether the heads-up is due: within NOTICE_DAYS of the forms opening. */
+export const isNoticeDue = (
+  opensOn: string | null | undefined,
+  today: DateTime = DateTime.now(),
+): boolean => {
+  if (!opensOn) return false;
+  const opens = DateTime.fromISO(opensOn).startOf('day');
+  if (!opens.isValid) return false;
+  return today.startOf('day') >= opens.minus({ days: NOTICE_DAYS });
+};
+
 interface ProjectFeedbackCardProps {
   project: { uuid: string; customer_uuid?: string };
 }
@@ -23,9 +39,10 @@ interface ProjectFeedbackCardProps {
 /**
  * The project's end-of-project forms, for its PI and the owners of its
  * organisation: from its call's closing flow, or the site's for projects
- * without one. Shown once they open, near or after the project's end date,
- * and kept after they are answered so the answers can be read and edited
- * until the project closes. The call's managers read them on the proposal.
+ * without one. Four weeks before they open, a one-line heads-up; once open,
+ * the forms, kept after they are answered so the answers can be read and
+ * edited until the project closes. The call's managers read them on the
+ * proposal.
  */
 export const ProjectFeedbackCard: FC<ProjectFeedbackCardProps> = ({
   project,
@@ -53,12 +70,29 @@ export const ProjectFeedbackCard: FC<ProjectFeedbackCardProps> = ({
       customerId: project.customer_uuid,
     });
 
-  // Only once the forms are open: not before. It stays after every form is
-  // answered, so the answers can be read and changed until the project is
-  // removed at the end of its grace period, when its team loses access.
-  if (!mayFillIn || !form.is_open) {
+  if (!mayFillIn) {
     return null;
   }
+
+  // In the weeks before the forms open, a one-line heads-up, so the PI
+  // knows the questions are coming.
+  if (!form.is_open) {
+    return isNoticeDue(form.opens_on) ? (
+      <AlertItem
+        variant="info"
+        className="mb-6"
+        data-testid="project-feedback-notice"
+        title={translate(
+          "On {date} we'll ask you a few short questions about how the project went. Your answers help us run future calls.",
+          { date: formatDate(form.opens_on) },
+        )}
+      />
+    ) : null;
+  }
+
+  // Once open, the forms themselves. The card stays after every form is
+  // answered, so the answers can be read and changed until the project is
+  // removed at the end of its grace period, when its team loses access.
   const allAnswered = form.missing.length === 0;
 
   return (
