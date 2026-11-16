@@ -238,6 +238,22 @@ export const isOwnerOrStaffOrReader = createSelector(
   checkIsOwnerOrStaffOrReader,
 );
 
+/** Whether the user holds any role on the project: PI, admin or member. */
+export const checkIsProjectMember = (
+  project: AtLeast<Project, 'uuid'> | undefined,
+  user: User | undefined,
+): boolean =>
+  !!project &&
+  !!user?.permissions?.some(
+    (p) => p.scope_type === 'project' && p.scope_uuid === project.uuid,
+  );
+
+export const isProjectMember = createSelector(
+  getProject,
+  getUser,
+  checkIsProjectMember,
+);
+
 /**
  * Check if user has access to any organization
  * (either as owner, manager, or staff)

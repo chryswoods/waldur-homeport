@@ -8,10 +8,19 @@ import {
   isStaffOrSupport,
   isOwnerOrStaff,
   isOwnerOrStaffOrReader,
+  isProjectMember,
 } from '@/workspace/selectors';
 
 const isOrganisationMemberOrStaffOrSupport = (state) =>
   isOwnerOrStaff(state) || isStaffOrSupport(state);
+
+// A project's usage is for its own team as well: the backend returns it for
+// any project the user can see, its members as well as the organisation's
+// owners and readers.
+export const canViewProjectUsage = (state) =>
+  isStaffOrSupport(state) ||
+  isOwnerOrStaffOrReader(state) ||
+  isProjectMember(state);
 
 // The remote project pages are read-only views of organisation data, so
 // organisation readers belong here too, alongside owners, staff and support.
@@ -36,7 +45,7 @@ export const states: StateDeclaration[] = [
       breadcrumb: () => translate('Usage report'),
       priority: 105,
       permissions: [
-        isOrganisationMemberOrStaffOrSupport,
+        canViewProjectUsage,
         () => ENV.plugins.WALDUR_OPENPORTAL?.ENABLED,
       ],
     },

@@ -13,6 +13,7 @@ import {
   checkServiceProviderPermission,
   hasServiceProviderPermission,
   checkIsServiceManagerOnly,
+  checkIsProjectMember,
   hasAnyOrganizationAccess,
   isOwnerOrStaff,
   isServiceProviderManager,
@@ -589,5 +590,35 @@ describe('canAccessProviderOffering', () => {
         transition('offering-c', 'provider_b'),
       ),
     ).toBe(false);
+  });
+});
+
+describe('checkIsProjectMember', () => {
+  const project = { uuid: 'proj-1' };
+  const withRole = (scope_type: string, scope_uuid: string) =>
+    ({
+      permissions: [{ role_name: 'PROJECT.MEMBER', scope_type, scope_uuid }],
+    }) as any;
+
+  it('is true for any role on the project', () => {
+    expect(checkIsProjectMember(project, withRole('project', 'proj-1'))).toBe(
+      true,
+    );
+  });
+
+  it('is false for a role on another project or on the organisation', () => {
+    expect(checkIsProjectMember(project, withRole('project', 'proj-2'))).toBe(
+      false,
+    );
+    expect(checkIsProjectMember(project, withRole('customer', 'proj-1'))).toBe(
+      false,
+    );
+  });
+
+  it('is false without a project or a user', () => {
+    expect(checkIsProjectMember(undefined, withRole('project', 'proj-1'))).toBe(
+      false,
+    );
+    expect(checkIsProjectMember(project, undefined)).toBe(false);
   });
 });
