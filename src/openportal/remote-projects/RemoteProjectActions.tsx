@@ -21,7 +21,7 @@ import { SetEarliestApproveDialog } from './actions/SetEarliestApproveDialog';
 import { SetLinksDialog } from './actions/SetLinksDialog';
 import { SetMembershipControlDialog } from './actions/SetMembershipControlDialog';
 
-const AddNoteButton: DropdownActionItemType<RemoteProject> = ({
+export const AddNoteButton: DropdownActionItemType<RemoteProject> = ({
   row,
   refetch,
 }) => {
@@ -37,7 +37,7 @@ const AddNoteButton: DropdownActionItemType<RemoteProject> = ({
   );
 };
 
-const SetAllowedDomainsButton: DropdownActionItemType<RemoteProject> = ({
+export const SetAllowedDomainsButton: DropdownActionItemType<RemoteProject> = ({
   row,
   refetch,
 }) => {
@@ -57,10 +57,9 @@ const SetAllowedDomainsButton: DropdownActionItemType<RemoteProject> = ({
   );
 };
 
-const SetEarliestApproveButton: DropdownActionItemType<RemoteProject> = ({
-  row,
-  refetch,
-}) => {
+export const SetEarliestApproveButton: DropdownActionItemType<
+  RemoteProject
+> = ({ row, refetch }) => {
   const { openDialog } = useModal();
   return (
     <ActionItem
@@ -77,7 +76,7 @@ const SetEarliestApproveButton: DropdownActionItemType<RemoteProject> = ({
   );
 };
 
-const SetLinksButton: DropdownActionItemType<RemoteProject> = ({
+export const SetLinksButton: DropdownActionItemType<RemoteProject> = ({
   row,
   refetch,
 }) => {
@@ -93,10 +92,9 @@ const SetLinksButton: DropdownActionItemType<RemoteProject> = ({
   );
 };
 
-const SetMembershipControlButton: DropdownActionItemType<RemoteProject> = ({
-  row,
-  refetch,
-}) => {
+export const SetMembershipControlButton: DropdownActionItemType<
+  RemoteProject
+> = ({ row, refetch }) => {
   const { openDialog } = useModal();
   return (
     <ActionItem

@@ -18,8 +18,18 @@ import { renderFieldOrDash } from '@/table/utils';
 import { useCustomer, useUser } from '@/workspace/hooks';
 import { checkIsOwnerOrStaff } from '@/workspace/selectors';
 
-import { RemoteProjectActions } from './RemoteProjectActions';
+import { ApproveNowButton } from './actions/ApproveNowButton';
+import { HoldIndefinitelyButton } from './actions/HoldIndefinitelyButton';
+import {
+  AddNoteButton,
+  RemoteProjectActions,
+  SetAllowedDomainsButton,
+  SetEarliestApproveButton,
+  SetLinksButton,
+  SetMembershipControlButton,
+} from './RemoteProjectActions';
 import { RemoteProjectAuditLog } from './RemoteProjectAuditLog';
+import { RemoteProjectCard } from './RemoteProjectCard';
 import { RemoteProjectStateField } from './RemoteProjectStateField';
 
 const membershipControlLabels: Record<string, string> = {
@@ -130,31 +140,6 @@ export const RemoteProjectDetail = () => {
             value={renderFieldOrDash(row.pending_allocation)}
           />
           <Field
-            label={translate('Membership control')}
-            value={
-              row.membership_control
-                ? membershipControlLabels[row.membership_control] ||
-                  row.membership_control
-                : membershipControlLabels.open
-            }
-          />
-          <Field
-            label={translate('Allowed domains')}
-            value={
-              row.allowed_domains && row.allowed_domains.length > 0
-                ? row.allowed_domains.join(', ')
-                : translate('All domains allowed')
-            }
-          />
-          <Field
-            label={translate('Earliest approve')}
-            value={
-              row.earliest_approve
-                ? formatDateTime(row.earliest_approve)
-                : undefined
-            }
-          />
-          <Field
             label={translate('Last contact')}
             value={
               row.last_contact_time
@@ -169,20 +154,103 @@ export const RemoteProjectDetail = () => {
         </Card.Body>
       </Card>
 
-      <Card className="mb-4">
-        <Card.Header>
-          <Card.Title className="mb-0">{translate('Links')}</Card.Title>
-        </Card.Header>
-        <Card.Body>
-          <LinkField label={translate('Award')} link={row.link_award} />
-          <LinkField label={translate('Funding call')} link={row.link_call} />
-          <LinkField
-            label={translate('Project page')}
-            link={row.link_project}
-          />
-          <LinkField label={translate('Renewal')} link={row.link_renewal} />
-        </Card.Body>
-      </Card>
+      <div className="row g-4 mb-4">
+        <div className="col-md-6">
+          <RemoteProjectCard
+            title={translate('Links')}
+            row={row}
+            refetch={refetch}
+            actions={canEdit ? [SetLinksButton] : []}
+          >
+            <LinkField label={translate('Award')} link={row.link_award} />
+            <LinkField label={translate('Funding call')} link={row.link_call} />
+            <LinkField
+              label={translate('Project page')}
+              link={row.link_project}
+            />
+            <LinkField label={translate('Renewal')} link={row.link_renewal} />
+          </RemoteProjectCard>
+        </div>
+        <div className="col-md-6">
+          <RemoteProjectCard
+            title={translate('Membership')}
+            row={row}
+            refetch={refetch}
+            actions={
+              canEdit
+                ? [SetMembershipControlButton, SetAllowedDomainsButton]
+                : []
+            }
+          >
+            <Field
+              label={translate('Membership control')}
+              value={
+                row.membership_control
+                  ? membershipControlLabels[row.membership_control] ||
+                    row.membership_control
+                  : membershipControlLabels.open
+              }
+            />
+            <Field
+              label={translate('Allowed domains')}
+              value={
+                row.allowed_domains && row.allowed_domains.length > 0
+                  ? row.allowed_domains.join(', ')
+                  : translate('All domains allowed')
+              }
+            />
+          </RemoteProjectCard>
+        </div>
+        <div className="col-md-6">
+          <RemoteProjectCard
+            title={translate('Approval')}
+            row={row}
+            refetch={refetch}
+            actions={
+              canEdit
+                ? [
+                    SetEarliestApproveButton,
+                    ...(row.state === 'pending'
+                      ? [ApproveNowButton, HoldIndefinitelyButton]
+                      : []),
+                  ]
+                : []
+            }
+          >
+            <Field
+              label={translate('Earliest approve')}
+              value={
+                row.earliest_approve
+                  ? formatDateTime(row.earliest_approve)
+                  : undefined
+              }
+            />
+          </RemoteProjectCard>
+        </div>
+        <div className="col-md-6">
+          <RemoteProjectCard
+            title={translate('Notes')}
+            row={row}
+            refetch={refetch}
+            actions={canEdit ? [AddNoteButton] : []}
+          >
+            {row.notes && row.notes.length > 0 ? (
+              <div className="d-flex flex-column gap-2">
+                {row.notes.map((note, index) => (
+                  <div key={index} className="border-bottom pb-2">
+                    <div className="text-muted small">
+                      {note.author} &middot; {formatDateTime(note.timestamp)}
+                    </div>
+                    <div>{note.text}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <span className="text-muted">{translate('No notes yet.')}</span>
+            )}
+          </RemoteProjectCard>
+        </div>
+      </div>
 
       {(row.last_sent_details || row.last_confirmed_details) && (
         <Card className="mb-4">
@@ -241,28 +309,6 @@ export const RemoteProjectDetail = () => {
           </Card.Body>
         </Card>
       )}
-
-      <Card className="mb-4">
-        <Card.Header>
-          <Card.Title className="mb-0">{translate('Notes')}</Card.Title>
-        </Card.Header>
-        <Card.Body>
-          {row.notes && row.notes.length > 0 ? (
-            <div className="d-flex flex-column gap-2">
-              {row.notes.map((note, index) => (
-                <div key={index} className="border-bottom pb-2">
-                  <div className="text-muted small">
-                    {note.author} &middot; {formatDateTime(note.timestamp)}
-                  </div>
-                  <div>{note.text}</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <span className="text-muted">{translate('No notes yet.')}</span>
-          )}
-        </Card.Body>
-      </Card>
 
       <RemoteProjectAuditLog remoteProjectUuid={row.uuid} hideTitle />
     </>
