@@ -33,6 +33,7 @@ import { UserAffiliationsList } from '../affiliations/UserAffiliationsList';
 import { DashboardCard } from './DashboardCard';
 import { UserPendingActionsList } from './UserPendingActionsList';
 import { UserResourcesDialog } from './UserResourcesWidget';
+import { getGettingStartedUrl } from './UserResourcesWidget/utils';
 
 const ActiveInvitationsDialog = lazyComponent(() =>
   import('./ActiveInvitationsDialog').then((m) => ({
@@ -171,7 +172,15 @@ export const UserDashboard: FC = () => {
     router.stateService.go('profile.tos-management');
   };
 
+  // Open Portal sites keep their own getting-started guide (the "How to get
+  // started" link): the card leads there rather than to a dialog listing
+  // resources the dashboard already shows.
+  const gettingStartedUrl = getGettingStartedUrl();
   const openResourcesDialog = () => {
+    if (gettingStartedUrl) {
+      window.open(gettingStartedUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
     openDialog(UserResourcesDialog, { resolve: {}, size: 'lg' });
   };
 
@@ -192,10 +201,17 @@ export const UserDashboard: FC = () => {
             <Col md={4}>
               <DashboardCard
                 title={translate('Your resources')}
-                message={translate(
-                  'You have access to {count} resources. Click to learn how to get started.',
-                  { count: resourcesCount },
-                )}
+                message={
+                  gettingStartedUrl
+                    ? translate(
+                        'You have access to {count} resources. Click to read how to get started.',
+                        { count: resourcesCount },
+                      )
+                    : translate(
+                        'You have access to {count} resources. Click to learn how to get started.',
+                        { count: resourcesCount },
+                      )
+                }
                 icon={
                   <RocketLaunchIcon size={32} color="white" weight="bold" />
                 }

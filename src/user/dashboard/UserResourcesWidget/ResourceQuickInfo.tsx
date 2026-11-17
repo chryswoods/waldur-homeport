@@ -26,6 +26,7 @@ import { getQuotaCellProps } from '@/marketplace/resources/details/ResourceCompo
 import { ResourceStateField } from '@/marketplace/resources/list/ResourceStateField';
 import { getResourceAccessEndpoints, isSshFormat } from '@/resource/utils';
 import { useNotify } from '@/store/notify';
+import { useThemeFeatures } from '@/theme/useThemeFeatures';
 
 interface ResourceQuickInfoProps {
   resource: Resource;
@@ -85,6 +86,7 @@ export const ResourceQuickInfo: FC<ResourceQuickInfoProps> = ({ resource }) => {
       .filter((c) => c.usage || c.limit); // Only show components with values
   }, [offering?.components, resource]);
 
+  const { ShowResourceLimits } = useThemeFeatures();
   const hasGettingStarted = offering?.getting_started || endpoints.length > 0;
 
   return (
@@ -119,6 +121,9 @@ export const ResourceQuickInfo: FC<ResourceQuickInfoProps> = ({ resource }) => {
             <span className="fs-7">{translate('Loading details...')}</span>
           </div>
         ) : (
+          // Hidden where the deployment hides resource limits: there a
+          // usage over a limit (0/1000) means nothing to the reader.
+          ShowResourceLimits &&
           components.length > 0 && (
             <div className="mb-3">
               <div className="text-muted fs-7 fw-bold mb-2">
