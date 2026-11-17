@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { formatDateTime } from '@/core/dateUtils';
 import { formatUsageValue } from '@/core/formatNumber';
 
 import { buildProposalDocument } from './proposalPdf';
@@ -82,5 +83,31 @@ describe('buildProposalDocument', () => {
     const empty = flatten(buildProposalDocument(proposal, [], []).content);
     expect(empty).toContain('No resources requested.');
     expect(empty).toContain('No team members.');
+  });
+});
+
+describe('buildProposalDocument submission time', () => {
+  it('gives when the proposal was submitted', () => {
+    const text = flatten(
+      buildProposalDocument(
+        { ...proposal, submitted_at: '2026-01-20T09:30:00Z' },
+        resources,
+        team,
+      ).content,
+    );
+    expect(text).toContain('"Submitted"');
+    expect(text).toContain(formatDateTime('2026-01-20T09:30:00Z'));
+  });
+
+  it('gives a dash for a draft', () => {
+    const text = flatten(
+      buildProposalDocument(
+        { ...proposal, state: 'draft', submitted_at: null },
+        resources,
+        team,
+      ).content,
+    );
+    expect(text).toMatch(/"Submitted"[^\]]*\{"text":"[^"]*"\}/);
+    expect(text).not.toContain(formatDateTime('2026-01-20T09:30:00Z'));
   });
 });

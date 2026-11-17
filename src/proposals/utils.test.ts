@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { NestedRound } from 'waldur-js-client';
 
+import { formatDateTime } from '@/core/dateUtils';
 import { RoleEnum } from '@/permissions/enums';
 import { Call } from '@/proposals/types';
+import { renderFieldOrDash } from '@/table/utils';
 
 import {
   checkIsCallManager,
@@ -12,6 +14,7 @@ import {
   getRoundsWithStatus,
   getRoundStatus,
   isReviewInFinalState,
+  formatSubmitted,
 } from './utils';
 
 // This suite deliberately covers only the helpers that carry real logic
@@ -170,5 +173,17 @@ describe('checkIsCallManager', () => {
   it('returns false for a user without permissions', () => {
     expect(checkIsCallManager(call, {} as any)).toBe(false);
     expect(checkIsCallManager(call, undefined as any)).toBe(false);
+  });
+});
+
+describe('formatSubmitted', () => {
+  it('gives the date and time a proposal was submitted', () => {
+    expect(formatSubmitted('2026-01-20T09:30:00Z')).toBe(
+      formatDateTime('2026-01-20T09:30:00Z'),
+    );
+  });
+
+  it('gives a dash while it has not been', () => {
+    expect(formatSubmitted(null)).toBe(renderFieldOrDash(null));
   });
 });

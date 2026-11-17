@@ -2,6 +2,7 @@ import { useCurrentStateAndParams } from '@uirouter/react';
 import { FC, ReactNode, useMemo } from 'react';
 import { Proposal, proposalProposalsList } from 'waldur-js-client';
 
+import { formatDateTime } from '@/core/dateUtils';
 import { Link } from '@/core/Link';
 import { isFeatureVisible } from '@/features/connect';
 import { ProjectFeatures } from '@/FeaturesEnums';
@@ -13,6 +14,7 @@ import {
   requestNounPlural,
   showsCallColumns,
 } from '@/proposals/presentation';
+import { formatSubmitted } from '@/proposals/utils';
 import { getProposalStateOptions } from '@/proposals/utils';
 import { createFetcher } from '@/table/api';
 import { DASH_ESCAPE_CODE } from '@/table/constants';
@@ -141,11 +143,19 @@ export const UserProposalsList: FC<UserProposalsListProps> = ({
     },
     {
       title: translate('Created'),
-      render: ({ row }) => <>{row.created}</>,
+      render: ({ row }) => <>{formatDateTime(row.created)}</>,
       keys: ['created'],
       orderField: 'created',
       optional: true,
       id: 'created',
+    },
+    // No orderField: the API cannot order by it.
+    {
+      title: translate('Submitted'),
+      render: ({ row }) => <>{formatSubmitted(row.submitted_at)}</>,
+      keys: ['submitted_at'],
+      optional: true,
+      id: 'submitted_at',
     },
   ];
 

@@ -92,6 +92,10 @@ export const buildProposalDocument = (
       field(translate('Organisation'), proposal.applicant_organization),
       field(translate('Science sub-domain'), proposal.science_sub_domain_name),
       field(translate('Created'), formatDateTime(proposal.created)),
+      field(
+        translate('Submitted'),
+        proposal.submitted_at ? formatDateTime(proposal.submitted_at) : null,
+      ),
     ]),
   ];
 

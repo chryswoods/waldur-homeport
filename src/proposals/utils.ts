@@ -10,6 +10,7 @@ import { User } from 'waldur-js-client';
 
 import { BadgeVariant } from 'waldur-ui';
 
+import { formatDateTime } from '@/core/dateUtils';
 import { translate } from '@/i18n';
 import { usePresetBreadcrumbItems } from '@/navigation/header/breadcrumb/utils';
 import { IBreadcrumbItem } from '@/navigation/types';
@@ -22,6 +23,7 @@ import {
   CallState,
   ProposalState,
 } from '@/proposals/types';
+import { renderFieldOrDash } from '@/table/utils';
 import {
   checkIsOwnerOrStaff,
   checkIsStaffOrSupport,
@@ -400,3 +402,10 @@ export const getCallReadOnlyReason = (call?: { state?: string }): string =>
   call?.state === 'archived'
     ? translate('This call is archived and cannot be edited.')
     : translate('You do not have permission to edit this call.');
+
+/**
+ * When a proposal left draft, or a dash: null for a draft, and for one
+ * returned to its applicant until it is submitted again.
+ */
+export const formatSubmitted = (submittedAt: string | null | undefined) =>
+  renderFieldOrDash(submittedAt ? formatDateTime(submittedAt) : null);

@@ -5,6 +5,7 @@ import { formatDateTime } from '@/core/dateUtils';
 import { Link } from '@/core/Link';
 import { downloadFile } from '@/form/upload/FileDownloader';
 import { translate } from '@/i18n';
+import { formatSubmitted } from '@/proposals/utils';
 import { createFetcher } from '@/table/api';
 import {
   ProposalProposalsFilter,
@@ -146,6 +147,13 @@ export const CallProposalsList: FC<CallProposalsListProps> = ({ call }) => {
           render: ({ row }) => <>{formatDateTime(row.created)}</>,
           keys: ['created'],
           id: 'created',
+        },
+        // No orderField: the API cannot order by it.
+        {
+          title: translate('Submitted'),
+          render: ({ row }) => <>{formatSubmitted(row.submitted_at)}</>,
+          keys: ['submitted_at'],
+          id: 'submitted_at',
         },
         {
           title: translate('State'),
