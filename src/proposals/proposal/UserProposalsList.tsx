@@ -149,11 +149,12 @@ export const UserProposalsList: FC<UserProposalsListProps> = ({
       optional: true,
       id: 'created',
     },
-    // No orderField: the API cannot order by it.
     {
       title: translate('Submitted'),
       render: ({ row }) => <>{formatSubmitted(row.submitted_at)}</>,
       keys: ['submitted_at'],
+      // Drafts, never submitted, come last either way.
+      orderField: 'submitted_at',
       optional: true,
       id: 'submitted_at',
     },

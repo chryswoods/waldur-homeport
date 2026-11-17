@@ -148,11 +148,12 @@ export const CallProposalsList: FC<CallProposalsListProps> = ({ call }) => {
           keys: ['created'],
           id: 'created',
         },
-        // No orderField: the API cannot order by it.
         {
           title: translate('Submitted'),
           render: ({ row }) => <>{formatSubmitted(row.submitted_at)}</>,
           keys: ['submitted_at'],
+          // Drafts, never submitted, come last either way.
+          orderField: 'submitted_at',
           id: 'submitted_at',
         },
         {
