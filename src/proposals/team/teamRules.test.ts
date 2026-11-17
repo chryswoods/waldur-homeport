@@ -10,9 +10,11 @@ import {
   canManageProposalTeam,
   canRevokeProposalRow,
   canSubmitProposal,
+  canTransferProposalTo,
   getGrantableProposalRoleNames,
   getRemoveDisabledReason,
   isOnProposalTeam,
+  isProposalManager,
 } from './teamRules';
 
 const ROLES = [
@@ -266,5 +268,39 @@ describe('proposal team rules', () => {
       isOnProposalTeam({ uuid: 'creator', permissions: [] } as any, proposal()),
     ).toBe(true);
     expect(isOnProposalTeam(callManager, proposal())).toBe(false);
+  });
+
+  describe('transferring management', () => {
+    const adminRow = { user_uuid: 'admin', role_name: RoleEnum.PROPOSAL_ADMIN };
+    const managerRow = {
+      user_uuid: 'manager',
+      role_name: RoleEnum.PROPOSAL_MANAGER,
+    };
+
+    it('lets the manager, call managers and staff hand a draft over', () => {
+      expect(canTransferProposalTo(manager, proposal(), adminRow)).toBe(true);
+      expect(canTransferProposalTo(callManager, proposal(), adminRow)).toBe(
+        true,
+      );
+      expect(canTransferProposalTo(staff, proposal(), adminRow)).toBe(true);
+    });
+
+    it('does not let administrators or members hand it over', () => {
+      expect(canTransferProposalTo(admin, proposal(), adminRow)).toBe(false);
+      expect(canTransferProposalTo(member, proposal(), adminRow)).toBe(false);
+    });
+
+    it('does not offer it to the current manager, or once submitted', () => {
+      expect(canTransferProposalTo(staff, proposal(), managerRow)).toBe(false);
+      expect(
+        canTransferProposalTo(staff, proposal('submitted'), adminRow),
+      ).toBe(false);
+    });
+
+    it('tells who holds the manager role', () => {
+      expect(isProposalManager(manager, proposal())).toBe(true);
+      expect(isProposalManager(admin, proposal())).toBe(false);
+      expect(isProposalManager(staff, proposal())).toBe(false);
+    });
   });
 });

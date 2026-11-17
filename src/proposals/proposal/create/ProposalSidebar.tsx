@@ -35,6 +35,8 @@ interface CompletionPageSidebarProps extends SidebarProps {
   /** Whether the viewer may submit the proposal. A proposal administrator
    * edits it but leaves submitting to a proposal manager. */
   canSubmitProposal?: boolean;
+  /** Who may submit it instead, on a call with one manager per proposal. */
+  managerName?: string;
   /** The proposal, for deleting the draft. */
   proposalUuid?: string;
   /** Labels of the call's extra forms still to answer, when it has any. */
@@ -110,7 +112,12 @@ export const ProposalSidebar = (props: CompletionPageSidebarProps) => {
         <>
           {props.canSubmitProposal === false ? (
             <p className="text-muted mb-0" data-testid="submit-by-manager">
-              {translate('Only a proposal manager can submit the proposal.')}
+              {props.managerName
+                ? translate(
+                    'Only the proposal manager, {name}, can submit this proposal.',
+                    { name: props.managerName },
+                  )
+                : translate('Only a proposal manager can submit the proposal.')}
             </p>
           ) : (
             <FloatingSubmitButton

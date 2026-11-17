@@ -9,9 +9,10 @@ import * as workspaceHooks from '@/workspace/hooks';
 
 import { TeamSection } from './TeamSection';
 
-const { fetchCount, dropdownProps } = vi.hoisted(() => ({
+const { fetchCount, dropdownProps, usersListProps } = vi.hoisted(() => ({
   fetchCount: { value: 0 },
   dropdownProps: { value: null as any },
+  usersListProps: { value: null as any },
 }));
 
 // Like useTableQuery, run onFetch from an effect keyed on the callback: an
@@ -26,7 +27,12 @@ vi.mock('@/table/useTable', () => ({
   },
 }));
 
-vi.mock('./UsersList', () => ({ UsersList: () => null }));
+vi.mock('./UsersList', () => ({
+  UsersList: (props) => {
+    usersListProps.value = props;
+    return null;
+  },
+}));
 vi.mock('./InvitationsList', () => ({ InvitationsList: () => null }));
 vi.mock('./TeamDropdownActions', () => ({
   TeamDropdownActions: (props) => {
@@ -61,6 +67,7 @@ describe('TeamSection', () => {
   beforeEach(() => {
     fetchCount.value = 0;
     dropdownProps.value = null;
+    usersListProps.value = null;
     vi.spyOn(ENV, 'roles', 'get').mockReturnValue([
       {
         name: RoleEnum.PROPOSAL_MANAGER,
@@ -144,5 +151,52 @@ describe('TeamSection', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Invitations')).not.toBeInTheDocument();
     expect(screen.queryByText('Permissions')).not.toBeInTheDocument();
+  });
+
+  describe('transferring management', () => {
+    const adminRow = { user_uuid: 'u-2', role_name: RoleEnum.PROPOSAL_ADMIN };
+    const managerRow = {
+      user_uuid: 'viewer',
+      role_name: RoleEnum.PROPOSAL_MANAGER,
+    };
+
+    it('offers it on a call with one manager per proposal, for members other than the manager', () => {
+      renderSection(holder(RoleEnum.PROPOSAL_MANAGER), {
+        singleProposalManager: true,
+      });
+      const { hasExtraRowActions } = usersListProps.value;
+      expect(hasExtraRowActions(adminRow)).toBe(true);
+      expect(hasExtraRowActions(managerRow)).toBe(false);
+    });
+
+    it('warns in the add and invite dialogs that a new manager takes it over', () => {
+      renderSection(holder(RoleEnum.PROPOSAL_MANAGER), {
+        singleProposalManager: true,
+      });
+      expect(dropdownProps.value.roleNotice).toEqual({
+        roleName: RoleEnum.PROPOSAL_MANAGER,
+        message:
+          'This call has one manager per proposal: adding a manager hands the proposal over, and you will become an administrator.',
+      });
+    });
+
+    it('is not offered on other calls', () => {
+      renderSection(holder(RoleEnum.PROPOSAL_MANAGER));
+      expect(usersListProps.value.hasExtraRowActions(adminRow)).toBe(false);
+      expect(dropdownProps.value.roleNotice).toBeUndefined();
+    });
+
+    it('is not offered to an administrator, or once submitted', () => {
+      renderSection(holder(RoleEnum.PROPOSAL_ADMIN), {
+        singleProposalManager: true,
+      });
+      expect(usersListProps.value.hasExtraRowActions(adminRow)).toBe(false);
+
+      renderSection(holder(RoleEnum.PROPOSAL_MANAGER), {
+        singleProposalManager: true,
+        scope: proposal('submitted'),
+      });
+      expect(usersListProps.value.hasExtraRowActions(adminRow)).toBe(false);
+    });
   });
 });

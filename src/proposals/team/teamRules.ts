@@ -175,6 +175,27 @@ export const getGrantableProposalRoleNames = (
       canChangeProposalRole(user, proposal, roleName, 'grant'),
     );
 
+/** Whether the user holds the proposal manager role on the proposal. */
+export const isProposalManager = (user: TeamUser, proposal: TeamProposal) =>
+  Boolean(user && proposal) &&
+  holdsProposalRole(user, proposal, RoleEnum.PROPOSAL_MANAGER);
+
+/**
+ * Whether the user may hand the proposal over to this row's member, on a
+ * call with one manager per proposal: granting them the manager role does
+ * it. While it is a draft, by whoever may grant that role, to anyone on the
+ * team who is not already its manager.
+ */
+export const canTransferProposalTo = (
+  user: TeamUser,
+  proposal: TeamProposal,
+  row: Pick<UserRoleDetails, 'user_uuid' | 'role_name'>,
+): boolean =>
+  Boolean(row?.user_uuid) &&
+  proposal?.state === 'draft' &&
+  row.role_name !== RoleEnum.PROPOSAL_MANAGER &&
+  canChangeProposalRole(user, proposal, RoleEnum.PROPOSAL_MANAGER, 'grant');
+
 /** Whether any row of the team may be revoked by the user. */
 export const canRevokeAnyProposalRole = (
   user: TeamUser,

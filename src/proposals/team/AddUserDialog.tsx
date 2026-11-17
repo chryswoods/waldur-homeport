@@ -3,7 +3,7 @@ import { FC, useState } from 'react';
 import { Form } from 'react-final-form';
 import { proposalProposalsAddUserByEmail, RoleDetails } from 'waldur-js-client';
 
-import { SegmentedControl } from 'waldur-ui';
+import { AlertItem, SegmentedControl } from 'waldur-ui';
 
 import { ENV } from '@/core/config';
 import {
@@ -52,6 +52,7 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
   scope,
   roleTypes,
   roles,
+  roleNotice,
 }) => {
   // A proposal's team can take someone by email, creating their account
   // when there is none, where the site lets accounts be created.
@@ -61,9 +62,13 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
   const [mode, setMode] = useState<AddMode>('search');
   const byEmail = canAddByEmail && mode === 'email';
 
+  // The role the member will get: the one offered, or the one picked.
+  const chosenRole = (formData: Partial<AddUserDialogFormData>) =>
+    roles && roles.length === 1 ? roles[0] : formData.role?.name;
+
   const saveUserMutation = useManagedMutation<any, any, AddUserDialogFormData>({
     mutationFn: (formData) => {
-      const role = roles && roles.length === 1 ? roles[0] : formData.role.name;
+      const role = chosenRole(formData);
       if (byEmail) {
         return proposalProposalsAddUserByEmail({
           path: { uuid: scope.uuid },
@@ -97,7 +102,7 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
       onSubmit={(values) => saveUserMutation.mutateAsync(values)}
       initialValues={initialValues}
     >
-      {({ handleSubmit, submitting, invalid }) => (
+      {({ handleSubmit, submitting, invalid, values }) => (
         <form onSubmit={handleSubmit}>
           <ModalDialog
             title={translate('Add member')}
@@ -177,6 +182,14 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
             {roles && roles.length === 1 ? null : (
               <RoleGroup types={roleTypes} roleNames={roles} />
             )}
+            {roleNotice && chosenRole(values) === roleNotice.roleName ? (
+              <AlertItem
+                variant="warning"
+                className="mb-5"
+                title={roleNotice.message}
+                data-testid="role-notice"
+              />
+            ) : null}
             <ExpirationTimeGroup />
           </ModalDialog>
         </form>

@@ -29,6 +29,7 @@ import { ReviewerExpandableRow } from './ReviewerExpandableRow';
 import { getTeamScopeType } from './teamApi';
 import { TeamDropdownActions } from './TeamDropdownActions';
 import { TEAM_EVENT_TYPES } from './teamRules';
+import { TransferManagementAction } from './TransferManagementAction';
 import { useProposalTeamRules } from './useProposalTeamRules';
 import { UsersList } from './UsersList';
 
@@ -44,6 +45,9 @@ export const TeamSection: FC<
     extraRowActions?: FC<{ row: GenericPermission }>;
     hasExtraRowActions?: (row: GenericPermission) => boolean;
     roleSuffix?: (row: GenericPermission) => ReactNode;
+    /** The proposal's call has one manager per proposal, so its management
+     * can be handed over to a team member. */
+    singleProposalManager?: boolean;
   }
 > = (props) => {
   const queryClient = useQueryClient();
@@ -55,7 +59,7 @@ export const TeamSection: FC<
   // its call, not only on the scope's team permission.
   const isProposalTeam = roleType === 'proposal' && !props.roles;
   const proposal = isProposalTeam ? (props.scope as Proposal) : undefined;
-  const rules = useProposalTeamRules(proposal);
+  const rules = useProposalTeamRules(proposal, props.singleProposalManager);
   const scopeType = getTeamScopeType(props.roleTypes);
 
   const usersFilter = useMemo(
@@ -129,6 +133,47 @@ export const TeamSection: FC<
     fetchUsers();
     onTeamChange?.();
   }, [fetchUsers, onTeamChange]);
+
+  // "Transfer management" joins the row actions the caller gives, if any.
+  const CallerRowActions = props.extraRowActions;
+  const hasCallerRowActions = props.hasExtraRowActions;
+  const canTransferTo = rules?.canTransferTo;
+  const viewerIsManager = rules?.viewerIsManager;
+  const currentManagerName = rules?.currentManagerName;
+  const extraRowActions = useMemo(() => {
+    if (!canTransferTo) return CallerRowActions;
+    const RowActions: FC<{ row: GenericPermission }> = ({ row }) => (
+      <>
+        {CallerRowActions && (hasCallerRowActions?.(row) ?? true) ? (
+          <CallerRowActions row={row} />
+        ) : null}
+        {canTransferTo(row) ? (
+          <TransferManagementAction
+            row={row}
+            proposal={proposal}
+            viewerIsManager={viewerIsManager}
+            currentManagerName={currentManagerName}
+            refetch={refetchUsers}
+          />
+        ) : null}
+      </>
+    );
+    return RowActions;
+  }, [
+    CallerRowActions,
+    hasCallerRowActions,
+    canTransferTo,
+    proposal,
+    viewerIsManager,
+    currentManagerName,
+    refetchUsers,
+  ]);
+  const hasExtraRowActions = useCallback(
+    (row: GenericPermission) =>
+      Boolean(canTransferTo?.(row)) ||
+      (Boolean(CallerRowActions) && (hasCallerRowActions?.(row) ?? true)),
+    [canTransferTo, CallerRowActions, hasCallerRowActions],
+  );
 
   const showTeamActions = !props.readOnlyMode && (!rules || rules.dropdown);
   // Invitations and the change log are for those who manage the team.
@@ -212,8 +257,8 @@ export const TeamSection: FC<
                         : undefined
                     }
                     readOnly={props.readOnlyMode || rules?.readOnly}
-                    extraRowActions={props.extraRowActions}
-                    hasExtraRowActions={props.hasExtraRowActions}
+                    extraRowActions={extraRowActions}
+                    hasExtraRowActions={hasExtraRowActions}
                     roleSuffix={props.roleSuffix}
                     canRemoveRow={rules?.canRemoveRow}
                     getRemoveDisabledReason={rules?.getRemoveDisabledReason}

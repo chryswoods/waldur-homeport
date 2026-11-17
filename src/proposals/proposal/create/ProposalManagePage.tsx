@@ -137,6 +137,8 @@ export const ProposalManagePage = () => {
             'proposal_field_config',
             // Tells the applicant when review of a submitted proposal starts.
             'evaluation_start',
+            // One manager per proposal: management can be handed over.
+            'single_proposal_manager',
             // Cast: compliance_checklist* are protected-call fields, so the
             // list is not assignable to keyof PublicCall.
           ] as any,

@@ -27,4 +27,9 @@ export interface GenericInvitationContext {
    * resource name). Falls back to a generic title if absent.
    */
   scopeLabel?: string;
+  /**
+   * A warning shown when this role is chosen, e.g. that adding a manager
+   * hands a proposal over on a call with one manager per proposal.
+   */
+  roleNotice?: { roleName: string; message: string };
 }

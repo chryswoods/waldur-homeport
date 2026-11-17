@@ -24,7 +24,7 @@ vi.mock('@/proposals/ProposalCostTotal', () => ({
   ProposalCostTotal: () => null,
 }));
 
-const renderSidebar = (canSubmitProposal?: boolean) =>
+const renderSidebar = (canSubmitProposal?: boolean, managerName?: string) =>
   renderWithProviders(
     <ProposalSidebar
       steps={[]}
@@ -32,6 +32,7 @@ const renderSidebar = (canSubmitProposal?: boolean) =>
       saveAsDraft={vi.fn()}
       editable
       canSubmitProposal={canSubmitProposal}
+      managerName={managerName}
     />,
   );
 
@@ -51,6 +52,20 @@ describe('ProposalSidebar', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Save as draft' }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('ProposalSidebar on a call with one manager per proposal', () => {
+  it('names the manager who can submit it', () => {
+    renderSidebar(false, 'Ada Lovelace');
+    expect(
+      screen.queryByRole('button', { name: 'Submit' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Only the proposal manager, Ada Lovelace, can submit this proposal.',
+      ),
     ).toBeInTheDocument();
   });
 });

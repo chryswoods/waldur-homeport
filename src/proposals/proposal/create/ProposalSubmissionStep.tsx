@@ -541,6 +541,12 @@ export const ProposalSubmissionStep: FC<{
                   completedSteps={completedSteps}
                   canSubmit={canSubmit}
                   canSubmitProposal={canSubmitProposal}
+                  // Its one manager is its owner on such a call.
+                  managerName={
+                    call?.single_proposal_manager
+                      ? proposal.created_by_name
+                      : undefined
+                  }
                   proposalUuid={proposal_uuid}
                   hasForms={Boolean(proposalForm)}
                   // Enforced whether or not Formbricks can be reached:

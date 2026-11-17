@@ -2,6 +2,8 @@ import arrayMutators from 'final-form-arrays';
 import { useCallback, useRef, useState } from 'react';
 import { Form, FormSpy } from 'react-final-form';
 
+import { AlertItem } from 'waldur-ui';
+
 import { translate } from '@/i18n';
 import { ModalDialog } from '@/modal/ModalDialog';
 import {
@@ -268,6 +270,24 @@ export const InvitationCreateDialog = ({ resolve }: OwnProps) => {
                 }}
               />
             )}
+            {step === 1 && resolve.roleNotice ? (
+              <FormSpy subscription={{ values: true }}>
+                {({ values }) =>
+                  (values?.rows as GroupInviteRow[] | undefined)?.some(
+                    (row) =>
+                      row?.role_project?.role?.name ===
+                      resolve.roleNotice.roleName,
+                  ) ? (
+                    <AlertItem
+                      variant="warning"
+                      className="mb-5"
+                      title={resolve.roleNotice.message}
+                      data-testid="role-notice"
+                    />
+                  ) : null
+                }
+              </FormSpy>
+            ) : null}
             <div>
               {step === 1 ? (
                 <EmailsListGroupWrapper

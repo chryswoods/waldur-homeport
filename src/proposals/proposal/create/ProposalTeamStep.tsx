@@ -47,6 +47,9 @@ export const ProposalTeamStep = (props: VStepperFormStepProps) => {
         title={null}
         change={change}
         reviews={reviews}
+        singleProposalManager={Boolean(
+          props.params?.call?.single_proposal_manager,
+        )}
       />
     </AccordionCard>
   );
