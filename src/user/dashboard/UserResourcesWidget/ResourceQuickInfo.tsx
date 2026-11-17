@@ -34,6 +34,30 @@ interface ResourceQuickInfoProps {
 
 const MAX_COMPONENTS_DISPLAY = 4;
 
+/**
+ * The links the provider set on the offering (its "Links" settings), in
+ * reading order. Its documentation comes first, as the place to start.
+ */
+export const getOfferingLinks = (
+  offering:
+    | {
+        documentation_url?: string | null;
+        access_url?: string | null;
+        helpdesk_url?: string | null;
+        privacy_policy_link?: string | null;
+      }
+    | undefined,
+): { url: string; label: string }[] =>
+  [
+    {
+      url: offering?.documentation_url,
+      label: translate('How to get started'),
+    },
+    { url: offering?.access_url, label: translate('Open') },
+    { url: offering?.helpdesk_url, label: translate('Get help') },
+    { url: offering?.privacy_policy_link, label: translate('Privacy policy') },
+  ].filter((link): link is { url: string; label: string } => Boolean(link.url));
+
 const formatSshCommand = (url: string, username: string) => {
   const [hostname, port] = url.split('://')[1].split(':');
   return `ssh ${username}@${hostname}${port ? ` -p ${port}` : ''}`;
@@ -87,6 +111,7 @@ export const ResourceQuickInfo: FC<ResourceQuickInfoProps> = ({ resource }) => {
   }, [offering?.components, resource]);
 
   const { ShowResourceLimits } = useThemeFeatures();
+  const links = getOfferingLinks(offering);
   const hasGettingStarted = offering?.getting_started || endpoints.length > 0;
 
   return (
@@ -111,6 +136,27 @@ export const ResourceQuickInfo: FC<ResourceQuickInfoProps> = ({ resource }) => {
         {/* Offering description */}
         {offering?.description && (
           <p className="text-muted fs-7 mb-3">{offering.description}</p>
+        )}
+
+        {/* The provider's own links: how to get started, access, help. */}
+        {links.length > 0 && (
+          <div
+            className="d-flex flex-wrap gap-4 mb-3"
+            data-testid="offering-links"
+          >
+            {links.map((link) => (
+              <a
+                key={link.label}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary text-decoration-none d-flex align-items-center fs-7 fw-semibold"
+              >
+                <ArrowSquareOutIcon size={14} weight="bold" className="me-1" />
+                {link.label}
+              </a>
+            ))}
+          </div>
         )}
 
         {/* Components section */}

@@ -1,8 +1,6 @@
 import { groupBy } from 'lodash-es';
 import { Resource, ResourceState } from 'waldur-js-client';
 
-import { ENV } from '@/core/config';
-
 export interface ProjectInfo {
   uuid: string;
   name: string;
@@ -32,14 +30,3 @@ export const groupResourcesByProject = (
     resources: projectResources,
   }));
 };
-
-/**
- * Where "Your resources" leads on an Open Portal site: its own getting
- * started guide (the "How to get started" link) rather than a dialog of
- * resources the dashboard already lists. Undefined elsewhere, or where no
- * guide is set, which keeps the dialog.
- */
-export const getGettingStartedUrl = (): string | undefined =>
-  (ENV.plugins.WALDUR_OPENPORTAL?.ENABLED &&
-    ENV.plugins.WALDUR_CORE.HERO_LINK_URL) ||
-  undefined;
