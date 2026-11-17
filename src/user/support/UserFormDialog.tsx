@@ -26,6 +26,12 @@ interface UserFormDialogProps {
   resolve: {
     user?: User;
     refetch?: () => void;
+    /**
+     * Called with the new user instead of closing the dialog, for a caller
+     * that carries on with them, e.g. by reopening its own dialog with the
+     * user picked (which replaces this one).
+     */
+    onCreated?: (user: User) => void;
   };
 }
 
@@ -86,7 +92,7 @@ const buildBody = (formData: UserFormData): UserRequest => {
 };
 
 export const UserFormDialog: FC<UserFormDialogProps> = ({
-  resolve: { user, refetch },
+  resolve: { user, refetch, onCreated },
 }) => {
   const setCurrentUser = useSetUser();
   const currentUser = useUser();
@@ -99,6 +105,7 @@ export const UserFormDialog: FC<UserFormDialogProps> = ({
     async (formData: UserFormData) => {
       try {
         let targetUuid: string;
+        let created: User | undefined;
 
         if (editMode) {
           const { data: updatedUser } = await usersPartialUpdate({
@@ -115,8 +122,20 @@ export const UserFormDialog: FC<UserFormDialogProps> = ({
             body: buildBody(formData),
           });
           targetUuid = createdUser.uuid;
+          created = createdUser;
           showSuccess(translate('User has been created.'));
         }
+
+        // Hands the new user on rather than closing: the caller's next
+        // dialog replaces this one, and closing would close that instead.
+        const finish = async () => {
+          if (refetch) await refetch();
+          if (created && onCreated) {
+            onCreated(created);
+          } else {
+            closeDialog();
+          }
+        };
 
         // Handle password operations after user create/update
         try {
@@ -133,15 +152,11 @@ export const UserFormDialog: FC<UserFormDialogProps> = ({
             passwordError,
             translate('User was saved but password could not be updated.'),
           );
-          if (refetch) await refetch();
-          closeDialog();
+          await finish();
           return;
         }
 
-        if (refetch) {
-          await refetch();
-        }
-        closeDialog();
+        await finish();
       } catch (e) {
         showErrorResponse(
           e,
@@ -159,6 +174,7 @@ export const UserFormDialog: FC<UserFormDialogProps> = ({
       showErrorResponse,
       closeDialog,
       refetch,
+      onCreated,
     ],
   );
 

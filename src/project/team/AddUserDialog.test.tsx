@@ -208,6 +208,44 @@ describe('AddUserDialog', () => {
     });
   });
 
+  it('starts with a just-created user picked, so only the role is left to choose', async () => {
+    const user = userEvent.setup();
+    const mockProjectsAddUser = vi
+      .mocked(projectsAddUser)
+      .mockResolvedValue({} as any);
+
+    renderComponent({
+      ...mockProps,
+      initialUser: {
+        uuid: 'new-user-uuid',
+        full_name: 'Jane New',
+        username: 'jane',
+        email: 'jane@example.com',
+      },
+    });
+
+    expect(screen.getByText('Jane New (jane@example.com)')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('Show users outside organization'),
+    ).toBeChecked();
+
+    await openAndSelectOption(user, 'Role', 'project role');
+    const submitButton = screen.getByRole('button', { name: 'Add role' });
+    await waitFor(() => expect(submitButton).not.toBeDisabled());
+    await user.click(submitButton);
+
+    await waitFor(() =>
+      expect(mockProjectsAddUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.objectContaining({
+            user: 'new-user-uuid',
+            role: 'project_role',
+          }),
+        }),
+      ),
+    );
+  });
+
   it('uses default title when none provided', () => {
     renderComponent({ ...mockProps, title: undefined });
 

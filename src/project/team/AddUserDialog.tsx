@@ -1,5 +1,5 @@
 import { PlusIcon, UserPlusIcon } from '@phosphor-icons/react';
-import { FC, useCallback } from 'react';
+import { FC, useCallback, useMemo } from 'react';
 import { Form } from 'react-final-form';
 import { components } from 'react-select';
 import {
@@ -73,6 +73,8 @@ interface AddUserDialogProps {
   project?: Project;
   customerUuid?: string;
   customer?;
+  /** A user to start with picked, e.g. one just created from this dialog. */
+  initialUser?: User;
 }
 
 const customerUsersAutocomplete = (customerUuid: string) =>
@@ -120,6 +122,7 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
   project,
   customerUuid,
   customer,
+  initialUser,
 }) => {
   const setCurrentUser = useSetUser();
   const { closeDialog, openDialog } = useModal();
@@ -161,12 +164,12 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
 
   // Upstream's modal service holds one application dialog at a time, so the
   // fork's dialog-on-top-of-dialog is not available. Creating a user instead
-  // replaces this dialog and reopens it afterwards, leaving the operator back
-  // where they were with the new user available to pick.
+  // replaces this dialog and reopens it afterwards with the new user picked,
+  // so all that is left is to choose their role.
   const openCreateUserDialog = () =>
     openDialog(UserFormDialog, {
       resolve: {
-        refetch: () =>
+        onCreated: (newUser: User) =>
           openDialog(AddUserDialog, {
             refetch,
             level,
@@ -174,9 +177,23 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
             project,
             customerUuid,
             customer,
+            initialUser: newUser,
           }),
       },
     });
+
+  // A new user belongs to no organization yet, so staff see them with the
+  // users outside it; the list then holds the user that is picked.
+  const initialValues = useMemo<Partial<AddUserDialogFormData>>(
+    () =>
+      initialUser
+        ? {
+            user: initialUser,
+            showAllUsers: Boolean(currentUser?.is_staff),
+          }
+        : {},
+    [initialUser, currentUser?.is_staff],
+  );
 
   const loadUsers = useCallback(
     async (query, prevOptions, page, showAllUsers: boolean) => {
@@ -311,7 +328,7 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
   );
 
   return (
-    <Form onSubmit={saveUser}>
+    <Form onSubmit={saveUser} initialValues={initialValues}>
       {({ handleSubmit, submitting, invalid, values }) => (
         <AddUserDialogForm
           handleSubmit={handleSubmit}
