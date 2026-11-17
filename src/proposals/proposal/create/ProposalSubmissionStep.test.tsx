@@ -58,6 +58,21 @@ vi.mock('./steps', () => ({
   ],
 }));
 
+// Stands in for the forms card: opening a form first runs beforeOpen.
+vi.mock('@/proposals/forms/ProposalFormsCard', () => ({
+  ProposalFormsCard: ({ beforeOpen }) => (
+    <button
+      type="button"
+      onClick={async () => {
+        const ready = await beforeOpen();
+        document.body.dataset.opened = String(ready);
+      }}
+    >
+      Fill in a form
+    </button>
+  ),
+}));
+
 vi.mock('./ProposalSidebar', () => ({
   ProposalSidebar: ({ saveAsDraft, hasUnsavedChanges }) => (
     <>
@@ -80,9 +95,14 @@ const proposal = {
   can_submit: { can_submit: true, error: null },
 };
 
-const renderStep = () => {
+const renderStep = (extra: Record<string, unknown> = {}) => {
   const ui = (p) => (
-    <ProposalSubmissionStep proposal={p} refetch={vi.fn()} reviews={[]} />
+    <ProposalSubmissionStep
+      proposal={p}
+      refetch={vi.fn()}
+      reviews={[]}
+      {...extra}
+    />
   );
   const { rerender } = renderWithProviders(ui(proposal));
   // What Save as draft and a revisit both do: the proposal comes back as a
@@ -93,7 +113,55 @@ const renderStep = () => {
 };
 
 describe('ProposalSubmissionStep', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    delete document.body.dataset.opened;
+  });
+
+  describe('opening a form with unsaved changes', () => {
+    const proposalForm = { steps: [], missing: [], responses: [] };
+
+    it('saves the draft first, then lets the form open', async () => {
+      vi.mocked(proposalProposalsUpdateProjectDetails).mockResolvedValue(
+        {} as any,
+      );
+      renderStep({ proposalForm });
+      await userEvent.type(await screen.findByLabelText('Desc'), ' edited');
+
+      await userEvent.click(screen.getByText('Fill in a form'));
+
+      await waitFor(() => expect(document.body.dataset.opened).toBe('true'));
+      expect(proposalProposalsUpdateProjectDetails).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.objectContaining({
+            description: 'Saved description edited',
+          }),
+        }),
+      );
+      expect(screen.getByTestId('unsaved')).toHaveTextContent('false');
+    });
+
+    it('keeps the form shut when the save fails', async () => {
+      vi.mocked(proposalProposalsUpdateProjectDetails).mockRejectedValue(
+        new Error('nope'),
+      );
+      renderStep({ proposalForm });
+      await userEvent.type(await screen.findByLabelText('Desc'), ' edited');
+
+      await userEvent.click(screen.getByText('Fill in a form'));
+
+      await waitFor(() => expect(document.body.dataset.opened).toBe('false'));
+      expect(screen.getByTestId('unsaved')).toHaveTextContent('true');
+    });
+
+    it('opens straight away when nothing is unsaved', async () => {
+      renderStep({ proposalForm });
+      await userEvent.click(screen.getByText('Fill in a form'));
+
+      await waitFor(() => expect(document.body.dataset.opened).toBe('true'));
+      expect(proposalProposalsUpdateProjectDetails).not.toHaveBeenCalled();
+    });
+  });
 
   it('keeps the resource requests when the proposal is refetched', async () => {
     const { refetchProposal } = renderStep();

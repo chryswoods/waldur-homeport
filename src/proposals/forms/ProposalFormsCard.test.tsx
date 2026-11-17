@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { proposalFormsFetch, proposalFormsLink } from 'waldur-js-client';
 
+import { STILL_HERE_MS } from '@/form/NavigationBlocker';
 import { useNotify } from '@/store/notify';
 import { renderWithProviders } from '@/test/harness';
 
@@ -83,6 +84,94 @@ describe('ProposalFormsCard', () => {
       path: { uuid: 'p-1' },
       body: { step: 'ethics' },
     });
+  });
+
+  describe('before a form opens', () => {
+    const link = () =>
+      vi.mocked(proposalFormsLink).mockResolvedValue({
+        data: { survey_url: 'https://forms.example.org/s/abc' },
+      } as any);
+
+    it('keeps the form shut, with the buttons usable, when beforeOpen says no', async () => {
+      link();
+      const beforeOpen = vi.fn().mockResolvedValue(false);
+      renderWithProviders(
+        <ProposalFormsCard
+          proposalUuid="p-1"
+          form={form()}
+          beforeOpen={beforeOpen}
+        />,
+      );
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Fill in Ethics' }),
+      );
+
+      await waitFor(() => expect(beforeOpen).toHaveBeenCalled());
+      expect(proposalFormsLink).not.toHaveBeenCalled();
+      expect(window.location.assign).not.toHaveBeenCalled();
+      await waitFor(() =>
+        expect(
+          screen.getByRole('button', { name: 'Edit Compliance' }),
+        ).toBeEnabled(),
+      );
+    });
+
+    it('says it is saving while beforeOpen runs, then opens the form', async () => {
+      link();
+      let finish: (ok: boolean) => void;
+      const beforeOpen = vi.fn(
+        () => new Promise<boolean>((resolve) => (finish = resolve)),
+      );
+      renderWithProviders(
+        <ProposalFormsCard
+          proposalUuid="p-1"
+          form={form()}
+          beforeOpen={beforeOpen}
+        />,
+      );
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Fill in Ethics' }),
+      );
+      expect(
+        await screen.findByText('Saving your changes…'),
+      ).toBeInTheDocument();
+
+      finish(true);
+      await waitFor(() =>
+        expect(window.location.assign).toHaveBeenCalledWith(
+          'https://forms.example.org/s/abc',
+        ),
+      );
+    });
+  });
+
+  it('frees the buttons again when the browser stays on the page', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.mocked(proposalFormsLink).mockResolvedValue({
+        data: { survey_url: 'https://forms.example.org/s/abc' },
+      } as any);
+      renderWithProviders(
+        <ProposalFormsCard proposalUuid="p-1" form={form()} />,
+      );
+      const user = userEvent.setup({
+        advanceTimers: vi.advanceTimersByTime,
+      });
+      await user.click(screen.getByRole('button', { name: 'Fill in Ethics' }));
+      await waitFor(() => expect(window.location.assign).toHaveBeenCalled());
+      expect(
+        screen.getByRole('button', { name: 'Edit Compliance' }),
+      ).toBeDisabled();
+
+      // A navigation the browser cancelled leaves the page as it was.
+      await vi.advanceTimersByTimeAsync(STILL_HERE_MS);
+
+      expect(
+        screen.getByRole('button', { name: 'Edit Compliance' }),
+      ).toBeEnabled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("says why a link can't be had", async () => {

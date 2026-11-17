@@ -343,8 +343,13 @@ export const ProposalSubmissionStep: FC<{
     });
   };
 
-  const { mutate: saveAsDraft, isPending: isSaving } = useMutation({
-    mutationFn: async (formValues: any) => {
+  // Resolves to whether the draft was saved; a failure is reported here.
+  const {
+    mutate: saveAsDraft,
+    mutateAsync: saveDraft,
+    isPending: isSaving,
+  } = useMutation({
+    mutationFn: async (formValues: any): Promise<boolean> => {
       try {
         await proposalProposalsUpdateProjectDetails({
           path: { uuid: proposal_uuid },
@@ -366,8 +371,10 @@ export const ProposalSubmissionStep: FC<{
           queryKey: ['ProposalChecklist', proposal_uuid],
         });
         if (refetch) refetch();
+        return true;
       } catch (error) {
         showErrorResponse(error, translate('Something went wrong'));
+        return false;
       }
     },
   });
@@ -501,6 +508,17 @@ export const ProposalSubmissionStep: FC<{
                     <ProposalFormsCard
                       proposalUuid={proposal_uuid}
                       form={proposalForm}
+                      // A form opens in this tab: save first, or the
+                      // changes would be lost (or the browser would stop
+                      // to ask). A failed save keeps the form shut.
+                      beforeOpen={() =>
+                        hasUnsavedChanges(
+                          form.getState().dirtyFields,
+                          isSavedByDraft,
+                        )
+                          ? saveDraft(form.getState().values)
+                          : Promise.resolve(true)
+                      }
                     />
                     <FormResponsesSection responses={proposalForm.responses} />
                   </>

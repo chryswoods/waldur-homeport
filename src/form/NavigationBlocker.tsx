@@ -20,6 +20,27 @@ interface NavigationBlockerProps {
   warnOnUnload?: boolean;
 }
 
+/** How long a page waits before taking a navigation it asked for as cancelled. */
+export const STILL_HERE_MS = 1500;
+
+let leavingDeliberately = false;
+
+/**
+ * Leaves for another site in this tab without the unsaved-changes prompt,
+ * for a page that has just saved its work (the form only stops counting as
+ * changed once it re-renders, which can be after the navigation starts).
+ * Calls `onStayed` when the page is still here a moment later: a navigation
+ * the browser cancelled or never made leaves no other trace.
+ */
+export const leavePage = (url: string, onStayed?: () => void) => {
+  leavingDeliberately = true;
+  window.location.assign(url);
+  setTimeout(() => {
+    leavingDeliberately = false;
+    onStayed?.();
+  }, STILL_HERE_MS);
+};
+
 /** Whether any tracked field differs from the form's starting values. */
 export const hasUnsavedChanges = (
   dirtyFields: Record<string, boolean>,
@@ -85,6 +106,7 @@ export const NavigationBlocker = ({
     if (!blocking || !warnOnUnload) return;
 
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (leavingDeliberately) return;
       event.preventDefault();
       // Older browsers only prompt when returnValue is set.
       event.returnValue = '';

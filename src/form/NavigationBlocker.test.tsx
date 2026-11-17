@@ -6,7 +6,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useModal } from '@/modal/actions';
 
-import { NavigationBlocker } from './NavigationBlocker';
+import {
+  leavePage,
+  NavigationBlocker,
+  STILL_HERE_MS,
+} from './NavigationBlocker';
 
 const onBefore = () => vi.mocked(useRouter().transitionService.onBefore);
 
@@ -97,5 +101,28 @@ describe('NavigationBlocker', () => {
 
     await userEvent.type(input, '{backspace}');
     expect(unloadPrevented()).toBe(false);
+  });
+
+  it('lets a deliberate leavePage through, and asks again if the page stays', async () => {
+    vi.spyOn(window.location, 'assign').mockImplementation(() => {});
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      renderForm({ warnOnUnload: true });
+      await userEvent.type(screen.getByLabelText('Desc'), '!');
+      const onStayed = vi.fn();
+
+      leavePage('https://forms.example.org/s/abc', onStayed);
+
+      expect(window.location.assign).toHaveBeenCalledWith(
+        'https://forms.example.org/s/abc',
+      );
+      expect(unloadPrevented()).toBe(false);
+
+      vi.advanceTimersByTime(STILL_HERE_MS);
+      expect(onStayed).toHaveBeenCalled();
+      expect(unloadPrevented()).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -12,6 +12,8 @@ import { fetchProposalForm } from './proposalForms';
 interface ProposalFormsCardProps {
   proposalUuid: string;
   form: ProposalForm;
+  /** Saves the proposal's own unsaved changes; false if it could not. */
+  beforeOpen?(): Promise<boolean>;
 }
 
 /**
@@ -22,6 +24,7 @@ interface ProposalFormsCardProps {
 export const ProposalFormsCard: FC<ProposalFormsCardProps> = ({
   proposalUuid,
   form,
+  beforeOpen,
 }) => {
   const queryClient = useQueryClient();
   return (
@@ -56,6 +59,8 @@ export const ProposalFormsCard: FC<ProposalFormsCardProps> = ({
         }).then(({ data }) => data.survey_url)
       }
       fetchResponses={() => fetchProposalForm(queryClient, proposalUuid)}
+      beforeOpen={beforeOpen}
+      beforeOpenLabel={translate('Saving your changes…')}
     />
   );
 };

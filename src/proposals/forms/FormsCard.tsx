@@ -3,13 +3,14 @@ import {
   CheckCircleIcon,
   CircleIcon,
 } from '@phosphor-icons/react';
-import { FC, ReactNode, useState } from 'react';
+import { FC, ReactNode, useEffect, useState } from 'react';
 import { ProposalFormStepStatus } from 'waldur-js-client';
 
 import { BaseButton, Menu } from 'waldur-ui';
 
 import { formatDateTime } from '@/core/dateUtils';
 import { Panel } from '@/core/Panel';
+import { leavePage } from '@/form/NavigationBlocker';
 import { translate } from '@/i18n';
 import { useNotify } from '@/store/notify';
 import { ActionsMenu } from '@/table/ActionsDropdown';
@@ -30,6 +31,14 @@ interface FormsCardProps {
   openLink(step: string): Promise<string>;
   /** Brings the answers in from Formbricks; resolves to how many. */
   fetchResponses(): Promise<number>;
+  /**
+   * Runs before a form opens, e.g. to save the page's own changes, which
+   * leaving for the form would lose. Resolving false keeps the form shut;
+   * it reports its own errors.
+   */
+  beforeOpen?(): Promise<boolean>;
+  /** What the button says while beforeOpen runs. */
+  beforeOpenLabel?: string;
 }
 
 /**
@@ -48,15 +57,38 @@ export const FormsCard: FC<FormsCardProps> = ({
   notice,
   openLink,
   fetchResponses,
+  beforeOpen,
+  beforeOpenLabel,
 }) => {
   const { showSuccess, showErrorResponse } = useNotify();
   const [openingStep, setOpeningStep] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
   const [fetching, setFetching] = useState(false);
+
+  // Back from Formbricks, a browser may restore this page as it was left,
+  // with the button still opening.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setOpeningStep(null);
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, []);
 
   const openForm = async (step: string) => {
     setOpeningStep(step);
+    if (beforeOpen) {
+      setPreparing(true);
+      const ready = await beforeOpen().catch(() => false);
+      setPreparing(false);
+      if (!ready) {
+        setOpeningStep(null);
+        return;
+      }
+    }
     try {
-      window.location.assign(await openLink(step));
+      // Should the browser not leave after all, the buttons work again.
+      leavePage(await openLink(step), () => setOpeningStep(null));
     } catch (error) {
       showErrorResponse(error, translate('Unable to open the form.'));
       setOpeningStep(null);
@@ -152,11 +184,13 @@ export const FormsCard: FC<FormsCardProps> = ({
                 }
                 onClick={() => openForm(step.key)}
                 label={
-                  step.completed
-                    ? translate('Edit')
-                    : step.in_progress
-                      ? translate('Continue')
-                      : translate('Fill in')
+                  preparing && openingStep === step.key && beforeOpenLabel
+                    ? beforeOpenLabel
+                    : step.completed
+                      ? translate('Edit')
+                      : step.in_progress
+                        ? translate('Continue')
+                        : translate('Fill in')
                 }
                 aria-label={
                   step.completed
