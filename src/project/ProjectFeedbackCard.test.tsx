@@ -116,6 +116,8 @@ describe('ProjectFeedbackCard', () => {
             step_key: 'feedback',
             step_label: 'Feedback',
             submitted_at: '2027-01-30T10:00:00Z',
+            respondent_name: 'Jane Smith',
+            respondent_email: 'jane@example.org',
             questions: [
               { question_id: 'q1', label: 'How did it go?', answer: 'Well' },
             ],
@@ -132,6 +134,9 @@ describe('ProjectFeedbackCard', () => {
       screen.getByRole('button', { name: 'Edit Feedback' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Well')).toBeInTheDocument();
+    expect(screen.getByTestId('form-respondent')).toHaveTextContent(
+      'Jane Smith (jane@example.org)',
+    );
   });
 
   it('shows nothing for a project without end-of-project forms', async () => {

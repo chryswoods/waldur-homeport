@@ -23,6 +23,19 @@ export const formatAnswer = (answer: unknown): string | null => {
   return String(answer);
 };
 
+/**
+ * Who gave a response, for end-of-project answers, which each person gives
+ * for themselves. Null for a proposal's answers, which are the team's.
+ */
+export const respondentLabel = (
+  response: Pick<FormStepResponse, 'respondent_name' | 'respondent_email'>,
+): string | null => {
+  const name = response.respondent_name?.trim();
+  const email = response.respondent_email?.trim();
+  if (name && email) return `${name} (${email})`;
+  return name || email || null;
+};
+
 interface FormResponsesSectionProps {
   responses?: FormStepResponse[] | null;
   className?: string;
@@ -31,7 +44,8 @@ interface FormResponsesSectionProps {
 }
 
 /**
- * A proposal's answers to its form flow, step by step, read-only.
+ * Answers to Formbricks forms, step by step, read-only: a proposal's, or a
+ * project's end-of-project ones, each labelled with who gave it.
  *
  * Used on the applicant's draft, the proposal page and the review
  * page. The backend has already narrowed the steps to what the viewer may
@@ -53,13 +67,25 @@ export const FormResponsesSection = ({
       className={className ?? 'card-bordered mb-7'}
     >
       <FormTable detailsMode>
+        {/* Keyed by position as well: several people may answer one step,
+            and each answer is its own block. */}
         {responses.map((step, index) => (
-          <Fragment key={step.step_key}>
+          <Fragment key={`${step.step_key}-${index}`}>
             <tr className="gray-bg">
               <th colSpan={2} className={index > 0 ? 'pt-5' : undefined}>
                 <span className="fs-4 fw-bolder text-dark">
                   {step.step_label}
                 </span>
+                {respondentLabel(step) && (
+                  <span
+                    className="fs-5 fw-semibold text-dark ms-2"
+                    data-testid="form-respondent"
+                  >
+                    {translate('— {respondent}', {
+                      respondent: respondentLabel(step),
+                    })}
+                  </span>
+                )}
                 {step.submitted_at && (
                   <span className="text-muted fs-7 fw-normal ms-3">
                     {translate('Answered {date}', {
