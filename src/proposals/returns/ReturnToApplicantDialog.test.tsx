@@ -38,6 +38,28 @@ describe('validateResubmitBy', () => {
   });
 });
 
+describe('defaultResubmitBy from the round', () => {
+  const now = DateTime.fromISO('2026-11-17T10:00:00Z');
+
+  it("starts at the round's cut-off while that is ahead", () => {
+    expect(defaultResubmitBy('2026-12-01T17:00:00.000+00:00', now)).toBe(
+      '2026-12-01T17:00:00.000+00:00',
+    );
+  });
+
+  it('falls back to two weeks ahead once the cut-off has passed', () => {
+    expect(defaultResubmitBy('2026-11-01T17:00:00Z', now)).toBe(
+      '2026-12-01T16:00:00.000+00:00',
+    );
+  });
+
+  it('falls back without a round', () => {
+    expect(defaultResubmitBy(undefined, now)).toBe(
+      '2026-12-01T16:00:00.000+00:00',
+    );
+  });
+});
+
 describe('ReturnToApplicantDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -58,6 +80,30 @@ describe('ReturnToApplicantDialog', () => {
     expect(
       screen.getByRole('button', { name: 'Return to applicant' }),
     ).toBeDisabled();
+  });
+
+  it("offers the round's cut-off, and says so", async () => {
+    const cutoff = DateTime.now().plus({ days: 20 }).startOf('second');
+    renderWithProviders(
+      <ReturnToApplicantDialog
+        resolve={{
+          proposal: { ...proposal, round: { cutoff_time: cutoff.toISO() } },
+        }}
+      />,
+    );
+    expect(
+      screen.getByText(/This is the round's closing date/),
+    ).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(/^Reason/), 'Fix section 2.');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Return to applicant' }),
+    );
+    await waitFor(() =>
+      expect(proposalProposalsReturnToApplicant).toHaveBeenCalledWith({
+        path: { uuid: 'p-1' },
+        body: { reason: 'Fix section 2.', resubmit_by: cutoff.toISO() },
+      }),
+    );
   });
 
   it('returns the proposal with the reason and the deadline', async () => {

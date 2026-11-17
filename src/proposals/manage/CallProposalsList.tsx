@@ -57,6 +57,9 @@ export const CallProposalsList: FC<CallProposalsListProps> = ({ call }) => {
     syncFiltersToURL: true,
     filter,
     fetchData: createFetcher(proposalProposalsList),
+    // The row action returning a proposal starts its deadline at the
+    // round's cut-off, whatever columns are shown.
+    mandatoryFields: ['round'],
     queryField: 'name',
   });
 

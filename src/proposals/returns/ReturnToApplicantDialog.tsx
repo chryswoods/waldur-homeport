@@ -20,7 +20,12 @@ interface ReturnFormValues {
 
 interface ReturnToApplicantDialogProps {
   resolve: {
-    proposal: { uuid: string; name?: string };
+    proposal: {
+      uuid: string;
+      name?: string;
+      /** Its round, for the cut-off the deadline starts at. */
+      round?: { cutoff_time?: string | null } | null;
+    };
     refetch?(): void;
   };
 }
@@ -38,9 +43,10 @@ export const ReturnToApplicantDialog: FC<ReturnToApplicantDialogProps> = ({
   resolve: { proposal, refetch },
 }) => {
   const openedAt = useMemo(() => new Date(), []);
+  const roundCutoff = proposal.round?.cutoff_time;
   const initialValues = useMemo<ReturnFormValues>(
-    () => ({ resubmit_by: defaultResubmitBy() }),
-    [],
+    () => ({ resubmit_by: defaultResubmitBy(roundCutoff) }),
+    [roundCutoff],
   );
   const returnProposal = useManagedMutation<any, any, ReturnFormValues>({
     mutationFn: (values) =>
@@ -103,6 +109,7 @@ export const ReturnToApplicantDialog: FC<ReturnToApplicantDialogProps> = ({
             />
             <ResubmitByGroup
               minDate={openedAt}
+              roundCutoff={roundCutoff}
               description={translate(
                 'Nothing happens on its own when it passes: the applicant can no longer submit, and you decide whether to extend it.',
               )}
