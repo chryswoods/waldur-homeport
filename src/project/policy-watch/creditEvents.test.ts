@@ -486,3 +486,41 @@ describe('projections past the end of the project', () => {
     expect(kinds(events)).toEqual(['exhaustion']);
   });
 });
+
+describe('buildCreditEvents on allocation-only sites', () => {
+  it('says the allocation runs out and nothing new can run', () => {
+    const [event] = build({ allocationOnly: true });
+    expect(event.title).toBe('Allocation runs out');
+    expect(event.consequence).toMatch(
+      /Once it is used up, no new work can run\.$/,
+    );
+    expect(event.consequence).not.toMatch(/invoice|keep running/);
+  });
+
+  it('says the same where the organization caps what can be drawn', () => {
+    const events = build({
+      allocationOnly: true,
+      isLimitedByOrganizationCredit: true,
+      spendableValue: 1000,
+    });
+    const runOut = events.find((e) => e.kind === 'exhaustion');
+    expect(runOut.title).toBe('Organization allocation runs out');
+    events.forEach((e) => expect(e.consequence).not.toMatch(/invoice/));
+  });
+
+  it('says nothing new can run once the organization allocation is gone', () => {
+    const [blocked] = build({
+      allocationOnly: true,
+      isLimitedByOrganizationCredit: true,
+      spendableValue: 0,
+    });
+    expect(blocked.consequence).toMatch(/no new work can run\.$/);
+    expect(blocked.consequence).not.toMatch(/invoice/);
+  });
+
+  it('keeps the invoice wording elsewhere', () => {
+    const [event] = build();
+    expect(event.title).toBe('Credit balance is empty');
+    expect(event.consequence).toMatch(/invoice/);
+  });
+});

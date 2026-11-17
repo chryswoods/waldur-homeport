@@ -14,6 +14,7 @@ import {
   SlurmPeriodicUsagePolicy,
 } from 'waldur-js-client';
 
+import { ENV } from '@/core/config';
 import { SHORT_STALE_TIME } from '@/core/constants';
 import { formatISODate } from '@/core/dateUtils';
 import { getCostPolicyActionOptions } from '@/customer/cost-policies/utils';
@@ -464,6 +465,8 @@ export const usePolicyWatchData = (
         creditEndDate: projectCredit?.end_date || null,
         project,
         resources,
+        // Open Portal sites spend allocations, not invoiced credit.
+        allocationOnly: Boolean(ENV.plugins.WALDUR_OPENPORTAL?.ENABLED),
         // Policies fire on an estimate, but the estimate still has to sort
         // against the dated events, so it is carried as a date too.
         // Fired policies are kept, not filtered out. Excluding them removed

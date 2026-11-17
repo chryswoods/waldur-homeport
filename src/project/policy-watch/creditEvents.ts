@@ -41,6 +41,12 @@ export interface CreditEventInput {
   /** Policies and when they fire. `etaDays === 0` is a threshold already
    *  reached, which the server reports only when the policy is genuinely
    *  triggered — not merely when the cost is over the cap. */
+  /**
+   * The credit is an allocation and nothing is invoiced (Open Portal sites):
+   * once it is spent, no new work runs, rather than costs landing on an
+   * invoice while resources keep running.
+   */
+  allocationOnly?: boolean;
   policies?: {
     actionLabel: string;
     etaDays: number | null;
@@ -136,10 +142,15 @@ export const buildCreditEvents = (
         ? translate('Spending is already blocked')
         : translate('Only part of the allocation can be drawn'),
       consequence: exhausted
-        ? translate(
-            'The organization credit is exhausted, so none of the {balance} allocated can be drawn. Costs are landing on the invoice uncompensated.',
-            { balance: defaultCurrency(input.balance) },
-          )
+        ? input.allocationOnly
+          ? translate(
+              'The organization allocation is used up, so none of the {balance} allocated can be drawn, and no new work can run.',
+              { balance: defaultCurrency(input.balance) },
+            )
+          : translate(
+              'The organization credit is exhausted, so none of the {balance} allocated can be drawn. Costs are landing on the invoice uncompensated.',
+              { balance: defaultCurrency(input.balance) },
+            )
         : translate(
             'The organization credit behind this allocation is down to {spendable}, so only that much of the {balance} can be drawn. The rest is unavailable until an organization owner tops it up.',
             {
@@ -168,32 +179,56 @@ export const buildCreditEvents = (
     // this allocation — titling it "credit balance is empty" contradicted the
     // untouched balance shown right above it.
     const capped = input.isLimitedByOrganizationCredit;
-    events.push({
-      kind: 'exhaustion',
-      date: input.exhaustionDate,
-      title: capped
-        ? translate('Organization credit runs out')
-        : translate('Credit balance is empty'),
-      consequence: capped
-        ? translate(
-            'The {spendable} still drawable lasts this long at {burn}/day. The rest of this allocation stays unavailable, and costs start landing on the invoice uncompensated.',
-            {
-              spendable: defaultCurrency(input.spendableValue),
-              burn: defaultCurrency(input.burnPerDay.toFixed(2)),
-            },
-          )
-        : resourcesStopping
+    if (input.allocationOnly) {
+      events.push({
+        kind: 'exhaustion',
+        date: input.exhaustionDate,
+        title: capped
+          ? translate('Organization allocation runs out')
+          : translate('Allocation runs out'),
+        consequence: capped
           ? translate(
-              'At {burn}/day. Compensation stops and costs start landing on the invoice. Resources are not left running: a cost policy has reached its threshold, and its action applies to them.',
-              { burn: defaultCurrency(input.burnPerDay.toFixed(2)) },
+              'The {spendable} still available lasts this long at {burn}/day. Once it is used up, no new work can run.',
+              {
+                spendable: defaultCurrency(input.spendableValue),
+                burn: defaultCurrency(input.burnPerDay.toFixed(2)),
+              },
             )
           : translate(
-              'At {burn}/day. Compensation stops and costs start landing on the invoice; resources keep running.',
+              'At {burn}/day. Once it is used up, no new work can run.',
               { burn: defaultCurrency(input.burnPerDay.toFixed(2)) },
             ),
-      tone: 'warning',
-      isBinding: false,
-    });
+        tone: 'warning',
+        isBinding: false,
+      });
+    } else {
+      events.push({
+        kind: 'exhaustion',
+        date: input.exhaustionDate,
+        title: capped
+          ? translate('Organization credit runs out')
+          : translate('Credit balance is empty'),
+        consequence: capped
+          ? translate(
+              'The {spendable} still drawable lasts this long at {burn}/day. The rest of this allocation stays unavailable, and costs start landing on the invoice uncompensated.',
+              {
+                spendable: defaultCurrency(input.spendableValue),
+                burn: defaultCurrency(input.burnPerDay.toFixed(2)),
+              },
+            )
+          : resourcesStopping
+            ? translate(
+                'At {burn}/day. Compensation stops and costs start landing on the invoice. Resources are not left running: a cost policy has reached its threshold, and its action applies to them.',
+                { burn: defaultCurrency(input.burnPerDay.toFixed(2)) },
+              )
+            : translate(
+                'At {burn}/day. Compensation stops and costs start landing on the invoice; resources keep running.',
+                { burn: defaultCurrency(input.burnPerDay.toFixed(2)) },
+              ),
+        tone: 'warning',
+        isBinding: false,
+      });
+    }
   }
 
   if (input.creditEndDate) {
