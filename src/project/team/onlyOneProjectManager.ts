@@ -8,9 +8,29 @@ import { Role } from '@/permissions/types';
 export const isOnlyOneProjectManagerEnabled = (): boolean =>
   Boolean(ENV.plugins.WALDUR_CORE?.ONLY_ONE_PROJECT_MANAGER);
 
+/**
+ * The roles that count as the project's manager: PROJECT.MANAGER and any the
+ * site names in PROJECT_MANAGER_ROLES (e.g. a custom Project Lead).
+ */
+export const projectManagerRoleNames = (): string[] => [
+  ...new Set([
+    RoleEnum.PROJECT_MANAGER,
+    ...(ENV.plugins.WALDUR_CORE?.PROJECT_MANAGER_ROLES ?? []),
+  ]),
+];
+
+const roleLabel = (name: string): string => {
+  const role = ENV.roles.find((r) => r.name === name);
+  return role?.description || role?.name || name;
+};
+
+/** What the manager is called: with one custom role configured, that
+ * role's name (e.g. "Project Lead"), else PROJECT.MANAGER's. */
 const getProjectManagerRoleLabel = (): string => {
-  const role = ENV.roles.find((r) => r.name === RoleEnum.PROJECT_MANAGER);
-  return role?.description || role?.name || RoleEnum.PROJECT_MANAGER;
+  const custom = projectManagerRoleNames().filter(
+    (name) => name !== RoleEnum.PROJECT_MANAGER,
+  );
+  return roleLabel(custom.length === 1 ? custom[0] : RoleEnum.PROJECT_MANAGER);
 };
 
 export const getOnlyOneProjectManagerTooltip = (): string =>
@@ -21,7 +41,8 @@ export const getOnlyOneProjectManagerTooltip = (): string =>
 
 export const isProjectManagerRole = (
   role?: Pick<Role, 'name'> | null,
-): boolean => role?.name === RoleEnum.PROJECT_MANAGER;
+): boolean =>
+  Boolean(role?.name) && projectManagerRoleNames().includes(role.name);
 
 export const isProjectManagerSelectionBlocked = (
   hasActiveManager: boolean | undefined,
@@ -34,7 +55,8 @@ export const isProjectManagerSelectionBlocked = (
   if (!isProjectManagerRole(role)) {
     return false;
   }
-  if (currentRoleName === RoleEnum.PROJECT_MANAGER) {
+  // Already the manager: moving between manager roles keeps one.
+  if (currentRoleName && projectManagerRoleNames().includes(currentRoleName)) {
     return false;
   }
   return true;
@@ -46,7 +68,7 @@ export const projectHasActiveManager = async (
   const response = await projectsListUsersList({
     path: { uuid: projectUuid },
     query: {
-      role: [RoleEnum.PROJECT_MANAGER],
+      role: projectManagerRoleNames(),
       page_size: 1,
       field: ['role_name'],
     },

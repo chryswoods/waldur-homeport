@@ -1272,9 +1272,15 @@ export const SettingsDescription = [
       },
       {
         key: 'ONLY_ONE_PROJECT_MANAGER',
-        description: translate('If true, a project may have at most one active project manager (PROJECT.MANAGER).'),
+        description: translate('If true, a project may have at most one active project manager (PROJECT.MANAGER, or a role in PROJECT_MANAGER_ROLES).'),
         default: false,
         type: 'boolean',
+      },
+      {
+        key: 'PROJECT_MANAGER_ROLES',
+        description: translate('Project roles that count as the project\'s manager, besides PROJECT.MANAGER (e.g. a custom Project Lead role). With \'Only one project manager\', a project may have one holder of any of them.'),
+        default: [],
+        type: 'list_field',
       },
       {
         key: 'INVITATION_ALLOWED_FIELDS',

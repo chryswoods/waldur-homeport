@@ -1,6 +1,6 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   customersAddUser,
   customersUsersList,
@@ -250,6 +250,75 @@ describe('AddUserDialog', () => {
     renderComponent({ ...mockProps, title: undefined });
 
     expect(screen.getByText('Add user')).toBeInTheDocument();
+  });
+
+  describe('a site role counted as the project manager', () => {
+    beforeEach(() => {
+      ENV.plugins.WALDUR_CORE.ONLY_ONE_PROJECT_MANAGER = true;
+      ENV.plugins.WALDUR_CORE.PROJECT_MANAGER_ROLES = ['PROJECT.LEAD'];
+      vi.mocked(rolesList).mockResolvedValue(
+        mockListResponse([
+          {
+            uuid: 'lead-uuid',
+            name: 'PROJECT.LEAD',
+            description: 'Project Lead',
+            content_type: 'project',
+            is_active: true,
+          },
+          {
+            uuid: 'member-uuid',
+            name: 'PROJECT.MEMBER',
+            description: 'Project member',
+            content_type: 'project',
+            is_active: true,
+          },
+        ]),
+      );
+      // The project's Lead is someone else; the user picked holds no role.
+      vi.mocked(projectsListUsersList).mockImplementation((({ query }) =>
+        Promise.resolve(
+          mockListResponse(
+            query?.role
+              ? [{ role_name: 'PROJECT.LEAD', user_uuid: 'lead-user' }]
+              : [],
+          ),
+        )) as any);
+    });
+    afterEach(() => {
+      ENV.plugins.WALDUR_CORE.ONLY_ONE_PROJECT_MANAGER = false;
+      ENV.plugins.WALDUR_CORE.PROJECT_MANAGER_ROLES = undefined;
+    });
+
+    it('will not add a second Lead', async () => {
+      const user = userEvent.setup();
+      renderComponent();
+      await typeAndSelectOption(user, 'User', 'John', /John Doe/);
+      await openAndSelectOption(user, 'Role', 'Project Lead');
+
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Add role' })).toBeDisabled(),
+      );
+      expect(projectsListUsersList).toHaveBeenCalledWith(
+        expect.objectContaining({
+          query: expect.objectContaining({
+            role: ['PROJECT.MANAGER', 'PROJECT.LEAD'],
+          }),
+        }),
+      );
+    });
+
+    it('still adds a member', async () => {
+      const user = userEvent.setup();
+      renderComponent();
+      await typeAndSelectOption(user, 'User', 'John', /John Doe/);
+      await openAndSelectOption(user, 'Role', 'Project member');
+
+      await waitFor(() =>
+        expect(
+          screen.getByRole('button', { name: 'Add role' }),
+        ).not.toBeDisabled(),
+      );
+    });
   });
 
   describe('existing role feedback', () => {

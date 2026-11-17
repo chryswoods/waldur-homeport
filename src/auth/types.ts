@@ -124,6 +124,8 @@ interface CoreConfiguration {
   ENABLE_PROJECT_KIND_COURSE: boolean;
   ENABLE_ORDER_START_DATE: boolean;
   ONLY_ONE_PROJECT_MANAGER?: boolean;
+  /** Project roles that count as the project's manager besides PROJECT.MANAGER. */
+  PROJECT_MANAGER_ROLES?: string[];
   INVITATION_DISABLE_MULTIPLE_ROLES?: boolean;
   PROJECT_END_DATE_MANDATORY?: boolean;
   AFFILIATION_REQUIRED_AT_PROJECT_CREATION?: boolean;
