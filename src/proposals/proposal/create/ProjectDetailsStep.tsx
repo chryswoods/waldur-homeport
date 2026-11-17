@@ -54,7 +54,10 @@ export const ProjectDetailsStep = (props: VStepperFormStepProps) => {
   return (
     <AccordionCard
       title={translate('Project details')}
-      subtitle={translate('Basic information about your research project.')}
+      subtitle={domainText(
+        'proposal.details.subtitle',
+        translate('Basic information about your research project.'),
+      )}
       id={props.id}
       isOpen={isOpen}
       onToggle={onToggle}
@@ -72,7 +75,7 @@ export const ProjectDetailsStep = (props: VStepperFormStepProps) => {
       <StringGroup
         name="name"
         placeholder={translate('Enter a name...')}
-        label={translate('Name')}
+        label={domainText('proposal.title', translate('Name'))}
         required
       />
       <FieldReviewComments

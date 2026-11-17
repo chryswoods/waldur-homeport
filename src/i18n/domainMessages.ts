@@ -358,7 +358,8 @@ export const DOMAIN_MESSAGES: Record<string, Record<string, string>> = {
  * words mean something else elsewhere: "Summary" heads the cost panel too,
  * so the proposal's summary field is named by slot rather than by its text.
  */
-export type DomainSlot = 'proposal.summary';
+export type DomainSlot =
+  'proposal.summary' | 'proposal.title' | 'proposal.details.subtitle';
 
 export const DOMAIN_SLOTS: Record<
   string,
@@ -369,6 +370,12 @@ export const DOMAIN_SLOTS: Record<
     // site leave to publish the summaries of accepted applications.
     'proposal.summary': translate(
       'Summary (will be made public if your application is accepted)',
+    ),
+    // "Name" is used all over the app, so the proposal's own is a slot.
+    'proposal.title': translate('Project title'),
+    // On the applicant's form only: guidance for whoever fills it in.
+    'proposal.details.subtitle': translate(
+      'Provide basic information about your research project. As this information may be shared publicly, do not include any confidential, sensitive, or commercially restricted information.',
     ),
   },
 };

@@ -54,7 +54,7 @@ export const ProjectDetailsSummary: FC<ProjectDetailsSummaryProps> = ({
       defaultOpen={false}
     >
       <CommentSection
-        label={translate('Name')}
+        label={domainText('proposal.title', translate('Name'))}
         valueField="name"
         commentField="comment_project_title"
         tooltip={translate(

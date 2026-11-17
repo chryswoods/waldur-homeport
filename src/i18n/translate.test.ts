@@ -59,4 +59,20 @@ describe('the airrportal domain', () => {
     // The cost panel's heading is the same word, and stays.
     expect(translate('Summary')).toBe('Summary');
   });
+
+  it("calls the proposal's name its title, and only that name", () => {
+    expect(domainText('proposal.title', 'Name')).toBe('Name');
+    (ENV.plugins.WALDUR_CORE as any).TRANSLATION_DOMAIN = 'airrportal';
+    expect(domainText('proposal.title', 'Name')).toBe('Project title');
+    expect(translate('Name')).toBe('Name');
+  });
+
+  it('warns applicants not to put anything confidential in the details', () => {
+    const plain = 'Basic information about your research project.';
+    expect(domainText('proposal.details.subtitle', plain)).toBe(plain);
+    (ENV.plugins.WALDUR_CORE as any).TRANSLATION_DOMAIN = 'airrportal';
+    expect(domainText('proposal.details.subtitle', plain)).toMatch(
+      /^Provide basic information about your research project\. As this information may be shared publicly, do not include any confidential/,
+    );
+  });
 });
