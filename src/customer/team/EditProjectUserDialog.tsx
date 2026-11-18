@@ -3,8 +3,7 @@ import { Form } from 'react-final-form';
 import {
   type CustomerUser,
   type NestedProjectPermission,
-  projectsAddUser,
-  projectsDeleteUser,
+  projectsChangeUserRole,
   projectsUpdateUser,
 } from 'waldur-js-client';
 
@@ -14,6 +13,7 @@ import { CloseDialogButton } from '@/modal/CloseDialogButton';
 import { ModalDialog } from '@/modal/ModalDialog';
 import { ScopeSubtitle } from '@/modal/ScopeSubtitle';
 import { useManagedMutation } from '@/modal/useManagedMutation';
+import { changedExpiry } from '@/permissions/roleChange';
 import { type Role } from '@/permissions/types';
 import { getHeldRole } from '@/permissions/utils';
 import { ExpirationTimeGroup } from '@/project/team/ExpirationTimeGroup';
@@ -57,19 +57,18 @@ const savePermissions = async (
       },
     });
   } else {
-    await projectsDeleteUser({
+    // One step: the member keeps their old role should the new one be
+    // refused, and nothing that follows a member leaving runs.
+    await projectsChangeUserRole({
       path: { uuid: resolve.project['project_uuid'] },
       body: {
         user: resolve.customer.uuid,
-        role: resolve.project.role_name,
-      },
-    });
-    await projectsAddUser({
-      path: { uuid: resolve.project['project_uuid'] },
-      body: {
-        user: resolve.customer.uuid,
+        previous_role: resolve.project.role_name,
         role: formData.role.name,
-        expiration_time: formData.expiration_time,
+        ...changedExpiry(
+          formData.expiration_time,
+          resolve.project.expiration_time,
+        ),
       },
     });
   }
@@ -166,7 +165,10 @@ export const EditProjectUserDialog: FC<EditProjectUserDialogProps> = ({
 
   return (
     <Form<EditProjectUserDialogFormData>
-      onSubmit={(values) => saveMutation.mutateAsync(values)}
+      onSubmit={(values) =>
+        // A refusal is shown by the mutation, and the dialog stays open.
+        saveMutation.mutateAsync(values).catch(() => undefined)
+      }
       initialValues={initialValues}
       render={({ handleSubmit, invalid, submitting, values }) => (
         <EditProjectUserDialogFormBody

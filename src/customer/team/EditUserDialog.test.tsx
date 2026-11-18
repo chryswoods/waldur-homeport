@@ -3,12 +3,15 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import {
   customersAddUser,
+  customersChangeUserRole,
   customersDeleteUser,
   customersUpdateUser,
   rolesList,
 } from 'waldur-js-client';
 
 import { ENV } from '@/core/config';
+import { useModal } from '@/modal/actions';
+import { useNotify } from '@/store/notify';
 import { renderWithProviders } from '@/test/harness';
 import { getSelectByLabel, openAndSelectOption } from '@/test/select';
 import { mockListResponse } from '@/test/utils';
@@ -102,41 +105,88 @@ describe('EditUserDialog (Customer)', () => {
     expect(screen.getByText('Role expires on')).toBeInTheDocument();
   });
 
-  it('handles submission with role change', async () => {
+  it('changes the role in one step, keeping the old expiry', async () => {
     const user = userEvent.setup();
-    const mockCustomersDeleteUser = vi.mocked(customersDeleteUser);
-    const mockCustomersAddUser = vi.mocked(customersAddUser);
-    mockCustomersDeleteUser.mockResolvedValue({} as any);
-    mockCustomersAddUser.mockResolvedValue({} as any);
+    vi.mocked(customersChangeUserRole).mockResolvedValue({} as any);
 
     renderDialog();
-
-    // Change role from Owner to Manager
     await openAndSelectOption(user, 'Role', 'Manager');
-
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
-    await waitFor(() => {
-      expect(mockCustomersDeleteUser).toHaveBeenCalledWith(
-        expect.objectContaining({
-          path: { uuid: 'customer-uuid' },
-          body: {
-            user: 'user-uuid',
-            role: 'owner',
-          },
-        }),
-      );
-      expect(mockCustomersAddUser).toHaveBeenCalledWith(
-        expect.objectContaining({
-          path: { uuid: 'customer-uuid' },
-          body: expect.objectContaining({
-            user: 'user-uuid',
-            role: 'manager',
-          }),
-        }),
-      );
-      expect(mockResolve.refetch).toHaveBeenCalled();
+    await waitFor(() => expect(mockResolve.refetch).toHaveBeenCalled());
+    expect(customersChangeUserRole).toHaveBeenCalledTimes(1);
+    expect(customersChangeUserRole).toHaveBeenCalledWith({
+      path: { uuid: 'customer-uuid' },
+      body: { user: 'user-uuid', previous_role: 'owner', role: 'manager' },
     });
+    expect(customersDeleteUser).not.toHaveBeenCalled();
+    expect(customersAddUser).not.toHaveBeenCalled();
+  });
+
+  it('sends the expiry with a role change when it was changed too', async () => {
+    const user = userEvent.setup();
+    vi.mocked(customersChangeUserRole).mockResolvedValue({} as any);
+
+    renderDialog();
+    await openAndSelectOption(user, 'Role', 'Manager');
+    const dateInput = screen.getByDisplayValue('2024-12-31');
+    await user.clear(dateInput);
+    await user.type(dateInput, '2025-12-31');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(customersChangeUserRole).toHaveBeenCalledWith({
+        path: { uuid: 'customer-uuid' },
+        body: {
+          user: 'user-uuid',
+          previous_role: 'owner',
+          role: 'manager',
+          expiration_time: '2025-12-31',
+        },
+      }),
+    );
+  });
+
+  it('grants a role to a member who holds none, rather than changing one', async () => {
+    const user = userEvent.setup();
+    vi.mocked(customersAddUser).mockResolvedValue({} as any);
+
+    renderDialog({
+      ...mockResolve,
+      customer: { ...mockCustomerUser, role_name: null },
+    });
+    await openAndSelectOption(user, 'Role', 'Manager');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(customersAddUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: { uuid: 'customer-uuid' },
+          body: expect.objectContaining({ user: 'user-uuid', role: 'manager' }),
+        }),
+      ),
+    );
+    expect(customersChangeUserRole).not.toHaveBeenCalled();
+    expect(customersDeleteUser).not.toHaveBeenCalled();
+  });
+
+  it('says why a role change was refused, and keeps the dialog open', async () => {
+    const user = userEvent.setup();
+    const error = { status: 400, detail: 'Refused.' };
+    vi.mocked(customersChangeUserRole).mockRejectedValue(error);
+
+    renderDialog();
+    await openAndSelectOption(user, 'Role', 'Manager');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(useNotify().showErrorResponse).toHaveBeenCalledWith(
+        error,
+        'Unable to update permission.',
+      ),
+    );
+    expect(useModal().closeDialog).not.toHaveBeenCalled();
+    expect(mockResolve.refetch).not.toHaveBeenCalled();
   });
 
   it('handles submission with only expiration time change', async () => {
@@ -180,17 +230,6 @@ describe('EditUserDialog (Customer)', () => {
     expect(
       screen.getAllByText((content) => content.includes('Jane Smith')).length,
     ).toBeGreaterThan(0);
-  });
-
-  it('handles API errors gracefully', () => {
-    const mockCustomersUpdateUser = vi.mocked(customersUpdateUser);
-    const mockError = new Error('API Error');
-    mockCustomersUpdateUser.mockRejectedValue(mockError);
-
-    renderDialog();
-
-    // Error handling would be tested through form submission
-    expect(screen.getByText('Edit organization member')).toBeInTheDocument();
   });
 
   it('displays user without email when email is not provided', () => {

@@ -19657,7 +19657,7 @@ __metadata:
     waldur-auth-core: "workspace:*"
     waldur-design-tokens: "workspace:*"
     waldur-i18n-runtime: "workspace:*"
-    waldur-js-client: "https://github.com/chryswoods/js-client.git#8.1.3-openportal.13"
+    waldur-js-client: "https://github.com/chryswoods/js-client.git#8.1.3-openportal.14"
     waldur-notifications: "workspace:*"
     waldur-runtime-config: "workspace:*"
     waldur-telemetry: "workspace:*"
@@ -19676,10 +19676,10 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"waldur-js-client@https://github.com/chryswoods/js-client.git#8.1.3-openportal.13":
-  version: 8.1.3-openportal.13
-  resolution: "waldur-js-client@https://github.com/chryswoods/js-client.git#commit=156b4fc58a698b0d79311e186a441e9c1d1fa0c4"
-  checksum: 10c0/dbd2c0616f987d52d4b0d8249857e560a9d0cfb61a5dbe7ccb41d70532ef8c66c63b616c9af04e45fb1a87e09797bf69f9edcfdcd3c1aebd3a3f5ee9289ab5e6
+"waldur-js-client@https://github.com/chryswoods/js-client.git#8.1.3-openportal.14":
+  version: 8.1.3-openportal.14
+  resolution: "waldur-js-client@https://github.com/chryswoods/js-client.git#commit=636cbb486dc38c94ad0572ca18804b1b415aa676"
+  checksum: 10c0/0f22582bf0aeca81e95ed78ae81847bdcd6fc2af116c9ca43b8ecfb30d0c2006d5d2da82f476ac90e74285993a67fb17bd28e01707179dc6461f0af14c622145
   languageName: node
   linkType: hard
 

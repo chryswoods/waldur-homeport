@@ -3,10 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import {
   projectsAddUser,
+  projectsChangeUserRole,
   projectsDeleteUser,
   projectsUpdateUser,
 } from 'waldur-js-client';
 
+import { useModal } from '@/modal/actions';
+import { useNotify } from '@/store/notify';
 import { renderWithProviders } from '@/test/harness';
 import { openAndSelectOption } from '@/test/select';
 import { useProject } from '@/workspace/hooks';
@@ -89,41 +92,70 @@ describe('EditUserDialog (Project)', () => {
     expect(screen.getByText('Role expires on')).toBeInTheDocument();
   });
 
-  it('handles submission with role change', async () => {
+  it('changes the role in one step, keeping the old expiry', async () => {
     const user = userEvent.setup();
-    const mockProjectsDeleteUser = vi.mocked(projectsDeleteUser);
-    const mockProjectsAddUser = vi.mocked(projectsAddUser);
-    mockProjectsDeleteUser.mockResolvedValue({} as any);
-    mockProjectsAddUser.mockResolvedValue({} as any);
+    vi.mocked(projectsChangeUserRole).mockResolvedValue({} as any);
 
     renderDialog();
-
-    // Change role from Administrator to Manager
     await openAndSelectOption(user, 'Role', 'Manager');
-
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
-    await waitFor(() => {
-      expect(mockProjectsDeleteUser).toHaveBeenCalledWith(
-        expect.objectContaining({
-          path: { uuid: 'project-uuid' },
-          body: {
-            user: 'user-uuid',
-            role: 'admin',
-          },
-        }),
-      );
-      expect(mockProjectsAddUser).toHaveBeenCalledWith(
-        expect.objectContaining({
-          path: { uuid: 'project-uuid' },
-          body: expect.objectContaining({
-            user: 'user-uuid',
-            role: 'manager',
-          }),
-        }),
-      );
-      expect(mockResolve.refetch).toHaveBeenCalled();
+    await waitFor(() => expect(mockResolve.refetch).toHaveBeenCalled());
+    expect(projectsChangeUserRole).toHaveBeenCalledTimes(1);
+    expect(projectsChangeUserRole).toHaveBeenCalledWith({
+      path: { uuid: 'project-uuid' },
+      // No expiration_time: the backend keeps the old role's.
+      body: { user: 'user-uuid', previous_role: 'admin', role: 'manager' },
     });
+    expect(projectsDeleteUser).not.toHaveBeenCalled();
+    expect(projectsAddUser).not.toHaveBeenCalled();
+  });
+
+  it('sends the expiry with a role change when it was changed too', async () => {
+    const user = userEvent.setup();
+    vi.mocked(projectsChangeUserRole).mockResolvedValue({} as any);
+
+    renderDialog();
+    await openAndSelectOption(user, 'Role', 'Manager');
+    const dateInput = screen.getByDisplayValue('2024-12-31');
+    await user.clear(dateInput);
+    await user.type(dateInput, '2025-12-31');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(projectsChangeUserRole).toHaveBeenCalledWith({
+        path: { uuid: 'project-uuid' },
+        body: {
+          user: 'user-uuid',
+          previous_role: 'admin',
+          role: 'manager',
+          expiration_time: '2025-12-31',
+        },
+      }),
+    );
+  });
+
+  it('says why a role change was refused, and keeps the dialog open', async () => {
+    const user = userEvent.setup();
+    const error = {
+      status: 400,
+      detail: 'Project already has an active project manager.',
+    };
+    vi.mocked(projectsChangeUserRole).mockRejectedValue(error);
+
+    renderDialog();
+    await openAndSelectOption(user, 'Role', 'Manager');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(useNotify().showErrorResponse).toHaveBeenCalledWith(
+        error,
+        'Unable to update permission.',
+      ),
+    );
+    expect(useModal().closeDialog).not.toHaveBeenCalled();
+    expect(mockResolve.refetch).not.toHaveBeenCalled();
+    expect(projectsDeleteUser).not.toHaveBeenCalled();
   });
 
   it('handles submission with only expiration time change', async () => {
@@ -153,17 +185,6 @@ describe('EditUserDialog (Project)', () => {
       );
       expect(mockResolve.refetch).toHaveBeenCalled();
     });
-  });
-
-  it('handles API errors gracefully', () => {
-    const mockProjectsUpdateUser = vi.mocked(projectsUpdateUser);
-    const mockError = new Error('API Error');
-    mockProjectsUpdateUser.mockRejectedValue(mockError);
-
-    renderDialog();
-
-    // Error handling would be tested through form submission
-    expect(screen.getByText('Edit project member')).toBeInTheDocument();
   });
 
   it('displays user without email when email is not provided', () => {
