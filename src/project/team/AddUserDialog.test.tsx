@@ -246,6 +246,44 @@ describe('AddUserDialog', () => {
     );
   });
 
+  describe('creating a user from the dropdown', () => {
+    const openUsers = async () => {
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('combobox', { name: 'User' }));
+      await screen.findByText(/John Doe/);
+    };
+
+    beforeEach(() => {
+      ENV.FEATURES = { user: { allow_user_creation: true } } as any;
+    });
+    afterEach(() => {
+      ENV.FEATURES = undefined;
+    });
+
+    it('is offered to staff', async () => {
+      renderComponent();
+      await openUsers();
+      expect(screen.getByText('Create user')).toBeInTheDocument();
+    });
+
+    it('is not offered to a project manager, whom the backend would refuse', async () => {
+      vi.mocked(useUser).mockReturnValue({
+        uuid: 'lead',
+        is_staff: false,
+      } as any);
+      renderComponent();
+      await openUsers();
+      expect(screen.queryByText('Create user')).not.toBeInTheDocument();
+    });
+
+    it('is not offered where the site does not create accounts', async () => {
+      ENV.FEATURES = { user: { allow_user_creation: false } } as any;
+      renderComponent();
+      await openUsers();
+      expect(screen.queryByText('Create user')).not.toBeInTheDocument();
+    });
+  });
+
   it('uses default title when none provided', () => {
     renderComponent({ ...mockProps, title: undefined });
 

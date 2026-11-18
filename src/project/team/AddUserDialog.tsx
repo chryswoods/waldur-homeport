@@ -482,14 +482,17 @@ const AddUserDialogForm: FC<AddUserDialogFormProps> = ({
           getOptionLabel={getOptionLabel}
           components={{
             Option: UserListOptionInline,
-            ...(isFeatureVisible(UserFeatures.allow_user_creation) && {
-              Menu: (menuProps) => (
-                <MenuWithCreateButton
-                  {...menuProps}
-                  openCreateDialog={openCreateUserDialog}
-                />
-              ),
-            }),
+            // Creating an account is for staff, as on the Users list: a
+            // project's own managers would only be refused at the end.
+            ...(currentUser.is_staff &&
+              isFeatureVisible(UserFeatures.allow_user_creation) && {
+                Menu: (menuProps) => (
+                  <MenuWithCreateButton
+                    {...menuProps}
+                    openCreateDialog={openCreateUserDialog}
+                  />
+                ),
+              }),
           }}
           noOptionsMessage={() =>
             translate(
