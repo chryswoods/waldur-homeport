@@ -13,6 +13,7 @@ import { LoadingSpinner } from '@/core/LoadingSpinner';
 import { translate } from '@/i18n';
 import { useTitle } from '@/navigation/title';
 import { DetailsDiff } from '@/openportal/DetailsDiff';
+import { allowedDomainsLabel } from '@/openportal/managed-projects/awardDisplay';
 import { Field } from '@/resource/summary/Field';
 import { renderFieldOrDash } from '@/table/utils';
 import { useCustomer, useUser } from '@/workspace/hooks';
@@ -193,11 +194,7 @@ export const RemoteProjectDetail = () => {
             />
             <Field
               label={translate('Allowed domains')}
-              value={
-                row.allowed_domains && row.allowed_domains.length > 0
-                  ? row.allowed_domains.join(', ')
-                  : translate('All domains allowed')
-              }
+              value={allowedDomainsLabel(row.allowed_domains)}
             />
           </RemoteProjectCard>
         </div>

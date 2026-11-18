@@ -15,7 +15,10 @@ vi.mock('./RemoteProjectAuditLog', () => ({
   RemoteProjectAuditLog: () => null,
 }));
 
-const project = (state: RemoteProject['state']) =>
+const project = (
+  state: RemoteProject['state'],
+  extra: Partial<RemoteProject> = {},
+) =>
   ({
     uuid: 'rp-1',
     current_project_name: 'Brain models',
@@ -24,15 +27,17 @@ const project = (state: RemoteProject['state']) =>
     state,
     created: '2026-01-01T00:00:00Z',
     notes: [],
+    ...extra,
   }) as RemoteProject;
 
 const renderPage = async (
   state: RemoteProject['state'],
   user: Record<string, unknown>,
+  extra: Partial<RemoteProject> = {},
 ) => {
   vi.mocked(useUser).mockReturnValue(user as any);
   vi.mocked(openportalRemoteProjectsRetrieve).mockResolvedValue({
-    data: project(state),
+    data: project(state, extra),
   } as any);
   render(
     <QueryClientProvider
@@ -90,5 +95,15 @@ describe('RemoteProjectDetail', () => {
   it('shows no gears to someone who cannot edit', async () => {
     await renderPage('active', {});
     expect(screen.queryAllByTestId('card-settings')).toHaveLength(0);
+  });
+
+  it('tells no list (anyone may join) from an empty one (nobody may)', async () => {
+    await renderPage('active', {}, { allowed_domains: null });
+    expect(screen.getByText('All domains allowed')).toBeInTheDocument();
+  });
+
+  it('says nobody may join when the list is empty', async () => {
+    await renderPage('active', {}, { allowed_domains: [] });
+    expect(screen.getByText('No domains allowed')).toBeInTheDocument();
   });
 });
