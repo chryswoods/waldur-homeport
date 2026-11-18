@@ -8,6 +8,8 @@ import { RemovalActionButton } from '@/table/RemovalActionButton';
 import { renderFieldOrDash } from '@/table/utils';
 import { useUser } from '@/workspace/hooks';
 
+import { PROJECT_MANAGER_QUERIES } from './onlyOneProjectManager';
+
 export const ProjectUsersBulkRemoveButton = ({ rows, refetch, project }) => {
   const currentUser = useUser();
 
@@ -21,6 +23,7 @@ export const ProjectUsersBulkRemoveButton = ({ rows, refetch, project }) => {
   }
 
   const deleteMutation = useManagedMutation<any, any, void>({
+    invalidateQueries: PROJECT_MANAGER_QUERIES,
     mutationFn: async () => {
       for (const user of rows) {
         await projectsDeleteUser({

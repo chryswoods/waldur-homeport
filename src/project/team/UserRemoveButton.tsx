@@ -7,6 +7,8 @@ import { GenericPermission } from '@/permissions/types';
 import { RemovalActionItem } from '@/resource/actions/RemovalActionItem';
 import { useProject } from '@/workspace/hooks';
 
+import { PROJECT_MANAGER_QUERIES } from './onlyOneProjectManager';
+
 interface UserRemoveButtonProps {
   row: GenericPermission;
   refetch(): void;
@@ -24,6 +26,7 @@ export const UserRemoveButton: React.FC<UserRemoveButtonProps> = ({
   const projectId = projectUuid || project?.uuid;
 
   const { mutate, isPending } = useManagedMutation<any, any, void>({
+    invalidateQueries: PROJECT_MANAGER_QUERIES,
     mutationFn: () =>
       projectsDeleteUser({
         path: { uuid: projectId },

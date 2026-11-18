@@ -1,8 +1,10 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Permission } from 'waldur-js-client';
 
 import { translate } from '@/i18n';
 import { useModal } from '@/modal/actions';
+import { PROJECT_MANAGER_QUERIES } from '@/project/team/onlyOneProjectManager';
 import { useNotify } from '@/store/notify';
 import { RemovalActionButton } from '@/table/RemovalActionButton';
 import { renderFieldOrDash } from '@/table/utils';
@@ -29,6 +31,7 @@ export const UserAffiliationsBulkRemoveButton = ({
   const [isRemoving, setIsRemoving] = useState(false);
 
   const { showErrorResponse, showSuccess } = useNotify();
+  const queryClient = useQueryClient();
 
   const callback = async () => {
     try {
@@ -77,6 +80,11 @@ export const UserAffiliationsBulkRemoveButton = ({
         }
       }
 
+      if (successCount > 0) {
+        PROJECT_MANAGER_QUERIES.forEach((filters) =>
+          queryClient.invalidateQueries(filters),
+        );
+      }
       if (successCount > 0 && failureCount === 0) {
         showSuccess(
           translate(

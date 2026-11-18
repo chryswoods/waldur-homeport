@@ -10,6 +10,7 @@ import { translate } from '@/i18n';
 import { useManagedMutation } from '@/modal/useManagedMutation';
 import { PermissionEnum } from '@/permissions/enums';
 import { hasPermission } from '@/permissions/hasPermission';
+import { PROJECT_MANAGER_QUERIES } from '@/project/team/onlyOneProjectManager';
 import { ActionItem } from '@/resource/actions/ActionItem';
 import { useUser, useCustomer } from '@/workspace/hooks';
 
@@ -26,6 +27,7 @@ export const UserRemoveButton: React.FC<UserRemoveButtonProps> = ({
   const currentCustomer = useCustomer();
 
   const { mutate, isPending } = useManagedMutation<any, any, void>({
+    invalidateQueries: PROJECT_MANAGER_QUERIES,
     mutationFn: async () => {
       await Promise.all(
         (customer.projects || []).map((project) =>

@@ -79,6 +79,15 @@ export const projectHasActiveManager = async (
 export const projectHasActiveManagerQueryKey = (projectUuid?: string) =>
   ['project-has-active-manager', projectUuid] as const;
 
+/**
+ * Every project's cached manager check, to drop after a team change: a role
+ * changed, granted or revoked may add or remove a project's manager, and a
+ * stale answer would keep refusing (or allowing) a new one until a reload.
+ */
+export const PROJECT_MANAGER_QUERIES = [
+  { queryKey: ['project-has-active-manager'] },
+];
+
 export const isInvitationRowProjectManagerBlocked = (
   row: {
     role_project?: {

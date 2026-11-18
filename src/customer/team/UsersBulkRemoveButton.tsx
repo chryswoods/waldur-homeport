@@ -4,6 +4,7 @@ import { formatJsxTemplate, translate } from '@/i18n';
 import { useManagedMutation } from '@/modal/useManagedMutation';
 import { PermissionEnum } from '@/permissions/enums';
 import { hasPermission } from '@/permissions/hasPermission';
+import { PROJECT_MANAGER_QUERIES } from '@/project/team/onlyOneProjectManager';
 import { useNotify } from '@/store/notify';
 import { RemovalActionButton } from '@/table/RemovalActionButton';
 import { renderFieldOrDash } from '@/table/utils';
@@ -16,6 +17,7 @@ export const UsersBulkRemoveButton = ({ rows, refetch }) => {
   const currentCustomer = useCustomer();
 
   const { mutate, isPending } = useManagedMutation<any, any, void>({
+    invalidateQueries: PROJECT_MANAGER_QUERIES,
     mutationFn: async () => {
       for (const user of rows) {
         try {

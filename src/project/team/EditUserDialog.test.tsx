@@ -15,6 +15,7 @@ import { openAndSelectOption } from '@/test/select';
 import { useProject } from '@/workspace/hooks';
 
 import { EditUserDialog } from './EditUserDialog';
+import { projectHasActiveManagerQueryKey } from './onlyOneProjectManager';
 
 // Mock table constants
 vi.mock('@/table/constants', async (importOriginal) => ({
@@ -109,6 +110,29 @@ describe('EditUserDialog (Project)', () => {
     });
     expect(projectsDeleteUser).not.toHaveBeenCalled();
     expect(projectsAddUser).not.toHaveBeenCalled();
+  });
+
+  it('forgets whether the project has a manager once a role changed', async () => {
+    const user = userEvent.setup();
+    vi.mocked(projectsChangeUserRole).mockResolvedValue({} as any);
+
+    const { queryClient } = renderDialog();
+    // The Lead stepping down: a cached "has a manager" would keep refusing
+    // a new one until the page was reloaded.
+    queryClient.setQueryData(
+      projectHasActiveManagerQueryKey('project-uuid'),
+      true,
+    );
+    await openAndSelectOption(user, 'Role', 'Manager');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(
+        queryClient.getQueryState(
+          projectHasActiveManagerQueryKey('project-uuid'),
+        )?.isInvalidated,
+      ).toBe(true),
+    );
   });
 
   it('sends the expiry with a role change when it was changed too', async () => {

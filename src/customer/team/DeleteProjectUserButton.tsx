@@ -8,6 +8,7 @@ import {
 
 import { translate } from '@/i18n';
 import { useManagedMutation } from '@/modal/useManagedMutation';
+import { PROJECT_MANAGER_QUERIES } from '@/project/team/onlyOneProjectManager';
 import { ActionItem } from '@/resource/actions/ActionItem';
 
 interface DeleteProjectUserButtonProps {
@@ -20,6 +21,7 @@ export const DeleteProjectUserButton: React.FC<
   DeleteProjectUserButtonProps
 > = ({ project, customer, refetch }) => {
   const deleteMutation = useManagedMutation<any, any, void>({
+    invalidateQueries: PROJECT_MANAGER_QUERIES,
     mutationFn: () =>
       projectsDeleteUser({
         path: { uuid: project.uuid },

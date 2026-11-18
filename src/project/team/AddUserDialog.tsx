@@ -1,4 +1,5 @@
 import { PlusIcon, UserPlusIcon } from '@phosphor-icons/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { FC, useCallback, useMemo } from 'react';
 import { Form } from 'react-final-form';
 import { components } from 'react-select';
@@ -50,6 +51,7 @@ import { ExpirationTimeGroup } from './ExpirationTimeGroup';
 import {
   getOnlyOneProjectManagerTooltip,
   isOnlyOneProjectManagerEnabled,
+  PROJECT_MANAGER_QUERIES,
   isProjectManagerRole,
   isProjectManagerSelectionBlocked,
 } from './onlyOneProjectManager';
@@ -127,6 +129,7 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
   const setCurrentUser = useSetUser();
   const { closeDialog, openDialog } = useModal();
   const { showSuccess, showErrorResponse } = useNotify();
+  const queryClient = useQueryClient();
 
   const currentUser = useUser() as User;
   const currentProject = useProject();
@@ -249,6 +252,9 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
             },
           });
           await refetch();
+          PROJECT_MANAGER_QUERIES.forEach((filters) =>
+            queryClient.invalidateQueries(filters),
+          );
           showSuccess(translate('User has been added to project.'));
           closeDialog();
         } catch (error) {

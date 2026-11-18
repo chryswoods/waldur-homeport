@@ -4,6 +4,7 @@ import { Permission } from 'waldur-js-client';
 
 import { translate } from '@/i18n';
 import { useManagedMutation } from '@/modal/useManagedMutation';
+import { PROJECT_MANAGER_QUERIES } from '@/project/team/onlyOneProjectManager';
 import { ActionItem } from '@/resource/actions/ActionItem';
 import { RemovalActionItem } from '@/resource/actions/RemovalActionItem';
 import { ActionsMenu } from '@/table/ActionsDropdown';
@@ -44,6 +45,7 @@ export const UserAffiliationsRowActions: FC<UserAffiliationsRowActionsProps> = (
     any,
     void
   >({
+    invalidateQueries: PROJECT_MANAGER_QUERIES,
     mutationFn: () => revokeUserRole(row),
     confirmation: {
       title: translate('Revoke access'),
@@ -62,6 +64,7 @@ export const UserAffiliationsRowActions: FC<UserAffiliationsRowActionsProps> = (
     any,
     void
   >({
+    invalidateQueries: PROJECT_MANAGER_QUERIES,
     mutationFn: () => restoreUserRole(row),
     confirmation: {
       title: translate('Restore access'),

@@ -17,6 +17,7 @@ import { ExpirationTimeGroup } from '@/project/team/ExpirationTimeGroup';
 import {
   getOnlyOneProjectManagerTooltip,
   isProjectManagerSelectionBlocked,
+  PROJECT_MANAGER_QUERIES,
 } from '@/project/team/onlyOneProjectManager';
 import { RoleGroup } from '@/project/team/RoleGroup';
 import { useProjectHasActiveManager } from '@/project/team/useProjectHasActiveManager';
@@ -158,6 +159,7 @@ export const AddProjectUserDialog: FC<AddProjectUserDialogProps> = ({
     any,
     AddProjectUserDialogFormData
   >({
+    invalidateQueries: PROJECT_MANAGER_QUERIES,
     mutationFn: (formData) =>
       projectsAddUser({
         path: { uuid: formData.project.uuid },

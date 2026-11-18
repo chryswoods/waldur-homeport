@@ -20,6 +20,7 @@ import { ExpirationTimeGroup } from '@/project/team/ExpirationTimeGroup';
 import {
   getOnlyOneProjectManagerTooltip,
   isProjectManagerSelectionBlocked,
+  PROJECT_MANAGER_QUERIES,
 } from '@/project/team/onlyOneProjectManager';
 import { RoleGroup } from '@/project/team/RoleGroup';
 import { useProjectHasActiveManager } from '@/project/team/useProjectHasActiveManager';
@@ -151,6 +152,7 @@ export const EditProjectUserDialog: FC<EditProjectUserDialogProps> = ({
     any,
     EditProjectUserDialogFormData
   >({
+    invalidateQueries: PROJECT_MANAGER_QUERIES,
     mutationFn: (formData) => savePermissions(formData, resolve),
     errorMessage: translate('Unable to update permission.'),
   });
