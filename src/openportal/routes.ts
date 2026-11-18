@@ -14,6 +14,11 @@ import {
 const isOrganisationMemberOrStaffOrSupport = (state) =>
   isOwnerOrStaff(state) || isStaffOrSupport(state);
 
+// The organisation's usage report and allocation are read-only, so its
+// readers (viewers) see them too, as they see each project's usage.
+export const canViewOrganisationUsage = (state) =>
+  isStaffOrSupport(state) || isOwnerOrStaffOrReader(state);
+
 // A project's usage is for its own team as well: the backend returns it for
 // any project the user can see, its members as well as the organisation's
 // owners and readers.
@@ -63,7 +68,7 @@ export const states: StateDeclaration[] = [
       breadcrumb: () => translate('Usage report'),
       priority: 105,
       permissions: [
-        isOrganisationMemberOrStaffOrSupport,
+        canViewOrganisationUsage,
         () => ENV.plugins.WALDUR_OPENPORTAL?.ENABLED,
       ],
     },
@@ -99,7 +104,7 @@ export const states: StateDeclaration[] = [
       breadcrumb: () => translate('Allocation summary'),
       priority: 106,
       permissions: [
-        isOrganisationMemberOrStaffOrSupport,
+        canViewOrganisationUsage,
         () => ENV.plugins.WALDUR_OPENPORTAL?.ENABLED,
       ],
     },
