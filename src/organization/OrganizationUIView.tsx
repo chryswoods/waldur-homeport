@@ -20,6 +20,7 @@ import { IBreadcrumbItem } from '@/navigation/types';
 import { isDescendantOf } from '@/navigation/useTabs';
 import { PermissionEnum } from '@/permissions/enums';
 import { hasPermission } from '@/permissions/hasPermission';
+import { canViewCallManagement } from '@/proposals/call-management/canViewCallManagement';
 import { useUser, useCustomer } from '@/workspace/hooks';
 import {
   checkCanAccessServiceProvider,
@@ -52,8 +53,9 @@ const PageHero = ({ customer }) => {
   // The organization's own pages have nothing to show them; see the selector.
   const isServiceManagerOnly = checkIsServiceManagerOnly(customer);
 
+  // Only for those who run its calls: the figures are the call team's.
   const showCallManagement =
-    customer?.call_managing_organization_uuid &&
+    canViewCallManagement(user, customer) &&
     isFeatureVisible(MarketplaceFeatures.show_call_management_functionality);
 
   // Permission based, so a custom provider role reaches the workspace too.

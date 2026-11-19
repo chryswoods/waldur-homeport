@@ -8,6 +8,8 @@ import { MarketplaceFeatures } from '@/FeaturesEnums';
 import { translate } from '@/i18n';
 import { ANONYMOUS_LAYOUT_ROUTE_CONFIG } from '@/marketplace/constants';
 
+import { canViewCallManagementPages } from './call-management/canViewCallManagement';
+
 export const states: StateDeclaration[] = [
   {
     name: 'call-management',
@@ -22,6 +24,9 @@ export const states: StateDeclaration[] = [
     data: {
       auth: true,
       title: () => translate('Call management'),
+      // Inherited by every page below that sets no permissions of its own;
+      // those that do repeat it.
+      permissions: [canViewCallManagementPages],
     },
     resolve: [
       {
@@ -82,7 +87,10 @@ export const states: StateDeclaration[] = [
     ),
     data: {
       breadcrumb: () => translate('Proposals'),
-      permissions: [() => !isFeatureVisible(MarketplaceFeatures.call_only)],
+      permissions: [
+        canViewCallManagementPages,
+        () => !isFeatureVisible(MarketplaceFeatures.call_only),
+      ],
     },
   },
   {
@@ -95,7 +103,10 @@ export const states: StateDeclaration[] = [
     ),
     data: {
       breadcrumb: () => translate('Reviews'),
-      permissions: [() => !isFeatureVisible(MarketplaceFeatures.call_only)],
+      permissions: [
+        canViewCallManagementPages,
+        () => !isFeatureVisible(MarketplaceFeatures.call_only),
+      ],
     },
   },
   {

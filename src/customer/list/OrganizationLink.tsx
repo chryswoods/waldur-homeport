@@ -5,6 +5,8 @@ import { FC, PropsWithChildren, useCallback, useMemo } from 'react';
 import { ButtonVariant, buttonVariants, ButtonSize } from 'waldur-ui';
 
 import { Link } from '@/core/Link';
+import { PermissionEnum } from '@/permissions/enums';
+import { hasPermission as hasRolePermission } from '@/permissions/hasPermission';
 import { useUser } from '@/workspace/hooks';
 
 interface OwnProps {
@@ -50,7 +52,14 @@ const useOrganizationLinkState = (uuid: string) => {
       const hasPermission = user.permissions.some(
         (p) =>
           p.scope_type === scope &&
-          (p.customer_uuid === uuid || p.scope_uuid === uuid),
+          (p.customer_uuid === uuid || p.scope_uuid === uuid) &&
+          // A call role leads to call management only where it manages the
+          // call: a reviewer would be refused that page.
+          (scope !== 'call' ||
+            hasRolePermission(user, {
+              permission: PermissionEnum.UPDATE_CALL,
+              scopeId: p.scope_uuid,
+            })),
       );
       if (hasPermission) {
         return PERMISSION_MAP[scope];
