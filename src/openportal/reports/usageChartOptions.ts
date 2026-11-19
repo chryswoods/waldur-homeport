@@ -7,6 +7,7 @@ import type { EChartsOption } from 'echarts';
 
 import { translate } from '@/i18n';
 
+import { FORFEIT_COLOUR, forfeitUserLabel, isForfeitUser } from './forfeit';
 import { ProjectUsageReport } from './ProjectUsageReport';
 import { secondsToHours } from './storage';
 
@@ -332,12 +333,22 @@ function groupByProject(reports: ProjectUsageReport[]): ProjectUsageReport[] {
 
 // ── Resolve display names ─────────────────────────────────────────────────────
 
+/** Whether a report's local user is the spend profile's forfeit. */
+const isForfeit = (u: string, report: ProjectUsageReport): boolean =>
+  isForfeitUser(u) || isForfeitUser(report.localToIdentifier[u]);
+
+/** The users who run jobs: everyone but the forfeit, which is not a job. */
+const jobUsers = (report: ProjectUsageReport): string[] =>
+  report.localUsers().filter((u) => !isForfeit(u, report));
+
 function resolveUserName(
   u: string,
   report: ProjectUsageReport,
   fullNames: boolean,
   nameMaps?: NameMaps,
 ): string {
+  // Not a person: never looked up, never shown as an unknown user.
+  if (isForfeit(u, report)) return forfeitUserLabel();
   if (nameMaps?.user) {
     const uid = report.localToIdentifier[u];
     if (uid && nameMaps.user[uid]) return truncateLabel(nameMaps.user[uid]);
@@ -391,15 +402,21 @@ export function buildTimeseriesOptions(
 
   // Rank users by total, keep top N
   const userTotals = seriesData.map((data) => data.reduce((s, v) => s + v, 0));
-  const ranked = users
-    .map((user, i) => ({
-      user,
-      display: displayNames[i],
-      total: userTotals[i],
-      data: seriesData[i],
-    }))
+  const everyone = users.map((user, i) => ({
+    user,
+    display: displayNames[i],
+    total: userTotals[i],
+    data: seriesData[i],
+  }));
+  // The forfeit is never ranked among the people or folded into "Others":
+  // it is always shown, last, in its own grey.
+  const forfeit = everyone.filter(
+    (u) => isForfeit(u.user, report) && u.total > 0,
+  );
+  const ranked = everyone
+    .filter((u) => !isForfeit(u.user, report))
     .sort((a, b) => b.total - a.total);
-  const topUsers = ranked.slice(0, TOP_N_USERS);
+  const topUsers = [...ranked.slice(0, TOP_N_USERS), ...forfeit];
   const hiddenUsers = ranked.slice(TOP_N_USERS).filter((u) => u.total > 0);
   const otherData =
     hiddenUsers.length > 0
@@ -446,7 +463,11 @@ export function buildTimeseriesOptions(
         type: 'bar' as const,
         stack: 'usage',
         emphasis: { focus: 'series' as const },
-        itemStyle: { color: PALETTE[i % PALETTE.length] },
+        itemStyle: {
+          color: isForfeit(info.user, report)
+            ? FORFEIT_COLOUR
+            : PALETTE[i % PALETTE.length],
+        },
         data: info.data,
       })),
       ...(otherData
@@ -475,7 +496,23 @@ export function buildPieOptions(
 ): EChartsOption {
   const users = report.localUsers();
 
+  // The forfeit is a slice of its own, after the people, in its own grey.
+  const forfeitSlices = users
+    .filter((user) => isForfeit(user, report))
+    .map((user) => ({
+      name: forfeitUserLabel(),
+      value:
+        component === 'total'
+          ? secondsToHours(report.usageForUser(user).seconds)
+          : secondsToHours(
+              report.componentUsageForUser(component, user).seconds,
+            ),
+      itemStyle: { color: FORFEIT_COLOUR },
+    }))
+    .filter((d) => d.value > 0);
+
   const rawData = users
+    .filter((user) => !isForfeit(user, report))
     .map((user, i) => {
       const hours =
         component === 'total'
@@ -491,7 +528,7 @@ export function buildPieOptions(
     })
     .filter((d) => d.value > 0);
 
-  const data = topNPieData(rawData);
+  const data = [...topNPieData(rawData), ...forfeitSlices];
   const label =
     component === 'total'
       ? translate('Total usage')
@@ -672,7 +709,7 @@ export function buildJobsTimeseriesOptions(
 ): EChartsOption {
   const dates = report.dates;
   const labels = computeLabels(dates, groupBy);
-  const users = report.localUsers();
+  const users = jobUsers(report);
   const displayNames = users.map((u) =>
     resolveUserName(u, report, fullNames, nameMaps),
   );
@@ -777,7 +814,7 @@ export function buildJobsPieOptions(
   fullNames = false,
   nameMaps?: NameMaps,
 ): EChartsOption {
-  const users = report.localUsers();
+  const users = jobUsers(report);
 
   const rawData = users
     .map((user, i) => {
@@ -954,7 +991,7 @@ export function buildAvgWaitTimeseriesOptions(
 ): EChartsOption {
   const dates = report.dates;
   const labels = computeLabels(dates, groupBy);
-  const allUsers = report.localUsers();
+  const allUsers = jobUsers(report);
 
   // Rank users by total jobs, keep top N
   const allUserTotals = allUsers.map((user) =>
@@ -1066,7 +1103,7 @@ export function buildAvgWaitPieOptions(
   fullNames = false,
   nameMaps?: NameMaps,
 ): EChartsOption {
-  const users = report.localUsers();
+  const users = jobUsers(report);
 
   const rawData = users
     .map((user, i) => {

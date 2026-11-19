@@ -98,6 +98,42 @@ describe('OpenPortalReportsTab', () => {
     expect(screen.getByText('Storage')).toBeInTheDocument();
   });
 
+  it('never looks up a name for the spend profile forfeit', async () => {
+    vi.mocked(api.fetchUsageReports).mockResolvedValue([
+      ProjectUsageReport.fromApiResponse({
+        ...usageItem,
+        report: {
+          ...usageItem.report,
+          users: {
+            ...usageItem.report.users,
+            'forfeit.aiproject.brics': 'forfeit',
+          },
+          reports: {
+            ...usageItem.report.reports,
+            '2026-08-31': {
+              is_complete: true,
+              reports: { forfeit: { seconds: 7200 } },
+            },
+          },
+        },
+      }),
+    ]);
+    vi.mocked(openportalOfferingMappingRetrieve).mockResolvedValue({
+      data: {},
+    } as any);
+    vi.mocked(openportalUserMappingRetrieve).mockResolvedValue({
+      data: { [USER_ID]: { full_name: 'Chris' } },
+    } as any);
+
+    renderWithProviders(<OpenPortalReportsTab />);
+
+    await waitFor(() => expect(screen.getByText('Usage')).toBeInTheDocument());
+    expect(openportalUserMappingRetrieve).toHaveBeenCalled();
+    expect(
+      JSON.stringify(vi.mocked(openportalUserMappingRetrieve).mock.calls),
+    ).not.toContain('forfeit');
+  });
+
   // The mapping endpoints answer with null for any identifier they cannot
   // resolve — documented behaviour, and common at project level where a
   // report's resource may have no matching offering. A null must not take the

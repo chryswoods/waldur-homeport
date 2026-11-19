@@ -44,6 +44,7 @@ import {
   fetchAllAwardUsage,
   fetchProjectAwards,
 } from './awardUsage';
+import { isForfeitUser } from './forfeit';
 import {
   getCached,
   setCached,
@@ -208,9 +209,10 @@ export const OpenPortalReportsTab: FC = () => {
           ...storage.map((r) => r.resource),
         ]),
       ];
+      // The spend profile's forfeit is not a person: no name to fetch.
       const allUserIds = [
         ...new Set<string>(usage.flatMap((r) => Object.keys(r.users))),
-      ];
+      ].filter((uid) => !isForfeitUser(uid));
       const usageByUid: Record<string, number> = {};
       for (const r of usage) {
         for (const [uid, localName] of Object.entries(r.users)) {

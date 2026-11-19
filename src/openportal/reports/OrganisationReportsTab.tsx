@@ -34,6 +34,7 @@ import {
   selectUserMappingIds,
 } from './api';
 import type { OpenPortalProject } from './api';
+import { isForfeitUser } from './forfeit';
 import {
   clearCached,
   clearMappingCache,
@@ -502,6 +503,8 @@ export const OrganisationReportsTab: FC = () => {
             string,
             string,
           ][]) {
+            // The spend profile's forfeit is not a person: no name to fetch.
+            if (isForfeitUser(uid) || isForfeitUser(localOrEmail)) continue;
             uidToLookupId[uid] = localOrEmail.includes('@')
               ? localOrEmail
               : uid;
@@ -565,7 +568,9 @@ export const OrganisationReportsTab: FC = () => {
             ),
           ),
         ];
-        const allLookupIds = [...lookupIdsCapped, ...unmappedEmailIds];
+        const allLookupIds = [...lookupIdsCapped, ...unmappedEmailIds].filter(
+          (id) => !isForfeitUser(id),
+        );
 
         const ob = mappingBatchCount(offeringIds);
         const pb = mappingBatchCount(projectIds);

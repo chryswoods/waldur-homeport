@@ -24,6 +24,7 @@ import { Badge, SegmentedControl, Tooltip } from 'waldur-ui';
 import { EChart } from '@/core/EChart';
 import { translate } from '@/i18n';
 
+import { componentLabel, isForfeitUser } from './forfeit';
 import { ProjectUsageReport } from './ProjectUsageReport';
 import { downloadUsageExcel, downloadJson } from './reportExcel';
 import {
@@ -208,7 +209,12 @@ export const UsageReportVis: FC<Props> = ({
   }
 
   const totalHours = report.totalUsageHours();
-  const numUsers = report.localUsers().length;
+  // People only: the spend profile's forfeit is usage, not a user.
+  const numUsers = report
+    .localUsers()
+    .filter(
+      (u) => !isForfeitUser(u) && !isForfeitUser(report.localToIdentifier[u]),
+    ).length;
   const numProjects = new Set(reports.map((r) => r.project)).size;
   const destination = reports[0]?.resource ?? '';
   const destinationLabel = nameMaps?.offering?.[destination] ?? destination;
@@ -367,9 +373,7 @@ export const UsageReportVis: FC<Props> = ({
             >
               {components.map((c) => (
                 <option key={c} value={c}>
-                  {c === 'total'
-                    ? translate('All usage')
-                    : c.charAt(0).toUpperCase() + c.slice(1)}
+                  {c === 'total' ? translate('All usage') : componentLabel(c)}
                 </option>
               ))}
             </select>

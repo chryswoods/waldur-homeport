@@ -21,6 +21,7 @@ import {
   mappingBatchCount,
   selectUserMappingIds,
 } from './api';
+import { isForfeitUser } from './forfeit';
 import { clearMappingCache } from './localStorageCache';
 import { ProjectStorageReport } from './ProjectStorageReport';
 import { ProjectUsageReport } from './ProjectUsageReport';
@@ -122,9 +123,10 @@ export const SystemUsageTab: FC = () => {
             ...storageReports.map((r) => r.project),
           ]),
         ];
+        // The spend profile's forfeit is not a person: no name to fetch.
         const allUserIds = [
           ...new Set<string>(usageReports.flatMap((r) => Object.keys(r.users))),
-        ];
+        ].filter((uid) => !isForfeitUser(uid));
         const usageByUid: Record<string, number> = {};
         for (const r of usageReports) {
           for (const [uid, localName] of Object.entries(r.users)) {

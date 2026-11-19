@@ -31,6 +31,7 @@ import { translate } from '@/i18n';
 import { SharedStrings, getSheetData } from '@/table/exporters/excel';
 import { saveFile } from '@/table/exporters/saveFile';
 
+import { componentLabel, forfeitUserLabel, isForfeitUser } from './forfeit';
 import { ProjectStorageReport } from './ProjectStorageReport';
 import { ProjectUsageReport } from './ProjectUsageReport';
 import { secondsToHours } from './storage';
@@ -200,7 +201,7 @@ export async function downloadMultiSheetExcel(
 
 // ── Usage report ─────────────────────────────────────────────────────────────
 
-function buildUsageSheets(
+export function buildUsageSheets(
   reports: ProjectUsageReport[],
   nameMaps?: NameMaps,
 ): SheetSpec[] {
@@ -215,6 +216,7 @@ function buildUsageSheets(
   // Resolve user display names
   const userLabels = users.map((u) => {
     const uid = report.localToIdentifier[u];
+    if (isForfeitUser(u) || isForfeitUser(uid)) return forfeitUserLabel();
     return uid && nameMaps?.user?.[uid] ? nameMaps.user[uid] : u;
   });
 
@@ -439,7 +441,10 @@ function buildUsageSheets(
       }),
     ];
     sheets.push({
-      name: translate('Comp {name}', { name: comp }).slice(0, 31),
+      name: translate('Comp {name}', { name: componentLabel(comp) }).slice(
+        0,
+        31,
+      ),
       rows: compRows,
     });
   }
@@ -466,7 +471,14 @@ function buildUsageSheets(
     for (const [uid, local] of Object.entries(userMap).sort(([, a], [, b]) =>
       a.localeCompare(b),
     )) {
-      memberRows.push([projName, projId, nameMaps?.user?.[uid] ?? local, uid]);
+      memberRows.push([
+        projName,
+        projId,
+        isForfeitUser(uid) || isForfeitUser(local)
+          ? forfeitUserLabel()
+          : (nameMaps?.user?.[uid] ?? local),
+        uid,
+      ]);
     }
   }
   sheets.unshift({ name: translate('Project members'), rows: memberRows });
