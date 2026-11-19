@@ -2,7 +2,9 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  proposalProposalsChangeUserRole,
   proposalProposalsDeleteUser,
+  proposalProtectedCallsChangeUserRole,
   proposalProtectedCallsDeleteUser,
 } from 'waldur-js-client';
 
@@ -11,7 +13,11 @@ import { RoleEnum } from '@/permissions/enums';
 import { useNotify } from '@/store/notify';
 import { inActionsMenu, renderWithProviders } from '@/test/harness';
 
-import { deleteTeamUser, getTeamScopeType } from './teamApi';
+import {
+  changeTeamUserRole,
+  deleteTeamUser,
+  getTeamScopeType,
+} from './teamApi';
 import { UserRemoveButton } from './UserRemoveButton';
 
 const LAST_MANAGER =
@@ -34,6 +40,25 @@ const proposal = {
 
 describe('proposal team API', () => {
   afterEach(() => vi.clearAllMocks());
+
+  it('changes a role through the change endpoint of the scope type', async () => {
+    const body = {
+      user: 'u',
+      previous_role: 'PROPOSAL.ADMIN',
+      role: 'PROPOSAL.MANAGER',
+    };
+    await changeTeamUserRole('proposal', 'proposal-1', body);
+    await changeTeamUserRole('call', 'call-1', body);
+
+    expect(proposalProposalsChangeUserRole).toHaveBeenCalledWith({
+      path: { uuid: 'proposal-1' },
+      body,
+    });
+    expect(proposalProtectedCallsChangeUserRole).toHaveBeenCalledWith({
+      path: { uuid: 'call-1' },
+      body,
+    });
+  });
 
   it('reaches the endpoint of the scope type it is given', async () => {
     await deleteTeamUser('proposal', 'proposal-1', {

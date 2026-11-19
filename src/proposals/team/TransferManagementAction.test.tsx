@@ -1,7 +1,11 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { proposalProposalsAddUser, usersMeRetrieve } from 'waldur-js-client';
+import {
+  proposalProposalsAddUser,
+  proposalProposalsChangeUserRole,
+  usersMeRetrieve,
+} from 'waldur-js-client';
 
 import { useModal } from '@/modal/actions';
 import { useNotify } from '@/store/notify';
@@ -73,17 +77,23 @@ describe('TransferManagementAction', () => {
     );
   });
 
-  it('grants the manager role, then reloads the team and the viewer', async () => {
-    vi.mocked(proposalProposalsAddUser).mockResolvedValue({} as any);
+  it("changes the member's role to manager, then reloads the team and the viewer", async () => {
+    vi.mocked(proposalProposalsChangeUserRole).mockResolvedValue({} as any);
     const { refetch } = renderAction();
     await transfer();
 
     await waitFor(() =>
-      expect(proposalProposalsAddUser).toHaveBeenCalledWith({
+      expect(proposalProposalsChangeUserRole).toHaveBeenCalledWith({
         path: { uuid: 'p-1' },
-        body: { user: 'u-2', role: 'PROPOSAL.MANAGER' },
+        // No expiration_time: their current expiry is kept.
+        body: {
+          user: 'u-2',
+          previous_role: 'PROPOSAL.ADMIN',
+          role: 'PROPOSAL.MANAGER',
+        },
       }),
     );
+    expect(proposalProposalsAddUser).not.toHaveBeenCalled();
     expect(useNotify().showSuccess).toHaveBeenCalledWith(
       "Grace Hopper is now the proposal's manager.",
     );
@@ -96,8 +106,11 @@ describe('TransferManagementAction', () => {
   });
 
   it('says why when the backend refuses', async () => {
-    const error = { status: 403 };
-    vi.mocked(proposalProposalsAddUser).mockRejectedValue(error);
+    const error = {
+      status: 400,
+      non_field_errors: ['User already has role within this scope.'],
+    };
+    vi.mocked(proposalProposalsChangeUserRole).mockRejectedValue(error);
     const { refetch } = renderAction();
     await transfer();
 

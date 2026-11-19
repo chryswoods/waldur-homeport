@@ -1,8 +1,11 @@
 import {
   proposalProposalsAddUser,
+  proposalProposalsChangeUserRole,
   proposalProposalsDeleteUser,
   proposalProtectedCallsAddUser,
+  proposalProtectedCallsChangeUserRole,
   proposalProtectedCallsDeleteUser,
+  UserRoleChangeRequest,
 } from 'waldur-js-client';
 
 /** The two scopes whose team this panel manages. */
@@ -33,3 +36,19 @@ export const deleteTeamUser = (
   scopeType === 'proposal'
     ? proposalProposalsDeleteUser({ path: { uuid: scopeUuid }, body })
     : proposalProtectedCallsDeleteUser({ path: { uuid: scopeUuid }, body });
+
+/**
+ * Gives a team member a different role in one step: their old role is
+ * swapped for the new one, or nothing changes. Never add the new role
+ * instead: where a user may hold one role per scope that is refused, and
+ * elsewhere it leaves them with both. Leave out expiration_time to keep the
+ * old role's expiry.
+ */
+export const changeTeamUserRole = (
+  scopeType: TeamScopeType,
+  scopeUuid: string,
+  body: UserRoleChangeRequest,
+) =>
+  scopeType === 'proposal'
+    ? proposalProposalsChangeUserRole({ path: { uuid: scopeUuid }, body })
+    : proposalProtectedCallsChangeUserRole({ path: { uuid: scopeUuid }, body });

@@ -12,7 +12,7 @@ import { useNotify } from '@/store/notify';
 import { getCurrentUser } from '@/user/UsersService';
 import { useSetUser } from '@/workspace/hooks';
 
-import { addTeamUser } from './teamApi';
+import { changeTeamUserRole } from './teamApi';
 
 interface TransferManagementActionProps {
   row: GenericPermission;
@@ -29,8 +29,9 @@ const memberName = (row: GenericPermission) =>
 
 /**
  * Hands a proposal over to a team member, on a call with one manager per
- * proposal: granting them the manager role makes them its owner, and the
- * backend keeps the previous manager on the team as an administrator.
+ * proposal: changing their role (the one on this row) to manager makes them
+ * its owner, and the backend keeps the previous manager on the team as an
+ * administrator.
  */
 export const TransferManagementAction: FC<TransferManagementActionProps> = ({
   row,
@@ -75,8 +76,11 @@ export const TransferManagementAction: FC<TransferManagementActionProps> = ({
       return;
     }
     try {
-      await addTeamUser('proposal', proposal.uuid, {
+      // Their role on this row becomes manager (their expiry kept); the
+      // backend makes the previous manager an administrator in the same step.
+      await changeTeamUserRole('proposal', proposal.uuid, {
         user: row.user_uuid,
+        previous_role: row.role_name,
         role: RoleEnum.PROPOSAL_MANAGER,
       });
     } catch (error) {
