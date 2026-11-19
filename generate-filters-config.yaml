@@ -426,6 +426,7 @@ overrides:
         details_updated: Details updated
         project_attached: Project attached
         project_detached: Project detached
+        forfeit_charged: Forfeit charged
     timestamp_after:
       label: From
     timestamp_before:

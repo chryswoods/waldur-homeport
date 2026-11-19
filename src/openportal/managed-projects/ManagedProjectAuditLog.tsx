@@ -35,6 +35,7 @@ const eventTypeLabels: Record<ManagedProjectAuditEntry['event_type'], string> =
     details_updated: translate('Details updated'),
     project_attached: translate('Project attached'),
     project_detached: translate('Project detached'),
+    forfeit_charged: translate('Forfeit charged'),
   };
 
 const eventTypeVariants: Record<
@@ -49,6 +50,7 @@ const eventTypeVariants: Record<
   details_updated: 'info',
   project_attached: 'success',
   project_detached: 'warning',
+  forfeit_charged: 'warning',
 };
 
 const AuditEntryExpandableRow = ({

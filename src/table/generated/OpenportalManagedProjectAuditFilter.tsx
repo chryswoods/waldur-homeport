@@ -24,6 +24,10 @@ export const EventTypeOptions: EventTypeOption[] = [
     value: 'details_updated',
   },
   {
+    label: translate('Forfeit charged'),
+    value: 'forfeit_charged',
+  },
+  {
     label: translate('Note added'),
     value: 'note_added',
   },
