@@ -54,11 +54,15 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
   roles,
   roleNotice,
 }) => {
+  const isProposalTeam = getTeamScopeType(roleTypes) === 'proposal';
   // A proposal's team can take someone by email, creating their account
   // when there is none, where the site lets accounts be created.
   const canAddByEmail =
-    getTeamScopeType(roleTypes) === 'proposal' &&
-    isFeatureVisible(UserFeatures.allow_user_creation);
+    isProposalTeam && isFeatureVisible(UserFeatures.allow_user_creation);
+  // No expiry on a proposal team: an applicant cannot know how long a
+  // proposal that may never be awarded needs someone, and a date guessed
+  // here would silently remove them later. A call team keeps it.
+  const asksForExpiry = !isProposalTeam;
   const [mode, setMode] = useState<AddMode>('search');
   const byEmail = canAddByEmail && mode === 'email';
 
@@ -77,13 +81,17 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
             first_name: formData.first_name?.trim() || undefined,
             last_name: formData.last_name?.trim() || undefined,
             role,
-            expiration_time: formData.expiration_time || null,
+            expiration_time: asksForExpiry
+              ? formData.expiration_time || null
+              : null,
           },
         });
       }
       return addTeamUser(getTeamScopeType(roleTypes), scope.uuid, {
         user: formData.user.uuid,
-        expiration_time: formData.expiration_time,
+        expiration_time: asksForExpiry
+          ? formData.expiration_time || null
+          : null,
         role,
       });
     },
@@ -190,7 +198,7 @@ export const AddUserDialog: FC<AddUserDialogProps> = ({
                 data-testid="role-notice"
               />
             ) : null}
-            <ExpirationTimeGroup />
+            {asksForExpiry ? <ExpirationTimeGroup /> : null}
           </ModalDialog>
         </form>
       )}

@@ -10,7 +10,7 @@ import { AddUserDialog } from './AddUserDialog';
 
 vi.mock('@/features/connect', () => ({ isFeatureVisible: vi.fn() }));
 vi.mock('@/project/team/ExpirationTimeGroup', () => ({
-  ExpirationTimeGroup: () => null,
+  ExpirationTimeGroup: () => <div>Role expires on</div>,
 }));
 
 const scope: any = { uuid: 'p-1', url: '/api/proposal-proposals/p-1/' };
@@ -99,5 +99,44 @@ describe('AddUserDialog on a call with one manager per proposal', () => {
   it('says nothing without a notice', () => {
     renderWithRole('PROPOSAL.MANAGER', null);
     expect(screen.queryByTestId('role-notice')).not.toBeInTheDocument();
+  });
+});
+
+describe('AddUserDialog, role expiry', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(isFeatureVisible).mockReturnValue(true);
+  });
+
+  it('asks no expiry on a proposal team, and sends none', async () => {
+    vi.mocked(proposalProposalsAddUserByEmail).mockResolvedValue({
+      data: { user_uuid: 'u-1', created: false, expiration_time: null },
+    } as any);
+    renderDialog();
+    expect(screen.queryByText('Role expires on')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Add by email' }));
+    await userEvent.type(screen.getByLabelText(/^Email/), 'ada@example.org');
+    await userEvent.click(screen.getByRole('button', { name: 'Add role' }));
+
+    await waitFor(() =>
+      expect(proposalProposalsAddUserByEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.objectContaining({ expiration_time: null }),
+        }),
+      ),
+    );
+  });
+
+  it('keeps it on a call team', () => {
+    renderWithProviders(
+      <AddUserDialog
+        scope={scope}
+        roleTypes={['call']}
+        roles={['CALL.REVIEWER']}
+        refetch={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Role expires on')).toBeInTheDocument();
   });
 });
