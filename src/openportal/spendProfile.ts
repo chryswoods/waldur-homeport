@@ -147,6 +147,7 @@ export const SITE_FEATURE_MAXIMUMS = 'award_spend_maximums';
  */
 export const unsupportedControls = (
   entries: ReadonlyArray<{
+    from?: string | null;
     minimum?: string | number | null;
     maximum?: string | number | null;
   }> | null,

@@ -66,6 +66,9 @@ describe('spend profile periods', () => {
   });
 });
 
+// A period that only marks a date, with no controls.
+const NO_CONTROLS = [{ from: '2026-01-01' }];
+
 describe('controls the site has not said it enforces', () => {
   it('warns of each control the profile uses and the site lacks', () => {
     expect(unsupportedControls(PROFILE, [])).toEqual({
@@ -89,7 +92,7 @@ describe('controls the site has not said it enforces', () => {
       minimums: false,
       maximums: false,
     });
-    expect(unsupportedControls([{ from: '2026-01-01' }], null)).toEqual({
+    expect(unsupportedControls(NO_CONTROLS, null)).toEqual({
       minimums: false,
       maximums: false,
     });
