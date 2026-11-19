@@ -14,6 +14,7 @@ import { translate } from '@/i18n';
 import { useTitle } from '@/navigation/title';
 import { DetailsDiff } from '@/openportal/DetailsDiff';
 import { allowedDomainsLabel } from '@/openportal/managed-projects/awardDisplay';
+import { awardTerms } from '@/openportal/spendProfile';
 import { Field } from '@/resource/summary/Field';
 import { renderFieldOrDash } from '@/table/utils';
 import { useCustomer, useUser } from '@/workspace/hooks';
@@ -28,10 +29,13 @@ import {
   SetEarliestApproveButton,
   SetLinksButton,
   SetMembershipControlButton,
+  SetSpendProfileButton,
 } from './RemoteProjectActions';
 import { RemoteProjectAuditLog } from './RemoteProjectAuditLog';
 import { RemoteProjectCard } from './RemoteProjectCard';
 import { RemoteProjectStateField } from './RemoteProjectStateField';
+import { SiteSupportWarning } from './SiteSupportWarning';
+import { SpendProfileTable } from './SpendProfileTable';
 
 const membershipControlLabels: Record<string, string> = {
   open: translate('Open'),
@@ -224,6 +228,38 @@ export const RemoteProjectDetail = () => {
             />
           </RemoteProjectCard>
         </div>
+        {/* Shown to those who can set one even before there is one. */}
+        {(row.spend_profile?.length > 0 || canEdit) && (
+          <div className="col-12">
+            <RemoteProjectCard
+              title={translate('Spend profile')}
+              row={row}
+              refetch={refetch}
+              actions={canEdit ? [SetSpendProfileButton] : []}
+            >
+              <SiteSupportWarning
+                rp={row}
+                entries={row.spend_profile}
+                onChecked={canEdit ? () => refetch() : undefined}
+                className="mb-4"
+              />
+              {row.spend_profile?.length ? (
+                <SpendProfileTable
+                  entries={row.spend_profile}
+                  awardEnd={awardTerms(row).end}
+                  units={awardTerms(row).units}
+                  scope={row.uuid}
+                />
+              ) : (
+                <span className="text-muted">
+                  {translate(
+                    'No spend profile: the award can be spent at any pace until it ends.',
+                  )}
+                </span>
+              )}
+            </RemoteProjectCard>
+          </div>
+        )}
         <div className="col-md-6">
           <RemoteProjectCard
             title={translate('Notes')}

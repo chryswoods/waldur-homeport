@@ -10,6 +10,7 @@ import { formatDate } from '@/core/dateUtils';
 import { Link } from '@/core/Link';
 import { Panel } from '@/core/Panel';
 import { translate } from '@/i18n';
+import { awardTerms } from '@/openportal/spendProfile';
 
 import {
   allocationUnit,
@@ -21,6 +22,7 @@ import {
 
 import { RemoteProjectStateField } from './RemoteProjectStateField';
 import { remoteProjectUsageQuery } from './remoteProjectUsage';
+import { SpendProfileTable } from './SpendProfileTable';
 
 interface Props {
   remoteProjects: RemoteProject[];
@@ -194,6 +196,18 @@ const RemoteProjectCard: FC<{
             </ExternalCardLink>
           )}
         </div>
+
+        {rp.spend_profile?.length > 0 && (
+          <div className="mt-4" data-testid="card-spend-profile">
+            <div className="fw-semibold mb-2">{translate('Spend profile')}</div>
+            <SpendProfileTable
+              entries={rp.spend_profile}
+              awardEnd={awardTerms(rp).end}
+              units={awardTerms(rp).units}
+              scope={`card-${rp.uuid}`}
+            />
+          </div>
+        )}
 
         {pendingTooLong && (
           <AlertItem

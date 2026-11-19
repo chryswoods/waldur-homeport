@@ -1,5 +1,6 @@
 import {
   CalendarBlankIcon,
+  ChartLineIcon,
   ChatTeardropTextIcon,
   GlobeIcon,
   LinkIcon,
@@ -20,6 +21,7 @@ import { SetAllowedDomainsDialog } from './actions/SetAllowedDomainsDialog';
 import { SetEarliestApproveDialog } from './actions/SetEarliestApproveDialog';
 import { SetLinksDialog } from './actions/SetLinksDialog';
 import { SetMembershipControlDialog } from './actions/SetMembershipControlDialog';
+import { SetSpendProfileDialog } from './actions/SetSpendProfileDialog';
 
 export const AddNoteButton: DropdownActionItemType<RemoteProject> = ({
   row,
@@ -111,6 +113,26 @@ export const SetMembershipControlButton: DropdownActionItemType<
   );
 };
 
+export const SetSpendProfileButton: DropdownActionItemType<RemoteProject> = ({
+  row,
+  refetch,
+}) => {
+  const { openDialog } = useModal();
+  return (
+    <ActionItem
+      title={translate('Set spend profile')}
+      action={() =>
+        openDialog(SetSpendProfileDialog, {
+          row,
+          resolve: { refetch },
+          size: 'lg',
+        })
+      }
+      iconNode={<ChartLineIcon weight="bold" />}
+    />
+  );
+};
+
 interface Props {
   row: RemoteProject;
   refetch: () => void;
@@ -133,6 +155,7 @@ export const RemoteProjectActions = ({ row, refetch }: Props) => {
         SetEarliestApproveButton,
         SetLinksButton,
         SetMembershipControlButton,
+        SetSpendProfileButton,
       ].filter(Boolean)}
     />
   );

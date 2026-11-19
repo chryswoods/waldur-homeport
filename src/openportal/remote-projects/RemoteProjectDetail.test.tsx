@@ -1,5 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -7,9 +6,37 @@ import {
   type RemoteProject,
 } from 'waldur-js-client';
 
+import { renderWithProviders } from '@/test/harness';
 import { useUser } from '@/workspace/hooks';
 
 import { RemoteProjectDetail } from './RemoteProjectDetail';
+
+// The tables run their fetchData once and render their rows' cells.
+vi.mock('@/table/useTable', async () => {
+  const { useEffect, useState } = await import('react');
+  return {
+    useTable: ({ fetchData }) => {
+      const [rows, setRows] = useState([]);
+      useEffect(() => {
+        fetchData({}).then((result) => setRows(result.rows));
+      }, []);
+      return { rows, fetch: vi.fn() };
+    },
+  };
+});
+vi.mock('@/table/Table', () => ({
+  default: ({ rows, columns }) => (
+    <div>
+      {rows.map((row, i) => (
+        <div key={i} data-testid="table-row">
+          {columns.map((column, j) => (
+            <span key={j}>{column.render({ row })}</span>
+          ))}
+        </div>
+      ))}
+    </div>
+  ),
+}));
 
 vi.mock('./RemoteProjectAuditLog', () => ({
   RemoteProjectAuditLog: () => null,
@@ -39,15 +66,7 @@ const renderPage = async (
   vi.mocked(openportalRemoteProjectsRetrieve).mockResolvedValue({
     data: project(state, extra),
   } as any);
-  render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
-    >
-      <RemoteProjectDetail />
-    </QueryClientProvider>,
-  );
+  renderWithProviders(<RemoteProjectDetail />);
   await screen.findByText('Brain models');
 };
 
@@ -105,5 +124,60 @@ describe('RemoteProjectDetail', () => {
   it('says nobody may join when the list is empty', async () => {
     await renderPage('active', {}, { allowed_domains: [] });
     expect(screen.getByText('No domains allowed')).toBeInTheDocument();
+  });
+
+  describe('spend profile', () => {
+    const PROFILE = [{ from: '2026-01-01', minimum: '250 NHR' }];
+
+    it('lets owners, staff and support set one from its gear', async () => {
+      await renderPage('active', { is_staff: true }, { spend_profile: null });
+      expect(await menuItems('Spend profile')).toEqual(['Set spend profile']);
+    });
+
+    it('is not shown to others while there is none', async () => {
+      await renderPage('active', {}, { spend_profile: null });
+      expect(screen.queryByText('Spend profile')).not.toBeInTheDocument();
+    });
+
+    it('shows the periods to others, with nothing to edit', async () => {
+      await renderPage(
+        'active',
+        {},
+        {
+          spend_profile: PROFILE,
+          site_features: ['award_spend_minimums'],
+          award_details: { end_date: '2026-12-31' } as any,
+        },
+      );
+      expect(screen.getByText('Spend profile')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Edit Spend profile' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("warns while the site has not said it enforces the profile's controls", async () => {
+      await renderPage(
+        'active',
+        { is_staff: true },
+        { spend_profile: PROFILE, site_features: ['award_spend_maximums'] },
+      );
+      expect(screen.getByTestId('site-support-warning')).toHaveTextContent(
+        'enforces minimums',
+      );
+      expect(
+        screen.getByRole('button', { name: 'Check again' }),
+      ).toBeInTheDocument();
+    });
+
+    it('says nothing once the site enforces them', async () => {
+      await renderPage(
+        'active',
+        { is_staff: true },
+        { spend_profile: PROFILE, site_features: ['award_spend_minimums'] },
+      );
+      expect(
+        screen.queryByTestId('site-support-warning'),
+      ).not.toBeInTheDocument();
+    });
   });
 });
