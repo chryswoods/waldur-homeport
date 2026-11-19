@@ -16,6 +16,7 @@ import {
   UsageProgressBar,
   usageTextClass,
 } from '../allocationUsage';
+import { SpendNow } from '../spend-profile/SpendProgress';
 import { useProjectAccountingSummary } from '../useProjectAccountingSummary';
 
 import { embargoedUntil } from './utils';
@@ -109,6 +110,9 @@ const ManagedProjectCard: FC<{ mp: ManagedProject; project: Project }> = ({
                   </>
                 )}
               </div>
+            )}
+            {showAccounting && (
+              <SpendNow progress={accounting?.spend_profile} />
             )}
             {embargo && (
               <AlertItem

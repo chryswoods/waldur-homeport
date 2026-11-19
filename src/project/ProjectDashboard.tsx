@@ -42,6 +42,7 @@ import { ProjectSpendCard } from '@/openportal/project-accounting/ProjectSpendCa
 import { useProjectSpend } from '@/openportal/project-accounting/useProjectSpend';
 import { RemoteProjectDashboardCards } from '@/openportal/remote-projects/RemoteProjectDashboardCards';
 import { RemoteProjectPaceBlock } from '@/openportal/remote-projects/RemoteProjectPaceBlock';
+import { SpendProgressPanel } from '@/openportal/spend-profile/SpendProgress';
 import { useProjectAccountingSummary } from '@/openportal/useProjectAccountingSummary';
 import { PermissionEnum } from '@/permissions/enums';
 import { hasPermission } from '@/permissions/hasPermission';
@@ -470,6 +471,16 @@ export const ProjectDashboard: FunctionComponent<{}> = () => {
           </Col>
         )}
       </Row>
+      {/* The award's spend profile, period by period, with any forfeits.
+          In the award's own units, so not behind the billing flag, and still
+          shown in the grace period: forfeits already charged stay relevant. */}
+      {hasAnyManagedProjects && awardAccounting?.spend_profile && (
+        <SpendProgressPanel
+          progress={awardAccounting.spend_profile}
+          scope={project.uuid}
+          className="mb-5"
+        />
+      )}
       {/* Pace for each connected award, from what the remote portal reports.
           Not behind the billing flag: these are the award's own units, not
           prices, and the connection cards above show the same figures. Not in
