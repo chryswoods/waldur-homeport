@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  openportalRemoteProjectsRefreshSiteFeatures,
   openportalRemoteProjectsSetSpendProfile,
   type RemoteProject,
 } from 'waldur-js-client';
@@ -22,12 +23,16 @@ const AWARD = {
   end_date: '2026-12-31',
 };
 
-const project = (spend_profile, site_features = null): RemoteProject =>
+const project = (
+  spend_profile,
+  site_features = null,
+  site_features_checked_at = null,
+): RemoteProject =>
   ({
     uuid: 'rp-1',
     spend_profile,
     site_features,
-    site_features_checked_at: null,
+    site_features_checked_at,
     award_details: AWARD,
     last_sent_details: AWARD,
   }) as any;
@@ -53,6 +58,14 @@ describe('SetSpendProfileDialog', () => {
     vi.clearAllMocks();
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-08-15T12:00:00Z'));
+    // Asked on opening while the stored answer is missing or old; the site
+    // gives the same answer unless a test says otherwise.
+    vi.mocked(openportalRemoteProjectsRefreshSiteFeatures).mockImplementation(
+      (({ path }) =>
+        Promise.resolve({
+          data: { uuid: path.uuid, site_features: [] },
+        })) as any,
+    );
     vi.mocked(openportalRemoteProjectsSetSpendProfile).mockResolvedValue({
       data: {},
     } as any);
@@ -144,18 +157,85 @@ describe('SetSpendProfileDialog', () => {
   });
 
   it('warns while the site has not said it enforces the controls', () => {
-    const { unmount } = renderDialog(project(PROFILE, []));
+    // A fresh answer, so the site is not asked again.
+    const asked = '2026-08-15T09:00:00Z';
+    const { unmount } = renderDialog(project(PROFILE, [], asked));
     expect(screen.getByTestId('site-support-warning')).toHaveTextContent(
       'minimums or maximums',
     );
     unmount();
 
     renderDialog(
-      project(PROFILE, ['award_spend_minimums', 'award_spend_maximums']),
+      project(PROFILE, ['award_spend_minimums', 'award_spend_maximums'], asked),
     );
     expect(
       screen.queryByTestId('site-support-warning'),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe('SetSpendProfileDialog and what the site supports', () => {
+  const FRESH = '2026-08-15T09:00:00Z';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-15T12:00:00Z'));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('keeps what has been typed when the site is asked again', async () => {
+    vi.mocked(openportalRemoteProjectsRefreshSiteFeatures).mockResolvedValue({
+      data: { uuid: 'rp-1', site_features: ['award_spend_maximums'] },
+    } as any);
+    renderDialog(project([], ['award_spend_maximums'], FRESH));
+    await userEvent.click(screen.getByRole('button', { name: 'Add period' }));
+    await userEvent.type(
+      within(rows()[0]).getAllByRole('spinbutton')[0],
+      '1000',
+    );
+    expect(screen.getByTestId('site-support-warning')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Check again' }));
+
+    await waitFor(() =>
+      expect(useNotify().showSuccess).toHaveBeenCalledWith(
+        'The site enforces maximums, not minimums.',
+      ),
+    );
+    expect(rows()).toHaveLength(1);
+    expect(within(rows()[0]).getAllByRole('spinbutton')[0]).toHaveValue(1000);
+    expect(screen.getByTestId('site-support-warning')).toBeInTheDocument();
+  });
+
+  it('asks the site on opening when its answer is missing or old', async () => {
+    vi.mocked(openportalRemoteProjectsRefreshSiteFeatures).mockResolvedValue({
+      data: {
+        uuid: 'rp-1',
+        site_features: ['award_spend_minimums', 'award_spend_maximums'],
+      },
+    } as any);
+    renderDialog(project(PROFILE, null, null));
+
+    expect(
+      screen.getByText('Asking the site what it supports…'),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText('The site enforces minimums and maximums.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('site-support-warning'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('trusts an answer from the last day', () => {
+    renderDialog(
+      project(PROFILE, ['award_spend_minimums', 'award_spend_maximums'], FRESH),
+    );
+    expect(openportalRemoteProjectsRefreshSiteFeatures).not.toHaveBeenCalled();
+    expect(screen.getByTestId('site-support-summary')).toHaveTextContent(
+      'The site enforces minimums and maximums.',
+    );
   });
 });
 

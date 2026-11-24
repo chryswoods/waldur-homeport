@@ -1,9 +1,10 @@
 import { PlusIcon, TrashIcon } from '@phosphor-icons/react';
 import arrayMutators from 'final-form-arrays';
-import { FC, useState } from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
 import { Form } from 'react-final-form';
 import { FieldArray } from 'react-final-form-arrays';
 import {
+  openportalRemoteProjectsRefreshSiteFeatures,
   openportalRemoteProjectsSetSpendProfile,
   RemoteProject,
   SpendProfileEntryRequest,
@@ -19,6 +20,7 @@ import { ModalDialog } from '@/modal/ModalDialog';
 import { useManagedMutation } from '@/modal/useManagedMutation';
 import {
   awardTerms,
+  isSiteSupportStale,
   runningTotals,
   spendPeriods,
   todayUtc,
@@ -115,12 +117,47 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
   row,
   resolve,
 }) => {
-  // Refreshed by "Check again" without leaving the dialog.
+  // What the site supports, refreshed without leaving the dialog.
   const [rp, setRp] = useState(row);
+  const [checking, setChecking] = useState(false);
   const today = todayUtc();
   const award = awardTerms(row);
   const saved = spendPeriods(row.spend_profile ?? [], award.end, today);
   const anyBegun = saved.some((period) => period.status !== 'upcoming');
+
+  // Ask the site again while the profile is being edited, if its answer
+  // is missing or old, so the warning below reflects what it says now.
+  useEffect(() => {
+    if (!isSiteSupportStale(row.site_features, row.site_features_checked_at)) {
+      return;
+    }
+    let open = true;
+    setChecking(true);
+    openportalRemoteProjectsRefreshSiteFeatures({ path: { uuid: row.uuid } })
+      .then(({ data }) => open && setRp(data))
+      // The stored answer stands; "Check again" can retry.
+      .catch(() => undefined)
+      .finally(() => open && setChecking(false));
+    return () => {
+      open = false;
+    };
+  }, [row.uuid, row.site_features, row.site_features_checked_at]);
+
+  // Fixed for the dialog's life: new initial values would reset the form,
+  // losing what has been typed, whenever the dialog redraws.
+  const initialValues = useMemo<FormValues>(
+    () => ({
+      periods: saved.map((period) => ({
+        from: period.from,
+        minimum: period.minimum,
+        maximum: period.maximum,
+        begun: period.status !== 'upcoming',
+        ended: period.status === 'ended',
+      })),
+    }),
+
+    [],
+  );
 
   const save = useManagedMutation<any, any, SpendProfileEntryRequest[]>({
     mutationFn: (spend_profile) =>
@@ -156,15 +193,7 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
   return (
     <Form<FormValues>
       mutators={{ ...arrayMutators }}
-      initialValues={{
-        periods: saved.map((period) => ({
-          from: period.from,
-          minimum: period.minimum,
-          maximum: period.maximum,
-          begun: period.status !== 'upcoming',
-          ended: period.status === 'ended',
-        })),
-      }}
+      initialValues={initialValues}
       validate={(values) => {
         const periods = values.periods ?? [];
         const errors = periods.map((period, i) =>
@@ -222,6 +251,8 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
                 rp={rp}
                 entries={values.periods}
                 onChecked={(refreshed) => setRp(refreshed)}
+                checking={checking}
+                showSupported
                 className="mb-5"
               />
               {award.total > 0 && (

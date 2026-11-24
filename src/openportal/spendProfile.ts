@@ -15,6 +15,7 @@
 import { DateTime } from 'luxon';
 import type { RemoteProject, SpendProfileEntry } from 'waldur-js-client';
 
+import { translate } from '@/i18n';
 import {
   allocationTotal,
   allocationUnit,
@@ -162,4 +163,36 @@ export const unsupportedControls = (
     minimums: has('minimum') && !features.includes(SITE_FEATURE_MINIMUMS),
     maximums: has('maximum') && !features.includes(SITE_FEATURE_MAXIMUMS),
   };
+};
+
+/** How long the site's answer about what it supports is trusted. */
+const SITE_FEATURES_FRESH_MS = 24 * 60 * 60 * 1000;
+
+/** Whether to ask the site again: never asked, no answer, or a day old. */
+export const isSiteSupportStale = (
+  siteFeatures: ReadonlyArray<string> | null | undefined,
+  checkedAt: string | null | undefined,
+  now: Date = new Date(),
+): boolean =>
+  siteFeatures == null ||
+  !checkedAt ||
+  now.getTime() - Date.parse(checkedAt) > SITE_FEATURES_FRESH_MS;
+
+/** What the site said it enforces, in words; null if it has not answered. */
+export const siteSupportSummary = (
+  siteFeatures: ReadonlyArray<string> | null | undefined,
+): string | null => {
+  if (siteFeatures == null) return null;
+  const minimums = siteFeatures.includes(SITE_FEATURE_MINIMUMS);
+  const maximums = siteFeatures.includes(SITE_FEATURE_MAXIMUMS);
+  if (minimums && maximums) {
+    return translate('The site enforces minimums and maximums.');
+  }
+  if (minimums) {
+    return translate('The site enforces minimums, not maximums.');
+  }
+  if (maximums) {
+    return translate('The site enforces maximums, not minimums.');
+  }
+  return translate('The site has not said it enforces minimums or maximums.');
 };
