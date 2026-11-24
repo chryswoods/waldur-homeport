@@ -169,18 +169,40 @@ describe('SetSpendProfileDialog', () => {
     );
   });
 
-  it('offers to remove the profile until a period has ended', () => {
-    const { unmount } = renderDialog(project(PROFILE));
-    expect(
-      screen.queryByRole('button', { name: 'Remove profile' }),
-    ).not.toBeInTheDocument();
-    unmount();
+  it('removes all controls from now on, keeping the past', async () => {
+    renderDialog(project(PROFILE));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Remove all controls' }),
+    );
 
-    // A period under way, none ended.
-    renderDialog(project(PROFILE.slice(1)));
+    // The ended period stays, the one under way keeps its start date with
+    // no controls, and the upcoming one goes.
+    expect(rows()).toHaveLength(2);
     expect(
-      screen.getByRole('button', { name: 'Remove profile' }),
-    ).toBeInTheDocument();
+      screen.queryByRole('button', { name: 'Remove all controls' }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(openportalRemoteProjectsSetSpendProfile).toHaveBeenCalledWith({
+        path: { uuid: 'rp-1' },
+        body: { spend_profile: [PROFILE[0], { from: '2026-07-01' }] },
+      }),
+    );
+  });
+
+  it('removes the whole profile while nothing has ended', async () => {
+    renderDialog(project(PROFILE.slice(1)));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Remove all controls' }),
+    );
+    expect(screen.queryAllByTestId('spend-period')).toHaveLength(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(openportalRemoteProjectsSetSpendProfile).toHaveBeenCalledWith({
+        path: { uuid: 'rp-1' },
+        body: { spend_profile: [] },
+      }),
+    );
   });
 
   it('warns while the site has not said it enforces the controls', () => {

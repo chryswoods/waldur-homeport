@@ -116,6 +116,30 @@ export const periodError = (
   return undefined;
 };
 
+/**
+ * The profile with every control from now on taken away. Ended periods are
+ * history and stay. A period under way that follows one keeps its start
+ * date with no controls, so the ended one keeps its end; upcoming periods
+ * go. With nothing ended, nothing is left: the profile is removed.
+ */
+export const withoutControls = (periods: PeriodValue[] = []): PeriodValue[] => {
+  const ended = periods.filter((period) => period.ended);
+  if (!ended.length) return [];
+  const underWay = periods.find((period) => period.begun && !period.ended);
+  return [
+    ...ended,
+    ...(underWay ? [{ ...underWay, minimum: null, maximum: null }] : []),
+  ];
+};
+
+/** Whether there is any control from now on to take away. */
+export const hasControls = (periods: PeriodValue[] = []): boolean =>
+  periods.some(
+    (period) =>
+      !period.ended &&
+      (!period.begun || isSet(period.minimum) || isSet(period.maximum)),
+  );
+
 /** The profile as the API takes it: sorted, units appended, unset left out. */
 export const toRequest = (
   periods: PeriodValue[],
@@ -151,8 +175,6 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
   const today = todayUtc();
   const award = awardTerms(row);
   const saved = spendPeriods(row.spend_profile ?? [], award.end, today);
-  // Only an ended period is history: its forfeit has been worked out.
-  const anyEnded = saved.some((period) => period.status === 'ended');
 
   // Ask the site again while the profile is being edited, if its answer
   // is missing or old, so the warning below reflects what it says now.
@@ -197,24 +219,6 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
     successMessage: translate('The spend profile has been updated.'),
     errorMessage: translate('Unable to update the spend profile.'),
     refetch: resolve.refetch,
-  });
-
-  const remove = useManagedMutation<any, any, void>({
-    mutationFn: () =>
-      openportalRemoteProjectsSetSpendProfile({
-        path: { uuid: row.uuid },
-        body: { spend_profile: [] },
-      }),
-    successMessage: translate('The spend profile has been removed.'),
-    errorMessage: translate('Unable to remove the spend profile.'),
-    refetch: resolve.refetch,
-    confirmation: {
-      title: translate('Remove spend profile'),
-      body: translate(
-        'The award will have no minimum or maximum spend. Continue?',
-      ),
-      options: { forDeletion: true, positiveButton: translate('Remove') },
-    },
   });
 
   const unit = award.units;
@@ -304,13 +308,17 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
               )}
               footer={
                 <>
-                  {row.spend_profile?.length > 0 && !anyEnded && (
+                  {hasControls(values.periods) && (
                     <BaseButton
                       variant="text-danger"
-                      label={translate('Remove profile')}
+                      label={translate('Remove all controls')}
                       iconNode={<TrashIcon weight="bold" />}
-                      onClick={() => remove.mutate()}
-                      pending={remove.isPending}
+                      tooltip={translate(
+                        'Ended periods are kept; from then on there are no controls. Save to apply.',
+                      )}
+                      onClick={() =>
+                        form.change('periods', withoutControls(values.periods))
+                      }
                       className="me-auto"
                     />
                   )}
