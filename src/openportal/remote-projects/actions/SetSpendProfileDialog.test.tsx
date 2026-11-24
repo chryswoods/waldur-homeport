@@ -261,6 +261,52 @@ describe('SetSpendProfileDialog and what the site supports', () => {
   });
 });
 
+describe('SetSpendProfileDialog filled from percentages', () => {
+  const ASKED = '2026-08-15T09:00:00Z';
+  const BOTH = ['award_spend_minimums', 'award_spend_maximums'];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-15T12:00:00Z'));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const fillRising = async (count: string) => {
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Fill from percentages' }),
+    );
+    await userEvent.type(screen.getByLabelText('Number of periods'), count);
+    await userEvent.click(screen.getByRole('button', { name: 'Rising' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Fill periods' }));
+  };
+
+  it('fills the rest of the award with rising shares, ready to adjust', async () => {
+    renderDialog(project([], BOTH, ASKED));
+    await fillRising('4');
+
+    expect(rows()).toHaveLength(4);
+    const minimums = rows().map(
+      (row) =>
+        (within(row).getAllByRole('spinbutton')[0] as HTMLInputElement).value,
+    );
+    // Shares of the 1000 NHR award: 10, 20, 30 and 40 per cent.
+    expect(minimums).toEqual(['100', '200', '300', '400']);
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+  });
+
+  it('keeps the periods that have begun and fills after them', async () => {
+    renderDialog(project(PROFILE.slice(0, 2), BOTH, ASKED));
+    await fillRising('2');
+
+    // The ended and current periods, then two new ones from tomorrow.
+    expect(rows()).toHaveLength(4);
+    expect(removeButton(rows()[0])).toBeDisabled();
+    expect(removeButton(rows()[1])).toBeDisabled();
+    expect(removeButton(rows()[2])).toBeEnabled();
+  });
+});
+
 describe('spend profile checks', () => {
   const award = { start: '2026-01-01', end: '2026-12-31' };
   const today = '2026-08-15';

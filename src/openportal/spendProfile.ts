@@ -196,3 +196,123 @@ export const siteSupportSummary = (
   }
   return translate('The site has not said it enforces minimums or maximums.');
 };
+
+/** The day after an ISO date. */
+export const dayAfter = (date: string): string =>
+  DateTime.fromISO(date, { zone: 'utc' }).plus({ days: 1 }).toISODate();
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Percentages typed as a list, "10, 20, 30, 40": [] when empty (no control),
+ * null when something in it is not a number.
+ */
+export const parsePercentages = (
+  text: string | null | undefined,
+): number[] | null => {
+  const parts = (text ?? '')
+    .split(/[,;\s]+/)
+    .map((part) => part.replace(/%$/, ''))
+    .filter(Boolean);
+  const numbers = parts.map(Number);
+  return numbers.some((n) => !Number.isFinite(n)) ? null : numbers;
+};
+
+/** Common shapes for n periods, summing to 100. Rising for 4: 10, 20, 30, 40. */
+export const percentagePattern = (
+  count: number,
+  shape: 'equal' | 'rising',
+): number[] => {
+  if (!count || count < 1) return [];
+  const weights = Array.from({ length: count }, (_, i) =>
+    shape === 'equal' ? 1 : i + 1,
+  );
+  const total = weights.reduce((s, w) => s + w, 0);
+  const shares = weights.map((w) => round2((w / total) * 100));
+  // Rounding left over goes to the last period, so the shares sum to 100.
+  shares[count - 1] = round2(
+    100 - shares.slice(0, -1).reduce((s, p) => s + p, 0),
+  );
+  return shares;
+};
+
+export const MAX_PATTERN_PERIODS = 24;
+
+export interface PercentagePattern {
+  count: number;
+  /** Per period; empty for no minimums. */
+  minimums: number[];
+  /** Per period; empty for no maximums. */
+  maximums: number[];
+}
+
+/** Why a percentage pattern cannot be applied, or undefined. */
+export const patternError = (
+  pattern: PercentagePattern,
+  window: { start: string | null; end: string | null },
+): string | undefined => {
+  const { count, minimums, maximums } = pattern;
+  if (!Number.isInteger(count) || count < 1 || count > MAX_PATTERN_PERIODS) {
+    return translate('Choose between 1 and {max} periods.', {
+      max: MAX_PATTERN_PERIODS,
+    });
+  }
+  if (!minimums.length && !maximums.length) {
+    return translate('Give the minimum or maximum percentages.');
+  }
+  for (const list of [minimums, maximums]) {
+    if (list.length && list.length !== count) {
+      return translate('Give one percentage for each of the {count} periods.', {
+        count,
+      });
+    }
+    if (list.some((p) => p < 0 || p > 100)) {
+      return translate('Percentages are between 0 and 100.');
+    }
+    if (round2(list.reduce((s, p) => s + p, 0)) > 100) {
+      return translate('The percentages add up to more than 100.');
+    }
+  }
+  if (
+    minimums.length &&
+    maximums.length &&
+    minimums.some((minimum, i) => minimum > maximums[i])
+  ) {
+    return translate('A minimum is more than its maximum.');
+  }
+  if (!window.start || !window.end) {
+    return translate('The award has no end date to divide up to.');
+  }
+  const days =
+    DateTime.fromISO(window.end, { zone: 'utc' }).diff(
+      DateTime.fromISO(window.start, { zone: 'utc' }),
+      'days',
+    ).days + 1;
+  if (days < count) {
+    return translate('There are fewer days left than periods.');
+  }
+  return undefined;
+};
+
+/**
+ * Equal-length periods from `start` to `end`, each with the given share of
+ * the award as its minimum and maximum, in the award's units.
+ */
+export const periodsFromPercentages = (
+  pattern: PercentagePattern,
+  window: { start: string; end: string },
+  awardTotal: number,
+): Array<{ from: string; minimum: number | null; maximum: number | null }> => {
+  const start = DateTime.fromISO(window.start, { zone: 'utc' });
+  const days =
+    DateTime.fromISO(window.end, { zone: 'utc' }).diff(start, 'days').days + 1;
+  const amount = (list: number[], i: number) =>
+    list.length ? round2((list[i] / 100) * awardTotal) : null;
+  return Array.from({ length: pattern.count }, (_, i) => ({
+    from: start
+      .plus({ days: Math.floor((i * days) / pattern.count) })
+      .toISODate(),
+    minimum: amount(pattern.minimums, i),
+    maximum: amount(pattern.maximums, i),
+  }));
+};

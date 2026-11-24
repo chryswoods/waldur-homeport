@@ -1,4 +1,4 @@
-import { PlusIcon, TrashIcon } from '@phosphor-icons/react';
+import { PercentIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
 import { FORM_ERROR } from 'final-form';
 import arrayMutators from 'final-form-arrays';
 import { FC, useEffect, useMemo, useState } from 'react';
@@ -14,14 +14,19 @@ import {
 import { BaseButton } from 'waldur-ui';
 
 import { formatDate } from '@/core/dateUtils';
-import { DateGroup, NumberGroup, SubmitButton } from '@/form';
+import { DateGroup, NumberGroup, StringGroup, SubmitButton } from '@/form';
 import { translate } from '@/i18n';
 import { CloseDialogButton } from '@/modal/CloseDialogButton';
 import { ModalDialog } from '@/modal/ModalDialog';
 import { useManagedMutation } from '@/modal/useManagedMutation';
 import {
   awardTerms,
+  dayAfter,
   isSiteSupportStale,
+  parsePercentages,
+  patternError,
+  percentagePattern,
+  periodsFromPercentages,
   runningTotals,
   spendPeriods,
   todayUtc,
@@ -43,7 +48,27 @@ interface PeriodValue {
 
 interface FormValues {
   periods: PeriodValue[];
+  /** The percentage helper's inputs; never sent. */
+  pattern?: {
+    count?: number | string;
+    minimums?: string;
+    maximums?: string;
+  };
 }
+
+/** The percentage helper's inputs, read, or why they cannot be read. */
+const readPattern = (pattern: FormValues['pattern']) => {
+  const minimums = parsePercentages(pattern?.minimums);
+  const maximums = parsePercentages(pattern?.maximums);
+  if (minimums === null || maximums === null) {
+    return {
+      error: translate(
+        'List the percentages as numbers, for example 10, 20, 30, 40.',
+      ),
+    };
+  }
+  return { pattern: { count: Number(pattern?.count), minimums, maximums } };
+};
 
 interface SetSpendProfileDialogProps {
   row: RemoteProject;
@@ -121,6 +146,7 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
   // What the site supports, refreshed without leaving the dialog.
   const [rp, setRp] = useState(row);
   const [checking, setChecking] = useState(false);
+  const [showPattern, setShowPattern] = useState(false);
   const today = todayUtc();
   const award = awardTerms(row);
   const saved = spendPeriods(row.spend_profile ?? [], award.end, today);
@@ -212,7 +238,46 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
           // A refusal is shown by the mutation, and the dialog stays open.
           .catch(() => undefined)
       }
-      render={({ handleSubmit, submitting, invalid, values }) => {
+      render={({ handleSubmit, submitting, invalid, values, form }) => {
+        // The percentage helper fills the rest of the award: from today,
+        // or from tomorrow when a period is under way, so that period keeps
+        // today; and never before the award starts.
+        const kept = (values.periods ?? []).filter((period) => period.begun);
+        const lastBegun = kept
+          .map((period) => period.from)
+          .sort()
+          .at(-1);
+        const patternStart = [
+          lastBegun ? dayAfter(today) : today,
+          award.start,
+          lastBegun && dayAfter(lastBegun),
+        ]
+          .filter(Boolean)
+          .sort()
+          .at(-1);
+        const window = { start: patternStart, end: award.end };
+        const read = readPattern(values.pattern);
+        const patternProblem = read.error ?? patternError(read.pattern, window);
+        const patternCount = Number(values.pattern?.count);
+        const canShape =
+          Number.isInteger(patternCount) &&
+          patternCount >= 1 &&
+          patternCount <= 24;
+        const shape = (kind: 'equal' | 'rising') => {
+          const list = percentagePattern(patternCount, kind).join(', ');
+          form.change('pattern', {
+            ...values.pattern,
+            minimums: list,
+            maximums: list,
+          });
+        };
+        const fill = () => {
+          form.change('periods', [
+            ...kept,
+            ...periodsFromPercentages(read.pattern, window, award.total),
+          ]);
+          setShowPattern(false);
+        };
         const periods = spendPeriods(
           (values.periods ?? []).filter((p) => p.from) as Array<
             PeriodValue & { from: string }
@@ -269,6 +334,101 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
                     ? ` · ${formatDate(award.start)} – ${formatDate(award.end)}`
                     : ''}
                 </p>
+              )}
+              {showPattern ? (
+                <div
+                  className="border rounded p-4 mb-4"
+                  data-testid="percentage-pattern"
+                >
+                  <div className="fw-semibold mb-1">
+                    {translate('Fill from percentages')}
+                  </div>
+                  <p className="text-muted fs-7">
+                    {patternStart && award.end
+                      ? translate(
+                          'Divides the award from {start} to {end} into equal periods, each allowed its share of the {amount} award. Periods that have begun are kept; the others are replaced. Adjust the result before saving.',
+                          {
+                            start: formatDate(patternStart),
+                            end: formatDate(award.end),
+                            amount: withUnits(award.total, unit),
+                          },
+                        )
+                      : translate('The award has no end date to divide up to.')}
+                  </p>
+                  <div className="row g-3">
+                    <div className="col-sm-4">
+                      <NumberGroup
+                        name="pattern.count"
+                        label={translate('Number of periods')}
+                        min={1}
+                        spaceless
+                      />
+                    </div>
+                    <div className="col-sm-4">
+                      <StringGroup
+                        name="pattern.minimums"
+                        label={translate('Minimums (%)')}
+                        placeholder="10, 20, 30, 40"
+                        spaceless
+                      />
+                    </div>
+                    <div className="col-sm-4">
+                      <StringGroup
+                        name="pattern.maximums"
+                        label={translate('Maximums (%)')}
+                        placeholder="10, 20, 30, 40"
+                        spaceless
+                      />
+                    </div>
+                  </div>
+                  <div className="d-flex flex-wrap align-items-center gap-2 mt-3">
+                    <BaseButton
+                      size="sm"
+                      variant="tertiary"
+                      label={translate('Equal')}
+                      onClick={() => shape('equal')}
+                      disabled={!canShape}
+                      disabledReason={translate(
+                        'Choose the number of periods first.',
+                      )}
+                    />
+                    <BaseButton
+                      size="sm"
+                      variant="tertiary"
+                      label={translate('Rising')}
+                      onClick={() => shape('rising')}
+                      disabled={!canShape}
+                      disabledReason={translate(
+                        'Choose the number of periods first.',
+                      )}
+                    />
+                    <div className="ms-auto d-flex gap-2">
+                      <BaseButton
+                        size="sm"
+                        variant="text-secondary"
+                        label={translate('Cancel')}
+                        onClick={() => setShowPattern(false)}
+                      />
+                      <BaseButton
+                        size="sm"
+                        variant="primary"
+                        label={translate('Fill periods')}
+                        onClick={fill}
+                        disabled={Boolean(patternProblem)}
+                        disabledReason={patternProblem}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <BaseButton
+                  variant="text-primary"
+                  size="sm"
+                  iconNode={<PercentIcon weight="bold" />}
+                  label={translate('Fill from percentages')}
+                  onClick={() => setShowPattern(true)}
+                  className="mb-3"
+                />
               )}
               <FieldArray<PeriodValue> name="periods">
                 {({ fields }) => (
