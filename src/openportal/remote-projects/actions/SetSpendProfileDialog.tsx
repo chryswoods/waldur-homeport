@@ -1,4 +1,5 @@
 import { PlusIcon, TrashIcon } from '@phosphor-icons/react';
+import { FORM_ERROR } from 'final-form';
 import arrayMutators from 'final-form-arrays';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { Form } from 'react-final-form';
@@ -194,12 +195,16 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
     <Form<FormValues>
       mutators={{ ...arrayMutators }}
       initialValues={initialValues}
+      // Only whether the form may be saved. Each row works out its own
+      // message: kept under periods[i], the form would write its fields'
+      // errors into the message, turning it into an object of characters.
       validate={(values) => {
         const periods = values.periods ?? [];
-        const errors = periods.map((period, i) =>
+        return periods.some((period, i) =>
           periodError(period, i, periods, award, today),
-        );
-        return errors.some(Boolean) ? { periods: errors } : {};
+        )
+          ? { [FORM_ERROR]: translate('Some periods need fixing.') }
+          : {};
       }}
       onSubmit={(values) =>
         save
@@ -207,7 +212,7 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
           // A refusal is shown by the mutation, and the dialog stays open.
           .catch(() => undefined)
       }
-      render={({ handleSubmit, submitting, invalid, values, errors }) => {
+      render={({ handleSubmit, submitting, invalid, values }) => {
         const periods = spendPeriods(
           (values.periods ?? []).filter((p) => p.from) as Array<
             PeriodValue & { from: string }
@@ -277,7 +282,13 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
                         const at = periodOf(period.from);
                         const shown = at >= 0 ? periods[at] : null;
                         const total = at >= 0 ? totals[at] : null;
-                        const error = (errors?.periods as string[])?.[index];
+                        const error = periodError(
+                          period,
+                          index,
+                          fields.value,
+                          award,
+                          today,
+                        );
                         return (
                           <li
                             key={name}

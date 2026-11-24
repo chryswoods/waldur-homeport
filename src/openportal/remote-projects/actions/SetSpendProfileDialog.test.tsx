@@ -228,6 +228,28 @@ describe('SetSpendProfileDialog and what the site supports', () => {
     ).not.toBeInTheDocument();
   });
 
+  // A row's message once came apart into an object of characters as soon
+  // as one of its fields was typed in, and React refused to render it.
+  it('says what is wrong with a period as it is typed, and holds Save', async () => {
+    renderDialog(project([], ['award_spend_maximums'], FRESH));
+    await userEvent.click(screen.getByRole('button', { name: 'Add period' }));
+    const [minimum, maximum] = within(rows()[0]).getAllByRole('spinbutton');
+    await userEvent.type(minimum, '1000');
+    await userEvent.tab();
+    await userEvent.type(maximum, '5');
+
+    expect(
+      within(rows()[0]).getByText('The minimum is more than the maximum.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+
+    await userEvent.type(maximum, '000');
+    expect(
+      within(rows()[0]).queryByText('The minimum is more than the maximum.'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+  });
+
   it('trusts an answer from the last day', () => {
     renderDialog(
       project(PROFILE, ['award_spend_minimums', 'award_spend_maximums'], FRESH),
