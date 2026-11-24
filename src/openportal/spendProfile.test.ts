@@ -19,11 +19,11 @@ const PROFILE = [
 ];
 
 describe('spend profile periods', () => {
-  it('runs each period to the day before the next, the last to the award end', () => {
+  it('ends each period when the next starts, the last when the award ends', () => {
     const periods = spendPeriods(PROFILE, '2026-12-31', '2026-08-15');
-    expect(periods.map((p) => [p.from, p.to])).toEqual([
-      ['2026-01-01', '2026-06-30'],
-      ['2026-07-01', '2026-09-30'],
+    expect(periods.map((p) => [p.from, p.ends])).toEqual([
+      ['2026-01-01', '2026-07-01'],
+      ['2026-07-01', '2026-10-01'],
       ['2026-10-01', '2026-12-31'],
     ]);
   });
@@ -35,12 +35,19 @@ describe('spend profile periods', () => {
       'current',
       'upcoming',
     ]);
-    // A period's first and last days both belong to it.
+    // Its start and the day before its end belong to it; its end does not,
+    // as a project's end date does not.
     expect(spendPeriods(PROFILE, '2026-12-31', '2026-07-01')[1].status).toBe(
       'current',
     );
     expect(spendPeriods(PROFILE, '2026-12-31', '2026-09-30')[1].status).toBe(
       'current',
+    );
+    expect(spendPeriods(PROFILE, '2026-12-31', '2026-10-01')[1].status).toBe(
+      'ended',
+    );
+    expect(spendPeriods(PROFILE, '2026-12-31', '2026-12-31')[2].status).toBe(
+      'ended',
     );
   });
 

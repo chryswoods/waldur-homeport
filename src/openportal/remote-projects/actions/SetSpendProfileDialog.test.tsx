@@ -115,13 +115,13 @@ describe('SetSpendProfileDialog', () => {
     expect(rows()).toHaveLength(1);
   });
 
-  it('shows each period until the day before the next, with running totals', () => {
+  it('ends each period when the next starts, with running totals', () => {
     renderDialog(project(PROFILE));
     const [ended, current, upcoming] = rows();
-    expect(within(ended).getByText(/Until/)).toHaveTextContent(
-      formatDate('2026-06-30'),
+    expect(within(ended).getByText(/Ends/)).toHaveTextContent(
+      formatDate('2026-07-01'),
     );
-    expect(within(upcoming).getByText(/Until/)).toHaveTextContent(
+    expect(within(upcoming).getByText(/Ends/)).toHaveTextContent(
       formatDate('2026-12-31'),
     );
     expect(within(current).getByTestId('running-totals')).toHaveTextContent(
@@ -137,7 +137,7 @@ describe('SetSpendProfileDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Add period' }));
     const added = rows()[3];
     expect(removeButton(added)).toBeEnabled();
-    expect(within(added).getByText(/Until/)).toBeInTheDocument();
+    expect(within(added).getByText(/Ends/)).toBeInTheDocument();
   });
 
   it('saves the profile sorted, with the award units', async () => {
@@ -359,7 +359,7 @@ describe('SetSpendProfileDialog filled from percentages', () => {
         vi
           .mocked(openportalRemoteProjectsSetSpendProfile)
           .mock.calls[0][0].body.spend_profile.map((entry) => entry.from),
-      ).toEqual(['2026-01-01', '2026-07-01', '2026-10-01']),
+      ).toEqual(['2026-01-01', '2026-07-01', '2026-09-30']),
     );
   });
 });
@@ -377,9 +377,13 @@ describe('spend profile checks', () => {
     expect(
       check({ from: '2026-08-01', minimum: null, maximum: null, begun: true }),
     ).toBeUndefined();
-    expect(check({ from: '2027-01-02', minimum: null, maximum: null })).toBe(
-      'The period starts after the award ends.',
+    // The award's end date is not usable, as a project's is not.
+    expect(check({ from: '2026-12-31', minimum: null, maximum: null })).toBe(
+      'The period starts on or after the award ends.',
     );
+    expect(
+      check({ from: '2026-12-30', minimum: null, maximum: null }),
+    ).toBeUndefined();
     const a = { from: '2026-09-01', minimum: null, maximum: null };
     const b = { from: '2026-09-01', minimum: null, maximum: null };
     expect(check(a, [a, b])).toBe('Another period starts on the same day.');

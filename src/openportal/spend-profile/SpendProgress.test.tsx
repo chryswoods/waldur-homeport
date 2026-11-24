@@ -63,12 +63,12 @@ const progress = (...periods: SpendPeriodProgress[]): SpendProgress => ({
 });
 
 describe('what the current period allows and asks for', () => {
-  it('says how much more can be spent by the period end', () => {
+  it('says how much more can be spent before the period ends', () => {
     const { headroom } = spendNowMessages(
       progress(period({ cap: 500, cumulative_spend: 380, headroom: 120 })),
     );
     expect(headroom).toBe(
-      `Can spend up to 120 NHR more by ${formatDate('2026-09-30')}.`,
+      `Can spend up to 120 NHR more before ${formatDate('2026-10-01')}.`,
     );
   });
 
@@ -91,7 +91,7 @@ describe('what the current period allows and asks for', () => {
       progress(period({ cumulative_minimum: 350, cumulative_spend: 241 })),
     );
     expect(minimum).toBe(
-      `Spend at least 109 NHR by ${formatDate('2026-09-30')} to avoid a forfeit.`,
+      `Spend at least 109 NHR before ${formatDate('2026-10-01')} to avoid a forfeit.`,
     );
     expect(
       spendNowMessages(

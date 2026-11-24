@@ -21,6 +21,7 @@ import { ModalDialog } from '@/modal/ModalDialog';
 import { useManagedMutation } from '@/modal/useManagedMutation';
 import {
   awardTerms,
+  dayBefore,
   isSiteSupportStale,
   parsePercentages,
   patternError,
@@ -99,8 +100,9 @@ export const periodError = (
   if (award.start && period.from < award.start) {
     return translate('The period starts before the award.');
   }
-  if (award.end && period.from > award.end) {
-    return translate('The period starts after the award ends.');
+  // The award's end date is not usable, as a project's is not.
+  if (award.end && period.from >= award.end) {
+    return translate('The period starts on or after the award ends.');
   }
   if (all.some((other, i) => i !== index && other.from === period.from)) {
     return translate('Another period starts on the same day.');
@@ -260,7 +262,11 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
           const from = all[index]?.from;
           return all.some((other) => other.ended && other.from < from);
         };
-        const window = { start: patternStart, end: award.end };
+        // Divided up to the award's last usable day, the day before its end.
+        const window = {
+          start: patternStart,
+          end: award.end ? dayBefore(award.end) : null,
+        };
         const read = readPattern(values.pattern);
         const patternProblem = read.error ?? patternError(read.pattern, window);
         const patternCount = Number(values.pattern?.count);
@@ -304,7 +310,7 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
             <ModalDialog
               title={translate('Set spend profile')}
               subtitle={translate(
-                'Each period runs from its date to the day before the next; the last runs to the end of the award. Leave an amount empty for no control.',
+                'Each period runs from its date until the next starts, the last until the award ends. As with end dates, the last day to spend in a period is the day before it ends. Leave an amount empty for no control.',
               )}
               footer={
                 <>
@@ -360,7 +366,7 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
                   <p className="text-muted fs-7">
                     {patternStart && award.end
                       ? translate(
-                          'Divides the award from {start} to {end} into equal periods, each allowed its share of the {amount} award. Ended periods are kept; a period under way becomes the first of the new ones, keeping its start date. Adjust the result before saving.',
+                          'Divides the award from {start} until it ends on {end} into equal periods, each allowed its share of the {amount} award. Ended periods are kept; a period under way becomes the first of the new ones, keeping its start date. Adjust the result before saving.',
                           {
                             start: formatDate(patternStart),
                             end: formatDate(award.end),
@@ -476,7 +482,9 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
                                   label={translate('From')}
                                   disabled={period.begun}
                                   minDate={period.begun ? undefined : today}
-                                  maxDate={award.end ?? undefined}
+                                  maxDate={
+                                    award.end ? dayBefore(award.end) : undefined
+                                  }
                                   spaceless
                                 />
                               </div>
@@ -539,11 +547,11 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
                               <div className="d-flex flex-wrap align-items-center gap-3 mt-2 fs-7 text-muted">
                                 <PeriodStatusBadge status={shown.status} />
                                 <span>
-                                  {shown.to
-                                    ? translate('Until {date}', {
-                                        date: formatDate(shown.to),
+                                  {shown.ends
+                                    ? translate('Ends {date}', {
+                                        date: formatDate(shown.ends),
                                       })
-                                    : translate('Until the award ends')}
+                                    : translate('Ends with the award')}
                                 </span>
                                 <span data-testid="running-totals">
                                   {translate(

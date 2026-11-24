@@ -2,9 +2,11 @@
  * Award spend profiles: dated periods, each with an optional minimum and
  * maximum spend in the award's allocation units.
  *
- * Each entry applies from its `from` date until the day before the next
- * one; the last runs to the award's end. A control an entry leaves out does
- * not apply in its period. Days start at midnight UTC.
+ * Each entry applies from its `from` date until the next one starts; the
+ * last until the award's end date. Ends are exclusive, as Waldur's end dates
+ * are: a period ending on 4 Mar can be spent in until the end of 3 Mar. A
+ * control an entry leaves out does not apply in its period. Days start at
+ * midnight UTC.
  *
  * During a period the award behaves as if it were its cap: the sum of the
  * maximums so far, never more than the award (periods without a maximum count
@@ -26,8 +28,12 @@ export type PeriodStatus = 'ended' | 'current' | 'upcoming';
 
 export interface SpendPeriod {
   from: string;
-  /** The period's last day; null when the award has no end date. */
-  to: string | null;
+  /**
+   * When the period ends: the next period's start, or the award's end date.
+   * Exclusive, as Waldur's end dates are: the last day to spend in it is the
+   * day before. Null when the award has no end date.
+   */
+  ends: string | null;
   minimum: number | null;
   maximum: number | null;
   status: PeriodStatus;
@@ -49,12 +55,17 @@ export const amountOf = (control: string | null | undefined): number | null =>
 export const withUnits = (amount: number, units: string | undefined): string =>
   units ? `${formatUsage(amount)} ${units}` : formatUsage(amount);
 
+/** Where a period stands today; `ends` is exclusive. */
 export const periodStatus = (
   from: string,
-  to: string | null,
+  ends: string | null,
   today: string,
 ): PeriodStatus =>
-  from > today ? 'upcoming' : to !== null && to < today ? 'ended' : 'current';
+  from > today
+    ? 'upcoming'
+    : ends !== null && ends <= today
+      ? 'ended'
+      : 'current';
 
 /** The award's allocation as text, e.g. "1000 NHR". */
 const awardAllocation = (rp: RemoteProject): string | null =>
@@ -101,13 +112,13 @@ export const spendPeriods = (
     typeof value === 'number' ? value : amountOf(value);
   return sorted.map((entry, i) => {
     const next = sorted[i + 1];
-    const to = next ? dayBefore(next.from) : awardEnd;
+    const ends = next ? next.from : awardEnd;
     return {
       from: entry.from,
-      to,
+      ends,
       minimum: asAmount(entry.minimum),
       maximum: asAmount(entry.maximum),
-      status: periodStatus(entry.from, to, today),
+      status: periodStatus(entry.from, ends, today),
     };
   });
 };

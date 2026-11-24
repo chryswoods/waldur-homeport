@@ -62,9 +62,10 @@ const PeriodsTable: FC<{ periods: SpendPeriod[] } & SpendProfileTableProps> = ({
           render: ({ row }) => <>{formatDate(row.from)}</>,
         },
         {
-          title: translate('To'),
+          // Exclusive, like a project's end date: spending stops the day before.
+          title: translate('Ends'),
           render: ({ row }) => (
-            <>{row.to ? formatDate(row.to) : renderFieldOrDash(null)}</>
+            <>{row.ends ? formatDate(row.ends) : renderFieldOrDash(null)}</>
           ),
         },
         {

@@ -8,6 +8,7 @@ import { Panel } from '@/core/Panel';
 import { translate } from '@/i18n';
 import { formatUsage } from '@/openportal/allocationUsage';
 import { PeriodStatusBadge } from '@/openportal/remote-projects/SpendProfileTable';
+import { dayAfter } from '@/openportal/spendProfile';
 import Table from '@/table/Table';
 import { useTable } from '@/table/useTable';
 import { renderFieldOrDash } from '@/table/utils';
@@ -19,12 +20,18 @@ const inUnits = (amount: number, units: string | null) =>
 const currentPeriod = (progress: SpendProgress) =>
   progress.periods.find((period) => period.status === 'current') ?? null;
 
-/** The day after a period's last: when the next period, or nothing, starts. */
-const dayAfter = (date: string) => {
-  // Kept in UTC, as the site counts days.
-  const next = new Date(`${date}T00:00:00Z`);
-  next.setUTCDate(next.getUTCDate() + 1);
-  return next.toISOString().slice(0, 10);
+/**
+ * When a period ends, exclusive as Waldur's end dates are: the next period's
+ * start, or the day after the last day the site gives (`to`). Spending
+ * stops at the end of the day before.
+ */
+export const periodEnds = (
+  progress: SpendProgress,
+  period: SpendPeriodProgress,
+): string | null => {
+  const next = progress.periods[progress.periods.indexOf(period) + 1];
+  if (next) return next.from;
+  return period.to ? dayAfter(period.to) : null;
 };
 
 export interface SpendNowMessages {
@@ -43,23 +50,24 @@ export const spendNowMessages = (
     return { headroom: null, minimum: null };
   }
   const units = progress.units;
-  const by = period.to ? formatDate(period.to) : null;
+  const ends = periodEnds(progress, period);
+  const before = ends ? formatDate(ends) : null;
   let headroom: string | null = null;
   if (period.headroom !== null) {
     headroom =
       period.headroom > 0
-        ? by
-          ? translate('Can spend up to {amount} more by {date}.', {
+        ? before
+          ? translate('Can spend up to {amount} more before {date}.', {
               amount: inUnits(period.headroom, units),
-              date: by,
+              date: before,
             })
           : translate('Can spend up to {amount} more.', {
               amount: inUnits(period.headroom, units),
             })
-        : period.to
+        : before
           ? translate(
               "This period's cap is reached: jobs will be held until {date}.",
-              { date: formatDate(dayAfter(period.to)) },
+              { date: before },
             )
           : translate(
               "This period's cap is reached: jobs will be held until the next period.",
@@ -71,10 +79,10 @@ export const spendNowMessages = (
       ? period.cumulative_minimum - (period.cumulative_spend ?? 0)
       : 0;
   if (shortfall > 0) {
-    minimum = by
-      ? translate('Spend at least {amount} by {date} to avoid a forfeit.', {
+    minimum = before
+      ? translate('Spend at least {amount} before {date} to avoid a forfeit.', {
           amount: inUnits(shortfall, units),
-          date: by,
+          date: before,
         })
       : translate('Spend at least {amount} to avoid a forfeit.', {
           amount: inUnits(shortfall, units),
@@ -142,13 +150,16 @@ const PeriodsTable: FC<{ progress: SpendProgress; scope: string }> = ({
       {...tableProps}
       columns={[
         {
-          title: translate('Period'),
-          render: ({ row }) => (
-            <>
-              {formatDate(row.from)} –{' '}
-              {row.to ? formatDate(row.to) : renderFieldOrDash(null)}
-            </>
-          ),
+          title: translate('From'),
+          render: ({ row }) => <>{formatDate(row.from)}</>,
+        },
+        {
+          // Exclusive, like a project's end date: spending stops the day before.
+          title: translate('Ends'),
+          render: ({ row }) => {
+            const ends = periodEnds(progress, row);
+            return <>{ends ? formatDate(ends) : renderFieldOrDash(null)}</>;
+          },
         },
         {
           title: translate('Minimum'),
