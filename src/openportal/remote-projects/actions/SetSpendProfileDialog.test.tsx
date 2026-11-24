@@ -72,12 +72,12 @@ describe('SetSpendProfileDialog', () => {
   });
   afterEach(() => vi.useRealTimers());
 
-  it('keeps begun periods, and leaves ended ones read-only', () => {
+  it('fixes ended periods; one under way can change but keeps its date', () => {
     renderDialog(project(PROFILE));
     const [ended, current, upcoming] = rows();
 
     expect(removeButton(ended)).toBeDisabled();
-    expect(removeButton(current)).toBeDisabled();
+    expect(removeButton(current)).toBeEnabled();
     expect(removeButton(upcoming)).toBeEnabled();
 
     // An ended period's amounts are fixed; the current one's are not.
@@ -87,6 +87,32 @@ describe('SetSpendProfileDialog', () => {
     within(current)
       .getAllByRole('spinbutton')
       .forEach((input) => expect(input).toBeEnabled());
+  });
+
+  it('leaves a period under way with no controls when an ended one comes before it', async () => {
+    renderDialog(project(PROFILE));
+    await userEvent.click(removeButton(rows()[1]));
+
+    // Removed, the ended period would run on to the next start date.
+    expect(rows()).toHaveLength(3);
+    within(rows()[1])
+      .getAllByRole('spinbutton')
+      .forEach((input) => expect(input).toHaveValue(null));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(openportalRemoteProjectsSetSpendProfile).toHaveBeenCalledWith({
+        path: { uuid: 'rp-1' },
+        body: {
+          spend_profile: [PROFILE[0], { from: '2026-07-01' }, PROFILE[2]],
+        },
+      }),
+    );
+  });
+
+  it('removes a period under way when nothing has ended before it', async () => {
+    renderDialog(project(PROFILE.slice(1)));
+    await userEvent.click(removeButton(rows()[0]));
+    expect(rows()).toHaveLength(1);
   });
 
   it('shows each period until the day before the next, with running totals', () => {
@@ -143,14 +169,15 @@ describe('SetSpendProfileDialog', () => {
     );
   });
 
-  it('offers to remove the profile only before any period has begun', () => {
+  it('offers to remove the profile until a period has ended', () => {
     const { unmount } = renderDialog(project(PROFILE));
     expect(
       screen.queryByRole('button', { name: 'Remove profile' }),
     ).not.toBeInTheDocument();
     unmount();
 
-    renderDialog(project([{ from: '2026-10-01', maximum: '300 NHR' }]));
+    // A period under way, none ended.
+    renderDialog(project(PROFILE.slice(1)));
     expect(
       screen.getByRole('button', { name: 'Remove profile' }),
     ).toBeInTheDocument();
@@ -295,15 +322,23 @@ describe('SetSpendProfileDialog filled from percentages', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
   });
 
-  it('keeps the periods that have begun and fills after them', async () => {
+  it('keeps ended periods and takes over the one under way', async () => {
     renderDialog(project(PROFILE.slice(0, 2), BOTH, ASKED));
     await fillRising('2');
 
-    // The ended and current periods, then two new ones from tomorrow.
-    expect(rows()).toHaveLength(4);
+    // The ended period, then two new ones, the first starting on the date
+    // the period under way did (1 July) instead of cutting it short.
+    expect(rows()).toHaveLength(3);
     expect(removeButton(rows()[0])).toBeDisabled();
-    expect(removeButton(rows()[1])).toBeDisabled();
-    expect(removeButton(rows()[2])).toBeEnabled();
+    expect(within(rows()[1]).getAllByRole('spinbutton')[0]).toHaveValue(333.3);
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(
+        vi
+          .mocked(openportalRemoteProjectsSetSpendProfile)
+          .mock.calls[0][0].body.spend_profile.map((entry) => entry.from),
+      ).toEqual(['2026-01-01', '2026-07-01', '2026-10-01']),
+    );
   });
 });
 

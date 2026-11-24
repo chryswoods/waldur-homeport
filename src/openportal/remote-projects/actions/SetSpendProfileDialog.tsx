@@ -21,7 +21,6 @@ import { ModalDialog } from '@/modal/ModalDialog';
 import { useManagedMutation } from '@/modal/useManagedMutation';
 import {
   awardTerms,
-  dayAfter,
   isSiteSupportStale,
   parsePercentages,
   patternError,
@@ -40,7 +39,7 @@ interface PeriodValue {
   from: string | null;
   minimum: number | string | null;
   maximum: number | string | null;
-  /** Begun when the dialog opened: its date and the row itself are kept. */
+  /** Begun when the dialog opened: its start date is kept. */
   begun?: boolean;
   /** Ended when the dialog opened: nothing about it may change. */
   ended?: boolean;
@@ -135,9 +134,11 @@ export const toRequest = (
 
 /**
  * Sets an award's spend profile: dated periods, each with an optional
- * minimum and maximum spend. Periods that have begun keep their date and
- * cannot be removed; ended ones cannot change at all. The API checks the
- * same, and its reason shows when it refuses.
+ * minimum and maximum spend. Only the past is fixed: an ended period, whose
+ * forfeit has been worked out, cannot change. A period under way keeps its
+ * start date but its controls can change, and removing it leaves it with
+ * none when an ended period comes before it, so the ended one keeps its end.
+ * The API checks this too, and its reason shows when it refuses.
  */
 export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
   row,
@@ -150,7 +151,8 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
   const today = todayUtc();
   const award = awardTerms(row);
   const saved = spendPeriods(row.spend_profile ?? [], award.end, today);
-  const anyBegun = saved.some((period) => period.status !== 'upcoming');
+  // Only an ended period is history: its forfeit has been worked out.
+  const anyEnded = saved.some((period) => period.status === 'ended');
 
   // Ask the site again while the profile is being edited, if its answer
   // is missing or old, so the warning below reflects what it says now.
@@ -239,22 +241,21 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
           .catch(() => undefined)
       }
       render={({ handleSubmit, submitting, invalid, values, form }) => {
-        // The percentage helper fills the rest of the award: from today,
-        // or from tomorrow when a period is under way, so that period keeps
-        // today; and never before the award starts.
-        const kept = (values.periods ?? []).filter((period) => period.begun);
-        const lastBegun = kept
-          .map((period) => period.from)
-          .sort()
-          .at(-1);
-        const patternStart = [
-          lastBegun ? dayAfter(today) : today,
-          award.start,
-          lastBegun && dayAfter(lastBegun),
-        ]
-          .filter(Boolean)
-          .sort()
-          .at(-1);
+        // The percentage helper fills the rest of the award. Ended periods
+        // are kept as they are; a period under way is taken over, keeping
+        // its start date, so it becomes the first of the new periods.
+        const ended = (values.periods ?? []).filter((period) => period.ended);
+        const underWay = (values.periods ?? []).find(
+          (period) => period.begun && !period.ended,
+        );
+        const patternStart =
+          underWay?.from ?? [today, award.start].filter(Boolean).sort().at(-1);
+        // Whether the period at `index` starts where an ended one stops.
+        const endsAnEnded = (index: number) => {
+          const all = values.periods ?? [];
+          const from = all[index]?.from;
+          return all.some((other) => other.ended && other.from < from);
+        };
         const window = { start: patternStart, end: award.end };
         const read = readPattern(values.pattern);
         const patternProblem = read.error ?? patternError(read.pattern, window);
@@ -272,10 +273,15 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
           });
         };
         const fill = () => {
-          form.change('periods', [
-            ...kept,
-            ...periodsFromPercentages(read.pattern, window, award.total),
-          ]);
+          const filled = periodsFromPercentages(
+            read.pattern,
+            window,
+            award.total,
+          ).map((period, i) =>
+            // The first takes the place of the period under way.
+            i === 0 && underWay ? { ...period, begun: true } : period,
+          );
+          form.change('periods', [...ended, ...filled]);
           setShowPattern(false);
         };
         const periods = spendPeriods(
@@ -298,7 +304,7 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
               )}
               footer={
                 <>
-                  {row.spend_profile?.length > 0 && !anyBegun && (
+                  {row.spend_profile?.length > 0 && !anyEnded && (
                     <BaseButton
                       variant="text-danger"
                       label={translate('Remove profile')}
@@ -346,7 +352,7 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
                   <p className="text-muted fs-7">
                     {patternStart && award.end
                       ? translate(
-                          'Divides the award from {start} to {end} into equal periods, each allowed its share of the {amount} award. Periods that have begun are kept; the others are replaced. Adjust the result before saving.',
+                          'Divides the award from {start} to {end} into equal periods, each allowed its share of the {amount} award. Ended periods are kept; a period under way becomes the first of the new ones, keeping its start date. Adjust the result before saving.',
                           {
                             start: formatDate(patternStart),
                             end: formatDate(award.end),
@@ -491,10 +497,32 @@ export const SetSpendProfileDialog: FC<SetSpendProfileDialogProps> = ({
                                   variant="text-danger"
                                   iconNode={<TrashIcon weight="bold" />}
                                   aria-label={translate('Remove period')}
-                                  onClick={() => fields.remove(index)}
-                                  disabled={period.begun}
+                                  tooltip={
+                                    period.begun &&
+                                    !period.ended &&
+                                    endsAnEnded(index)
+                                      ? translate(
+                                          'Removes its controls: the period before it has ended, so this one keeps its start date.',
+                                        )
+                                      : undefined
+                                  }
+                                  onClick={() =>
+                                    // Removing a period under way that follows
+                                    // an ended one would stretch the ended one
+                                    // to the next start date, rewriting what
+                                    // its forfeit was worked out on. It keeps
+                                    // its date with no controls instead.
+                                    period.begun && endsAnEnded(index)
+                                      ? fields.update(index, {
+                                          ...period,
+                                          minimum: null,
+                                          maximum: null,
+                                        })
+                                      : fields.remove(index)
+                                  }
+                                  disabled={period.ended}
                                   disabledReason={translate(
-                                    'A period that has begun cannot be removed.',
+                                    'An ended period cannot change: its forfeit has been worked out.',
                                   )}
                                 />
                               </div>
