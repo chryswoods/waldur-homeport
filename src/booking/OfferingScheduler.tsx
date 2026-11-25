@@ -17,7 +17,7 @@ import { BaseButton } from 'waldur-ui';
 import { CustomRangeDatePicker } from '@/booking/deploy/CustomRangeDatePicker';
 import { BookingProps } from '@/booking/types';
 import { createBooking, getDurationOptions } from '@/booking/utils';
-import { formatDateTime } from '@/core/dateUtils';
+import { formatLongDateTime } from '@/core/dateUtils';
 import { translate } from '@/i18n';
 
 import { BusinessHoursGroup } from './components/BusinessHoursGroup';
@@ -170,9 +170,9 @@ export const OfferingScheduler: FunctionComponent<OfferingSchedulerProps> = ({
                 <b>{translate('Period {i}', { i: index + 1 })}:</b>&nbsp;
                 {fields.value[index]?.start && fields.value[index]?.end && (
                   <span>
-                    {formatDateTime(fields.value[index].start)}
+                    {formatLongDateTime(fields.value[index].start)}
                     &nbsp;{translate('To')}&nbsp;
-                    {formatDateTime(fields.value[index].end)}
+                    {formatLongDateTime(fields.value[index].end)}
                   </span>
                 )}
               </label>

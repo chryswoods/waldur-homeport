@@ -97,6 +97,12 @@ export const formatLongDate: DateFormatter = (date) =>
 export const formatDateTime: DateFormatter = (date) =>
   parseDate(date).toFormat(dateTimeFormat());
 
+/** @example 26 February 2027, 14:00 (AIRR: February 26, 2027, 2:00 PM) */
+export const formatLongDateTime: DateFormatter = (date) => {
+  const { longDate, time } = displayFormats();
+  return parseDate(date).toFormat(`${longDate}, ${time}`);
+};
+
 /**
  * The viewer's offset from UTC at that moment: summer time included, so a
  * date in July and one in December may differ.

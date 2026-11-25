@@ -10,7 +10,7 @@ import { marketplaceBookingsList } from 'waldur-js-client';
 import { BaseButton } from 'waldur-ui';
 
 import { UI_STALE_TIME } from '@/core/constants';
-import { formatDateTime } from '@/core/dateUtils';
+import { formatLongDateTime } from '@/core/dateUtils';
 import { translate } from '@/i18n';
 import { FormStepProps } from '@/marketplace/deploy/types';
 import { VStepperFormStepCard } from '@/wizard';
@@ -65,9 +65,9 @@ const renderScheduleRows = ({
               <b>{translate('Period {i}', { i: index + 1 })}:</b>&nbsp;
               {fields.value[index]?.start && fields.value[index]?.end && (
                 <span>
-                  {formatDateTime(fields.value[index].start)}
+                  {formatLongDateTime(fields.value[index].start)}
                   &nbsp;{translate('To')}&nbsp;
-                  {formatDateTime(fields.value[index].end)}
+                  {formatLongDateTime(fields.value[index].end)}
                 </span>
               )}
             </label>

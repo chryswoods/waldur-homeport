@@ -10,6 +10,7 @@ import {
   formatDateTimeWithZone,
   formatISODate,
   formatLongDate,
+  formatLongDateTime,
   formatMediumDateTime,
   formatShortDateTime,
   formatTime,
@@ -44,6 +45,7 @@ describe('display dates follow the translation domain', () => {
     expect(formatLongDate(MOMENT)).toBe('26 February 2027');
     expect(formatDateTime(MOMENT)).toBe('26 Feb 2027, 14:05');
     expect(formatShortDateTime(MOMENT)).toBe('26 Feb 2027, 14:05');
+    expect(formatLongDateTime(MOMENT)).toBe('26 February 2027, 14:05');
     expect(formatTime(MOMENT)).toBe('14:05');
   });
 
@@ -53,6 +55,7 @@ describe('display dates follow the translation domain', () => {
     expect(formatLongDate(MOMENT)).toBe('February 26, 2027');
     expect(formatDateTime(MOMENT)).toBe('Feb 26, 2027, 2:05 pm');
     expect(formatShortDateTime(MOMENT)).toBe('Feb 26, 2027, 2:05 pm');
+    expect(formatLongDateTime(MOMENT)).toBe('February 26, 2027, 2:05 pm');
     expect(formatMediumDateTime(MOMENT)).toBe('February 26, 2027, 2:05 pm UTC');
     expect(formatDateTimeWithZone(MOMENT)).toBe('Feb 26, 2027, 2:05 pm (GMT)');
     expect(formatTime(MOMENT)).toBe('2:05 pm');
