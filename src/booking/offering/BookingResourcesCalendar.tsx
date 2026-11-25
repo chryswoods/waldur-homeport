@@ -6,7 +6,7 @@ import { Col, Row } from 'react-bootstrap';
 import { Calendar, useCalendarLocale } from 'waldur-ui';
 
 import { getTimeOptions } from '@/booking/utils';
-import { parseDate } from '@/core/dateUtils';
+import { formatLongDate, parseDate } from '@/core/dateUtils';
 import { translate } from '@/i18n';
 
 import { BookingResource } from '../types';
@@ -81,9 +81,7 @@ export const BookingResourcesCalendar: FunctionComponent<
       </Col>
       {dates && dates[0] ? (
         <Col className="p-4 d-flex flex-column">
-          <h2 className="fw-bold">
-            {parseDate(dates[0]).toFormat('dd LLLL yyyy')}
-          </h2>
+          <h2 className="fw-bold">{formatLongDate(dates[0])}</h2>
           <div className="timeline-list d-flex flex-grow-1 scroll-y mh-225px">
             <ul className="timeline-list-times">
               {getTimeOptions(60, true).map((time, i) => (

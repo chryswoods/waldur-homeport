@@ -2,7 +2,7 @@ import { DateTime } from 'luxon';
 import { ComponentProps, FC, useMemo } from 'react';
 import { useFormState } from 'react-final-form';
 
-import { formatZoneOffset } from '@/core/dateUtils';
+import { formatDateTime, formatZoneOffset } from '@/core/dateUtils';
 import { DateTimeField } from '@/form/DateTimeField';
 import { withFormGroup } from '@/form/withFormGroup';
 import { translate } from '@/i18n';
@@ -90,7 +90,7 @@ export const ResubmitByGroup: FC<{
     const uk = deadline.setZone(DEADLINE_ZONE);
     if (uk.offset === deadline.toLocal().offset) return null;
     return translate('That is {time} UK time.', {
-      time: uk.toFormat('d LLL yyyy, t'),
+      time: formatDateTime(uk),
     });
   }, [value]);
 

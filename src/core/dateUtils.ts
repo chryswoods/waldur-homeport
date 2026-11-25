@@ -1,5 +1,7 @@
 import { DateTime, ToRelativeUnit } from 'luxon';
 
+import { ENV } from '@/core/config';
+
 type DateInput = DateTime | Date | string | number | number[];
 
 type DateFormatter = (date: DateInput) => string;
@@ -34,19 +36,66 @@ export const parseDate = (value: DateInput) => {
 };
 
 // Date order is pinned, not taken from the locale, which puts the month first
-// in English. Month names and the clock stay localised.
+// in English. Month names stay localised. A deployment may choose its own
+// order and clock through its translation domain (see DOMAIN_DATE_FORMATS).
+// Fully numeric dates (formatISODate, the date pickers) stay ISO everywhere.
+
+interface DisplayFormats {
+  /** 26 Feb 2027 */
+  date: string;
+  /** 26 February 2027 (MMMM: see formatMediumDateTime) */
+  longDate: string;
+  /** The time in a date and time: 14:00 */
+  time: string;
+  /** A time on its own: 14:00 */
+  clock: string;
+}
+
+const DAY_FIRST: DisplayFormats = {
+  date: 'd LLL yyyy',
+  longDate: 'd MMMM yyyy',
+  // As the locale writes it.
+  time: 't',
+  clock: 'T',
+};
+
+/** Feb 26, 2027, 2:00 PM */
+const MONTH_FIRST_12_HOUR: DisplayFormats = {
+  date: 'LLL d, yyyy',
+  longDate: 'MMMM d, yyyy',
+  time: 'h:mm a',
+  clock: 'h:mm a',
+};
+
+/** Display formats by `TRANSLATION_DOMAIN`; others are day first. */
+export const DOMAIN_DATE_FORMATS: Record<string, DisplayFormats> = {
+  airrportal: MONTH_FIRST_12_HOUR,
+};
+
+const displayFormats = (): DisplayFormats =>
+  DOMAIN_DATE_FORMATS[ENV.plugins?.WALDUR_CORE?.TRANSLATION_DOMAIN] ??
+  DAY_FIRST;
+
+const dateTimeFormat = () => {
+  const { date, time } = displayFormats();
+  return `${date}, ${time}`;
+};
 
 /** @example 2027-02-26 */
 export const formatISODate: DateFormatter = (date) =>
   parseDate(date).toISODate();
 
-/** @example 26 Feb 2027 */
+/** @example 26 Feb 2027 (AIRR: Feb 26, 2027) */
 export const formatDate: DateFormatter = (date) =>
-  parseDate(date).toFormat('d LLL yyyy');
+  parseDate(date).toFormat(displayFormats().date);
 
-/** @example 26 Feb 2027, 14:00 */
+/** @example 26 February 2027 (AIRR: February 26, 2027) */
+export const formatLongDate: DateFormatter = (date) =>
+  parseDate(date).toFormat(displayFormats().longDate);
+
+/** @example 26 Feb 2027, 14:00 (AIRR: Feb 26, 2027, 2:00 PM) */
 export const formatDateTime: DateFormatter = (date) =>
-  parseDate(date).toFormat('d LLL yyyy, t');
+  parseDate(date).toFormat(dateTimeFormat());
 
 /**
  * The viewer's offset from UTC at that moment: summer time included, so a
@@ -64,11 +113,11 @@ export const formatZoneOffset: DateFormatter = (date) => {
  * @example 13 Nov 2026, 17:00 (GMT+7)
  */
 export const formatDateTimeWithZone: DateFormatter = (date) =>
-  `${parseDate(date).toLocal().toFormat('d LLL yyyy, t')} (${formatZoneOffset(date)})`;
+  `${formatDateTime(parseDate(date).toLocal())} (${formatZoneOffset(date)})`;
 
-/** @example 14:21 */
+/** @example 14:21 (AIRR: 2:21 PM) */
 export const formatTime: DateFormatter = (date) =>
-  parseDate(date).toFormat('T');
+  parseDate(date).toFormat(displayFormats().clock);
 
 // Luxon picks the display unit (years/months/days/...) from the un-rounded
 // diff, then rounds the number within that unit. That means a value like
@@ -207,12 +256,14 @@ export const formatRelativeWithHour: DateFormatter = (date) => {
 // English. The abbreviated formatters keep LLL — MMM degrades to a bare number
 // in Finnish and Czech, which is the thing this file exists to avoid.
 /** @example 22 July 2024, 14:00 GMT+2 */
-export const formatMediumDateTime: DateFormatter = (date) =>
-  parseDate(date).toFormat('d MMMM yyyy, t ZZZZ');
+export const formatMediumDateTime: DateFormatter = (date) => {
+  const { longDate, time } = displayFormats();
+  return parseDate(date).toFormat(`${longDate}, ${time} ZZZZ`);
+};
 
 /** @example 22 Jul 2024, 14:00 */
 export const formatShortDateTime: DateFormatter = (date) =>
-  parseDate(date).toFormat('d LLL yyyy, t');
+  parseDate(date).toFormat(dateTimeFormat());
 
 /** @example 2024-07-22T14:00 */
 export const formatISOWithoutZone: DateFormatter = (date) =>

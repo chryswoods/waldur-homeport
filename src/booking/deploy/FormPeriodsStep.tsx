@@ -1,7 +1,7 @@
 import { PlusIcon, XIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { uniqueId } from 'lodash-es';
-import { DateTime, Duration } from 'luxon';
+import { Duration } from 'luxon';
 import { useCallback, useEffect, useMemo } from 'react';
 import { Field } from 'react-final-form';
 import { FieldArray } from 'react-final-form-arrays';
@@ -10,6 +10,7 @@ import { marketplaceBookingsList } from 'waldur-js-client';
 import { BaseButton } from 'waldur-ui';
 
 import { UI_STALE_TIME } from '@/core/constants';
+import { formatDateTime } from '@/core/dateUtils';
 import { translate } from '@/i18n';
 import { FormStepProps } from '@/marketplace/deploy/types';
 import { VStepperFormStepCard } from '@/wizard';
@@ -64,13 +65,9 @@ const renderScheduleRows = ({
               <b>{translate('Period {i}', { i: index + 1 })}:</b>&nbsp;
               {fields.value[index]?.start && fields.value[index]?.end && (
                 <span>
-                  {DateTime.fromJSDate(fields.value[index].start).toFormat(
-                    'dd LLLL yyyy HH:mm',
-                  )}
+                  {formatDateTime(fields.value[index].start)}
                   &nbsp;{translate('To')}&nbsp;
-                  {DateTime.fromJSDate(fields.value[index].end).toFormat(
-                    'dd LLLL yyyy HH:mm',
-                  )}
+                  {formatDateTime(fields.value[index].end)}
                 </span>
               )}
             </label>

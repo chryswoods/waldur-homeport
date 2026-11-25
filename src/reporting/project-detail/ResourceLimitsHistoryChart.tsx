@@ -2,6 +2,7 @@ import { DateTime } from 'luxon';
 import { FC, useMemo, useCallback } from 'react';
 
 import { ChartCard } from '@/core/ChartCard';
+import { formatDateTime } from '@/core/dateUtils';
 import { EChart } from '@/core/EChart';
 import { LoadingSpinner } from '@/core/LoadingSpinner';
 import { translate } from '@/i18n';
@@ -99,9 +100,7 @@ export const ResourceLimitsHistoryChart: FC<
         trigger: 'axis',
         formatter: (params) => {
           if (!params || params.length === 0) return '';
-          const date = DateTime.fromISO(params[0].value[0]).toFormat(
-            'dd MMM yyyy HH:mm',
-          );
+          const date = formatDateTime(DateTime.fromISO(params[0].value[0]));
           let result = `<strong>${date}</strong><br/>`;
           for (const param of params) {
             result += `${param.marker} ${param.seriesName}: ${renderFieldOrDash(param.value[1]?.toLocaleString())}<br/>`;

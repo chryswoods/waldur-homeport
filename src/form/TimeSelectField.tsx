@@ -19,10 +19,10 @@ function getMomentDayRange(interval = 5) {
 
 export const getOptions = (interval: number) =>
   getMomentDayRange(interval)
-    .map(formatTime)
-    .map((formattedOption) => ({
-      label: formattedOption,
-      value: formattedOption,
+    // The value stays 24-hour whatever the display.
+    .map((time) => ({
+      label: formatTime(time),
+      value: time.toFormat('T'),
     }));
 
 interface TimeSelectFieldProps {
