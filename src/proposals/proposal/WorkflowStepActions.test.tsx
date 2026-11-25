@@ -224,3 +224,43 @@ describe('ReopenDecisionDialog', () => {
     });
   });
 });
+
+describe('WorkflowStepActions at the allocation decision', () => {
+  const atStep = (step: string) =>
+    vi.mocked(proposalProposalsWorkflowStatesList).mockResolvedValue({
+      data: [{ uuid: 'step-1', step, status: 'active' }],
+    } as any);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(useUser).mockReturnValue({ is_staff: true } as any);
+  });
+  afterEach(() => vi.mocked(useUser).mockReturnValue({} as any));
+
+  it('says that completing the step awards, beside the button', async () => {
+    atStep('allocation_decision');
+    renderActions({ decision_held: false });
+
+    expect(
+      await screen.findByTestId('award-decision-prompt'),
+    ).toHaveTextContent('Completing this step awards');
+    expect(
+      screen.getByRole('button', { name: 'Review awarded resources' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Complete step/ }),
+    ).toBeInTheDocument();
+  });
+
+  it('says nothing at other steps', async () => {
+    atStep('review');
+    renderActions({ decision_held: false });
+
+    expect(
+      await screen.findByRole('button', { name: /Complete step/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('award-decision-prompt'),
+    ).not.toBeInTheDocument();
+  });
+});

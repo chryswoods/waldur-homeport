@@ -7,6 +7,10 @@ import { renderWithProviders } from '@/test/harness';
 
 import { CompleteWorkflowStepDialog } from './CompleteWorkflowStepDialog';
 
+vi.mock('@/proposals/proposal/AwardSummary', () => ({
+  AwardSummary: () => <div data-testid="award-summary" />,
+}));
+
 const REFUSAL =
   'Cannot complete Allocation decision: awarded amounts are missing for the following offerings: HPC Standard Allocation.';
 
@@ -45,5 +49,30 @@ describe('CompleteWorkflowStepDialog', () => {
     expect(
       screen.getByText('The step cannot be completed yet'),
     ).toBeInTheDocument();
+  });
+
+  describe('at the allocation decision', () => {
+    const renderStep = (step: string, decision_held = false) =>
+      renderWithProviders(
+        <CompleteWorkflowStepDialog
+          resolve={{
+            proposal: { uuid: 'proposal-1', decision_held } as any,
+            step: { uuid: 'step-1', step, step_name: step } as any,
+          }}
+        />,
+      );
+
+    it('shows what completing the step will award', () => {
+      renderStep('allocation_decision');
+      expect(screen.getByTestId('award-summary')).toBeInTheDocument();
+    });
+
+    it('says nothing of an award at other steps, or once decided', () => {
+      const { unmount } = renderStep('review');
+      expect(screen.queryByTestId('award-summary')).not.toBeInTheDocument();
+      unmount();
+      renderStep('allocation_decision', true);
+      expect(screen.queryByTestId('award-summary')).not.toBeInTheDocument();
+    });
   });
 });

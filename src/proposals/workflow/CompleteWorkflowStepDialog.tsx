@@ -12,9 +12,12 @@ import { getErrorBody } from '@/core/ErrorMessageFormatter';
 import { required } from '@/core/validators';
 import { SelectGroup, SubmitButton, TextGroup } from '@/form';
 import { translate } from '@/i18n';
+import { useModal } from '@/modal/actions';
 import { CloseDialogButton } from '@/modal/CloseDialogButton';
 import { ModalDialog } from '@/modal/ModalDialog';
 import { useManagedMutation } from '@/modal/useManagedMutation';
+import { isAwardDecisionOpen } from '@/proposals/awardedResources';
+import { AwardSummary } from '@/proposals/proposal/AwardSummary';
 import { Proposal } from '@/proposals/types';
 import { useNotify } from '@/store/notify';
 
@@ -65,6 +68,7 @@ export const CompleteWorkflowStepDialog: FC<
   }, [step.step]);
 
   const { showErrorResponse } = useNotify();
+  const { closeDialog } = useModal();
   // A refused completion (too few reviews, a score below threshold, an award
   // item with no amount) says what to fix. Kept in the dialog, where the
   // manager is, rather than in a toast that disappears.
@@ -117,6 +121,12 @@ export const CompleteWorkflowStepDialog: FC<
               </>
             }
           >
+            {/* At the allocation decision, completing the step awards what
+                is listed under Awarded resources: shown here, so it is seen
+                before it is granted. */}
+            {isAwardDecisionOpen(proposal, step) && (
+              <AwardSummary proposal={proposal} onReview={closeDialog} />
+            )}
             {refusal && (
               <AlertItem
                 variant="error"

@@ -11,7 +11,7 @@ import {
   proposalProposalsRejectWorkflowStep,
 } from 'waldur-js-client';
 
-import { BaseButton } from 'waldur-ui';
+import { AlertItem, BaseButton } from 'waldur-ui';
 
 import { translate } from '@/i18n';
 import { useModal } from '@/modal/actions';
@@ -20,6 +20,7 @@ import { PermissionEnum } from '@/permissions/enums';
 import { hasPermission } from '@/permissions/hasPermission';
 import { useUser } from '@/workspace/hooks';
 
+import { isAwardDecisionOpen } from '../awardedResources';
 import { Proposal } from '../types';
 import { CompleteWorkflowStepDialog } from '../workflow/CompleteWorkflowStepDialog';
 import {
@@ -27,6 +28,8 @@ import {
   proposalWorkflowStatesKey,
 } from '../workflow/queries';
 import { ReopenDecisionDialog } from '../workflow/ReopenDecisionDialog';
+
+import { ReviewAwardButton } from './AwardSummary';
 
 interface WorkflowStepActionsProps {
   proposal: Proposal;
@@ -168,6 +171,26 @@ export const WorkflowStepActions: FC<WorkflowStepActionsProps> = ({
       )}
       {canManage && canActOnActiveStep && (
         <>
+          {isAwardDecisionOpen(proposal, activeStep) && (
+            // The same Complete step button now awards: say so where it is
+            // pressed, as the award is edited further down the page.
+            <AlertItem
+              variant="info"
+              className="mt-2"
+              title={translate('Allocation decision')}
+              data-testid="award-decision-prompt"
+              body={
+                <>
+                  <div className="mb-2">
+                    {translate(
+                      'Completing this step awards what is listed under Awarded resources. Check it first.',
+                    )}
+                  </div>
+                  <ReviewAwardButton />
+                </>
+              }
+            />
+          )}
           <BaseButton
             variant="primary"
             disabled={completeBlockedByChecklist}
